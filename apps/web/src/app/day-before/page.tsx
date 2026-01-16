@@ -128,15 +128,18 @@ function ProcedureCard({
   userId,
   token,
   onUpdate,
+  defaultExpanded = true,
 }: {
   procedure: CaseReadiness;
   userRole: string;
   userId: string;
   token: string;
   onUpdate: () => void;
+  defaultExpanded?: boolean;
 }) {
   const [isAttesting, setIsAttesting] = useState(false);
   const [error, setError] = useState('');
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   const canAttest =
     !procedure.hasAttestation &&
@@ -181,10 +184,17 @@ function ProcedureCard({
   };
 
   return (
-    <div className={`procedure-card status-${procedure.readinessState.toLowerCase()}`}>
-      <div className="procedure-card-header">
+    <div className={`procedure-card status-${procedure.readinessState.toLowerCase()} ${!isExpanded ? 'collapsed' : ''}`}>
+      <div className="procedure-card-header" onClick={() => setIsExpanded(!isExpanded)}>
         <div className="procedure-card-info">
-          <h3>{procedure.procedureName}</h3>
+          <div className="procedure-card-title-row">
+            <span className="expand-icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z"/>
+              </svg>
+            </span>
+            <h3>{procedure.procedureName}</h3>
+          </div>
           <p>
             {formatTime(procedure.scheduledTime)} &bull; Dr. {procedure.surgeonName}
           </p>
@@ -196,7 +206,8 @@ function ProcedureCard({
         </div>
       </div>
 
-      <div className="procedure-card-body">
+      <div className="procedure-card-collapsible">
+        <div className="procedure-card-body">
         {/* Items Progress Bar */}
         {(() => {
           const percent = procedure.totalRequiredItems > 0
@@ -293,6 +304,7 @@ function ProcedureCard({
             </button>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

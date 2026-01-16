@@ -241,6 +241,48 @@ body {
   align-items: flex-start;
   padding: 1rem;
   border-bottom: 1px solid var(--color-gray-100);
+  cursor: pointer;
+  user-select: none;
+}
+
+.procedure-card-header:hover {
+  background: var(--color-gray-50);
+}
+
+.procedure-card.collapsed .procedure-card-header {
+  border-bottom: none;
+}
+
+.procedure-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.expand-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--color-gray-400);
+  transition: transform 0.2s;
+}
+
+.procedure-card.collapsed .expand-icon {
+  transform: rotate(-90deg);
+}
+
+.procedure-card-collapsible {
+  overflow: hidden;
+  transition: max-height 0.2s ease-out, opacity 0.2s ease-out;
+  max-height: 1000px;
+  opacity: 1;
+}
+
+.procedure-card.collapsed .procedure-card-collapsible {
+  max-height: 0;
+  opacity: 0;
 }
 
 .procedure-card-info h3 {
