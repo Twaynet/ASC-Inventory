@@ -1,6 +1,21 @@
-# ASC Inventory Truth System v1.1
+# ASC Inventory Truth System v1.2
 
 A clinically honest, future-proof inventory system for Ambulatory Surgery Centers (ASCs).
+
+## What's New in v1.2.0
+
+### Day-Before Dashboard Improvements
+
+- **Terminology Update:** Renamed "Case" to "Procedure" throughout the UI for clinical accuracy
+- **Status Indicators:** Colored left borders on procedure cards (green/orange/red) for instant visual status
+- **Filter Buttons:** Filter procedures by Ready (green), Pending (orange), or Missing (red)
+- **Sort Options:** Sort by Time, Status (critical first), Surgeon, or Procedure Name
+- **Progress Bar:** Visual progress indicator showing items verified vs. total required
+- **Clickable Summary Cards:** Click summary totals to quickly filter by status
+- **Sticky Header:** Header stays visible while scrolling through procedure list
+- **Collapsible Cards:** Click to expand/collapse procedure details with smooth animations
+- **Expand/Collapse All:** Buttons to expand or collapse all procedure cards at once
+- **Mobile Responsive:** Optimized layouts for tablet (768px) and mobile (480px) screens
 
 ## North Star
 
@@ -215,8 +230,8 @@ docker pull ghcr.io/twaynet/asc-inventory-api:latest
 docker pull ghcr.io/twaynet/asc-inventory-web:latest
 
 # Or pull a specific version
-docker pull ghcr.io/twaynet/asc-inventory-api:1.1.0
-docker pull ghcr.io/twaynet/asc-inventory-web:1.1.0
+docker pull ghcr.io/twaynet/asc-inventory-api:1.2.0
+docker pull ghcr.io/twaynet/asc-inventory-web:1.2.0
 ```
 
 ### Production Docker Compose
@@ -238,7 +253,7 @@ services:
     restart: unless-stopped
 
   api:
-    image: ghcr.io/twaynet/asc-inventory-api:1.1.0
+    image: ghcr.io/twaynet/asc-inventory-api:1.2.0
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -253,7 +268,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: ghcr.io/twaynet/asc-inventory-web:1.1.0
+    image: ghcr.io/twaynet/asc-inventory-web:1.2.0
     environment:
       NEXT_PUBLIC_API_URL: ${API_URL}
     depends_on:
@@ -312,7 +327,7 @@ This repository includes GitHub Actions workflows:
 
 - **CD** (`.github/workflows/cd.yml`): Runs on releases
   - Builds and pushes Docker images to GitHub Container Registry
-  - Tags images with semantic versions (e.g., `1.1.0`, `latest`)
+  - Tags images with semantic versions (e.g., `1.2.0`, `latest`)
 
 To trigger a deployment:
 
@@ -325,7 +340,7 @@ gh release create v1.2.0 --title "v1.2.0" --notes "Release notes here"
 
 ## Explicitly NOT Implemented (Scope Control)
 
-The following items are **intentionally excluded** from v1.1 to maintain scope discipline:
+The following items are **intentionally excluded** from v1.2 to maintain scope discipline:
 
 ### Out of Scope - Infrastructure
 - [ ] ERP integrations (SAP, Oracle, etc.)
@@ -361,7 +376,7 @@ The following items are **intentionally excluded** from v1.1 to maintain scope d
 - [ ] Expiration date alerts/workflows
 - [ ] Consignment inventory tracking
 
-### Simplified in v1.1
+### Simplified in v1.2
 - **Auth:** Basic JWT, no refresh tokens, no password reset
 - **Timezone:** Simplified handling (full IANA support deferred)
 - **Caching:** Application-level table, not Redis
