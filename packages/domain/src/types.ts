@@ -28,6 +28,8 @@ export const UserRole = z.enum([
   'INVENTORY_TECH',
   'CIRCULATOR',
   'SURGEON',
+  'SCRUB',
+  'ANESTHESIA',
 ]);
 export type UserRole = z.infer<typeof UserRole>;
 

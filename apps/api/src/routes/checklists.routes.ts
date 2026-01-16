@@ -19,6 +19,8 @@ import {
   addSignature,
   completeChecklist,
   getRooms,
+  recordAsyncReview,
+  getPendingReviews,
 } from '../services/checklists.service.js';
 
 export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> {
@@ -308,5 +310,125 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
       const message = error instanceof Error ? error.message : 'Unknown error';
       return reply.status(400).send({ error: message });
     }
+  });
+
+  // ============================================================================
+  // ASYNC REVIEW (SCRUB/SURGEON signing after debrief completion)
+  // ============================================================================
+
+  /**
+   * POST /cases/:id/checklists/debrief/async-review
+   * Record an async review for a completed debrief (SCRUB or SURGEON)
+   */
+  fastify.post('/cases/:id/checklists/debrief/async-review', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: { notes?: string; method: string };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const { facilityId, userId, role } = request.user;
+
+    // Only SCRUB or SURGEON can do async review
+    if (role !== 'SCRUB' && role !== 'SURGEON') {
+      return reply.status(403).send({
+        error: 'Only SCRUB or SURGEON can perform async reviews',
+      });
+    }
+
+    const body = request.body as { notes?: string; method: string };
+    const { notes, method } = body;
+
+    if (!method) {
+      return reply.status(400).send({
+        error: 'Signature method is required',
+      });
+    }
+
+    // Get checklist instance
+    const checklistsResult = await getChecklistsForCase(id, facilityId);
+    const instance = checklistsResult.debrief;
+
+    if (!instance) {
+      return reply.status(404).send({
+        error: 'DEBRIEF checklist not found for this case',
+      });
+    }
+
+    try {
+      const updated = await recordAsyncReview(
+        instance.id,
+        role as 'SCRUB' | 'SURGEON',
+        userId,
+        notes || null,
+        method,
+        facilityId
+      );
+      return reply.send(updated);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return reply.status(400).send({ error: message });
+    }
+  });
+
+  // ============================================================================
+  // PENDING REVIEWS (Admin accountability view)
+  // ============================================================================
+
+  /**
+   * GET /pending-reviews
+   * Get all pending SCRUB/SURGEON reviews for the facility
+   * Admin accountability view
+   */
+  fastify.get('/pending-reviews', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { facilityId, role } = request.user;
+
+    // Only admin can view all pending reviews
+    if (role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: 'Only administrators can view pending reviews',
+      });
+    }
+
+    const pendingReviews = await getPendingReviews(facilityId);
+
+    return reply.send({
+      pendingReviews,
+      total: pendingReviews.length,
+    });
+  });
+
+  /**
+   * GET /my-pending-reviews
+   * Get pending reviews for the current user (SCRUB or SURGEON)
+   */
+  fastify.get('/my-pending-reviews', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { facilityId, role } = request.user;
+
+    // Only SCRUB or SURGEON have pending reviews
+    if (role !== 'SCRUB' && role !== 'SURGEON') {
+      return reply.send({
+        pendingReviews: [],
+        total: 0,
+      });
+    }
+
+    const allPending = await getPendingReviews(facilityId);
+
+    // Filter to only reviews pending for this user's role
+    const myPending = allPending.filter(review => {
+      if (role === 'SCRUB') return review.pendingScrub;
+      if (role === 'SURGEON') return review.pendingSurgeon;
+      return false;
+    });
+
+    return reply.send({
+      pendingReviews: myPending,
+      total: myPending.length,
+    });
   });
 }

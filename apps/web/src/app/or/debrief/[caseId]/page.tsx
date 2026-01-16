@@ -13,17 +13,64 @@ import {
   type ChecklistItem,
 } from '@/lib/api';
 
+/**
+ * Check if a field should be visible based on showIf condition
+ */
+function shouldShowField(
+  item: ChecklistItem,
+  responses: Record<string, string>
+): boolean {
+  if (!item.showIf) return true;
+  const { key, value } = item.showIf;
+  return responses[key] === value;
+}
+
+/**
+ * Check if user can see/edit a role-restricted field
+ */
+function canAccessRoleRestrictedField(
+  item: ChecklistItem,
+  userRole: string
+): boolean {
+  if (!item.roleRestricted) return true;
+  // ADMIN can see all fields
+  if (userRole === 'ADMIN') return true;
+  return item.roleRestricted === userRole;
+}
+
 function ChecklistItemInput({
   item,
   value,
   onChange,
   disabled,
+  userRole,
 }: {
   item: ChecklistItem;
   value: string;
   onChange: (value: string) => void;
   disabled: boolean;
+  userRole: string;
 }) {
+  // Check if this is a role-restricted field
+  const isRoleRestricted = item.roleRestricted && item.roleRestricted !== userRole && userRole !== 'ADMIN';
+
+  // For role-restricted fields, show read-only view for other roles
+  if (isRoleRestricted && value) {
+    return (
+      <div className="checklist-readonly role-restricted">
+        <span className="checklist-label">{item.label}</span>
+        <span className="checklist-readonly-value">
+          <em>(Entered by {item.roleRestricted})</em>
+        </span>
+      </div>
+    );
+  }
+
+  // Hide role-restricted fields if not the right role and no value
+  if (isRoleRestricted) {
+    return null;
+  }
+
   switch (item.type) {
     case 'checkbox':
       return (
@@ -68,6 +115,9 @@ function ChecklistItemInput({
           <label className="checklist-label">
             {item.label}
             {item.required && <span className="required-marker">*</span>}
+            {item.roleRestricted && (
+              <span className="role-badge">{item.roleRestricted} Only</span>
+            )}
           </label>
           <textarea
             className="checklist-textarea"
@@ -75,6 +125,7 @@ function ChecklistItemInput({
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
             rows={2}
+            placeholder={item.roleRestricted ? `Only ${item.roleRestricted} can edit this field` : ''}
           />
         </div>
       );
@@ -214,11 +265,34 @@ export default function DebriefPage() {
   const signatureRole = roleMapping[userRole];
   const hasUserSigned = checklist?.signatures.some((s) => s.role === signatureRole);
 
+  // For signing before completion
   const canSign =
     signatureRole &&
     checklist?.requiredSignatures.some((s) => s.role === signatureRole) &&
     !hasUserSigned &&
     !isCompleted;
+
+  // Check for pending reviews
+  const hasPendingReviews = checklist?.pendingScrubReview || checklist?.pendingSurgeonReview;
+
+  // Determine which signatures are actually required based on conditions
+  const getEffectiveSignatureRequirement = (sig: { role: string; required: boolean; conditional?: boolean; conditions?: string[] }) => {
+    if (!sig.conditional || !sig.conditions) {
+      return sig.required;
+    }
+    // Check if any condition is met (OR logic)
+    for (const condition of sig.conditions) {
+      if (condition.includes('!=empty')) {
+        const key = condition.replace('!=empty', '');
+        const value = localResponses[key];
+        if (value && value.trim() !== '') return true;
+      } else if (condition.includes('=')) {
+        const [key, expectedValue] = condition.split('=');
+        if (localResponses[key] === expectedValue) return true;
+      }
+    }
+    return false;
+  };
 
   return (
     <>
@@ -276,6 +350,24 @@ export default function DebriefPage() {
               )}
             </div>
 
+            {/* Pending Reviews Alert */}
+            {isCompleted && hasPendingReviews && (
+              <div className="alert alert-warning pending-reviews-alert">
+                <strong>Pending Reviews:</strong>
+                <ul>
+                  {checklist?.pendingScrubReview && (
+                    <li>Awaiting SCRUB review/signature</li>
+                  )}
+                  {checklist?.pendingSurgeonReview && (
+                    <li>Awaiting SURGEON review/signature</li>
+                  )}
+                </ul>
+                <p className="pending-note">
+                  The procedure can continue. Pending reviews will be completed asynchronously.
+                </p>
+              </div>
+            )}
+
             {!isStarted ? (
               <div className="checklist-start-section">
                 <p>Start the Post-Op Debrief to document counts, specimens, and any issues before completing the procedure.</p>
@@ -292,16 +384,27 @@ export default function DebriefPage() {
                 <div className="checklist-section">
                   <h2>Debrief Items</h2>
                   <div className="checklist-items">
-                    {checklist?.items.map((item) => (
-                      <div key={item.key} className="checklist-item">
-                        <ChecklistItemInput
-                          item={item}
-                          value={localResponses[item.key] || ''}
-                          onChange={(value) => handleResponseChange(item.key, value)}
-                          disabled={isCompleted}
-                        />
-                      </div>
-                    ))}
+                    {checklist?.items.map((item) => {
+                      // Check visibility conditions
+                      if (!shouldShowField(item, localResponses)) {
+                        return null;
+                      }
+                      // Check role restrictions
+                      if (!canAccessRoleRestrictedField(item, userRole)) {
+                        return null;
+                      }
+                      return (
+                        <div key={item.key} className="checklist-item">
+                          <ChecklistItemInput
+                            item={item}
+                            value={localResponses[item.key] || ''}
+                            onChange={(value) => handleResponseChange(item.key, value)}
+                            disabled={isCompleted}
+                            userRole={userRole}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -310,14 +413,25 @@ export default function DebriefPage() {
                   <div className="signatures-list">
                     {checklist?.requiredSignatures.map((sig) => {
                       const existingSig = checklist.signatures.find((s) => s.role === sig.role);
+                      const isRequired = getEffectiveSignatureRequirement(sig);
+                      const isConditional = sig.conditional;
+
+                      // Show conditional signatures only if they're required
+                      if (isConditional && !isRequired && !existingSig) {
+                        return null;
+                      }
+
                       return (
                         <div
                           key={sig.role}
-                          className={`signature-row ${existingSig ? 'signed' : 'pending'}`}
+                          className={`signature-row ${existingSig ? 'signed' : 'pending'} ${isConditional ? 'conditional' : ''}`}
                         >
                           <span className="signature-role">
                             {sig.role}
-                            {sig.required && <span className="required-marker">*</span>}
+                            {isRequired && <span className="required-marker">*</span>}
+                            {isConditional && !isRequired && (
+                              <span className="optional-marker">(optional)</span>
+                            )}
                           </span>
                           {existingSig ? (
                             <span className="signature-info">
@@ -325,7 +439,9 @@ export default function DebriefPage() {
                               {new Date(existingSig.signedAt).toLocaleTimeString()}
                             </span>
                           ) : (
-                            <span className="signature-pending">Awaiting signature</span>
+                            <span className="signature-pending">
+                              {isConditional ? 'Can sign after completion' : 'Awaiting signature'}
+                            </span>
                           )}
                         </div>
                       );
@@ -352,6 +468,9 @@ export default function DebriefPage() {
                     >
                       {isSubmitting ? 'Completing...' : 'Complete Debrief'}
                     </button>
+                    <p className="checklist-hint">
+                      Only CIRCULATOR signature is required to complete. SCRUB/SURGEON can sign after completion if needed.
+                    </p>
                   </div>
                 )}
 

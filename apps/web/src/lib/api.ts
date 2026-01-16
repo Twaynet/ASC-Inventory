@@ -235,11 +235,16 @@ export interface ChecklistItem {
   type: 'checkbox' | 'select' | 'text' | 'readonly';
   required: boolean;
   options?: string[];
+  noDefault?: boolean;          // For select inputs with no pre-selected option
+  showIf?: { key: string; value: string };  // Conditional visibility
+  roleRestricted?: string;      // Only this role can see/edit this field
 }
 
 export interface RequiredSignature {
   role: string;
   required: boolean;
+  conditional?: boolean;        // If true, requirement depends on conditions
+  conditions?: string[];        // e.g., ["counts_status=exception", "equipment_issues=yes"]
 }
 
 export interface ChecklistResponse {
@@ -275,6 +280,11 @@ export interface ChecklistInstance {
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
+  // Pending review fields (for DEBRIEF async signing)
+  pendingScrubReview: boolean;
+  pendingSurgeonReview: boolean;
+  scrubReviewCompletedAt: string | null;
+  surgeonReviewCompletedAt: string | null;
 }
 
 export interface CaseChecklistsResponse {
@@ -370,4 +380,47 @@ export async function completeChecklist(
     body: {},
     token,
   });
+}
+
+// ============================================================================
+// ASYNC REVIEWS (SCRUB/SURGEON signing after debrief completion)
+// ============================================================================
+
+export interface PendingReview {
+  instanceId: string;
+  caseId: string;
+  caseName: string;
+  patientMrn: string;
+  surgeonName: string;
+  completedAt: string;
+  pendingScrub: boolean;
+  pendingSurgeon: boolean;
+  scrubReviewCompletedAt: string | null;
+  surgeonReviewCompletedAt: string | null;
+}
+
+export interface PendingReviewsResponse {
+  pendingReviews: PendingReview[];
+  total: number;
+}
+
+export async function recordAsyncReview(
+  token: string,
+  caseId: string,
+  notes: string | null,
+  method: 'LOGIN' | 'PIN' | 'BADGE' | 'KIOSK_TAP' = 'LOGIN'
+): Promise<ChecklistInstance> {
+  return api(`/cases/${caseId}/checklists/debrief/async-review`, {
+    method: 'POST',
+    body: { notes, method },
+    token,
+  });
+}
+
+export async function getPendingReviews(token: string): Promise<PendingReviewsResponse> {
+  return api('/pending-reviews', { token });
+}
+
+export async function getMyPendingReviews(token: string): Promise<PendingReviewsResponse> {
+  return api('/my-pending-reviews', { token });
 }

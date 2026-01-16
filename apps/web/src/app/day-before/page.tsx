@@ -704,6 +704,30 @@ export default function DayBeforePage() {
                 {isTogglingFeature ? 'Updating...' : 'Enable Time Out / Debrief Checklists'}
               </span>
             </label>
+            {timeoutDebriefEnabled && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => router.push('/admin/pending-reviews')}
+                style={{ marginLeft: '1rem' }}
+              >
+                View Pending Reviews
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* SCRUB/SURGEON: My Pending Reviews Link */}
+        {(user.role === 'SCRUB' || user.role === 'SURGEON') && timeoutDebriefEnabled && (
+          <div className="pending-reviews-link-panel">
+            <button
+              className="btn btn-secondary"
+              onClick={() => router.push('/pending-reviews')}
+            >
+              My Pending Reviews
+            </button>
+            <span className="pending-reviews-hint">
+              Review and sign debriefs that require your attention
+            </span>
           </div>
         )}
 

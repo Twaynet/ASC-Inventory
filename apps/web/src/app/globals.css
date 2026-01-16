@@ -890,6 +890,73 @@ body {
   color: var(--color-gray-700);
 }
 
+/* Pending Reviews Link Panel */
+.pending-reviews-link-panel {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-left: 4px solid var(--color-purple, #805ad5);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pending-reviews-hint {
+  font-size: 0.875rem;
+  color: var(--color-gray-600);
+}
+
+/* Pending Reviews Alert in Debrief */
+.pending-reviews-alert ul {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.pending-reviews-alert li {
+  margin: 0.25rem 0;
+}
+
+.pending-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+/* Role badge for role-restricted fields */
+.role-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  margin-left: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--color-purple-bg, #e9d8fd);
+  color: var(--color-purple, #6b46c1);
+}
+
+/* Optional marker for conditional signatures */
+.optional-marker {
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+  margin-left: 0.25rem;
+  font-weight: normal;
+}
+
+/* Conditional signature row */
+.signature-row.conditional {
+  background: var(--color-gray-50, #f9fafb);
+}
+
+/* Checklist hint text */
+.checklist-hint {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-gray-600);
+  font-style: italic;
+}
+
 /* ========================================
    MOBILE RESPONSIVE STYLES
    ======================================== */

@@ -59,6 +59,11 @@ interface ChecklistInstanceRow {
   created_by_user_id: string;
   created_at: Date;
   updated_at: Date;
+  // Pending review fields (for DEBRIEF async signing)
+  pending_scrub_review: boolean;
+  pending_surgeon_review: boolean;
+  scrub_review_completed_at: Date | null;
+  surgeon_review_completed_at: Date | null;
 }
 
 interface ChecklistResponseRow {
@@ -94,11 +99,16 @@ export interface ChecklistItem {
   type: 'checkbox' | 'select' | 'text' | 'readonly';
   required: boolean;
   options?: string[];
+  noDefault?: boolean;          // For select inputs with no pre-selected option
+  showIf?: { key: string; value: string };  // Conditional visibility
+  roleRestricted?: string;      // Only this role can see/edit this field
 }
 
 export interface RequiredSignature {
   role: string;
   required: boolean;
+  conditional?: boolean;        // If true, requirement depends on conditions
+  conditions?: string[];        // e.g., ["counts_status=exception", "equipment_issues=yes"]
 }
 
 export interface ChecklistResponse {
@@ -134,6 +144,11 @@ export interface ChecklistInstance {
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
+  // Pending review fields (for DEBRIEF async signing)
+  pendingScrubReview: boolean;
+  pendingSurgeonReview: boolean;
+  scrubReviewCompletedAt: string | null;
+  surgeonReviewCompletedAt: string | null;
 }
 
 export interface FacilitySettings {
@@ -299,6 +314,10 @@ async function buildChecklistInstance(
     startedAt: row.started_at?.toISOString() || null,
     completedAt: row.completed_at?.toISOString() || null,
     createdAt: row.created_at.toISOString(),
+    pendingScrubReview: row.pending_scrub_review ?? false,
+    pendingSurgeonReview: row.pending_surgeon_review ?? false,
+    scrubReviewCompletedAt: row.scrub_review_completed_at?.toISOString() || null,
+    surgeonReviewCompletedAt: row.surgeon_review_completed_at?.toISOString() || null,
   };
 }
 
@@ -519,6 +538,41 @@ export async function addSignature(
   return buildChecklistInstance(instance, templateData.template, versionResult.rows[0]);
 }
 
+/**
+ * Evaluates if a conditional signature is required based on current responses.
+ * Conditions use formats like:
+ *   - "key=value"       → response equals value
+ *   - "key!=empty"      → response exists and is not empty
+ */
+function isSignatureRequired(
+  signature: RequiredSignature,
+  responseMap: Map<string, string>
+): boolean {
+  // Non-conditional signatures use the `required` field directly
+  if (!signature.conditional || !signature.conditions) {
+    return signature.required;
+  }
+
+  // Conditional signatures: check if ANY condition is met (OR logic)
+  for (const condition of signature.conditions) {
+    if (condition.includes('!=empty')) {
+      const key = condition.replace('!=empty', '');
+      const value = responseMap.get(key);
+      if (value && value.trim() !== '') {
+        return true;
+      }
+    } else if (condition.includes('=')) {
+      const [key, expectedValue] = condition.split('=');
+      const actualValue = responseMap.get(key);
+      if (actualValue === expectedValue) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 export async function completeChecklist(
   instanceId: string,
   facilityId: string
@@ -565,9 +619,9 @@ export async function completeChecklist(
     responseMap.set(r.item_key, r.value);
   }
 
-  // Validate all required items have responses
+  // Validate all required items have responses (skip role-restricted fields)
   for (const item of items) {
-    if (item.required && item.type !== 'readonly') {
+    if (item.required && item.type !== 'readonly' && !item.roleRestricted) {
       const response = responseMap.get(item.key);
       if (!response || response.trim() === '') {
         throw new Error(`Required item "${item.label}" is not completed`);
@@ -582,19 +636,40 @@ export async function completeChecklist(
 
   const signedRoles = new Set(signaturesResult.rows.map(s => s.role));
 
-  // Validate all required signatures
+  // For DEBRIEF with conditional signatures, calculate which are actually required
+  let pendingScrubReview = false;
+  let pendingSurgeonReview = false;
+
   for (const sig of requiredSignatures) {
-    if (sig.required && !signedRoles.has(sig.role)) {
-      throw new Error(`Required signature from ${sig.role} is missing`);
+    const sigRequired = isSignatureRequired(sig, responseMap);
+
+    if (sig.conditional) {
+      // Conditional signatures: set pending flags if required but not signed
+      if (sigRequired && !signedRoles.has(sig.role)) {
+        if (sig.role === 'SCRUB') {
+          pendingScrubReview = true;
+        } else if (sig.role === 'SURGEON') {
+          pendingSurgeonReview = true;
+        }
+      }
+    } else {
+      // Non-conditional signatures: must be present to complete
+      if (sigRequired && !signedRoles.has(sig.role)) {
+        throw new Error(`Required signature from ${sig.role} is missing`);
+      }
     }
   }
 
-  // Mark as completed
+  // Mark as completed, set pending review flags for conditional signatures
   await query(`
     UPDATE case_checklist_instance
-    SET status = 'COMPLETED', completed_at = NOW(), updated_at = NOW()
+    SET status = 'COMPLETED',
+        completed_at = NOW(),
+        updated_at = NOW(),
+        pending_scrub_review = $2,
+        pending_surgeon_review = $3
     WHERE id = $1
-  `, [instanceId]);
+  `, [instanceId, pendingScrubReview, pendingSurgeonReview]);
 
   // Fetch updated instance
   const updatedResult = await query<ChecklistInstanceRow>(`
@@ -607,6 +682,170 @@ export async function completeChecklist(
   }
 
   return buildChecklistInstance(updatedResult.rows[0], templateData.template, version);
+}
+
+// ============================================================================
+// ASYNC REVIEW (SCRUB/SURGEON signing after debrief completion)
+// ============================================================================
+
+export interface PendingReview {
+  instanceId: string;
+  caseId: string;
+  caseName: string;
+  patientMrn: string;
+  surgeonName: string;
+  completedAt: string;
+  pendingScrub: boolean;
+  pendingSurgeon: boolean;
+  scrubReviewCompletedAt: string | null;
+  surgeonReviewCompletedAt: string | null;
+}
+
+/**
+ * Record a response and signature for async review (SCRUB/SURGEON after completion).
+ * This allows role-specific notes to be added and signature to be recorded
+ * on a COMPLETED debrief checklist.
+ */
+export async function recordAsyncReview(
+  instanceId: string,
+  role: 'SCRUB' | 'SURGEON',
+  userId: string,
+  notes: string | null,
+  method: string,
+  facilityId: string
+): Promise<ChecklistInstance> {
+  // Get instance
+  const instanceResult = await query<ChecklistInstanceRow>(`
+    SELECT * FROM case_checklist_instance
+    WHERE id = $1 AND facility_id = $2
+  `, [instanceId, facilityId]);
+
+  if (instanceResult.rows.length === 0) {
+    throw new Error('Checklist instance not found');
+  }
+
+  const instance = instanceResult.rows[0];
+
+  // Verify it's a completed DEBRIEF with pending review for this role
+  if (instance.type !== 'DEBRIEF') {
+    throw new Error('Async review only applies to DEBRIEF checklists');
+  }
+
+  if (instance.status !== 'COMPLETED') {
+    throw new Error('Checklist must be completed for async review');
+  }
+
+  const pendingFlag = role === 'SCRUB' ? instance.pending_scrub_review : instance.pending_surgeon_review;
+  if (!pendingFlag) {
+    throw new Error(`No pending ${role} review for this checklist`);
+  }
+
+  // Check if already signed
+  const existingSignature = await query<ChecklistSignatureRow>(`
+    SELECT * FROM case_checklist_signature
+    WHERE instance_id = $1 AND role = $2
+  `, [instanceId, role]);
+
+  if (existingSignature.rows.length > 0) {
+    throw new Error(`${role} has already reviewed this checklist`);
+  }
+
+  // Record notes if provided (role-specific field)
+  const notesKey = role === 'SCRUB' ? 'scrub_notes' : 'surgeon_notes';
+  if (notes && notes.trim() !== '') {
+    await query(`
+      INSERT INTO case_checklist_response (
+        instance_id, item_key, value, completed_by_user_id, completed_at
+      ) VALUES ($1, $2, $3, $4, NOW())
+    `, [instanceId, notesKey, notes, userId]);
+  }
+
+  // Add signature
+  await query(`
+    INSERT INTO case_checklist_signature (
+      instance_id, role, signed_by_user_id, signed_at, method
+    ) VALUES ($1, $2, $3, NOW(), $4)
+  `, [instanceId, role, userId, method]);
+
+  // Update pending review flag and completion timestamp
+  const completedColumn = role === 'SCRUB' ? 'scrub_review_completed_at' : 'surgeon_review_completed_at';
+  const pendingColumn = role === 'SCRUB' ? 'pending_scrub_review' : 'pending_surgeon_review';
+
+  await query(`
+    UPDATE case_checklist_instance
+    SET ${pendingColumn} = false,
+        ${completedColumn} = NOW(),
+        updated_at = NOW()
+    WHERE id = $1
+  `, [instanceId]);
+
+  // Get updated instance
+  const updatedResult = await query<ChecklistInstanceRow>(`
+    SELECT * FROM case_checklist_instance WHERE id = $1
+  `, [instanceId]);
+
+  const versionResult = await query<ChecklistTemplateVersionRow>(`
+    SELECT * FROM checklist_template_version WHERE id = $1
+  `, [instance.template_version_id]);
+
+  const templateData = await getChecklistTemplate(facilityId, instance.type);
+  if (!templateData || versionResult.rows.length === 0) {
+    throw new Error('Template not found');
+  }
+
+  return buildChecklistInstance(updatedResult.rows[0], templateData.template, versionResult.rows[0]);
+}
+
+/**
+ * Get all pending reviews for a facility (admin accountability view).
+ * Returns debriefs that have pending SCRUB or SURGEON reviews.
+ */
+export async function getPendingReviews(facilityId: string): Promise<PendingReview[]> {
+  const result = await query<{
+    instance_id: string;
+    case_id: string;
+    case_name: string;
+    patient_mrn: string;
+    surgeon_name: string;
+    completed_at: Date;
+    pending_scrub_review: boolean;
+    pending_surgeon_review: boolean;
+    scrub_review_completed_at: Date | null;
+    surgeon_review_completed_at: Date | null;
+  }>(`
+    SELECT
+      cci.id as instance_id,
+      cci.case_id,
+      c.procedure_name as case_name,
+      c.patient_mrn,
+      u.name as surgeon_name,
+      cci.completed_at,
+      cci.pending_scrub_review,
+      cci.pending_surgeon_review,
+      cci.scrub_review_completed_at,
+      cci.surgeon_review_completed_at
+    FROM case_checklist_instance cci
+    JOIN surgical_case c ON c.id = cci.case_id
+    LEFT JOIN app_user u ON u.id = c.surgeon_id
+    WHERE cci.facility_id = $1
+      AND cci.type = 'DEBRIEF'
+      AND cci.status = 'COMPLETED'
+      AND (cci.pending_scrub_review = true OR cci.pending_surgeon_review = true)
+    ORDER BY cci.completed_at DESC
+  `, [facilityId]);
+
+  return result.rows.map(row => ({
+    instanceId: row.instance_id,
+    caseId: row.case_id,
+    caseName: row.case_name,
+    patientMrn: row.patient_mrn,
+    surgeonName: row.surgeon_name || 'Unknown',
+    completedAt: row.completed_at.toISOString(),
+    pendingScrub: row.pending_scrub_review,
+    pendingSurgeon: row.pending_surgeon_review,
+    scrubReviewCompletedAt: row.scrub_review_completed_at?.toISOString() || null,
+    surgeonReviewCompletedAt: row.surgeon_review_completed_at?.toISOString() || null,
+  }));
 }
 
 // ============================================================================
