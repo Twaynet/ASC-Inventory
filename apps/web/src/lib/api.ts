@@ -224,3 +224,150 @@ export async function getInventoryItems(
   const query = params.toString() ? `?${params.toString()}` : '';
   return api(`/inventory/items${query}`, { token });
 }
+
+// ============================================================================
+// CHECKLISTS (OR Time Out & Post-op Debrief)
+// ============================================================================
+
+export interface ChecklistItem {
+  key: string;
+  label: string;
+  type: 'checkbox' | 'select' | 'text' | 'readonly';
+  required: boolean;
+  options?: string[];
+}
+
+export interface RequiredSignature {
+  role: string;
+  required: boolean;
+}
+
+export interface ChecklistResponse {
+  itemKey: string;
+  value: string;
+  completedByUserId: string;
+  completedByName: string;
+  completedAt: string;
+}
+
+export interface ChecklistSignature {
+  role: string;
+  signedByUserId: string;
+  signedByName: string;
+  signedAt: string;
+  method: string;
+}
+
+export interface ChecklistInstance {
+  id: string;
+  caseId: string;
+  facilityId: string;
+  type: 'TIMEOUT' | 'DEBRIEF';
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+  templateVersionId: string;
+  templateName: string;
+  items: ChecklistItem[];
+  requiredSignatures: RequiredSignature[];
+  responses: ChecklistResponse[];
+  signatures: ChecklistSignature[];
+  roomId: string | null;
+  roomName: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface CaseChecklistsResponse {
+  caseId: string;
+  featureEnabled: boolean;
+  timeout: ChecklistInstance | null;
+  debrief: ChecklistInstance | null;
+  canStartCase: boolean;
+  canCompleteCase: boolean;
+}
+
+export interface FacilitySettings {
+  facilityId: string;
+  enableTimeoutDebrief: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+}
+
+export async function getFacilitySettings(token: string): Promise<FacilitySettings> {
+  return api('/facility/settings', { token });
+}
+
+export async function updateFacilitySettings(
+  token: string,
+  settings: { enableTimeoutDebrief?: boolean }
+): Promise<FacilitySettings> {
+  return api('/facility/settings', { method: 'PATCH', body: settings, token });
+}
+
+export async function getRooms(token: string): Promise<{ rooms: Room[] }> {
+  return api('/rooms', { token });
+}
+
+export async function getCaseChecklists(
+  token: string,
+  caseId: string
+): Promise<CaseChecklistsResponse> {
+  return api(`/cases/${caseId}/checklists`, { token });
+}
+
+export async function startChecklist(
+  token: string,
+  caseId: string,
+  type: 'TIMEOUT' | 'DEBRIEF',
+  roomId?: string
+): Promise<ChecklistInstance> {
+  return api(`/cases/${caseId}/checklists/start`, {
+    method: 'POST',
+    body: { type, roomId },
+    token,
+  });
+}
+
+export async function respondToChecklist(
+  token: string,
+  caseId: string,
+  type: 'TIMEOUT' | 'DEBRIEF',
+  itemKey: string,
+  value: string
+): Promise<ChecklistInstance> {
+  return api(`/cases/${caseId}/checklists/${type}/respond`, {
+    method: 'POST',
+    body: { itemKey, value },
+    token,
+  });
+}
+
+export async function signChecklist(
+  token: string,
+  caseId: string,
+  type: 'TIMEOUT' | 'DEBRIEF',
+  method: 'LOGIN' | 'PIN' | 'BADGE' | 'KIOSK_TAP' = 'LOGIN'
+): Promise<ChecklistInstance> {
+  return api(`/cases/${caseId}/checklists/${type}/sign`, {
+    method: 'POST',
+    body: { method },
+    token,
+  });
+}
+
+export async function completeChecklist(
+  token: string,
+  caseId: string,
+  type: 'TIMEOUT' | 'DEBRIEF'
+): Promise<ChecklistInstance> {
+  return api(`/cases/${caseId}/checklists/${type}/complete`, {
+    method: 'POST',
+    body: {},
+    token,
+  });
+}

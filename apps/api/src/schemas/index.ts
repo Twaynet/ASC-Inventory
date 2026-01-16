@@ -13,6 +13,9 @@ import {
   DeviceType,
   DevicePayloadType,
   ReadinessState,
+  ChecklistType,
+  ChecklistStatus,
+  SignatureMethod,
 } from '@asc/domain';
 
 // ============================================================================
@@ -216,3 +219,103 @@ export const SelectPreferenceCardRequestSchema = z.object({
   preferenceCardId: z.string().uuid(),
 });
 export type SelectPreferenceCardRequest = z.infer<typeof SelectPreferenceCardRequestSchema>;
+
+// ============================================================================
+// CHECKLIST SCHEMAS (OR Time Out & Post-op Debrief)
+// ============================================================================
+
+export const StartChecklistRequestSchema = z.object({
+  type: ChecklistType,
+  roomId: z.string().uuid().optional(),
+});
+export type StartChecklistRequest = z.infer<typeof StartChecklistRequestSchema>;
+
+export const RespondChecklistRequestSchema = z.object({
+  itemKey: z.string().min(1).max(100),
+  value: z.string(),
+});
+export type RespondChecklistRequest = z.infer<typeof RespondChecklistRequestSchema>;
+
+export const SignChecklistRequestSchema = z.object({
+  method: SignatureMethod.default('LOGIN'),
+});
+export type SignChecklistRequest = z.infer<typeof SignChecklistRequestSchema>;
+
+export const CompleteChecklistRequestSchema = z.object({});
+export type CompleteChecklistRequest = z.infer<typeof CompleteChecklistRequestSchema>;
+
+// Checklist Template Item (from JSONB)
+export const ChecklistItemSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  type: z.enum(['checkbox', 'select', 'text', 'readonly']),
+  required: z.boolean(),
+  options: z.array(z.string()).optional(),
+});
+export type ChecklistItem = z.infer<typeof ChecklistItemSchema>;
+
+// Checklist Required Signature Definition
+export const RequiredSignatureSchema = z.object({
+  role: z.string(),
+  required: z.boolean(),
+});
+export type RequiredSignature = z.infer<typeof RequiredSignatureSchema>;
+
+// Checklist Instance Response
+export const ChecklistInstanceResponseSchema = z.object({
+  id: z.string().uuid(),
+  caseId: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  type: ChecklistType,
+  status: ChecklistStatus,
+  templateVersionId: z.string().uuid(),
+  templateName: z.string(),
+  items: z.array(ChecklistItemSchema),
+  requiredSignatures: z.array(RequiredSignatureSchema),
+  responses: z.array(z.object({
+    itemKey: z.string(),
+    value: z.string(),
+    completedByUserId: z.string().uuid(),
+    completedByName: z.string(),
+    completedAt: z.string(),
+  })),
+  signatures: z.array(z.object({
+    role: z.string(),
+    signedByUserId: z.string().uuid(),
+    signedByName: z.string(),
+    signedAt: z.string(),
+    method: SignatureMethod,
+  })),
+  roomId: z.string().uuid().nullable(),
+  roomName: z.string().nullable(),
+  startedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type ChecklistInstanceResponse = z.infer<typeof ChecklistInstanceResponseSchema>;
+
+// Case Checklists Response (all checklists for a case)
+export const CaseChecklistsResponseSchema = z.object({
+  caseId: z.string().uuid(),
+  featureEnabled: z.boolean(),
+  timeout: ChecklistInstanceResponseSchema.nullable(),
+  debrief: ChecklistInstanceResponseSchema.nullable(),
+  canStartCase: z.boolean(),
+  canCompleteCase: z.boolean(),
+});
+export type CaseChecklistsResponse = z.infer<typeof CaseChecklistsResponseSchema>;
+
+// Facility Settings Response
+export const FacilitySettingsResponseSchema = z.object({
+  facilityId: z.string().uuid(),
+  enableTimeoutDebrief: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type FacilitySettingsResponse = z.infer<typeof FacilitySettingsResponseSchema>;
+
+// Update Facility Settings Request
+export const UpdateFacilitySettingsRequestSchema = z.object({
+  enableTimeoutDebrief: z.boolean().optional(),
+});
+export type UpdateFacilitySettingsRequest = z.infer<typeof UpdateFacilitySettingsRequestSchema>;

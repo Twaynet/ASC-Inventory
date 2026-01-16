@@ -12,6 +12,7 @@ import {
   SelectPreferenceCardRequestSchema,
 } from '../schemas/index.js';
 import { requireScheduler, requireSurgeon } from '../plugins/auth.js';
+import { canStartCase, canCompleteCase } from '../services/checklists.service.js';
 
 export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -316,6 +317,27 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
     if (updates.length === 0) {
       return reply.status(400).send({ error: 'No updates provided' });
+    }
+
+    // Gate checks for status transitions when timeout/debrief feature is enabled
+    if (data.status === 'IN_PROGRESS') {
+      const canStart = await canStartCase(id, facilityId);
+      if (!canStart) {
+        return reply.status(400).send({
+          error: 'Time Out checklist must be completed before starting the procedure',
+          code: 'TIMEOUT_REQUIRED',
+        });
+      }
+    }
+
+    if (data.status === 'COMPLETED') {
+      const canComplete = await canCompleteCase(id, facilityId);
+      if (!canComplete) {
+        return reply.status(400).send({
+          error: 'Post-op Debrief checklist must be completed before completing the procedure',
+          code: 'DEBRIEF_REQUIRED',
+        });
+      }
     }
 
     values.push(id, facilityId);

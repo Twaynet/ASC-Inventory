@@ -10,6 +10,8 @@ import {
   voidAttestation,
   refreshReadiness,
   sendDeviceEvent,
+  getFacilitySettings,
+  updateFacilitySettings,
   type DayBeforeResponse,
   type CaseReadiness,
   type DeviceEventResponse,
@@ -131,6 +133,7 @@ function ProcedureCard({
   onUpdate,
   isExpanded,
   onToggleExpand,
+  featureEnabled,
 }: {
   procedure: CaseReadiness;
   userRole: string;
@@ -139,7 +142,9 @@ function ProcedureCard({
   onUpdate: () => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  featureEnabled: boolean;
 }) {
+  const router = useRouter();
   const [isAttesting, setIsAttesting] = useState(false);
   const [error, setError] = useState('');
 
@@ -352,7 +357,23 @@ function ProcedureCard({
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {featureEnabled && (
+            <>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => router.push(`/or/timeout/${procedure.caseId}`)}
+              >
+                Time Out
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => router.push(`/or/debrief/${procedure.caseId}`)}
+              >
+                Debrief
+              </button>
+            </>
+          )}
           {canAttest && (
             <button
               className="btn btn-primary btn-sm"
@@ -397,6 +418,8 @@ export default function DayBeforePage() {
   const [sortBy, setSortBy] = useState<'time' | 'status' | 'surgeon' | 'name'>('time');
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(true);
+  const [timeoutDebriefEnabled, setTimeoutDebriefEnabled] = useState(false);
+  const [isTogglingFeature, setIsTogglingFeature] = useState(false);
 
   // Scanner state
   const [scannerEnabled, setScannerEnabled] = useState(true);
@@ -477,6 +500,35 @@ export default function DayBeforePage() {
       router.push('/login');
     }
   }, [user, isLoading, router]);
+
+  // Load facility settings to check if timeout/debrief is enabled
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!token) return;
+      try {
+        const settings = await getFacilitySettings(token);
+        setTimeoutDebriefEnabled(settings.enableTimeoutDebrief);
+      } catch {
+        // Ignore errors - feature will just be hidden
+      }
+    };
+    loadSettings();
+  }, [token]);
+
+  const handleToggleTimeoutDebrief = async () => {
+    if (!token) return;
+    setIsTogglingFeature(true);
+    try {
+      const settings = await updateFacilitySettings(token, {
+        enableTimeoutDebrief: !timeoutDebriefEnabled,
+      });
+      setTimeoutDebriefEnabled(settings.enableTimeoutDebrief);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update settings');
+    } finally {
+      setIsTogglingFeature(false);
+    }
+  };
 
   const loadData = async () => {
     if (!token) return;
@@ -637,6 +689,23 @@ export default function DayBeforePage() {
           notifications={notifications}
           onDismiss={dismissNotification}
         />
+
+        {/* Admin: Time Out/Debrief Feature Toggle */}
+        {user.role === 'ADMIN' && (
+          <div className="feature-toggle-panel">
+            <label className="feature-toggle">
+              <input
+                type="checkbox"
+                checked={timeoutDebriefEnabled}
+                onChange={handleToggleTimeoutDebrief}
+                disabled={isTogglingFeature}
+              />
+              <span className="feature-toggle-label">
+                {isTogglingFeature ? 'Updating...' : 'Enable Time Out / Debrief Checklists'}
+              </span>
+            </label>
+          </div>
+        )}
 
         <div className="date-header">
           <h2>Procedures for {formatDate(selectedDate)}</h2>
@@ -802,6 +871,7 @@ export default function DayBeforePage() {
                     onUpdate={loadData}
                     isExpanded={expandedCards.has(proc.caseId)}
                     onToggleExpand={() => toggleCardExpanded(proc.caseId)}
+                    featureEnabled={timeoutDebriefEnabled}
                   />
                 ))}
               </div>
