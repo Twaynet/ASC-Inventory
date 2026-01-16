@@ -203,6 +203,124 @@ cd apps/web && npm run dev
 | `CORS_ORIGIN` | Allowed CORS origin | http://localhost:3000 |
 | `NEXT_PUBLIC_API_URL` | API URL for frontend | http://localhost:3001/api |
 
+## Deployment
+
+### Docker Images
+
+Pre-built Docker images are available from GitHub Container Registry:
+
+```bash
+# Pull the latest images
+docker pull ghcr.io/twaynet/asc-inventory-api:latest
+docker pull ghcr.io/twaynet/asc-inventory-web:latest
+
+# Or pull a specific version
+docker pull ghcr.io/twaynet/asc-inventory-api:1.1.0
+docker pull ghcr.io/twaynet/asc-inventory-web:1.1.0
+```
+
+### Production Docker Compose
+
+Create a `docker-compose.prod.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/twaynet/asc-inventory-api:1.1.0
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      NODE_ENV: production
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/twaynet/asc-inventory-web:1.1.0
+    environment:
+      NEXT_PUBLIC_API_URL: ${API_URL}
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+```
+
+### Production Environment Variables
+
+Create a `.env.prod` file:
+
+```bash
+# Database
+DB_NAME=asc_inventory
+DB_USER=asc_admin
+DB_PASSWORD=<strong-password-here>
+
+# API
+JWT_SECRET=<generate-with-openssl-rand-base64-32>
+CORS_ORIGIN=https://your-domain.com
+
+# Web
+API_URL=https://api.your-domain.com/api
+```
+
+### Deploy Steps
+
+```bash
+# 1. Set environment variables
+export $(cat .env.prod | xargs)
+
+# 2. Start services
+docker-compose -f docker-compose.prod.yml up -d
+
+# 3. Run database migrations
+docker-compose -f docker-compose.prod.yml exec api npm run db:migrate
+
+# 4. (Optional) Seed initial data
+docker-compose -f docker-compose.prod.yml exec api npm run db:seed
+```
+
+### CI/CD
+
+This repository includes GitHub Actions workflows:
+
+- **CI** (`.github/workflows/ci.yml`): Runs on every push and PR
+  - Lint (ESLint)
+  - Build (TypeScript)
+  - Test (Vitest)
+  - Docker build validation
+
+- **CD** (`.github/workflows/cd.yml`): Runs on releases
+  - Builds and pushes Docker images to GitHub Container Registry
+  - Tags images with semantic versions (e.g., `1.1.0`, `latest`)
+
+To trigger a deployment:
+
+```bash
+# Create a new release
+gh release create v1.2.0 --title "v1.2.0" --notes "Release notes here"
+```
+
 ---
 
 ## Explicitly NOT Implemented (Scope Control)
