@@ -3,9 +3,9 @@
  *
  * Tests the device event → inventory event pipeline logic
  * without requiring a database connection.
- *
- * Run with: npx tsx test/scanner-pipeline.test.ts
  */
+
+import { describe, it, expect } from 'vitest';
 
 // Mock data constants
 const FACILITY_ID = '11111111-1111-1111-1111-111111111111';
@@ -209,9 +209,12 @@ function test(name: string, fn: () => void): void {
   }
 }
 
-// Tests
-console.log('\n🔬 Scanner Pipeline Tests\n');
-console.log('Device Event Processing:');
+// Vitest wrapper
+describe('Scanner Pipeline', () => {
+  it('runs all scanner pipeline tests', () => {
+    // Tests
+    console.log('\n🔬 Scanner Pipeline Tests\n');
+    console.log('Device Event Processing:');
 
 test('should process a valid barcode scan and create VERIFIED event', () => {
   const db = createDb();
@@ -356,15 +359,19 @@ test('should not match items from different facility', () => {
 const passed = results.filter(r => r.passed).length;
 const failed = results.filter(r => !r.passed).length;
 
-console.log(`\n${'─'.repeat(50)}`);
-console.log(`Results: ${passed} passed, ${failed} failed`);
+    console.log(`\n${'─'.repeat(50)}`);
+    console.log(`Results: ${passed} passed, ${failed} failed`);
 
-if (failed > 0) {
-  console.log('\nFailed tests:');
-  results.filter(r => !r.passed).forEach(r => {
-    console.log(`  - ${r.name}: ${r.error}`);
+    if (failed > 0) {
+      console.log('\nFailed tests:');
+      results.filter(r => !r.passed).forEach(r => {
+        console.log(`  - ${r.name}: ${r.error}`);
+      });
+      throw new Error(`${failed} test(s) failed`);
+    } else {
+      console.log('\n✅ All tests passed!');
+    }
+
+    expect(failed).toBe(0);
   });
-  throw new Error(`${failed} test(s) failed`);
-} else {
-  console.log('\n✅ All tests passed!');
-}
+});
