@@ -80,8 +80,10 @@ export interface CaseReadiness {
   hasAttestation: boolean;
   attestedAt: string | null;
   attestedByName: string | null;
+  attestationId: string | null;
   hasSurgeonAcknowledgment: boolean;
   surgeonAcknowledgedAt: string | null;
+  surgeonAcknowledgmentId: string | null;
 }
 
 export interface DayBeforeResponse {
@@ -133,6 +135,27 @@ export async function createAttestation(
   data: CreateAttestationRequest
 ): Promise<AttestationResponse> {
   return api('/readiness/attestations', { method: 'POST', body: data, token });
+}
+
+export interface VoidAttestationResponse {
+  success: boolean;
+  attestationId: string;
+  voidedAt: string;
+  voidedByUserId: string;
+  voidedByName: string;
+  reason: string | null;
+}
+
+export async function voidAttestation(
+  token: string,
+  attestationId: string,
+  reason?: string
+): Promise<VoidAttestationResponse> {
+  return api(`/readiness/attestations/${attestationId}/void`, {
+    method: 'POST',
+    body: { reason },
+    token,
+  });
 }
 
 export async function refreshReadiness(token: string, date?: string): Promise<void> {

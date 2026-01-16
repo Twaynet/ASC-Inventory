@@ -37,8 +37,10 @@ interface CaseReadinessCacheRow {
   has_attestation: boolean;
   attested_at: Date | null;
   attested_by_name: string | null;
+  attestation_id: string | null;
   has_surgeon_acknowledgment: boolean;
   surgeon_acknowledged_at: Date | null;
+  surgeon_acknowledgment_id: string | null;
   computed_at: Date;
 }
 
@@ -333,17 +335,31 @@ export async function updateReadinessCache(
     targetDate
   );
 
-  // Get attestation user names
-  const attestationUserNames = new Map<string, string>();
+  // Get attestation info
+  const attestationInfo = new Map<string, { name: string; id: string }>();
+  const surgeonAckInfo = new Map<string, { id: string }>();
   const casesForDate = await getCasesForDate(facilityId, targetDate);
   const caseIds = casesForDate.map(c => c.id);
   const attestationsByCase = await getAttestationsForCases(caseIds);
 
   for (const [caseId, attestations] of attestationsByCase) {
-    const readinessAttestation = attestations.find(a => a.type === 'CASE_READINESS');
-    if (readinessAttestation) {
-      const name = await getUserName(readinessAttestation.attestedByUserId);
-      if (name) attestationUserNames.set(caseId, name);
+    // Get latest CASE_READINESS attestation
+    const readinessAttestations = attestations.filter(a => a.type === 'CASE_READINESS');
+    if (readinessAttestations.length > 0) {
+      const latest = readinessAttestations.reduce((a, b) =>
+        a.createdAt > b.createdAt ? a : b
+      );
+      const name = await getUserName(latest.attestedByUserId);
+      if (name) attestationInfo.set(caseId, { name, id: latest.id });
+    }
+
+    // Get latest SURGEON_ACKNOWLEDGMENT
+    const surgeonAcks = attestations.filter(a => a.type === 'SURGEON_ACKNOWLEDGMENT');
+    if (surgeonAcks.length > 0) {
+      const latest = surgeonAcks.reduce((a, b) =>
+        a.createdAt > b.createdAt ? a : b
+      );
+      surgeonAckInfo.set(caseId, { id: latest.id });
     }
   }
 
@@ -360,15 +376,16 @@ export async function updateReadinessCache(
       if (!caseData) continue;
 
       const surgeonName = surgeonNames.get(caseData.surgeonId) || 'Unknown';
-      const attestedByName = attestationUserNames.get(result.caseId) || null;
+      const attInfo = attestationInfo.get(result.caseId);
+      const ackInfo = surgeonAckInfo.get(result.caseId);
 
       await client.query(`
         INSERT INTO case_readiness_cache (
           case_id, facility_id, scheduled_date, procedure_name, surgeon_name,
           readiness_state, missing_items, total_required_items, total_verified_items,
-          has_attestation, attested_at, attested_by_name,
-          has_surgeon_acknowledgment, surgeon_acknowledged_at, computed_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+          has_attestation, attested_at, attested_by_name, attestation_id,
+          has_surgeon_acknowledgment, surgeon_acknowledged_at, surgeon_acknowledgment_id, computed_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
       `, [
         result.caseId,
         facilityId,
@@ -381,9 +398,11 @@ export async function updateReadinessCache(
         result.totalVerifiedItems,
         result.hasAttestation,
         result.attestedAt || null,
-        attestedByName,
+        attInfo?.name || null,
+        attInfo?.id || null,
         result.hasSurgeonAcknowledgment,
         result.surgeonAcknowledgedAt || null,
+        ackInfo?.id || null,
       ]);
     }
   });

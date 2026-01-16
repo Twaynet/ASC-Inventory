@@ -86,8 +86,10 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       hasAttestation: row.has_attestation,
       attestedAt: row.attested_at?.toISOString() || null,
       attestedByName: row.attested_by_name,
+      attestationId: row.attestation_id,
       hasSurgeonAcknowledgment: row.has_surgeon_acknowledgment,
       surgeonAcknowledgedAt: row.surgeon_acknowledged_at?.toISOString() || null,
+      surgeonAcknowledgmentId: row.surgeon_acknowledgment_id,
     }));
 
     // Calculate summary

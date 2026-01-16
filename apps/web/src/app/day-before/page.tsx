@@ -7,6 +7,7 @@ import { useScanner, type ScanResult } from '@/lib/useScanner';
 import {
   getDayBeforeReadiness,
   createAttestation,
+  voidAttestation,
   refreshReadiness,
   sendDeviceEvent,
   type DayBeforeResponse,
@@ -146,11 +147,21 @@ function ProcedureCard({
     !procedure.hasAttestation &&
     ['ADMIN', 'CIRCULATOR', 'INVENTORY_TECH'].includes(userRole);
 
+  const canVoidAttestation =
+    procedure.hasAttestation &&
+    procedure.attestationId &&
+    ['ADMIN', 'CIRCULATOR', 'INVENTORY_TECH'].includes(userRole);
+
   const canAcknowledge =
     procedure.readinessState === 'RED' &&
     !procedure.hasSurgeonAcknowledgment &&
     userRole === 'SURGEON' &&
     procedure.surgeonId === userId;
+
+  const canVoidAcknowledgment =
+    procedure.hasSurgeonAcknowledgment &&
+    procedure.surgeonAcknowledgmentId &&
+    (userRole === 'ADMIN' || (userRole === 'SURGEON' && procedure.surgeonId === userId));
 
   const handleAttest = async () => {
     setIsAttesting(true);
@@ -179,6 +190,38 @@ function ProcedureCard({
       onUpdate();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Acknowledgment failed');
+    } finally {
+      setIsAttesting(false);
+    }
+  };
+
+  const handleVoidAttestation = async () => {
+    if (!procedure.attestationId) return;
+    if (!confirm('Are you sure you want to void this attestation?')) return;
+
+    setIsAttesting(true);
+    setError('');
+    try {
+      await voidAttestation(token, procedure.attestationId);
+      onUpdate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Void failed');
+    } finally {
+      setIsAttesting(false);
+    }
+  };
+
+  const handleVoidAcknowledgment = async () => {
+    if (!procedure.surgeonAcknowledgmentId) return;
+    if (!confirm('Are you sure you want to void this surgeon acknowledgment?')) return;
+
+    setIsAttesting(true);
+    setError('');
+    try {
+      await voidAttestation(token, procedure.surgeonAcknowledgmentId);
+      onUpdate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Void failed');
     } finally {
       setIsAttesting(false);
     }
@@ -262,8 +305,20 @@ function ProcedureCard({
       <div className="procedure-card-footer">
         <div className="attestation-status">
           {procedure.hasAttestation ? (
-            <span className="attestation-status attested">
-              Attested by {procedure.attestedByName}
+            <span className="attestation-info">
+              <span className="attestation-status attested">
+                Attested by {procedure.attestedByName}
+              </span>
+              {canVoidAttestation && (
+                <button
+                  className="btn-void"
+                  onClick={handleVoidAttestation}
+                  disabled={isAttesting}
+                  title="Void this attestation"
+                >
+                  Void
+                </button>
+              )}
             </span>
           ) : (
             <span className="attestation-status pending">
@@ -273,8 +328,20 @@ function ProcedureCard({
           {procedure.readinessState === 'RED' && (
             <>
               {procedure.hasSurgeonAcknowledgment ? (
-                <span style={{ marginLeft: '1rem', color: 'var(--color-orange)' }}>
-                  Surgeon acknowledged
+                <span className="attestation-info" style={{ marginLeft: '1rem' }}>
+                  <span style={{ color: 'var(--color-orange)' }}>
+                    Surgeon acknowledged
+                  </span>
+                  {canVoidAcknowledgment && (
+                    <button
+                      className="btn-void"
+                      onClick={handleVoidAcknowledgment}
+                      disabled={isAttesting}
+                      title="Void this acknowledgment"
+                    >
+                      Void
+                    </button>
+                  )}
                 </span>
               ) : (
                 <span style={{ marginLeft: '1rem', color: 'var(--color-red)' }}>
