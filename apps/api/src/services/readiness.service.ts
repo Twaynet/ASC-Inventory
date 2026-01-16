@@ -1,0 +1,477 @@
+/**
+ * Readiness Service
+ *
+ * Bridges database queries with pure domain readiness evaluation logic.
+ * Handles caching via case_readiness_cache table.
+ */
+
+import { query, transaction } from '../db/index.js';
+import {
+  evaluateCaseReadiness,
+  evaluateBatchReadiness,
+  type CaseForReadiness,
+  type ReadinessOutput,
+  type CaseRequirement,
+  type ItemCatalog,
+  type InventoryItem,
+  type Attestation,
+  type User,
+  type CaseId,
+  type FacilityId,
+} from '@asc/domain';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface CaseReadinessCacheRow {
+  case_id: string;
+  facility_id: string;
+  scheduled_date: Date;
+  procedure_name: string;
+  surgeon_name: string;
+  readiness_state: string;
+  missing_items: unknown[];
+  total_required_items: number;
+  total_verified_items: number;
+  has_attestation: boolean;
+  attested_at: Date | null;
+  attested_by_name: string | null;
+  has_surgeon_acknowledgment: boolean;
+  surgeon_acknowledged_at: Date | null;
+  computed_at: Date;
+}
+
+// ============================================================================
+// QUERY HELPERS
+// ============================================================================
+
+async function getCasesForDate(
+  facilityId: string,
+  targetDate: Date
+): Promise<CaseForReadiness[]> {
+  const result = await query<{
+    id: string;
+    facility_id: string;
+    scheduled_date: Date;
+    scheduled_time: string | null;
+    procedure_name: string;
+    surgeon_id: string;
+  }>(`
+    SELECT id, facility_id, scheduled_date, scheduled_time, procedure_name, surgeon_id
+    FROM surgical_case
+    WHERE facility_id = $1
+      AND scheduled_date = $2
+      AND status NOT IN ('CANCELLED', 'COMPLETED')
+    ORDER BY scheduled_time NULLS LAST, created_at
+  `, [facilityId, targetDate]);
+
+  return result.rows.map(row => ({
+    id: row.id as CaseId,
+    facilityId: row.facility_id,
+    scheduledDate: row.scheduled_date,
+    procedureName: row.procedure_name,
+    surgeonId: row.surgeon_id,
+  }));
+}
+
+async function getRequirementsForCases(
+  caseIds: string[]
+): Promise<Map<string, CaseRequirement[]>> {
+  if (caseIds.length === 0) return new Map();
+
+  const result = await query<{
+    id: string;
+    case_id: string;
+    catalog_id: string;
+    quantity: number;
+    is_surgeon_override: boolean;
+    notes: string | null;
+    created_at: Date;
+    updated_at: Date;
+  }>(`
+    SELECT id, case_id, catalog_id, quantity, is_surgeon_override, notes, created_at, updated_at
+    FROM case_requirement
+    WHERE case_id = ANY($1)
+  `, [caseIds]);
+
+  const map = new Map<string, CaseRequirement[]>();
+  for (const row of result.rows) {
+    const existing = map.get(row.case_id) || [];
+    existing.push({
+      id: row.id as any,
+      caseId: row.case_id as CaseId,
+      catalogId: row.catalog_id as any,
+      quantity: row.quantity,
+      isSurgeonOverride: row.is_surgeon_override,
+      notes: row.notes ?? undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    });
+    map.set(row.case_id, existing);
+  }
+  return map;
+}
+
+async function getCatalogItems(facilityId: string): Promise<Map<string, ItemCatalog>> {
+  const result = await query<{
+    id: string;
+    facility_id: string;
+    name: string;
+    description: string | null;
+    category: string;
+    manufacturer: string | null;
+    catalog_number: string | null;
+    requires_sterility: boolean;
+    is_loaner: boolean;
+    active: boolean;
+    created_at: Date;
+    updated_at: Date;
+  }>(`
+    SELECT * FROM item_catalog
+    WHERE facility_id = $1 AND active = true
+  `, [facilityId]);
+
+  const map = new Map<string, ItemCatalog>();
+  for (const row of result.rows) {
+    map.set(row.id, {
+      id: row.id as any,
+      facilityId: row.facility_id as FacilityId,
+      name: row.name,
+      description: row.description ?? undefined,
+      category: row.category as any,
+      manufacturer: row.manufacturer ?? undefined,
+      catalogNumber: row.catalog_number ?? undefined,
+      requiresSterility: row.requires_sterility,
+      isLoaner: row.is_loaner,
+      active: row.active,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    });
+  }
+  return map;
+}
+
+async function getAvailableInventory(facilityId: string): Promise<InventoryItem[]> {
+  const result = await query<{
+    id: string;
+    facility_id: string;
+    catalog_id: string;
+    serial_number: string | null;
+    lot_number: string | null;
+    barcode: string | null;
+    location_id: string | null;
+    sterility_status: string;
+    sterility_expires_at: Date | null;
+    availability_status: string;
+    reserved_for_case_id: string | null;
+    last_verified_at: Date | null;
+    last_verified_by_user_id: string | null;
+    created_at: Date;
+    updated_at: Date;
+  }>(`
+    SELECT * FROM inventory_item
+    WHERE facility_id = $1
+      AND availability_status IN ('AVAILABLE', 'RESERVED')
+  `, [facilityId]);
+
+  return result.rows.map(row => ({
+    id: row.id as any,
+    facilityId: row.facility_id as FacilityId,
+    catalogId: row.catalog_id as any,
+    serialNumber: row.serial_number ?? undefined,
+    lotNumber: row.lot_number ?? undefined,
+    barcode: row.barcode ?? undefined,
+    locationId: row.location_id as any,
+    sterilityStatus: row.sterility_status as any,
+    sterilityExpiresAt: row.sterility_expires_at ?? undefined,
+    availabilityStatus: row.availability_status as any,
+    reservedForCaseId: row.reserved_for_case_id as CaseId | undefined,
+    lastVerifiedAt: row.last_verified_at ?? undefined,
+    lastVerifiedByUserId: row.last_verified_by_user_id as any,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+async function getAttestationsForCases(
+  caseIds: string[]
+): Promise<Map<string, Attestation[]>> {
+  if (caseIds.length === 0) return new Map();
+
+  const result = await query<{
+    id: string;
+    facility_id: string;
+    case_id: string;
+    type: string;
+    attested_by_user_id: string;
+    readiness_state_at_time: string;
+    notes: string | null;
+    created_at: Date;
+  }>(`
+    SELECT * FROM attestation
+    WHERE case_id = ANY($1)
+  `, [caseIds]);
+
+  const map = new Map<string, Attestation[]>();
+  for (const row of result.rows) {
+    const existing = map.get(row.case_id) || [];
+    existing.push({
+      id: row.id as any,
+      facilityId: row.facility_id as FacilityId,
+      caseId: row.case_id as CaseId,
+      type: row.type as any,
+      attestedByUserId: row.attested_by_user_id as any,
+      readinessStateAtTime: row.readiness_state_at_time as any,
+      notes: row.notes ?? undefined,
+      createdAt: row.created_at,
+    });
+    map.set(row.case_id, existing);
+  }
+  return map;
+}
+
+async function getSurgeons(facilityId: string): Promise<Map<string, User>> {
+  const result = await query<{
+    id: string;
+    facility_id: string;
+    email: string;
+    name: string;
+    role: string;
+    password_hash: string;
+    active: boolean;
+    created_at: Date;
+    updated_at: Date;
+  }>(`
+    SELECT * FROM app_user
+    WHERE facility_id = $1 AND role = 'SURGEON'
+  `, [facilityId]);
+
+  const map = new Map<string, User>();
+  for (const row of result.rows) {
+    map.set(row.id, {
+      id: row.id as any,
+      facilityId: row.facility_id as FacilityId,
+      email: row.email,
+      name: row.name,
+      role: row.role as any,
+      passwordHash: row.password_hash,
+      active: row.active,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    });
+  }
+  return map;
+}
+
+async function getUserName(userId: string): Promise<string | undefined> {
+  const result = await query<{ name: string }>(`
+    SELECT name FROM app_user WHERE id = $1
+  `, [userId]);
+  return result.rows[0]?.name;
+}
+
+// ============================================================================
+// MAIN SERVICE FUNCTIONS
+// ============================================================================
+
+/**
+ * Compute readiness for all cases on a given date (day-before query)
+ */
+export async function computeDayBeforeReadiness(
+  facilityId: string,
+  targetDate: Date
+): Promise<{
+  cases: ReadinessOutput[];
+  surgeonNames: Map<string, string>;
+}> {
+  // Fetch all required data
+  const cases = await getCasesForDate(facilityId, targetDate);
+  const caseIds = cases.map(c => c.id);
+
+  const [requirementsByCase, catalog, inventory, attestationsByCase, surgeons] = await Promise.all([
+    getRequirementsForCases(caseIds),
+    getCatalogItems(facilityId),
+    getAvailableInventory(facilityId),
+    getAttestationsForCases(caseIds),
+    getSurgeons(facilityId),
+  ]);
+
+  // Calculate cutoff (case date at start of day in facility timezone)
+  const cutoffDate = new Date(targetDate);
+  cutoffDate.setHours(0, 0, 0, 0);
+
+  // Use pure domain logic for evaluation
+  const results = evaluateBatchReadiness({
+    cases,
+    requirementsByCase,
+    catalog,
+    inventory,
+    attestationsByCase,
+    surgeons,
+    cutoffDate,
+  });
+
+  // Build surgeon name map
+  const surgeonNames = new Map<string, string>();
+  for (const [id, surgeon] of surgeons) {
+    surgeonNames.set(id, surgeon.name);
+  }
+
+  return { cases: results, surgeonNames };
+}
+
+/**
+ * Update the case_readiness_cache table
+ */
+export async function updateReadinessCache(
+  facilityId: string,
+  targetDate: Date
+): Promise<void> {
+  const { cases: readinessResults, surgeonNames } = await computeDayBeforeReadiness(
+    facilityId,
+    targetDate
+  );
+
+  // Get attestation user names
+  const attestationUserNames = new Map<string, string>();
+  const casesForDate = await getCasesForDate(facilityId, targetDate);
+  const caseIds = casesForDate.map(c => c.id);
+  const attestationsByCase = await getAttestationsForCases(caseIds);
+
+  for (const [caseId, attestations] of attestationsByCase) {
+    const readinessAttestation = attestations.find(a => a.type === 'CASE_READINESS');
+    if (readinessAttestation) {
+      const name = await getUserName(readinessAttestation.attestedByUserId);
+      if (name) attestationUserNames.set(caseId, name);
+    }
+  }
+
+  await transaction(async (client) => {
+    // Delete existing cache entries for these cases
+    await client.query(`
+      DELETE FROM case_readiness_cache
+      WHERE case_id = ANY($1)
+    `, [readinessResults.map(r => r.caseId)]);
+
+    // Insert new cache entries
+    for (const result of readinessResults) {
+      const caseData = casesForDate.find(c => c.id === result.caseId);
+      if (!caseData) continue;
+
+      const surgeonName = surgeonNames.get(caseData.surgeonId) || 'Unknown';
+      const attestedByName = attestationUserNames.get(result.caseId) || null;
+
+      await client.query(`
+        INSERT INTO case_readiness_cache (
+          case_id, facility_id, scheduled_date, procedure_name, surgeon_name,
+          readiness_state, missing_items, total_required_items, total_verified_items,
+          has_attestation, attested_at, attested_by_name,
+          has_surgeon_acknowledgment, surgeon_acknowledged_at, computed_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+      `, [
+        result.caseId,
+        facilityId,
+        targetDate,
+        caseData.procedureName,
+        surgeonName,
+        result.readinessState,
+        JSON.stringify(result.missingItems),
+        result.totalRequiredItems,
+        result.totalVerifiedItems,
+        result.hasAttestation,
+        result.attestedAt || null,
+        attestedByName,
+        result.hasSurgeonAcknowledgment,
+        result.surgeonAcknowledgedAt || null,
+      ]);
+    }
+  });
+}
+
+/**
+ * Get cached readiness or compute fresh
+ */
+export async function getDayBeforeReadiness(
+  facilityId: string,
+  targetDate: Date,
+  forceRefresh = false
+): Promise<CaseReadinessCacheRow[]> {
+  if (forceRefresh) {
+    await updateReadinessCache(facilityId, targetDate);
+  }
+
+  const result = await query<CaseReadinessCacheRow>(`
+    SELECT * FROM case_readiness_cache
+    WHERE facility_id = $1 AND scheduled_date = $2
+    ORDER BY readiness_state DESC, procedure_name
+  `, [facilityId, targetDate]);
+
+  // If no cached data, compute and cache
+  if (result.rows.length === 0) {
+    await updateReadinessCache(facilityId, targetDate);
+    const freshResult = await query<CaseReadinessCacheRow>(`
+      SELECT * FROM case_readiness_cache
+      WHERE facility_id = $1 AND scheduled_date = $2
+      ORDER BY readiness_state DESC, procedure_name
+    `, [facilityId, targetDate]);
+    return freshResult.rows;
+  }
+
+  return result.rows;
+}
+
+/**
+ * Compute readiness for a single case (for attestation validation)
+ */
+export async function computeSingleCaseReadiness(
+  caseId: string,
+  facilityId: string
+): Promise<ReadinessOutput | null> {
+  const caseResult = await query<{
+    id: string;
+    facility_id: string;
+    scheduled_date: Date;
+    procedure_name: string;
+    surgeon_id: string;
+  }>(`
+    SELECT id, facility_id, scheduled_date, procedure_name, surgeon_id
+    FROM surgical_case
+    WHERE id = $1 AND facility_id = $2
+  `, [caseId, facilityId]);
+
+  if (caseResult.rows.length === 0) return null;
+
+  const caseRow = caseResult.rows[0];
+  const case_: CaseForReadiness = {
+    id: caseRow.id as CaseId,
+    facilityId: caseRow.facility_id,
+    scheduledDate: caseRow.scheduled_date,
+    procedureName: caseRow.procedure_name,
+    surgeonId: caseRow.surgeon_id,
+  };
+
+  const [requirementsByCase, catalog, inventory, attestationsByCase, surgeons] = await Promise.all([
+    getRequirementsForCases([caseId]),
+    getCatalogItems(facilityId),
+    getAvailableInventory(facilityId),
+    getAttestationsForCases([caseId]),
+    getSurgeons(facilityId),
+  ]);
+
+  const surgeon = surgeons.get(caseRow.surgeon_id);
+  if (!surgeon) return null;
+
+  const cutoffDate = new Date(caseRow.scheduled_date);
+  cutoffDate.setHours(0, 0, 0, 0);
+
+  return evaluateCaseReadiness({
+    case_,
+    requirements: requirementsByCase.get(caseId) || [],
+    catalog,
+    inventory,
+    attestations: attestationsByCase.get(caseId) || [],
+    surgeon,
+    cutoffDate,
+  });
+}

@@ -1,0 +1,335 @@
+import { z } from 'zod';
+
+// ============================================================================
+// BRANDED TYPES (for type-safe IDs at application level)
+// ============================================================================
+
+export type FacilityId = string & { readonly __brand: 'FacilityId' };
+export type UserId = string & { readonly __brand: 'UserId' };
+export type CaseId = string & { readonly __brand: 'CaseId' };
+export type PreferenceCardId = string & { readonly __brand: 'PreferenceCardId' };
+export type PreferenceCardVersionId = string & { readonly __brand: 'PreferenceCardVersionId' };
+export type CaseRequirementId = string & { readonly __brand: 'CaseRequirementId' };
+export type ItemCatalogId = string & { readonly __brand: 'ItemCatalogId' };
+export type LocationId = string & { readonly __brand: 'LocationId' };
+export type InventoryItemId = string & { readonly __brand: 'InventoryItemId' };
+export type InventoryEventId = string & { readonly __brand: 'InventoryEventId' };
+export type AttestationId = string & { readonly __brand: 'AttestationId' };
+export type DeviceId = string & { readonly __brand: 'DeviceId' };
+export type DeviceEventId = string & { readonly __brand: 'DeviceEventId' };
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+export const UserRole = z.enum([
+  'ADMIN',
+  'SCHEDULER',
+  'INVENTORY_TECH',
+  'CIRCULATOR',
+  'SURGEON',
+]);
+export type UserRole = z.infer<typeof UserRole>;
+
+export const CaseStatus = z.enum([
+  'DRAFT',
+  'SCHEDULED',
+  'READY',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+]);
+export type CaseStatus = z.infer<typeof CaseStatus>;
+
+export const ReadinessState = z.enum([
+  'GREEN',   // All required items verified and locatable
+  'ORANGE',  // Pending verification (not yet checked)
+  'RED',     // Missing items or sterility issues
+]);
+export type ReadinessState = z.infer<typeof ReadinessState>;
+
+export const ItemCategory = z.enum([
+  'IMPLANT',
+  'INSTRUMENT',
+  'LOANER',
+  'HIGH_VALUE_SUPPLY',
+]);
+export type ItemCategory = z.infer<typeof ItemCategory>;
+
+export const SterilityStatus = z.enum([
+  'STERILE',
+  'NON_STERILE',
+  'EXPIRED',
+  'UNKNOWN',
+]);
+export type SterilityStatus = z.infer<typeof SterilityStatus>;
+
+export const AvailabilityStatus = z.enum([
+  'AVAILABLE',
+  'RESERVED',
+  'IN_USE',
+  'UNAVAILABLE',
+  'MISSING',
+]);
+export type AvailabilityStatus = z.infer<typeof AvailabilityStatus>;
+
+export const InventoryEventType = z.enum([
+  'RECEIVED',           // Item received into facility
+  'VERIFIED',           // Item verified present/sterile
+  'LOCATION_CHANGED',   // Item moved to new location
+  'RESERVED',           // Item reserved for case
+  'RELEASED',           // Item released from case reservation
+  'CONSUMED',           // Item consumed in case
+  'EXPIRED',            // Item marked expired
+  'RETURNED',           // Loaner returned
+  'ADJUSTED',           // Manual inventory adjustment
+]);
+export type InventoryEventType = z.infer<typeof InventoryEventType>;
+
+export const AttestationType = z.enum([
+  'CASE_READINESS',         // Staff attests case is ready
+  'SURGEON_ACKNOWLEDGMENT', // Surgeon acknowledges red state
+]);
+export type AttestationType = z.infer<typeof AttestationType>;
+
+// ============================================================================
+// CORE DOMAIN ENTITIES (Zod Schemas)
+// Note: Using plain z.string() for IDs; cast to branded types at application layer
+// ============================================================================
+
+export const FacilitySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(255),
+  timezone: z.string(), // IANA timezone (e.g., 'America/New_York')
+  address: z.string().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type Facility = z.infer<typeof FacilitySchema>;
+
+export const UserSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().min(1).max(255),
+  role: UserRole,
+  passwordHash: z.string(), // Never exposed to API
+  active: z.boolean().default(true),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type User = z.infer<typeof UserSchema>;
+
+export const LocationSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+  parentLocationId: z.string().uuid().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type Location = z.infer<typeof LocationSchema>;
+
+export const ItemCatalogSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+  category: ItemCategory,
+  manufacturer: z.string().optional(),
+  catalogNumber: z.string().optional(),
+  requiresSterility: z.boolean().default(true),
+  isLoaner: z.boolean().default(false),
+  active: z.boolean().default(true),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type ItemCatalog = z.infer<typeof ItemCatalogSchema>;
+
+export const InventoryItemSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  catalogId: z.string().uuid(),
+  serialNumber: z.string().optional(),
+  lotNumber: z.string().optional(),
+  barcode: z.string().optional(),
+  locationId: z.string().uuid().optional(),
+  sterilityStatus: SterilityStatus,
+  sterilityExpiresAt: z.date().optional(),
+  availabilityStatus: AvailabilityStatus,
+  reservedForCaseId: z.string().uuid().optional(),
+  lastVerifiedAt: z.date().optional(),
+  lastVerifiedByUserId: z.string().uuid().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type InventoryItem = z.infer<typeof InventoryItemSchema>;
+
+export const PreferenceCardSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  surgeonId: z.string().uuid(),
+  procedureName: z.string().min(1).max(255),
+  description: z.string().optional(),
+  active: z.boolean().default(true),
+  currentVersionId: z.string().uuid().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type PreferenceCard = z.infer<typeof PreferenceCardSchema>;
+
+export const PreferenceCardItemSchema = z.object({
+  catalogId: z.string().uuid(),
+  quantity: z.number().int().positive(),
+  notes: z.string().optional(),
+});
+export type PreferenceCardItem = z.infer<typeof PreferenceCardItemSchema>;
+
+export const PreferenceCardVersionSchema = z.object({
+  id: z.string().uuid(),
+  preferenceCardId: z.string().uuid(),
+  versionNumber: z.number().int().positive(),
+  items: z.array(PreferenceCardItemSchema),
+  createdAt: z.date(),
+  createdByUserId: z.string().uuid(),
+});
+export type PreferenceCardVersion = z.infer<typeof PreferenceCardVersionSchema>;
+
+export const CaseSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  scheduledDate: z.date(),
+  scheduledTime: z.string().optional(), // HH:MM format
+  surgeonId: z.string().uuid(),
+  patientMrn: z.string().optional(), // Medical Record Number (minimal PHI)
+  procedureName: z.string().min(1).max(255),
+  preferenceCardVersionId: z.string().uuid().optional(),
+  status: CaseStatus,
+  notes: z.string().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type Case = z.infer<typeof CaseSchema>;
+
+export const CaseRequirementSchema = z.object({
+  id: z.string().uuid(),
+  caseId: z.string().uuid(),
+  catalogId: z.string().uuid(),
+  quantity: z.number().int().positive(),
+  isSurgeonOverride: z.boolean().default(false), // True if surgeon added/modified
+  notes: z.string().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type CaseRequirement = z.infer<typeof CaseRequirementSchema>;
+
+// ============================================================================
+// APPEND-ONLY EVENT TABLES (Immutable)
+// ============================================================================
+
+export const InventoryEventSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  inventoryItemId: z.string().uuid(),
+  eventType: InventoryEventType,
+  caseId: z.string().uuid().optional(),
+  locationId: z.string().uuid().optional(),
+  previousLocationId: z.string().uuid().optional(),
+  sterilityStatus: SterilityStatus.optional(),
+  notes: z.string().optional(),
+  performedByUserId: z.string().uuid(),
+  deviceEventId: z.string().uuid().optional(), // Links to originating device event
+  occurredAt: z.date(),
+  createdAt: z.date(), // Immutable
+});
+export type InventoryEvent = z.infer<typeof InventoryEventSchema>;
+
+export const AttestationSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  caseId: z.string().uuid(),
+  type: AttestationType,
+  attestedByUserId: z.string().uuid(),
+  readinessStateAtTime: ReadinessState,
+  notes: z.string().optional(),
+  createdAt: z.date(), // Immutable
+});
+export type Attestation = z.infer<typeof AttestationSchema>;
+
+// ============================================================================
+// DEVICE EVENTS (From Device Adapter Layer)
+// ============================================================================
+
+export const DeviceType = z.enum(['barcode', 'rfid', 'nfc', 'other']);
+export type DeviceType = z.infer<typeof DeviceType>;
+
+export const DevicePayloadType = z.enum(['scan', 'presence', 'input']);
+export type DevicePayloadType = z.infer<typeof DevicePayloadType>;
+
+export const DeviceSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  name: z.string().min(1).max(255),
+  deviceType: DeviceType,
+  locationId: z.string().uuid().optional(),
+  active: z.boolean().default(true),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type Device = z.infer<typeof DeviceSchema>;
+
+export const DeviceEventSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  deviceId: z.string().uuid(),
+  deviceType: DeviceType,
+  payloadType: DevicePayloadType,
+  rawValue: z.string(),
+  processedItemId: z.string().uuid().optional(), // Resolved item
+  processed: z.boolean().default(false),
+  processingError: z.string().optional(),
+  occurredAt: z.date(),
+  createdAt: z.date(), // Immutable
+});
+export type DeviceEvent = z.infer<typeof DeviceEventSchema>;
+
+// ============================================================================
+// COMPUTED/MATERIALIZED TYPES (Not stored, computed from events)
+// ============================================================================
+
+export const MissingItemReasonSchema = z.object({
+  catalogId: z.string().uuid(),
+  catalogName: z.string(),
+  requiredQuantity: z.number().int().positive(),
+  availableQuantity: z.number().int().nonnegative(),
+  reason: z.enum([
+    'NOT_IN_INVENTORY',
+    'INSUFFICIENT_QUANTITY',
+    'NOT_STERILE',
+    'STERILITY_EXPIRED',
+    'NOT_AVAILABLE',
+    'NOT_VERIFIED',
+    'NOT_LOCATABLE',
+  ]),
+});
+export type MissingItemReason = z.infer<typeof MissingItemReasonSchema>;
+
+export const CaseReadinessSchema = z.object({
+  caseId: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  scheduledDate: z.date(),
+  procedureName: z.string(),
+  surgeonName: z.string(),
+  readinessState: ReadinessState,
+  missingItems: z.array(MissingItemReasonSchema),
+  totalRequiredItems: z.number().int().nonnegative(),
+  totalVerifiedItems: z.number().int().nonnegative(),
+  hasAttestation: z.boolean(),
+  attestedAt: z.date().optional(),
+  attestedByName: z.string().optional(),
+  hasSurgeonAcknowledgment: z.boolean(),
+  surgeonAcknowledgedAt: z.date().optional(),
+  computedAt: z.date(),
+});
+export type CaseReadiness = z.infer<typeof CaseReadinessSchema>;
