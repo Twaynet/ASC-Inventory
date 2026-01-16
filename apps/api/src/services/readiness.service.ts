@@ -210,7 +210,7 @@ async function getAttestationsForCases(
     created_at: Date;
   }>(`
     SELECT * FROM attestation
-    WHERE case_id = ANY($1)
+    WHERE case_id = ANY($1) AND voided_at IS NULL
   `, [caseIds]);
 
   const map = new Map<string, Attestation[]>();

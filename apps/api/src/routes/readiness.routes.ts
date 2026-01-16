@@ -260,10 +260,14 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       notes: string | null;
       created_at: Date;
       user_name: string;
+      voided_at: Date | null;
+      voided_by_user_id: string | null;
+      voided_by_name: string | null;
     }>(`
-      SELECT a.*, u.name as user_name
+      SELECT a.*, u.name as user_name, vu.name as voided_by_name
       FROM attestation a
       JOIN app_user u ON a.attested_by_user_id = u.id
+      LEFT JOIN app_user vu ON a.voided_by_user_id = vu.id
       WHERE a.case_id = $1 AND a.facility_id = $2
       ORDER BY a.created_at DESC
     `, [id, facilityId]);
@@ -278,7 +282,97 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
         readinessStateAtTime: row.readiness_state_at_time,
         notes: row.notes,
         createdAt: row.created_at.toISOString(),
+        voidedAt: row.voided_at?.toISOString() || null,
+        voidedByUserId: row.voided_by_user_id,
+        voidedByName: row.voided_by_name,
       })),
+    });
+  });
+
+  /**
+   * POST /readiness/attestations/:id/void
+   * Void an attestation (reversible attestation)
+   */
+  fastify.post('/attestations/:id/void', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: { reason?: string };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const { facilityId, userId, role } = request.user;
+    const body = request.body as { reason?: string } || {};
+
+    // Get the attestation
+    const attestationResult = await query<{
+      id: string;
+      case_id: string;
+      type: string;
+      attested_by_user_id: string;
+      voided_at: Date | null;
+    }>(`
+      SELECT id, case_id, type, attested_by_user_id, voided_at
+      FROM attestation
+      WHERE id = $1 AND facility_id = $2
+    `, [id, facilityId]);
+
+    if (attestationResult.rows.length === 0) {
+      return reply.status(404).send({ error: 'Attestation not found' });
+    }
+
+    const attestation = attestationResult.rows[0];
+
+    // Check if already voided
+    if (attestation.voided_at) {
+      return reply.status(400).send({ error: 'Attestation already voided' });
+    }
+
+    // Role-based authorization (same roles that can create can void)
+    if (attestation.type === 'SURGEON_ACKNOWLEDGMENT') {
+      // Only the surgeon who created it or admin can void
+      if (role !== 'ADMIN' && attestation.attested_by_user_id !== userId) {
+        return reply.status(403).send({
+          error: 'Only the attesting surgeon or admin can void this attestation',
+        });
+      }
+    } else if (attestation.type === 'CASE_READINESS') {
+      // Only staff roles can void readiness attestations
+      const allowedRoles = ['ADMIN', 'CIRCULATOR', 'INVENTORY_TECH'];
+      if (!allowedRoles.includes(role)) {
+        return reply.status(403).send({
+          error: 'Only authorized staff can void readiness attestations',
+        });
+      }
+    }
+
+    // Void the attestation
+    await query(`
+      UPDATE attestation
+      SET voided_at = NOW(), voided_by_user_id = $1
+      WHERE id = $2
+    `, [userId, id]);
+
+    // Get case scheduled date for cache refresh
+    const caseResult = await query<{ scheduled_date: Date }>(`
+      SELECT scheduled_date FROM surgical_case WHERE id = $1
+    `, [attestation.case_id]);
+
+    if (caseResult.rows.length > 0) {
+      await updateReadinessCache(facilityId, caseResult.rows[0].scheduled_date);
+    }
+
+    // Get user name for response
+    const userResult = await query<{ name: string }>(`
+      SELECT name FROM app_user WHERE id = $1
+    `, [userId]);
+
+    return reply.send({
+      success: true,
+      attestationId: id,
+      voidedAt: new Date().toISOString(),
+      voidedByUserId: userId,
+      voidedByName: userResult.rows[0]?.name || 'Unknown',
+      reason: body.reason || null,
     });
   });
 
