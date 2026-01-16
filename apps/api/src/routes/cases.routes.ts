@@ -209,7 +209,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return reply.status(404).send({ error: 'Procedure not found' });
     }
 
     // Get requirements
@@ -328,7 +328,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     `, values);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return reply.status(404).send({ error: 'Procedure not found' });
     }
 
     return reply.send({ case: result.rows[0] });
@@ -361,7 +361,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return reply.status(404).send({ error: 'Procedure not found' });
     }
 
     // Get preference card and verify it belongs to the surgeon
@@ -445,7 +445,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return reply.status(404).send({ error: 'Procedure not found' });
     }
 
     if (caseResult.rows[0].surgeon_id !== userId) {

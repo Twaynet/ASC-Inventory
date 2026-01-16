@@ -123,7 +123,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     const readiness = await computeSingleCaseReadiness(id, facilityId);
 
     if (!readiness) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return reply.status(404).send({ error: 'Procedure not found' });
     }
 
     // Get additional case info
@@ -177,7 +177,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return reply.status(404).send({ error: 'Procedure not found' });
     }
 
     // Role-based authorization
@@ -204,10 +204,10 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(500).send({ error: 'Failed to compute readiness' });
     }
 
-    // For surgeon acknowledgment, case must be RED
+    // For surgeon acknowledgment, procedure must be RED
     if (type === 'SURGEON_ACKNOWLEDGMENT' && readiness.readinessState !== 'RED') {
       return reply.status(400).send({
-        error: 'Surgeon acknowledgment only required when case is RED',
+        error: 'Surgeon acknowledgment only required when procedure has missing items',
       });
     }
 

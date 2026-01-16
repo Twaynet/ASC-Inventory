@@ -122,14 +122,14 @@ function ScannerPanel({
   );
 }
 
-function CaseCard({
-  case_,
+function ProcedureCard({
+  procedure,
   userRole,
   userId,
   token,
   onUpdate,
 }: {
-  case_: CaseReadiness;
+  procedure: CaseReadiness;
   userRole: string;
   userId: string;
   token: string;
@@ -139,21 +139,21 @@ function CaseCard({
   const [error, setError] = useState('');
 
   const canAttest =
-    !case_.hasAttestation &&
+    !procedure.hasAttestation &&
     ['ADMIN', 'CIRCULATOR', 'INVENTORY_TECH'].includes(userRole);
 
   const canAcknowledge =
-    case_.readinessState === 'RED' &&
-    !case_.hasSurgeonAcknowledgment &&
+    procedure.readinessState === 'RED' &&
+    !procedure.hasSurgeonAcknowledgment &&
     userRole === 'SURGEON' &&
-    case_.surgeonId === userId;
+    procedure.surgeonId === userId;
 
   const handleAttest = async () => {
     setIsAttesting(true);
     setError('');
     try {
       await createAttestation(token, {
-        caseId: case_.caseId,
+        caseId: procedure.caseId,
         type: 'CASE_READINESS',
       });
       onUpdate();
@@ -169,7 +169,7 @@ function CaseCard({
     setError('');
     try {
       await createAttestation(token, {
-        caseId: case_.caseId,
+        caseId: procedure.caseId,
         type: 'SURGEON_ACKNOWLEDGMENT',
       });
       onUpdate();
@@ -181,31 +181,31 @@ function CaseCard({
   };
 
   return (
-    <div className="case-card">
-      <div className="case-card-header">
-        <div className="case-card-info">
-          <h3>{case_.procedureName}</h3>
+    <div className="procedure-card">
+      <div className="procedure-card-header">
+        <div className="procedure-card-info">
+          <h3>{procedure.procedureName}</h3>
           <p>
-            {formatTime(case_.scheduledTime)} &bull; Dr. {case_.surgeonName}
+            {formatTime(procedure.scheduledTime)} &bull; Dr. {procedure.surgeonName}
           </p>
         </div>
-        <div className={`readiness-badge ${case_.readinessState.toLowerCase()}`}>
-          {case_.readinessState === 'GREEN' && 'READY'}
-          {case_.readinessState === 'ORANGE' && 'PENDING'}
-          {case_.readinessState === 'RED' && 'MISSING ITEMS'}
+        <div className={`readiness-badge ${procedure.readinessState.toLowerCase()}`}>
+          {procedure.readinessState === 'GREEN' && 'READY'}
+          {procedure.readinessState === 'ORANGE' && 'PENDING'}
+          {procedure.readinessState === 'RED' && 'MISSING ITEMS'}
         </div>
       </div>
 
-      <div className="case-card-body">
+      <div className="procedure-card-body">
         <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>
-          {case_.totalVerifiedItems} of {case_.totalRequiredItems} items verified
+          {procedure.totalVerifiedItems} of {procedure.totalRequiredItems} items verified
         </p>
 
-        {case_.missingItems.length > 0 && (
+        {procedure.missingItems.length > 0 && (
           <div className="missing-items">
-            <h4>Missing Items ({case_.missingItems.length})</h4>
+            <h4>Missing Items ({procedure.missingItems.length})</h4>
             <ul className="missing-items-list">
-              {case_.missingItems.map((item, i) => (
+              {procedure.missingItems.map((item, i) => (
                 <li key={i} className="missing-item">
                   <span className="missing-item-name">
                     {item.catalogName} (need {item.requiredQuantity}, have{' '}
@@ -227,20 +227,20 @@ function CaseCard({
         )}
       </div>
 
-      <div className="case-card-footer">
+      <div className="procedure-card-footer">
         <div className="attestation-status">
-          {case_.hasAttestation ? (
+          {procedure.hasAttestation ? (
             <span className="attestation-status attested">
-              Attested by {case_.attestedByName}
+              Attested by {procedure.attestedByName}
             </span>
           ) : (
             <span className="attestation-status pending">
               Awaiting attestation
             </span>
           )}
-          {case_.readinessState === 'RED' && (
+          {procedure.readinessState === 'RED' && (
             <>
-              {case_.hasSurgeonAcknowledgment ? (
+              {procedure.hasSurgeonAcknowledgment ? (
                 <span style={{ marginLeft: '1rem', color: 'var(--color-orange)' }}>
                   Surgeon acknowledged
                 </span>
@@ -466,7 +466,7 @@ export default function DayBeforePage() {
         />
 
         <div className="date-header">
-          <h2>Cases for {formatDate(selectedDate)}</h2>
+          <h2>Procedures for {formatDate(selectedDate)}</h2>
           <div className="date-controls">
             {devices.length > 0 && (
               <select
@@ -515,7 +515,7 @@ export default function DayBeforePage() {
           <>
             <div className="summary-grid">
               <div className="summary-card">
-                <div className="summary-card-label">Total Cases</div>
+                <div className="summary-card-label">Total Procedures</div>
                 <div className="summary-card-value">{data.summary.total}</div>
               </div>
               <div className="summary-card green">
@@ -544,14 +544,14 @@ export default function DayBeforePage() {
                   color: 'var(--color-gray-500)',
                 }}
               >
-                No cases scheduled for this date.
+                No procedures scheduled for this date.
               </div>
             ) : (
-              <div className="case-list">
-                {data.cases.map((case_) => (
-                  <CaseCard
-                    key={case_.caseId}
-                    case_={case_}
+              <div className="procedure-list">
+                {data.cases.map((proc) => (
+                  <ProcedureCard
+                    key={proc.caseId}
+                    procedure={proc}
                     userRole={user.role}
                     userId={user.id}
                     token={token!}
