@@ -1,6 +1,24 @@
-# ASC Inventory Truth System v1.2
+# ASC Inventory Truth System v1.2.1
 
 A clinically honest, future-proof inventory system for Ambulatory Surgery Centers (ASCs).
+
+## What's New in v1.2.1
+
+### OR Time Out & Post-op Debrief Checklists
+
+- **Feature Flag:** Enable/disable via admin toggle on dashboard (default: off)
+- **Time Out Checklist:** Required before case can start (status → IN_PROGRESS)
+  - Patient identity, procedure, site/laterality confirmation
+  - Consent verification, antibiotics status
+  - Inventory readiness display
+  - Required signatures: Circulator, Surgeon
+- **Post-op Debrief Checklist:** Required before case can complete (status → COMPLETED)
+  - Counts status, specimens, implants confirmation
+  - Equipment issues, improvement notes
+  - Required signature: Circulator
+- **Gate Enforcement:** Blocks case status transitions until checklists are complete
+- **Dashboard Integration:** Time Out / Debrief buttons on each procedure card
+- **New Pages:** `/or/timeout/[caseId]` and `/or/debrief/[caseId]`
 
 ## What's New in v1.2.0
 
@@ -204,6 +222,18 @@ cd apps/web && npm run dev
 | GET | `/api/readiness/cases/:id/attestations` | Case attestations | Yes |
 | POST | `/api/readiness/refresh` | Force cache refresh | Yes |
 
+### Checklists (Time Out / Debrief)
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/facility/settings` | Get facility settings | Yes |
+| PATCH | `/api/facility/settings` | Update settings (enable feature) | Admin |
+| GET | `/api/cases/:id/checklists` | Get checklists for case | Yes |
+| POST | `/api/cases/:id/checklists/start` | Start checklist | Yes |
+| POST | `/api/cases/:id/checklists/:type/respond` | Record response | Yes |
+| POST | `/api/cases/:id/checklists/:type/sign` | Add signature | Role-gated |
+| POST | `/api/cases/:id/checklists/:type/complete` | Complete checklist | Yes |
+
 ## Environment Variables
 
 | Variable | Description | Default |
@@ -230,8 +260,8 @@ docker pull ghcr.io/twaynet/asc-inventory-api:latest
 docker pull ghcr.io/twaynet/asc-inventory-web:latest
 
 # Or pull a specific version
-docker pull ghcr.io/twaynet/asc-inventory-api:1.2.0
-docker pull ghcr.io/twaynet/asc-inventory-web:1.2.0
+docker pull ghcr.io/twaynet/asc-inventory-api:1.2.1
+docker pull ghcr.io/twaynet/asc-inventory-web:1.2.1
 ```
 
 ### Production Docker Compose
@@ -253,7 +283,7 @@ services:
     restart: unless-stopped
 
   api:
-    image: ghcr.io/twaynet/asc-inventory-api:1.2.0
+    image: ghcr.io/twaynet/asc-inventory-api:1.2.1
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -268,7 +298,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: ghcr.io/twaynet/asc-inventory-web:1.2.0
+    image: ghcr.io/twaynet/asc-inventory-web:1.2.1
     environment:
       NEXT_PUBLIC_API_URL: ${API_URL}
     depends_on:
