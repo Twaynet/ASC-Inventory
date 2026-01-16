@@ -364,8 +364,7 @@ if (failed > 0) {
   results.filter(r => !r.passed).forEach(r => {
     console.log(`  - ${r.name}: ${r.error}`);
   });
-  process.exit(1);
+  throw new Error(`${failed} test(s) failed`);
 } else {
   console.log('\n✅ All tests passed!');
-  process.exit(0);
 }
