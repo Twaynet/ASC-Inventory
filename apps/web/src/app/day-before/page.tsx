@@ -197,9 +197,29 @@ function ProcedureCard({
       </div>
 
       <div className="procedure-card-body">
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>
-          {procedure.totalVerifiedItems} of {procedure.totalRequiredItems} items verified
-        </p>
+        {/* Items Progress Bar */}
+        {(() => {
+          const percent = procedure.totalRequiredItems > 0
+            ? Math.round((procedure.totalVerifiedItems / procedure.totalRequiredItems) * 100)
+            : 0;
+          const fillClass = percent === 100 ? 'complete' : percent >= 50 ? 'partial' : 'low';
+          return (
+            <div className="items-progress">
+              <div className="items-progress-header">
+                <span className="items-progress-label">Items Verified</span>
+                <span className="items-progress-count">
+                  {procedure.totalVerifiedItems} / {procedure.totalRequiredItems}
+                </span>
+              </div>
+              <div className="items-progress-bar">
+                <div
+                  className={`items-progress-fill ${fillClass}`}
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            </div>
+          );
+        })()}
 
         {procedure.missingItems.length > 0 && (
           <div className="missing-items">
