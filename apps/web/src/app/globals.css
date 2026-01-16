@@ -157,6 +157,29 @@ body {
   border-radius: 0.5rem;
   padding: 1.25rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.summary-card:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.summary-card.active {
+  border-color: var(--color-gray-700);
+}
+
+.summary-card.green.active {
+  border-color: var(--color-green);
+}
+
+.summary-card.orange.active {
+  border-color: var(--color-orange);
+}
+
+.summary-card.red.active {
+  border-color: var(--color-red);
 }
 
 .summary-card-label {

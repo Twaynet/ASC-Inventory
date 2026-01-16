@@ -573,19 +573,31 @@ export default function DayBeforePage() {
         {data && (
           <>
             <div className="summary-grid">
-              <div className="summary-card">
+              <div
+                className={`summary-card ${activeFilters.size === 0 ? 'active' : ''}`}
+                onClick={() => setActiveFilters(new Set())}
+              >
                 <div className="summary-card-label">Total Procedures</div>
                 <div className="summary-card-value">{data.summary.total}</div>
               </div>
-              <div className="summary-card green">
+              <div
+                className={`summary-card green ${activeFilters.has('GREEN') && activeFilters.size === 1 ? 'active' : ''}`}
+                onClick={() => setActiveFilters(new Set(['GREEN']))}
+              >
                 <div className="summary-card-label">Ready</div>
                 <div className="summary-card-value">{data.summary.green}</div>
               </div>
-              <div className="summary-card orange">
+              <div
+                className={`summary-card orange ${activeFilters.has('ORANGE') && activeFilters.size === 1 ? 'active' : ''}`}
+                onClick={() => setActiveFilters(new Set(['ORANGE']))}
+              >
                 <div className="summary-card-label">Pending</div>
                 <div className="summary-card-value">{data.summary.orange}</div>
               </div>
-              <div className="summary-card red">
+              <div
+                className={`summary-card red ${activeFilters.has('RED') && activeFilters.size === 1 ? 'active' : ''}`}
+                onClick={() => setActiveFilters(new Set(['RED']))}
+              >
                 <div className="summary-card-label">Missing Items</div>
                 <div className="summary-card-value">{data.summary.red}</div>
               </div>
