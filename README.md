@@ -155,6 +155,7 @@ docker-compose exec api npm run db:seed
 | admin@demo.com | password123 | Admin |
 | tech@demo.com | password123 | Inventory Tech |
 | circulator@demo.com | password123 | Circulator |
+| scrub@demo.com | password123 | Scrub Tech |
 | drsmith@demo.com | password123 | Surgeon |
 | drjones@demo.com | password123 | Surgeon |
 

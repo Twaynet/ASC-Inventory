@@ -48,6 +48,7 @@ async function seed() {
       { email: 'scheduler@demo.com', name: 'Sarah Scheduler', role: 'SCHEDULER' },
       { email: 'tech@demo.com', name: 'Tom Tech', role: 'INVENTORY_TECH' },
       { email: 'circulator@demo.com', name: 'Carla Circulator', role: 'CIRCULATOR' },
+      { email: 'scrub@demo.com', name: 'Steve Scrub', role: 'SCRUB' },
       { email: 'drsmith@demo.com', name: 'Dr. John Smith', role: 'SURGEON' },
       { email: 'drjones@demo.com', name: 'Dr. Sarah Jones', role: 'SURGEON' },
     ];
@@ -301,6 +302,63 @@ async function seed() {
 
     console.log('Created sample cases for tomorrow');
 
+    // Create additional test cases for debrief testing (day after tomorrow and beyond)
+    const dayAfterTomorrow = new Date();
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+    const dayAfterStr = dayAfterTomorrow.toISOString().split('T')[0];
+
+    const day3 = new Date();
+    day3.setDate(day3.getDate() + 3);
+    const day3Str = day3.toISOString().split('T')[0];
+
+    const day4 = new Date();
+    day4.setDate(day4.getDate() + 4);
+    const day4Str = day4.toISOString().split('T')[0];
+
+    // Test cases for debrief testing - Day +2
+    await client.query(`
+      INSERT INTO surgical_case (
+        facility_id, scheduled_date, scheduled_time, surgeon_id,
+        procedure_name, preference_card_version_id, status
+      )
+      VALUES
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 1', $4, 'SCHEDULED'),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 2', $4, 'SCHEDULED'),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 1', $6, 'SCHEDULED'),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 2', $6, 'SCHEDULED'),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 3', $4, 'SCHEDULED')
+    `, [facilityId, dayAfterStr, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id]);
+
+    // Test cases for debrief testing - Day +3
+    await client.query(`
+      INSERT INTO surgical_case (
+        facility_id, scheduled_date, scheduled_time, surgeon_id,
+        procedure_name, preference_card_version_id, status
+      )
+      VALUES
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 4', $4, 'SCHEDULED'),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 5', $4, 'SCHEDULED'),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 3', $6, 'SCHEDULED'),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 4', $6, 'SCHEDULED'),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 6', $4, 'SCHEDULED')
+    `, [facilityId, day3Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id]);
+
+    // Test cases for debrief testing - Day +4
+    await client.query(`
+      INSERT INTO surgical_case (
+        facility_id, scheduled_date, scheduled_time, surgeon_id,
+        procedure_name, preference_card_version_id, status
+      )
+      VALUES
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 7', $4, 'SCHEDULED'),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 8', $4, 'SCHEDULED'),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 5', $6, 'SCHEDULED'),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 6', $6, 'SCHEDULED'),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 9', $4, 'SCHEDULED')
+    `, [facilityId, day4Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id]);
+
+    console.log('Created 15 additional test cases for debrief testing');
+
     // Create a device
     await client.query(`
       INSERT INTO device (facility_id, name, device_type, location_id)
@@ -315,6 +373,7 @@ async function seed() {
     console.log('  admin@demo.com / password123 (Admin)');
     console.log('  tech@demo.com / password123 (Inventory Tech)');
     console.log('  circulator@demo.com / password123 (Circulator)');
+    console.log('  scrub@demo.com / password123 (Scrub Tech)');
     console.log('  drsmith@demo.com / password123 (Surgeon)');
     console.log('  drjones@demo.com / password123 (Surgeon)');
 
