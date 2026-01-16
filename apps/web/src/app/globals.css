@@ -194,6 +194,19 @@ body {
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  border-left: 4px solid var(--color-gray-300);
+}
+
+.procedure-card.status-green {
+  border-left-color: var(--color-green);
+}
+
+.procedure-card.status-orange {
+  border-left-color: var(--color-orange);
+}
+
+.procedure-card.status-red {
+  border-left-color: var(--color-red);
 }
 
 .procedure-card-header {
@@ -438,6 +451,77 @@ body {
   border-radius: 0.375rem;
   background: white;
   font-size: 0.875rem;
+}
+
+/* Filter Buttons */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.filter-bar-label {
+  font-size: 0.875rem;
+  color: var(--color-gray-500);
+  margin-right: 0.5rem;
+}
+
+.filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  border: 1px solid var(--color-gray-300);
+  background: white;
+  color: var(--color-gray-700);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-btn:hover {
+  border-color: var(--color-gray-500);
+}
+
+.filter-btn.active {
+  background: var(--color-gray-700);
+  border-color: var(--color-gray-700);
+  color: white;
+}
+
+.filter-btn.filter-green.active {
+  background: var(--color-green);
+  border-color: var(--color-green);
+}
+
+.filter-btn.filter-orange.active {
+  background: var(--color-orange);
+  border-color: var(--color-orange);
+}
+
+.filter-btn.filter-red.active {
+  background: var(--color-red);
+  border-color: var(--color-red);
+}
+
+.filter-btn-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background: var(--color-gray-200);
+}
+
+.filter-btn.active .filter-btn-count {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Scanner Panel */

@@ -181,7 +181,7 @@ function ProcedureCard({
   };
 
   return (
-    <div className="procedure-card">
+    <div className={`procedure-card status-${procedure.readinessState.toLowerCase()}`}>
       <div className="procedure-card-header">
         <div className="procedure-card-info">
           <h3>{procedure.procedureName}</h3>
@@ -293,6 +293,7 @@ export default function DayBeforePage() {
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
   // Scanner state
   const [scannerEnabled, setScannerEnabled] = useState(true);
@@ -434,6 +435,24 @@ export default function DayBeforePage() {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
+  const toggleFilter = (filter: string) => {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(filter)) {
+        next.delete(filter);
+      } else {
+        next.add(filter);
+      }
+      return next;
+    });
+  };
+
+  // Filter procedures based on active filters
+  const filteredProcedures = data?.cases.filter((proc) => {
+    if (activeFilters.size === 0) return true;
+    return activeFilters.has(proc.readinessState);
+  }) || [];
+
   if (isLoading || !user) {
     return <div className="loading">Loading...</div>;
   }
@@ -536,7 +555,40 @@ export default function DayBeforePage() {
               </div>
             </div>
 
-            {data.cases.length === 0 ? (
+            {/* Filter Buttons */}
+            <div className="filter-bar">
+              <span className="filter-bar-label">Filter:</span>
+              <button
+                className={`filter-btn filter-all ${activeFilters.size === 0 ? 'active' : ''}`}
+                onClick={() => setActiveFilters(new Set())}
+              >
+                All
+                <span className="filter-btn-count">{data.summary.total}</span>
+              </button>
+              <button
+                className={`filter-btn filter-green ${activeFilters.has('GREEN') ? 'active' : ''}`}
+                onClick={() => toggleFilter('GREEN')}
+              >
+                Ready
+                <span className="filter-btn-count">{data.summary.green}</span>
+              </button>
+              <button
+                className={`filter-btn filter-orange ${activeFilters.has('ORANGE') ? 'active' : ''}`}
+                onClick={() => toggleFilter('ORANGE')}
+              >
+                Pending
+                <span className="filter-btn-count">{data.summary.orange}</span>
+              </button>
+              <button
+                className={`filter-btn filter-red ${activeFilters.has('RED') ? 'active' : ''}`}
+                onClick={() => toggleFilter('RED')}
+              >
+                Missing
+                <span className="filter-btn-count">{data.summary.red}</span>
+              </button>
+            </div>
+
+            {filteredProcedures.length === 0 ? (
               <div
                 style={{
                   textAlign: 'center',
@@ -544,11 +596,13 @@ export default function DayBeforePage() {
                   color: 'var(--color-gray-500)',
                 }}
               >
-                No procedures scheduled for this date.
+                {data.cases.length === 0
+                  ? 'No procedures scheduled for this date.'
+                  : 'No procedures match the selected filters.'}
               </div>
             ) : (
               <div className="procedure-list">
-                {data.cases.map((proc) => (
+                {filteredProcedures.map((proc) => (
                   <ProcedureCard
                     key={proc.caseId}
                     procedure={proc}
