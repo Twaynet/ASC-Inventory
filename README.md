@@ -1,6 +1,29 @@
-# ASC Inventory Truth System v1.2.1
+# ASC Inventory Truth System v1.2.2
 
 A clinically honest, future-proof inventory system for Ambulatory Surgery Centers (ASCs).
+
+## What's New in v1.2.2
+
+### Conditional Debrief Signatures
+
+- **Role-Based Signature Requirements:** Debrief signatures are now conditionally required based on responses:
+  - **CIRCULATOR:** Always required, signs synchronously at end of case
+  - **SCRUB:** Required only when counts_status=exception OR equipment_issues=yes
+  - **SURGEON:** Required only when counts_status=exception OR equipment_issues=yes OR specimens=yes OR improvement_notes filled
+- **Async Review Workflow:** SCRUB and SURGEON can complete their reviews after the Circulator completes the debrief
+- **Role-Restricted Notes:** Private notes fields for SCRUB and SURGEON (scrub_notes, surgeon_notes)
+- **Active Selection:** No default values for Circulator inputs - explicit selection required
+- **Pending Reviews Dashboard:** `/pending-reviews` page for SCRUB/SURGEON to see and complete their pending reviews
+- **Admin Accountability View:** `/admin/pending-reviews` page showing all pending reviews with aging indicators
+- **Dashboard Integration:** Quick links to pending reviews on day-before dashboard
+
+### New API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/cases/:id/checklists/debrief/async-review` | Submit async SCRUB/SURGEON review | SCRUB/SURGEON |
+| GET | `/api/pending-reviews` | Get all pending reviews (admin) | Admin |
+| GET | `/api/my-pending-reviews` | Get current user's pending reviews | SCRUB/SURGEON |
 
 ## What's New in v1.2.1
 
@@ -260,8 +283,8 @@ docker pull ghcr.io/twaynet/asc-inventory-api:latest
 docker pull ghcr.io/twaynet/asc-inventory-web:latest
 
 # Or pull a specific version
-docker pull ghcr.io/twaynet/asc-inventory-api:1.2.1
-docker pull ghcr.io/twaynet/asc-inventory-web:1.2.1
+docker pull ghcr.io/twaynet/asc-inventory-api:1.2.2
+docker pull ghcr.io/twaynet/asc-inventory-web:1.2.2
 ```
 
 ### Production Docker Compose
@@ -283,7 +306,7 @@ services:
     restart: unless-stopped
 
   api:
-    image: ghcr.io/twaynet/asc-inventory-api:1.2.1
+    image: ghcr.io/twaynet/asc-inventory-api:1.2.2
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -298,7 +321,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: ghcr.io/twaynet/asc-inventory-web:1.2.1
+    image: ghcr.io/twaynet/asc-inventory-web:1.2.2
     environment:
       NEXT_PUBLIC_API_URL: ${API_URL}
     depends_on:
