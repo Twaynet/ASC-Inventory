@@ -524,6 +524,35 @@ body {
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* Sort Dropdown */
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.sort-control-label {
+  font-size: 0.875rem;
+  color: var(--color-gray-500);
+}
+
+.sort-select {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--color-gray-300);
+  border-radius: 0.375rem;
+  background: white;
+  color: var(--color-gray-700);
+  cursor: pointer;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--color-blue-500);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
 /* Scanner Panel */
 .scanner-panel {
   background: white;

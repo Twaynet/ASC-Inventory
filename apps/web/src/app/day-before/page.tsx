@@ -294,6 +294,7 @@ export default function DayBeforePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<'time' | 'status' | 'surgeon' | 'name'>('time');
 
   // Scanner state
   const [scannerEnabled, setScannerEnabled] = useState(true);
@@ -447,11 +448,30 @@ export default function DayBeforePage() {
     });
   };
 
-  // Filter procedures based on active filters
-  const filteredProcedures = data?.cases.filter((proc) => {
+  // Filter and sort procedures
+  const filteredProcedures = (data?.cases.filter((proc) => {
     if (activeFilters.size === 0) return true;
     return activeFilters.has(proc.readinessState);
-  }) || [];
+  }) || []).sort((a, b) => {
+    switch (sortBy) {
+      case 'time':
+        // Sort by scheduled time (nulls last)
+        if (!a.scheduledTime && !b.scheduledTime) return 0;
+        if (!a.scheduledTime) return 1;
+        if (!b.scheduledTime) return -1;
+        return a.scheduledTime.localeCompare(b.scheduledTime);
+      case 'status':
+        // Sort by status priority: RED first, then ORANGE, then GREEN
+        const statusOrder = { RED: 0, ORANGE: 1, GREEN: 2 };
+        return statusOrder[a.readinessState] - statusOrder[b.readinessState];
+      case 'surgeon':
+        return a.surgeonName.localeCompare(b.surgeonName);
+      case 'name':
+        return a.procedureName.localeCompare(b.procedureName);
+      default:
+        return 0;
+    }
+  });
 
   if (isLoading || !user) {
     return <div className="loading">Loading...</div>;
@@ -586,6 +606,21 @@ export default function DayBeforePage() {
                 Missing
                 <span className="filter-btn-count">{data.summary.red}</span>
               </button>
+
+              <div className="sort-control">
+                <label htmlFor="sort-select" className="sort-control-label">Sort:</label>
+                <select
+                  id="sort-select"
+                  className="sort-select"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                >
+                  <option value="time">Time</option>
+                  <option value="status">Status (Critical First)</option>
+                  <option value="surgeon">Surgeon</option>
+                  <option value="name">Procedure Name</option>
+                </select>
+              </div>
             </div>
 
             {filteredProcedures.length === 0 ? (
