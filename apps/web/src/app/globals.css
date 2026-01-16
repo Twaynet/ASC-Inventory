@@ -573,8 +573,34 @@ body {
 .filter-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1rem;
+}
+
+.expand-collapse-btns {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--color-gray-300);
+}
+
+.expand-collapse-btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+  background: transparent;
+  border: 1px solid var(--color-gray-300);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.expand-collapse-btn:hover {
+  color: var(--color-gray-700);
+  border-color: var(--color-gray-500);
+  background: var(--color-gray-50);
 }
 
 .filter-bar-label {

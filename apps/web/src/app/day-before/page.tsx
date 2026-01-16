@@ -128,18 +128,19 @@ function ProcedureCard({
   userId,
   token,
   onUpdate,
-  defaultExpanded = true,
+  isExpanded,
+  onToggleExpand,
 }: {
   procedure: CaseReadiness;
   userRole: string;
   userId: string;
   token: string;
   onUpdate: () => void;
-  defaultExpanded?: boolean;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
 }) {
   const [isAttesting, setIsAttesting] = useState(false);
   const [error, setError] = useState('');
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   const canAttest =
     !procedure.hasAttestation &&
@@ -185,7 +186,7 @@ function ProcedureCard({
 
   return (
     <div className={`procedure-card status-${procedure.readinessState.toLowerCase()} ${!isExpanded ? 'collapsed' : ''}`}>
-      <div className="procedure-card-header" onClick={() => setIsExpanded(!isExpanded)}>
+      <div className="procedure-card-header" onClick={onToggleExpand}>
         <div className="procedure-card-info">
           <div className="procedure-card-title-row">
             <span className="expand-icon">
@@ -327,6 +328,8 @@ export default function DayBeforePage() {
   const [error, setError] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'time' | 'status' | 'surgeon' | 'name'>('time');
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [allExpanded, setAllExpanded] = useState(true);
 
   // Scanner state
   const [scannerEnabled, setScannerEnabled] = useState(true);
@@ -479,6 +482,38 @@ export default function DayBeforePage() {
       return next;
     });
   };
+
+  // Expand/collapse helpers
+  const toggleCardExpanded = (caseId: string) => {
+    setExpandedCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(caseId)) {
+        next.delete(caseId);
+      } else {
+        next.add(caseId);
+      }
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    if (data) {
+      setExpandedCards(new Set(data.cases.map((c) => c.caseId)));
+      setAllExpanded(true);
+    }
+  };
+
+  const collapseAll = () => {
+    setExpandedCards(new Set());
+    setAllExpanded(false);
+  };
+
+  // Initialize expanded state when data loads
+  useEffect(() => {
+    if (data && allExpanded) {
+      setExpandedCards(new Set(data.cases.map((c) => c.caseId)));
+    }
+  }, [data]);
 
   // Filter and sort procedures
   const filteredProcedures = (data?.cases.filter((proc) => {
@@ -651,6 +686,15 @@ export default function DayBeforePage() {
                 <span className="filter-btn-count">{data.summary.red}</span>
               </button>
 
+              <div className="expand-collapse-btns">
+                <button className="expand-collapse-btn" onClick={expandAll}>
+                  Expand All
+                </button>
+                <button className="expand-collapse-btn" onClick={collapseAll}>
+                  Collapse All
+                </button>
+              </div>
+
               <div className="sort-control">
                 <label htmlFor="sort-select" className="sort-control-label">Sort:</label>
                 <select
@@ -689,6 +733,8 @@ export default function DayBeforePage() {
                     userId={user.id}
                     token={token!}
                     onUpdate={loadData}
+                    isExpanded={expandedCards.has(proc.caseId)}
+                    onToggleExpand={() => toggleCardExpanded(proc.caseId)}
                   />
                 ))}
               </div>
