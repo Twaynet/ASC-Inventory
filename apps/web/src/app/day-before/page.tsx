@@ -1,530 +1,150 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { useScanner, type ScanResult } from '@/lib/useScanner';
 import { AdminNav } from '@/app/components/AdminNav';
 import {
-  getDayBeforeReadiness,
-  createAttestation,
-  voidAttestation,
-  refreshReadiness,
-  sendDeviceEvent,
+  getCalendarSummary,
   getFacilitySettings,
   updateFacilitySettings,
-  type DayBeforeResponse,
-  type CaseReadiness,
-  type DeviceEventResponse,
+  type CalendarDaySummary,
+  type CalendarCaseSummary,
 } from '@/lib/api';
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+import { CalendarNav, type ViewMode } from './components/CalendarNav';
+import { MonthView } from './components/MonthView';
+import { WeekView } from './components/WeekView';
+import { DayView } from './components/DayView';
+
+function getStartOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-function formatTime(timeStr: string | null): string {
-  if (!timeStr) return 'TBD';
-  const [hours, minutes] = timeStr.split(':');
-  const hour = parseInt(hours);
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  const hour12 = hour % 12 || 12;
-  return `${hour12}:${minutes} ${ampm}`;
+function getEndOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
 
-function formatReason(reason: string): string {
-  const reasons: Record<string, string> = {
-    NOT_IN_INVENTORY: 'Not in inventory',
-    INSUFFICIENT_QUANTITY: 'Insufficient quantity',
-    NOT_STERILE: 'Not sterile',
-    STERILITY_EXPIRED: 'Sterility expired',
-    NOT_AVAILABLE: 'Not available (reserved)',
-    NOT_VERIFIED: 'Not yet verified',
-    NOT_LOCATABLE: 'Location unknown',
-  };
-  return reasons[reason] || reason;
+function getStartOfWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() - day);
+  return d;
 }
 
-// Scanner notification component
-interface ScanNotification {
-  id: number;
-  type: 'success' | 'error' | 'info';
-  message: string;
-  detail?: string;
-  timestamp: Date;
+function getEndOfWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (6 - day));
+  return d;
 }
 
-function ScannerPanel({
-  enabled,
-  onToggle,
-  isCapturing,
-  notifications,
-  onDismiss,
-}: {
-  enabled: boolean;
-  onToggle: () => void;
-  isCapturing: boolean;
-  notifications: ScanNotification[];
-  onDismiss: (id: number) => void;
-}) {
-  return (
-    <div className="scanner-panel">
-      <div className="scanner-panel-header">
-        <div className="scanner-status">
-          <span
-            className={`scanner-indicator ${enabled ? 'active' : 'inactive'}`}
-          />
-          <span className="scanner-label">
-            {isCapturing
-              ? 'Scanning...'
-              : enabled
-              ? 'Scanner Ready'
-              : 'Scanner Disabled'}
-          </span>
-        </div>
-        <button
-          className={`btn btn-sm ${enabled ? 'btn-secondary' : 'btn-primary'}`}
-          onClick={onToggle}
-        >
-          {enabled ? 'Disable Scanner' : 'Enable Scanner'}
-        </button>
-      </div>
-
-      {enabled && (
-        <div className="scanner-hint">
-          Scan barcodes anywhere on this page to verify items
-        </div>
-      )}
-
-      {notifications.length > 0 && (
-        <div className="scan-notifications">
-          {notifications.map((notif) => (
-            <div
-              key={notif.id}
-              className={`scan-notification ${notif.type}`}
-              onClick={() => onDismiss(notif.id)}
-            >
-              <div className="scan-notification-content">
-                <span className="scan-notification-message">{notif.message}</span>
-                {notif.detail && (
-                  <span className="scan-notification-detail">{notif.detail}</span>
-                )}
-              </div>
-              <span className="scan-notification-time">
-                {notif.timestamp.toLocaleTimeString()}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function formatDateParam(date: Date): string {
+  return date.toISOString().split('T')[0];
 }
 
-function ProcedureCard({
-  procedure,
-  userRole,
-  userId,
-  token,
-  onUpdate,
-  isExpanded,
-  onToggleExpand,
-  featureEnabled,
-}: {
-  procedure: CaseReadiness;
-  userRole: string;
-  userId: string;
-  token: string;
-  onUpdate: () => void;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  featureEnabled: boolean;
-}) {
-  const router = useRouter();
-  const [isAttesting, setIsAttesting] = useState(false);
-  const [error, setError] = useState('');
-
-  const canAttest =
-    !procedure.hasAttestation &&
-    ['ADMIN', 'CIRCULATOR', 'INVENTORY_TECH'].includes(userRole);
-
-  const canVoidAttestation =
-    procedure.hasAttestation &&
-    procedure.attestationId &&
-    ['ADMIN', 'CIRCULATOR', 'INVENTORY_TECH'].includes(userRole);
-
-  const canAcknowledge =
-    procedure.readinessState === 'RED' &&
-    !procedure.hasSurgeonAcknowledgment &&
-    userRole === 'SURGEON' &&
-    procedure.surgeonId === userId;
-
-  const canVoidAcknowledgment =
-    procedure.hasSurgeonAcknowledgment &&
-    procedure.surgeonAcknowledgmentId &&
-    (userRole === 'ADMIN' || (userRole === 'SURGEON' && procedure.surgeonId === userId));
-
-  const handleAttest = async () => {
-    setIsAttesting(true);
-    setError('');
-    try {
-      await createAttestation(token, {
-        caseId: procedure.caseId,
-        type: 'CASE_READINESS',
-      });
-      onUpdate();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Attestation failed');
-    } finally {
-      setIsAttesting(false);
-    }
-  };
-
-  const handleAcknowledge = async () => {
-    setIsAttesting(true);
-    setError('');
-    try {
-      await createAttestation(token, {
-        caseId: procedure.caseId,
-        type: 'SURGEON_ACKNOWLEDGMENT',
-      });
-      onUpdate();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Acknowledgment failed');
-    } finally {
-      setIsAttesting(false);
-    }
-  };
-
-  const handleVoidAttestation = async () => {
-    if (!procedure.attestationId) return;
-    if (!confirm('Are you sure you want to void this attestation?')) return;
-
-    setIsAttesting(true);
-    setError('');
-    try {
-      await voidAttestation(token, procedure.attestationId);
-      onUpdate();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Void failed');
-    } finally {
-      setIsAttesting(false);
-    }
-  };
-
-  const handleVoidAcknowledgment = async () => {
-    if (!procedure.surgeonAcknowledgmentId) return;
-    if (!confirm('Are you sure you want to void this surgeon acknowledgment?')) return;
-
-    setIsAttesting(true);
-    setError('');
-    try {
-      await voidAttestation(token, procedure.surgeonAcknowledgmentId);
-      onUpdate();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Void failed');
-    } finally {
-      setIsAttesting(false);
-    }
-  };
-
-  // Determine card class based on active/cancelled state
-  const cardClass = [
-    'procedure-card',
-    `status-${procedure.readinessState.toLowerCase()}`,
-    !isExpanded ? 'collapsed' : '',
-    !procedure.isActive ? 'inactive-case' : '',
-    procedure.isCancelled ? 'cancelled-case' : '',
-  ].filter(Boolean).join(' ');
-
-  return (
-    <div className={cardClass}>
-      {/* Status banners for inactive/cancelled cases */}
-      {!procedure.isActive && !procedure.isCancelled && (
-        <div className="case-status-banner pending-approval">
-          PENDING APPROVAL - Case not yet activated by admin
-        </div>
-      )}
-      {procedure.isCancelled && (
-        <div className="case-status-banner cancelled">
-          CANCELLED
-        </div>
-      )}
-      <div className="procedure-card-header" onClick={onToggleExpand}>
-        <div className="procedure-card-info">
-          <div className="procedure-card-title-row">
-            <span className="expand-icon">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z"/>
-              </svg>
-            </span>
-            <h3>{procedure.procedureName}</h3>
-          </div>
-          <p>
-            {procedure.scheduledDate ? formatTime(procedure.scheduledTime) : 'Date TBD'} &bull; Dr. {procedure.surgeonName}
-          </p>
-        </div>
-        <div className={`readiness-badge ${procedure.readinessState.toLowerCase()}`}>
-          {procedure.readinessState === 'GREEN' && 'READY'}
-          {procedure.readinessState === 'ORANGE' && 'PENDING'}
-          {procedure.readinessState === 'RED' && 'MISSING ITEMS'}
-        </div>
-      </div>
-
-      <div className="procedure-card-collapsible">
-        <div className="procedure-card-body">
-        {/* Items Progress Bar */}
-        {(() => {
-          const percent = procedure.totalRequiredItems > 0
-            ? Math.round((procedure.totalVerifiedItems / procedure.totalRequiredItems) * 100)
-            : 0;
-          const fillClass = percent === 100 ? 'complete' : percent >= 50 ? 'partial' : 'low';
-          return (
-            <div className="items-progress">
-              <div className="items-progress-header">
-                <span className="items-progress-label">Items Verified</span>
-                <span className="items-progress-count">
-                  {procedure.totalVerifiedItems} / {procedure.totalRequiredItems}
-                </span>
-              </div>
-              <div className="items-progress-bar">
-                <div
-                  className={`items-progress-fill ${fillClass}`}
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
-            </div>
-          );
-        })()}
-
-        {procedure.missingItems.length > 0 && (
-          <div className="missing-items">
-            <h4>Missing Items ({procedure.missingItems.length})</h4>
-            <ul className="missing-items-list">
-              {procedure.missingItems.map((item, i) => (
-                <li key={i} className="missing-item">
-                  <span className="missing-item-name">
-                    {item.catalogName} (need {item.requiredQuantity}, have{' '}
-                    {item.availableQuantity})
-                  </span>
-                  <span className="missing-item-reason">
-                    {formatReason(item.reason)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {error && (
-          <div className="form-error" style={{ marginTop: '0.5rem' }}>
-            {error}
-          </div>
-        )}
-      </div>
-
-      <div className="procedure-card-footer">
-        <div className="attestation-status">
-          {procedure.hasAttestation ? (
-            <span className="attestation-info">
-              <span className="attestation-status attested">
-                Attested by {procedure.attestedByName}
-              </span>
-              {canVoidAttestation && (
-                <button
-                  className="btn-void"
-                  onClick={handleVoidAttestation}
-                  disabled={isAttesting}
-                  title="Void this attestation"
-                >
-                  Void
-                </button>
-              )}
-            </span>
-          ) : (
-            <span className="attestation-status pending">
-              Awaiting attestation
-            </span>
-          )}
-          {procedure.readinessState === 'RED' && (
-            <>
-              {procedure.hasSurgeonAcknowledgment ? (
-                <span className="attestation-info" style={{ marginLeft: '1rem' }}>
-                  <span style={{ color: 'var(--color-orange)' }}>
-                    Surgeon acknowledged
-                  </span>
-                  {canVoidAcknowledgment && (
-                    <button
-                      className="btn-void"
-                      onClick={handleVoidAcknowledgment}
-                      disabled={isAttesting}
-                      title="Void this acknowledgment"
-                    >
-                      Void
-                    </button>
-                  )}
-                </span>
-              ) : (
-                <span style={{ marginLeft: '1rem', color: 'var(--color-red)' }}>
-                  Surgeon acknowledgment required
-                </span>
-              )}
-            </>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {/* Only show Timeout/Debrief buttons for active, non-cancelled cases */}
-          {featureEnabled && procedure.isActive && !procedure.isCancelled && (
-            <>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => router.push(`/or/timeout/${procedure.caseId}`)}
-              >
-                Time Out
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => router.push(`/or/debrief/${procedure.caseId}`)}
-              >
-                Debrief
-              </button>
-            </>
-          )}
-          {/* Only show attestation buttons for active, non-cancelled cases */}
-          {canAttest && procedure.isActive && !procedure.isCancelled && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={handleAttest}
-              disabled={isAttesting}
-            >
-              {isAttesting ? 'Attesting...' : 'Attest Readiness'}
-            </button>
-          )}
-          {canAcknowledge && procedure.isActive && !procedure.isCancelled && (
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={handleAcknowledge}
-              disabled={isAttesting}
-            >
-              {isAttesting ? 'Acknowledging...' : 'Acknowledge & Proceed'}
-            </button>
-          )}
-        </div>
-      </div>
-      </div>
-    </div>
-  );
-}
-
-// Default device ID for keyboard wedge (virtual device)
-const KEYBOARD_WEDGE_DEVICE_ID = '00000000-0000-0000-0000-000000000000';
-
-export default function DayBeforePage() {
-  const { user, token, isLoading, logout } = useAuth();
-  const router = useRouter();
-
-  const [data, setData] = useState<DayBeforeResponse | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
+function parseDateParam(dateStr: string | null): Date {
+  if (!dateStr) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
-  });
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<'time' | 'status' | 'surgeon' | 'name'>('time');
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-  const [allExpanded, setAllExpanded] = useState(true);
+    return tomorrow;
+  }
+
+  // Handle YYYY-MM format for month view
+  if (/^\d{4}-\d{2}$/.test(dateStr)) {
+    const [year, month] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, 1);
+  }
+
+  // Handle YYYY-MM-DD format
+  return new Date(dateStr + 'T00:00:00');
+}
+
+function DayBeforeContent() {
+  const { user, token, isLoading, logout } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Parse URL params
+  const viewParam = searchParams.get('view') as ViewMode | null;
+  const dateParam = searchParams.get('date');
+
+  const [viewMode, setViewMode] = useState<ViewMode>(viewParam || 'day');
+  const [currentDate, setCurrentDate] = useState<Date>(() => parseDateParam(dateParam));
   const [timeoutDebriefEnabled, setTimeoutDebriefEnabled] = useState(false);
   const [isTogglingFeature, setIsTogglingFeature] = useState(false);
 
-  // Scanner state
-  const [scannerEnabled, setScannerEnabled] = useState(true);
-  const [notifications, setNotifications] = useState<ScanNotification[]>([]);
-  const [notificationId, setNotificationId] = useState(0);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [devices, setDevices] = useState<Array<{ id: string; name: string }>>([]);
+  // Calendar data
+  const [daySummaries, setDaySummaries] = useState<CalendarDaySummary[]>([]);
+  const [weekCases, setWeekCases] = useState<CalendarCaseSummary[]>([]);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+  const [calendarError, setCalendarError] = useState('');
 
-  // Add notification helper
-  const addNotification = useCallback(
-    (type: ScanNotification['type'], message: string, detail?: string) => {
-      const id = notificationId + 1;
-      setNotificationId(id);
-      setNotifications((prev) => [
-        { id, type, message, detail, timestamp: new Date() },
-        ...prev.slice(0, 4), // Keep max 5 notifications
-      ]);
+  // Update URL when view mode or date changes
+  const updateUrl = useCallback((mode: ViewMode, date: Date) => {
+    const params = new URLSearchParams();
+    params.set('view', mode);
 
-      // Auto-dismiss after 5 seconds
-      setTimeout(() => {
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
-      }, 5000);
-    },
-    [notificationId]
-  );
-
-  // Handle scan
-  const handleScan = useCallback(
-    async (result: ScanResult) => {
-      if (!token) return;
-
-      const deviceId = selectedDeviceId || KEYBOARD_WEDGE_DEVICE_ID;
-
-      try {
-        const response = await sendDeviceEvent(token, {
-          deviceId,
-          deviceType: 'barcode',
-          payloadType: 'scan',
-          rawValue: result.value,
-          occurredAt: result.timestamp.toISOString(),
-        });
-
-        if (response.processed) {
-          addNotification(
-            'success',
-            'Item Verified',
-            `Barcode: ${result.value}`
-          );
-          // Refresh data to show updated verification status
-          loadData();
-        } else {
-          addNotification(
-            'error',
-            'Item Not Found',
-            response.error || `Barcode: ${result.value}`
-          );
-        }
-      } catch (err) {
-        addNotification(
-          'error',
-          'Scan Failed',
-          err instanceof Error ? err.message : 'Unknown error'
-        );
-      }
-    },
-    [token, selectedDeviceId, addNotification]
-  );
-
-  // Initialize scanner hook
-  const { isCapturing } = useScanner({
-    enabled: scannerEnabled,
-    onScan: handleScan,
-    minLength: 3,
-  });
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
+    if (mode === 'month') {
+      // For month view, use YYYY-MM format
+      const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      params.set('date', monthStr);
+    } else {
+      params.set('date', formatDateParam(date));
     }
-  }, [user, isLoading, router]);
 
-  // Load facility settings to check if timeout/debrief is enabled
+    router.push(`/day-before?${params.toString()}`, { scroll: false });
+  }, [router]);
+
+  // Handle view mode change
+  const handleViewModeChange = useCallback((newMode: ViewMode) => {
+    setViewMode(newMode);
+    updateUrl(newMode, currentDate);
+  }, [currentDate, updateUrl]);
+
+  // Handle navigation
+  const handleNavigate = useCallback((direction: 'prev' | 'next' | 'today') => {
+    let newDate: Date;
+
+    if (direction === 'today') {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      newDate = tomorrow;
+    } else {
+      newDate = new Date(currentDate);
+      const delta = direction === 'prev' ? -1 : 1;
+
+      if (viewMode === 'month') {
+        newDate.setMonth(newDate.getMonth() + delta);
+      } else if (viewMode === 'week') {
+        newDate.setDate(newDate.getDate() + (delta * 7));
+      } else {
+        newDate.setDate(newDate.getDate() + delta);
+      }
+    }
+
+    setCurrentDate(newDate);
+    updateUrl(viewMode, newDate);
+  }, [currentDate, viewMode, updateUrl]);
+
+  // Handle day click from Month View -> Week View
+  const handleDayClickFromMonth = useCallback((date: Date) => {
+    setCurrentDate(date);
+    setViewMode('week');
+    updateUrl('week', date);
+  }, [updateUrl]);
+
+  // Handle day click from Week View -> Day View
+  const handleDayClickFromWeek = useCallback((date: Date) => {
+    setCurrentDate(date);
+    setViewMode('day');
+    updateUrl('day', date);
+  }, [updateUrl]);
+
+  // Selected date string for Day View
+  const selectedDateStr = useMemo(() => formatDateParam(currentDate), [currentDate]);
+
+  // Load facility settings
   useEffect(() => {
     const loadSettings = async () => {
       if (!token) return;
@@ -538,6 +158,57 @@ export default function DayBeforePage() {
     loadSettings();
   }, [token]);
 
+  // Load calendar data based on view mode
+  useEffect(() => {
+    const loadCalendarData = async () => {
+      if (!token || viewMode === 'day') return;
+
+      setIsLoadingCalendar(true);
+      setCalendarError('');
+
+      try {
+        let startDate: string;
+        let endDate: string;
+        let granularity: 'day' | 'case';
+
+        if (viewMode === 'month') {
+          // For month view, get the full month plus padding for calendar display
+          const monthStart = getStartOfMonth(currentDate);
+          const monthEnd = getEndOfMonth(currentDate);
+          // Include days from previous/next months that appear in the calendar grid
+          const calendarStart = getStartOfWeek(monthStart);
+          const calendarEnd = getEndOfWeek(monthEnd);
+
+          startDate = formatDateParam(calendarStart);
+          endDate = formatDateParam(calendarEnd);
+          granularity = 'day';
+        } else {
+          // Week view
+          const weekStart = getStartOfWeek(currentDate);
+          const weekEnd = getEndOfWeek(currentDate);
+
+          startDate = formatDateParam(weekStart);
+          endDate = formatDateParam(weekEnd);
+          granularity = 'case';
+        }
+
+        const result = await getCalendarSummary(token, startDate, endDate, granularity);
+
+        if (viewMode === 'month' && result.days) {
+          setDaySummaries(result.days);
+        } else if (viewMode === 'week' && result.cases) {
+          setWeekCases(result.cases);
+        }
+      } catch (err) {
+        setCalendarError(err instanceof Error ? err.message : 'Failed to load calendar data');
+      } finally {
+        setIsLoadingCalendar(false);
+      }
+    };
+
+    loadCalendarData();
+  }, [token, viewMode, currentDate]);
+
   const handleToggleTimeoutDebrief = async () => {
     if (!token) return;
     setIsTogglingFeature(true);
@@ -547,140 +218,18 @@ export default function DayBeforePage() {
       });
       setTimeoutDebriefEnabled(settings.enableTimeoutDebrief);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update settings');
+      // Handle error
     } finally {
       setIsTogglingFeature(false);
     }
   };
 
-  const loadData = async () => {
-    if (!token) return;
-    try {
-      const result = await getDayBeforeReadiness(token, selectedDate);
-      setData(result);
-      setError('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-    }
-  };
-
-  // Load devices on mount
+  // Redirect if not logged in
   useEffect(() => {
-    const loadDevices = async () => {
-      if (!token) return;
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/inventory/devices`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setDevices(data.devices || []);
-          // If there's a device, select the first one
-          if (data.devices?.length > 0) {
-            setSelectedDeviceId(data.devices[0].id);
-          }
-        }
-      } catch {
-        // Ignore device loading errors
-      }
-    };
-    loadDevices();
-  }, [token]);
-
-  useEffect(() => {
-    if (token) {
-      loadData();
+    if (!isLoading && !user) {
+      router.push('/login');
     }
-  }, [token, selectedDate]);
-
-  const handleRefresh = async () => {
-    if (!token) return;
-    setIsRefreshing(true);
-    try {
-      await refreshReadiness(token, selectedDate);
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Refresh failed');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const dismissNotification = (id: number) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  const toggleFilter = (filter: string) => {
-    setActiveFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(filter)) {
-        next.delete(filter);
-      } else {
-        next.add(filter);
-      }
-      return next;
-    });
-  };
-
-  // Expand/collapse helpers
-  const toggleCardExpanded = (caseId: string) => {
-    setExpandedCards((prev) => {
-      const next = new Set(prev);
-      if (next.has(caseId)) {
-        next.delete(caseId);
-      } else {
-        next.add(caseId);
-      }
-      return next;
-    });
-  };
-
-  const expandAll = () => {
-    if (data) {
-      setExpandedCards(new Set(data.cases.map((c) => c.caseId)));
-      setAllExpanded(true);
-    }
-  };
-
-  const collapseAll = () => {
-    setExpandedCards(new Set());
-    setAllExpanded(false);
-  };
-
-  // Initialize expanded state when data loads
-  useEffect(() => {
-    if (data && allExpanded) {
-      setExpandedCards(new Set(data.cases.map((c) => c.caseId)));
-    }
-  }, [data]);
-
-  // Filter and sort procedures
-  const filteredProcedures = (data?.cases.filter((proc) => {
-    if (activeFilters.size === 0) return true;
-    return activeFilters.has(proc.readinessState);
-  }) || []).sort((a, b) => {
-    switch (sortBy) {
-      case 'time':
-        // Sort by scheduled time (nulls last)
-        if (!a.scheduledTime && !b.scheduledTime) return 0;
-        if (!a.scheduledTime) return 1;
-        if (!b.scheduledTime) return -1;
-        return a.scheduledTime.localeCompare(b.scheduledTime);
-      case 'status':
-        // Sort by status priority: RED first, then ORANGE, then GREEN
-        const statusOrder = { RED: 0, ORANGE: 1, GREEN: 2 };
-        return statusOrder[a.readinessState] - statusOrder[b.readinessState];
-      case 'surgeon':
-        return a.surgeonName.localeCompare(b.surgeonName);
-      case 'name':
-        return a.procedureName.localeCompare(b.procedureName);
-      default:
-        return 0;
-    }
-  });
+  }, [user, isLoading, router]);
 
   if (isLoading || !user) {
     return <div className="loading">Loading...</div>;
@@ -690,7 +239,7 @@ export default function DayBeforePage() {
     <>
       <header className="header">
         <div className="container header-content">
-          <h1>Day-Before Review</h1>
+          <h1>Case Calendar</h1>
           <div className="header-user">
             <AdminNav userRole={user.role} />
             <span>
@@ -705,15 +254,6 @@ export default function DayBeforePage() {
       </header>
 
       <main className="container">
-        {/* Scanner Panel */}
-        <ScannerPanel
-          enabled={scannerEnabled}
-          onToggle={() => setScannerEnabled(!scannerEnabled)}
-          isCapturing={isCapturing}
-          notifications={notifications}
-          onDismiss={dismissNotification}
-        />
-
         {/* Admin: Time Out/Debrief Feature Toggle */}
         {user.role === 'ADMIN' && (
           <div className="feature-toggle-panel">
@@ -740,54 +280,15 @@ export default function DayBeforePage() {
           </div>
         )}
 
-        {/* SCRUB/SURGEON: My Pending Reviews Link */}
-        {(user.role === 'SCRUB' || user.role === 'SURGEON') && timeoutDebriefEnabled && (
-          <div className="pending-reviews-link-panel">
-            <button
-              className="btn btn-secondary"
-              onClick={() => router.push('/pending-reviews')}
-            >
-              My Pending Reviews
-            </button>
-            <span className="pending-reviews-hint">
-              Review and sign debriefs that require your attention
-            </span>
-          </div>
-        )}
+        {/* Calendar Navigation */}
+        <CalendarNav
+          viewMode={viewMode}
+          currentDate={currentDate}
+          onViewModeChange={handleViewModeChange}
+          onNavigate={handleNavigate}
+        />
 
-        <div className="date-header">
-          <h2>Procedures for {formatDate(selectedDate)}</h2>
-          <div className="date-controls">
-            {devices.length > 0 && (
-              <select
-                value={selectedDeviceId || ''}
-                onChange={(e) => setSelectedDeviceId(e.target.value || null)}
-                className="device-select"
-              >
-                <option value="">Keyboard Wedge</option>
-                {devices.map((device) => (
-                  <option key={device.id} value={device.id}>
-                    {device.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </button>
-          </div>
-        </div>
-
-        {error && (
+        {calendarError && (
           <div
             className="form-error"
             style={{
@@ -797,136 +298,51 @@ export default function DayBeforePage() {
               borderRadius: '0.5rem',
             }}
           >
-            {error}
+            {calendarError}
           </div>
         )}
 
-        {data && (
-          <>
-            <div className="summary-grid">
-              <div
-                className={`summary-card ${activeFilters.size === 0 ? 'active' : ''}`}
-                onClick={() => setActiveFilters(new Set())}
-              >
-                <div className="summary-card-label">Total Procedures</div>
-                <div className="summary-card-value">{data.summary.total}</div>
-              </div>
-              <div
-                className={`summary-card green ${activeFilters.has('GREEN') && activeFilters.size === 1 ? 'active' : ''}`}
-                onClick={() => setActiveFilters(new Set(['GREEN']))}
-              >
-                <div className="summary-card-label">Ready</div>
-                <div className="summary-card-value">{data.summary.green}</div>
-              </div>
-              <div
-                className={`summary-card orange ${activeFilters.has('ORANGE') && activeFilters.size === 1 ? 'active' : ''}`}
-                onClick={() => setActiveFilters(new Set(['ORANGE']))}
-              >
-                <div className="summary-card-label">Pending</div>
-                <div className="summary-card-value">{data.summary.orange}</div>
-              </div>
-              <div
-                className={`summary-card red ${activeFilters.has('RED') && activeFilters.size === 1 ? 'active' : ''}`}
-                onClick={() => setActiveFilters(new Set(['RED']))}
-              >
-                <div className="summary-card-label">Missing Items</div>
-                <div className="summary-card-value">{data.summary.red}</div>
-              </div>
-              <div className="summary-card">
-                <div className="summary-card-label">Attested</div>
-                <div className="summary-card-value">{data.summary.attested}</div>
-              </div>
-            </div>
+        {/* Render appropriate view */}
+        {viewMode === 'month' && (
+          <MonthView
+            currentDate={currentDate}
+            daySummaries={daySummaries}
+            onDayClick={handleDayClickFromMonth}
+            isLoading={isLoadingCalendar}
+          />
+        )}
 
-            {/* Filter Buttons */}
-            <div className="filter-bar">
-              <span className="filter-bar-label">Filter:</span>
-              <button
-                className={`filter-btn filter-all ${activeFilters.size === 0 ? 'active' : ''}`}
-                onClick={() => setActiveFilters(new Set())}
-              >
-                All
-                <span className="filter-btn-count">{data.summary.total}</span>
-              </button>
-              <button
-                className={`filter-btn filter-green ${activeFilters.has('GREEN') ? 'active' : ''}`}
-                onClick={() => toggleFilter('GREEN')}
-              >
-                Ready
-                <span className="filter-btn-count">{data.summary.green}</span>
-              </button>
-              <button
-                className={`filter-btn filter-orange ${activeFilters.has('ORANGE') ? 'active' : ''}`}
-                onClick={() => toggleFilter('ORANGE')}
-              >
-                Pending
-                <span className="filter-btn-count">{data.summary.orange}</span>
-              </button>
-              <button
-                className={`filter-btn filter-red ${activeFilters.has('RED') ? 'active' : ''}`}
-                onClick={() => toggleFilter('RED')}
-              >
-                Missing
-                <span className="filter-btn-count">{data.summary.red}</span>
-              </button>
+        {viewMode === 'week' && (
+          <WeekView
+            currentDate={currentDate}
+            cases={weekCases}
+            onDayClick={handleDayClickFromWeek}
+            isLoading={isLoadingCalendar}
+          />
+        )}
 
-              <div className="expand-collapse-btns">
-                <button className="expand-collapse-btn" onClick={expandAll}>
-                  Expand All
-                </button>
-                <button className="expand-collapse-btn" onClick={collapseAll}>
-                  Collapse All
-                </button>
-              </div>
-
-              <div className="sort-control">
-                <label htmlFor="sort-select" className="sort-control-label">Sort:</label>
-                <select
-                  id="sort-select"
-                  className="sort-select"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                >
-                  <option value="time">Time</option>
-                  <option value="status">Status (Critical First)</option>
-                  <option value="surgeon">Surgeon</option>
-                  <option value="name">Procedure Name</option>
-                </select>
-              </div>
-            </div>
-
-            {filteredProcedures.length === 0 ? (
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '3rem',
-                  color: 'var(--color-gray-500)',
-                }}
-              >
-                {data.cases.length === 0
-                  ? 'No procedures scheduled for this date.'
-                  : 'No procedures match the selected filters.'}
-              </div>
-            ) : (
-              <div className="procedure-list">
-                {filteredProcedures.map((proc) => (
-                  <ProcedureCard
-                    key={proc.caseId}
-                    procedure={proc}
-                    userRole={user.role}
-                    userId={user.id}
-                    token={token!}
-                    onUpdate={loadData}
-                    isExpanded={expandedCards.has(proc.caseId)}
-                    onToggleExpand={() => toggleCardExpanded(proc.caseId)}
-                    featureEnabled={timeoutDebriefEnabled}
-                  />
-                ))}
-              </div>
-            )}
-          </>
+        {viewMode === 'day' && (
+          <DayView
+            selectedDate={selectedDateStr}
+            token={token!}
+            user={{
+              id: user.id,
+              name: user.name,
+              role: user.role,
+              facilityName: user.facilityName,
+            }}
+            timeoutDebriefEnabled={timeoutDebriefEnabled}
+          />
         )}
       </main>
     </>
+  );
+}
+
+export default function DayBeforePage() {
+  return (
+    <Suspense fallback={<div className="loading">Loading...</div>}>
+      <DayBeforeContent />
+    </Suspense>
   );
 }

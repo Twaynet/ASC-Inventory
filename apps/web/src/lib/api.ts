@@ -116,6 +116,191 @@ export async function getDayBeforeReadiness(
   return api(`/readiness/day-before${query}`, { token });
 }
 
+// Calendar Summary (Month/Week views)
+export interface CalendarDaySummary {
+  date: string;
+  caseCount: number;
+  greenCount: number;
+  orangeCount: number;
+  redCount: number;
+}
+
+export interface CalendarCaseSummary {
+  caseId: string;
+  scheduledDate: string;
+  scheduledTime: string | null;
+  procedureName: string;
+  surgeonName: string;
+  readinessState: 'GREEN' | 'ORANGE' | 'RED';
+}
+
+export interface CalendarSummaryResponse {
+  days?: CalendarDaySummary[];
+  cases?: CalendarCaseSummary[];
+}
+
+export async function getCalendarSummary(
+  token: string,
+  startDate: string,
+  endDate: string,
+  granularity: 'day' | 'case'
+): Promise<CalendarSummaryResponse> {
+  const params = new URLSearchParams({
+    startDate,
+    endDate,
+    granularity,
+  });
+  return api(`/readiness/calendar-summary?${params.toString()}`, { token });
+}
+
+// ============================================================================
+// Case Cards
+// ============================================================================
+
+export type CaseCardStatus = 'DRAFT' | 'ACTIVE' | 'DEPRECATED';
+export type CaseType = 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION';
+
+export interface CaseCardSummary {
+  id: string;
+  surgeonId: string;
+  surgeonName: string;
+  procedureName: string;
+  procedureCodes: string[];
+  caseType: CaseType;
+  defaultDurationMinutes: number | null;
+  status: CaseCardStatus;
+  version: string;
+  currentVersionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdByName: string;
+}
+
+export interface CaseCardVersionData {
+  id: string;
+  versionNumber: string;
+  headerInfo: Record<string, unknown>;
+  patientFlags: Record<string, unknown>;
+  instrumentation: Record<string, unknown>;
+  equipment: Record<string, unknown>;
+  supplies: Record<string, unknown>;
+  medications: Record<string, unknown>;
+  setupPositioning: Record<string, unknown>;
+  surgeonNotes: Record<string, unknown>;
+  createdAt: string;
+  createdByUserId: string;
+  createdByName: string;
+}
+
+export interface CaseCardDetail extends CaseCardSummary {
+  turnoverNotes: string | null;
+}
+
+export interface CaseCardEditLogEntry {
+  id: string;
+  editorUserId: string;
+  editorName: string;
+  editorRole: string;
+  changeSummary: string;
+  reasonForChange: string | null;
+  previousVersionId: string | null;
+  newVersionId: string | null;
+  editedAt: string;
+}
+
+export interface CaseCardCreateRequest {
+  surgeonId: string;
+  procedureName: string;
+  procedureCodes?: string[];
+  caseType?: CaseType;
+  defaultDurationMinutes?: number;
+  turnoverNotes?: string;
+  headerInfo?: Record<string, unknown>;
+  patientFlags?: Record<string, unknown>;
+  instrumentation?: Record<string, unknown>;
+  equipment?: Record<string, unknown>;
+  supplies?: Record<string, unknown>;
+  medications?: Record<string, unknown>;
+  setupPositioning?: Record<string, unknown>;
+  surgeonNotes?: Record<string, unknown>;
+  reasonForChange?: string;
+}
+
+export interface CaseCardUpdateRequest extends Partial<CaseCardCreateRequest> {
+  changeSummary: string;
+  reasonForChange?: string;
+  versionBump?: 'major' | 'minor' | 'patch';
+}
+
+export async function getCaseCards(
+  token: string,
+  filters?: { surgeonId?: string; status?: string; search?: string }
+): Promise<{ cards: CaseCardSummary[] }> {
+  const params = new URLSearchParams();
+  if (filters?.surgeonId) params.set('surgeonId', filters.surgeonId);
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.search) params.set('search', filters.search);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return api(`/case-cards${query}`, { token });
+}
+
+export async function getCaseCard(
+  token: string,
+  id: string
+): Promise<{ card: CaseCardDetail; currentVersion: CaseCardVersionData | null }> {
+  return api(`/case-cards/${id}`, { token });
+}
+
+export async function getCaseCardEditLog(
+  token: string,
+  id: string
+): Promise<{ editLog: CaseCardEditLogEntry[] }> {
+  return api(`/case-cards/${id}/edit-log`, { token });
+}
+
+export async function getCaseCardVersions(
+  token: string,
+  id: string
+): Promise<{ versions: { id: string; versionNumber: string; createdAt: string; createdByName: string }[] }> {
+  return api(`/case-cards/${id}/versions`, { token });
+}
+
+export async function createCaseCard(
+  token: string,
+  data: CaseCardCreateRequest
+): Promise<{ card: CaseCardSummary }> {
+  return api('/case-cards', { method: 'POST', token, body: data });
+}
+
+export async function updateCaseCard(
+  token: string,
+  id: string,
+  data: CaseCardUpdateRequest
+): Promise<{ success: boolean; version: string; versionId: string }> {
+  return api(`/case-cards/${id}`, { method: 'PUT', token, body: data });
+}
+
+export async function activateCaseCard(
+  token: string,
+  id: string
+): Promise<{ success: boolean; status: string }> {
+  return api(`/case-cards/${id}/activate`, { method: 'POST', token });
+}
+
+export async function deprecateCaseCard(
+  token: string,
+  id: string,
+  reason?: string
+): Promise<{ success: boolean; status: string }> {
+  return api(`/case-cards/${id}/deprecate`, { method: 'POST', token, body: { reason } });
+}
+
+export async function getCaseCardSurgeons(
+  token: string
+): Promise<{ surgeons: { id: string; name: string }[] }> {
+  return api('/case-cards/surgeons', { token });
+}
+
 // Attestations
 export interface CreateAttestationRequest {
   caseId: string;

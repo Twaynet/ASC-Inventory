@@ -10,6 +10,7 @@ import {
   getDayBeforeReadiness,
   computeSingleCaseReadiness,
   updateReadinessCache,
+  getCalendarSummary,
 } from '../services/readiness.service.js';
 // Auth decorators available if needed: requireAttestation, requireSurgeon
 
@@ -115,6 +116,38 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       cases,
       summary,
     });
+  });
+
+  /**
+   * GET /readiness/calendar-summary
+   * Get calendar summary for a date range (for month/week views)
+   */
+  fastify.get('/calendar-summary', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{
+    Querystring: { startDate: string; endDate: string; granularity?: 'day' | 'case' };
+  }>, reply: FastifyReply) => {
+    const { facilityId } = request.user;
+    const { startDate, endDate, granularity = 'day' } = request.query;
+
+    if (!startDate || !endDate) {
+      return reply.status(400).send({ error: 'startDate and endDate are required' });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return reply.status(400).send({ error: 'Invalid date format' });
+    }
+
+    if (granularity !== 'day' && granularity !== 'case') {
+      return reply.status(400).send({ error: 'granularity must be "day" or "case"' });
+    }
+
+    const result = await getCalendarSummary(facilityId, start, end, granularity);
+
+    return reply.send(result);
   });
 
   /**

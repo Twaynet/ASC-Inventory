@@ -442,6 +442,113 @@ export async function getDayBeforeReadiness(
   return result.rows;
 }
 
+// ============================================================================
+// CALENDAR SUMMARY FUNCTIONS
+// ============================================================================
+
+export interface CalendarDaySummary {
+  date: string;
+  caseCount: number;
+  greenCount: number;
+  orangeCount: number;
+  redCount: number;
+}
+
+export interface CalendarCaseSummary {
+  caseId: string;
+  scheduledDate: string;
+  scheduledTime: string | null;
+  procedureName: string;
+  surgeonName: string;
+  readinessState: 'GREEN' | 'ORANGE' | 'RED';
+}
+
+/**
+ * Get calendar summary for a date range
+ * granularity 'day' returns daily aggregates, 'case' returns individual cases
+ */
+export async function getCalendarSummary(
+  facilityId: string,
+  startDate: Date,
+  endDate: Date,
+  granularity: 'day' | 'case'
+): Promise<{ days?: CalendarDaySummary[]; cases?: CalendarCaseSummary[] }> {
+  if (granularity === 'day') {
+    // Get daily aggregates from cache or compute
+    const result = await query<{
+      scheduled_date: Date;
+      case_count: string;
+      green_count: string;
+      orange_count: string;
+      red_count: string;
+    }>(`
+      SELECT
+        sc.scheduled_date,
+        COUNT(*)::text as case_count,
+        COUNT(*) FILTER (WHERE COALESCE(crc.readiness_state, 'ORANGE') = 'GREEN')::text as green_count,
+        COUNT(*) FILTER (WHERE COALESCE(crc.readiness_state, 'ORANGE') = 'ORANGE')::text as orange_count,
+        COUNT(*) FILTER (WHERE COALESCE(crc.readiness_state, 'ORANGE') = 'RED')::text as red_count
+      FROM surgical_case sc
+      LEFT JOIN case_readiness_cache crc ON sc.id = crc.case_id
+      WHERE sc.facility_id = $1
+        AND sc.scheduled_date >= $2
+        AND sc.scheduled_date <= $3
+        AND sc.status NOT IN ('CANCELLED', 'COMPLETED')
+        AND sc.is_active = true
+      GROUP BY sc.scheduled_date
+      ORDER BY sc.scheduled_date
+    `, [facilityId, startDate, endDate]);
+
+    const days: CalendarDaySummary[] = result.rows.map(row => ({
+      date: row.scheduled_date.toISOString().split('T')[0],
+      caseCount: parseInt(row.case_count, 10),
+      greenCount: parseInt(row.green_count, 10),
+      orangeCount: parseInt(row.orange_count, 10),
+      redCount: parseInt(row.red_count, 10),
+    }));
+
+    return { days };
+  } else {
+    // Get individual cases for the date range
+    const result = await query<{
+      id: string;
+      scheduled_date: Date;
+      scheduled_time: string | null;
+      procedure_name: string;
+      surgeon_name: string;
+      readiness_state: string | null;
+    }>(`
+      SELECT
+        sc.id,
+        sc.scheduled_date,
+        sc.scheduled_time,
+        sc.procedure_name,
+        u.name as surgeon_name,
+        crc.readiness_state
+      FROM surgical_case sc
+      JOIN app_user u ON sc.surgeon_id = u.id
+      LEFT JOIN case_readiness_cache crc ON sc.id = crc.case_id
+      WHERE sc.facility_id = $1
+        AND sc.scheduled_date >= $2
+        AND sc.scheduled_date <= $3
+        AND sc.status NOT IN ('CANCELLED', 'COMPLETED')
+        AND sc.is_active = true
+      ORDER BY sc.scheduled_date, sc.scheduled_time NULLS LAST
+    `, [facilityId, startDate, endDate]);
+
+    const cases: CalendarCaseSummary[] = result.rows.map(row => ({
+      caseId: row.id,
+      scheduledDate: row.scheduled_date.toISOString().split('T')[0],
+      scheduledTime: row.scheduled_time,
+      procedureName: row.procedure_name,
+      surgeonName: row.surgeon_name,
+      readinessState: (row.readiness_state || 'ORANGE') as 'GREEN' | 'ORANGE' | 'RED',
+    }));
+
+    return { cases };
+  }
+}
+
 /**
  * Compute readiness for a single case (for attestation validation)
  */

@@ -14,6 +14,7 @@ const ADMIN_LINKS = [
   { href: '/admin/catalog', label: 'Catalog' },
   { href: '/admin/inventory', label: 'Inventory' },
   { href: '/admin/preference-cards', label: 'Preference Cards' },
+  { href: '/admin/case-cards', label: 'Case Cards' },
   { href: '/admin/settings', label: 'Settings' },
   { href: '/admin/pending-reviews', label: 'Pending Reviews' },
 ];
