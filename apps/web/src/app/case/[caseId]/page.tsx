@@ -13,6 +13,7 @@ import {
   removeCaseOverride,
   getCaseEventLog,
   updateCaseSummary,
+  updateCaseScheduling,
   getCaseCards,
   linkCaseCard,
   type CaseDashboardData,
@@ -77,6 +78,12 @@ function CaseDashboardContent() {
     schedulerNotes: '',
   });
 
+  // Scheduling form state
+  const [schedulingForm, setSchedulingForm] = useState({
+    scheduledDate: '',
+    scheduledTime: '',
+  });
+
   const loadData = useCallback(async () => {
     if (!token || !caseId) return;
 
@@ -106,6 +113,10 @@ function CaseDashboardContent() {
         laterality: d.laterality || '',
         orRoom: d.orRoom || '',
         schedulerNotes: d.schedulerNotes || '',
+      });
+      setSchedulingForm({
+        scheduledDate: d.scheduledDate || '',
+        scheduledTime: d.scheduledTime || '',
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
@@ -199,6 +210,21 @@ function CaseDashboardContent() {
       loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update case summary');
+    }
+  };
+
+  const handleUpdateScheduling = async () => {
+    if (!token || !caseId) return;
+
+    try {
+      await updateCaseScheduling(token, caseId, {
+        scheduledDate: schedulingForm.scheduledDate || undefined,
+        scheduledTime: schedulingForm.scheduledTime || null,
+      });
+      setSuccessMessage('Scheduling updated');
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update scheduling');
     }
   };
 
@@ -323,7 +349,7 @@ function CaseDashboardContent() {
                 {dashboard.surgeon} | {dashboard.facility}
               </p>
               <p style={{ margin: '0.5rem 0' }}>
-                <strong>Date:</strong> {new Date(dashboard.scheduledDate).toLocaleDateString()}
+                <strong>Scheduled:</strong> {new Date(dashboard.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                 {dashboard.scheduledTime && ` at ${dashboard.scheduledTime}`}
                 {dashboard.orRoom && ` | OR: ${dashboard.orRoom}`}
               </p>
@@ -401,7 +427,45 @@ function CaseDashboardContent() {
           )}
         </section>
 
-        {/* Section 3: Case Summary */}
+        {/* Section 3: Scheduling */}
+        <section className="dashboard-section" style={{
+          background: 'var(--surface)',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem',
+          border: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('scheduling')}>
+            {collapsedSections.has('scheduling') ? '+ ' : '- '}Scheduling
+          </h2>
+          {!collapsedSections.has('scheduling') && (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="form-group">
+                  <label>Date *</label>
+                  <input
+                    type="date"
+                    value={schedulingForm.scheduledDate}
+                    onChange={e => setSchedulingForm(f => ({ ...f, scheduledDate: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Time</label>
+                  <input
+                    type="time"
+                    value={schedulingForm.scheduledTime}
+                    onChange={e => setSchedulingForm(f => ({ ...f, scheduledTime: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <button onClick={handleUpdateScheduling} className="btn-secondary">
+                Save Scheduling
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* Section 4: Case Summary */}
         <section className="dashboard-section" style={{
           background: 'var(--surface)',
           borderRadius: '8px',

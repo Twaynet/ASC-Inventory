@@ -725,4 +725,72 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
     return reply.send({ success: true });
   });
+
+  /**
+   * PUT /case-dashboard/:caseId/scheduling
+   * Update case scheduled date and time
+   */
+  fastify.put<{ Params: { caseId: string } }>('/:caseId/scheduling', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { caseId } = request.params;
+    const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const body = request.body as {
+      scheduledDate?: string;
+      scheduledTime?: string | null;
+    };
+
+    if (!body.scheduledDate && body.scheduledTime === undefined) {
+      return reply.status(400).send({ error: 'scheduledDate or scheduledTime is required' });
+    }
+
+    // Verify case exists and get current values
+    const caseResult = await query<{ scheduled_date: Date; scheduled_time: string | null }>(`
+      SELECT scheduled_date, scheduled_time FROM surgical_case WHERE id = $1 AND facility_id = $2
+    `, [caseId, facilityId]);
+
+    if (caseResult.rows.length === 0) {
+      return reply.status(404).send({ error: 'Case not found' });
+    }
+
+    const previousDate = caseResult.rows[0].scheduled_date.toISOString().split('T')[0];
+    const previousTime = caseResult.rows[0].scheduled_time;
+
+    // Build update query dynamically
+    const updates: string[] = [];
+    const values: (string | null)[] = [];
+    let paramIndex = 1;
+
+    if (body.scheduledDate) {
+      updates.push(`scheduled_date = $${paramIndex++}`);
+      values.push(body.scheduledDate);
+    }
+    if (body.scheduledTime !== undefined) {
+      updates.push(`scheduled_time = $${paramIndex++}`);
+      values.push(body.scheduledTime);
+    }
+
+    values.push(caseId);
+
+    await query(`
+      UPDATE surgical_case SET ${updates.join(', ')} WHERE id = $${paramIndex}
+    `, values);
+
+    // Build description
+    const changes: string[] = [];
+    if (body.scheduledDate && body.scheduledDate !== previousDate) {
+      changes.push(`Date: ${previousDate} → ${body.scheduledDate}`);
+    }
+    if (body.scheduledTime !== undefined && body.scheduledTime !== previousTime) {
+      changes.push(`Time: ${previousTime || 'TBD'} → ${body.scheduledTime || 'TBD'}`);
+    }
+
+    // Log event
+    await query(`
+      INSERT INTO case_event_log (case_id, facility_id, event_type, user_id, user_role, user_name, description)
+      VALUES ($1, $2, 'SCHEDULING_CHANGED', $3, $4, $5, $6)
+    `, [caseId, facilityId, userId, userRole, userName, changes.join('; ') || 'Scheduling updated']);
+
+    return reply.send({ success: true });
+  });
 }

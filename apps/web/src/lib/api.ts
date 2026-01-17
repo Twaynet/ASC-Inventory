@@ -1235,6 +1235,17 @@ export async function updateCaseSummary(
   return api(`/case-dashboard/${caseId}/case-summary`, { method: 'PUT', body: data, token });
 }
 
+export async function updateCaseScheduling(
+  token: string,
+  caseId: string,
+  data: {
+    scheduledDate?: string;
+    scheduledTime?: string | null;
+  }
+): Promise<{ success: boolean }> {
+  return api(`/case-dashboard/${caseId}/scheduling`, { method: 'PUT', body: data, token });
+}
+
 // ============================================================================
 // HELPERS
 // ============================================================================
