@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useScanner, type ScanResult } from '@/lib/useScanner';
+import { AdminNav } from '@/app/components/AdminNav';
 import {
   getDayBeforeReadiness,
   createAttestation,
@@ -691,6 +692,7 @@ export default function DayBeforePage() {
         <div className="container header-content">
           <h1>Day-Before Review</h1>
           <div className="header-user">
+            <AdminNav userRole={user.role} />
             <span>
               {user.name} ({user.role})
             </span>
