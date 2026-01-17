@@ -182,8 +182,19 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       WHERE case_id = $1
     `, [caseId]);
 
+    // Parse PostgreSQL array string to JavaScript array
+    const parsePostgresArray = (arr: string | string[] | null): string[] => {
+      if (!arr) return [];
+      if (Array.isArray(arr)) return arr;
+      // Parse PostgreSQL array format: {GENERAL,TIVA} -> ['GENERAL', 'TIVA']
+      if (typeof arr === 'string' && arr.startsWith('{') && arr.endsWith('}')) {
+        return arr.slice(1, -1).split(',').filter(Boolean);
+      }
+      return [];
+    };
+
     const anesthesiaPlan = anesthesiaResult.rows.length > 0 ? {
-      modalities: anesthesiaResult.rows[0].modalities || [],
+      modalities: parsePostgresArray(anesthesiaResult.rows[0].modalities),
       positioningConsiderations: anesthesiaResult.rows[0].positioning_considerations,
       airwayNotes: anesthesiaResult.rows[0].airway_notes,
       anticoagulationConsiderations: anesthesiaResult.rows[0].anticoagulation_considerations,
@@ -287,11 +298,22 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     }
 
     // Check if anesthesia modality is selected
-    const anesthesiaResult = await query<{ modalities: string[] | null }>(`
+    const anesthesiaResult = await query<{ modalities: string | string[] | null }>(`
       SELECT modalities FROM case_anesthesia_plan WHERE case_id = $1
     `, [caseId]);
 
-    if (anesthesiaResult.rows.length === 0 || !anesthesiaResult.rows[0].modalities || anesthesiaResult.rows[0].modalities.length === 0) {
+    // Parse PostgreSQL array string
+    const parseArr = (arr: string | string[] | null): string[] => {
+      if (!arr) return [];
+      if (Array.isArray(arr)) return arr;
+      if (typeof arr === 'string' && arr.startsWith('{') && arr.endsWith('}')) {
+        return arr.slice(1, -1).split(',').filter(Boolean);
+      }
+      return [];
+    };
+
+    const modalities = parseArr(anesthesiaResult.rows[0]?.modalities);
+    if (anesthesiaResult.rows.length === 0 || modalities.length === 0) {
       return reply.status(400).send({ error: 'Cannot attest: Anesthesia modality not selected' });
     }
 
