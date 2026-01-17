@@ -1272,6 +1272,62 @@ export async function updateCaseScheduling(
 }
 
 // ============================================================================
+// READINESS VERIFICATION (Scanner-based workflow)
+// ============================================================================
+
+export interface VerificationItem {
+  id: string;
+  barcode: string | null;
+  serialNumber: string | null;
+  locationName: string | null;
+  sterilityStatus: string;
+  sterilityExpiresAt: string | null;
+  availabilityStatus: string;
+  isReservedForThisCase: boolean;
+  lastVerifiedAt: string | null;
+  lastVerifiedByName: string | null;
+  isVerified: boolean;
+}
+
+export interface VerificationRequirement {
+  id: string;
+  catalogId: string;
+  catalogName: string;
+  category: string;
+  requiredQuantity: number;
+  requiresSterility: boolean;
+  availableCount: number;
+  verifiedCount: number;
+  suitableCount: number;
+  isSatisfied: boolean;
+  items: VerificationItem[];
+}
+
+export interface CaseVerificationResponse {
+  caseId: string;
+  procedureName: string;
+  surgeonName: string;
+  scheduledDate: string;
+  scheduledTime: string | null;
+  requirements: VerificationRequirement[];
+  summary: {
+    totalRequirements: number;
+    satisfiedRequirements: number;
+    totalRequired: number;
+    totalVerified: number;
+    allSatisfied: boolean;
+    readinessState: 'GREEN' | 'ORANGE' | 'RED';
+  };
+}
+
+export async function getCaseVerification(
+  token: string,
+  caseId: string
+): Promise<CaseVerificationResponse> {
+  return api(`/readiness/cases/${caseId}/verification`, { token });
+}
+
+// ============================================================================
 // HELPERS
 // ============================================================================
 

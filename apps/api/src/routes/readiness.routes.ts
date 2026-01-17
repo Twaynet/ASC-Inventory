@@ -419,6 +419,151 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   /**
+   * GET /readiness/cases/:id/verification
+   * Get detailed item verification status for a case
+   * Used for scanner-based verification workflow
+   */
+  fastify.get('/cases/:id/verification', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{
+    Params: { id: string };
+  }>, reply: FastifyReply) => {
+    const { id: caseId } = request.params;
+    const { facilityId } = request.user;
+
+    // Verify case exists and get details
+    const caseResult = await query<{
+      id: string;
+      procedure_name: string;
+      surgeon_name: string;
+      scheduled_date: Date;
+      scheduled_time: string | null;
+    }>(`
+      SELECT sc.id, sc.procedure_name, u.name as surgeon_name,
+             sc.scheduled_date, sc.scheduled_time
+      FROM surgical_case sc
+      JOIN app_user u ON sc.surgeon_id = u.id
+      WHERE sc.id = $1 AND sc.facility_id = $2
+    `, [caseId, facilityId]);
+
+    if (caseResult.rows.length === 0) {
+      return reply.status(404).send({ error: 'Case not found' });
+    }
+
+    const caseData = caseResult.rows[0];
+
+    // Get case requirements with catalog info
+    const requirementsResult = await query<{
+      id: string;
+      catalog_id: string;
+      catalog_name: string;
+      category: string;
+      quantity: number;
+      requires_sterility: boolean;
+    }>(`
+      SELECT cr.id, cr.catalog_id, ic.name as catalog_name, ic.category,
+             cr.quantity, ic.requires_sterility
+      FROM case_requirement cr
+      JOIN item_catalog ic ON cr.catalog_id = ic.id
+      WHERE cr.case_id = $1
+      ORDER BY ic.name
+    `, [caseId]);
+
+    // For each requirement, get matching inventory items
+    const requirements = await Promise.all(
+      requirementsResult.rows.map(async (req) => {
+        // Get inventory items for this catalog item
+        const itemsResult = await query<{
+          id: string;
+          barcode: string | null;
+          serial_number: string | null;
+          location_name: string | null;
+          sterility_status: string;
+          sterility_expires_at: Date | null;
+          availability_status: string;
+          reserved_for_case_id: string | null;
+          last_verified_at: Date | null;
+          last_verified_by_name: string | null;
+        }>(`
+          SELECT ii.id, ii.barcode, ii.serial_number, l.name as location_name,
+                 ii.sterility_status, ii.sterility_expires_at,
+                 ii.availability_status, ii.reserved_for_case_id,
+                 ii.last_verified_at, u.name as last_verified_by_name
+          FROM inventory_item ii
+          LEFT JOIN location l ON ii.location_id = l.id
+          LEFT JOIN app_user u ON ii.last_verified_by_user_id = u.id
+          WHERE ii.catalog_id = $1 AND ii.facility_id = $2
+            AND (ii.availability_status = 'AVAILABLE'
+                 OR (ii.availability_status = 'RESERVED' AND ii.reserved_for_case_id = $3))
+          ORDER BY ii.last_verified_at DESC NULLS LAST
+        `, [req.catalog_id, facilityId, caseId]);
+
+        // Compute verification stats
+        const items = itemsResult.rows;
+        const verifiedCount = items.filter(i => i.last_verified_at !== null).length;
+        const cutoffDate = new Date(caseData.scheduled_date);
+
+        // Check sterility for items that require it
+        const suitableItems = items.filter(item => {
+          if (req.requires_sterility) {
+            if (item.sterility_status !== 'STERILE') return false;
+            if (item.sterility_expires_at && item.sterility_expires_at < cutoffDate) return false;
+          }
+          return item.last_verified_at !== null;
+        });
+
+        return {
+          id: req.id,
+          catalogId: req.catalog_id,
+          catalogName: req.catalog_name,
+          category: req.category,
+          requiredQuantity: req.quantity,
+          requiresSterility: req.requires_sterility,
+          availableCount: items.length,
+          verifiedCount,
+          suitableCount: suitableItems.length,
+          isSatisfied: suitableItems.length >= req.quantity,
+          items: items.map(item => ({
+            id: item.id,
+            barcode: item.barcode,
+            serialNumber: item.serial_number,
+            locationName: item.location_name,
+            sterilityStatus: item.sterility_status,
+            sterilityExpiresAt: item.sterility_expires_at?.toISOString() || null,
+            availabilityStatus: item.availability_status,
+            isReservedForThisCase: item.reserved_for_case_id === caseId,
+            lastVerifiedAt: item.last_verified_at?.toISOString() || null,
+            lastVerifiedByName: item.last_verified_by_name,
+            isVerified: item.last_verified_at !== null,
+          })),
+        };
+      })
+    );
+
+    // Compute overall stats
+    const totalRequired = requirements.reduce((sum, r) => sum + r.requiredQuantity, 0);
+    const totalVerified = requirements.reduce((sum, r) => sum + Math.min(r.verifiedCount, r.requiredQuantity), 0);
+    const allSatisfied = requirements.every(r => r.isSatisfied);
+
+    return reply.send({
+      caseId,
+      procedureName: caseData.procedure_name,
+      surgeonName: caseData.surgeon_name,
+      scheduledDate: caseData.scheduled_date.toISOString().split('T')[0],
+      scheduledTime: caseData.scheduled_time,
+      requirements,
+      summary: {
+        totalRequirements: requirements.length,
+        satisfiedRequirements: requirements.filter(r => r.isSatisfied).length,
+        totalRequired,
+        totalVerified,
+        allSatisfied,
+        readinessState: allSatisfied ? 'GREEN' : (totalVerified > 0 ? 'ORANGE' : 'RED'),
+      },
+    });
+  });
+
+  /**
    * POST /readiness/refresh
    * Force refresh readiness cache for a date
    */

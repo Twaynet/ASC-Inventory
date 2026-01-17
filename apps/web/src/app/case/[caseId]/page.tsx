@@ -410,6 +410,12 @@ function CaseDashboardContent() {
                 )}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={() => router.push(`/case/${caseId}/verify`)}
+                  className="btn-secondary"
+                >
+                  Verify Items
+                </button>
                 {dashboard.attestationState !== 'ATTESTED' && (
                   <button
                     onClick={handleAttest}
