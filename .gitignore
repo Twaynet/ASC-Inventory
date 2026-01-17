@@ -34,3 +34,4 @@ coverage/
 # Claude
 .claude/
 case-card-spec.md
+case-dashboard.md

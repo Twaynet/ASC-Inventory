@@ -71,7 +71,7 @@ export function WeekView({
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const handleCaseClick = (caseId: string) => {
-    router.push(`/cases/${caseId}`);
+    router.push(`/case/${caseId}`);
   };
 
   return (

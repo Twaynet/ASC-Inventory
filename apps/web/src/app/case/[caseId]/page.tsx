@@ -1,0 +1,843 @@
+'use client';
+
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
+import { AdminNav } from '@/app/components/AdminNav';
+import {
+  getCaseDashboard,
+  attestCaseReadiness,
+  voidCaseAttestation,
+  updateAnesthesiaPlan,
+  addCaseOverride,
+  removeCaseOverride,
+  getCaseEventLog,
+  updateCaseSummary,
+  getCaseCards,
+  linkCaseCard,
+  type CaseDashboardData,
+  type CaseDashboardEventLogEntry,
+  type AnesthesiaModality,
+  type CaseCardSummary,
+} from '@/lib/api';
+
+const ANESTHESIA_MODALITIES: { value: AnesthesiaModality; label: string }[] = [
+  { value: 'GENERAL', label: 'General' },
+  { value: 'SPINAL', label: 'Spinal' },
+  { value: 'REGIONAL', label: 'Regional' },
+  { value: 'MAC', label: 'MAC' },
+  { value: 'LOCAL', label: 'Local' },
+];
+
+function CaseDashboardContent() {
+  const { user, token, isLoading, logout } = useAuth();
+  const router = useRouter();
+  const params = useParams();
+  const caseId = params.caseId as string;
+
+  // Dashboard state
+  const [dashboard, setDashboard] = useState<CaseDashboardData | null>(null);
+  const [eventLog, setEventLog] = useState<CaseDashboardEventLogEntry[]>([]);
+  const [availableCaseCards, setAvailableCaseCards] = useState<CaseCardSummary[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Section collapse state
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  // Modal states
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [showEventLogModal, setShowEventLogModal] = useState(false);
+  const [showLinkCaseCardModal, setShowLinkCaseCardModal] = useState(false);
+
+  // Override form state
+  const [overrideForm, setOverrideForm] = useState({
+    target: '',
+    originalValue: '',
+    overrideValue: '',
+    reason: '',
+  });
+
+  // Anesthesia form state
+  const [anesthesiaForm, setAnesthesiaForm] = useState({
+    modality: '' as AnesthesiaModality | '',
+    positioningConsiderations: '',
+    airwayNotes: '',
+    anticoagulationConsiderations: '',
+  });
+
+  // Case summary form state
+  const [summaryForm, setSummaryForm] = useState({
+    estimatedDurationMinutes: '' as string | number,
+    laterality: '',
+    orRoom: '',
+    schedulerNotes: '',
+  });
+
+  const loadData = useCallback(async () => {
+    if (!token || !caseId) return;
+
+    setIsLoadingData(true);
+    setError('');
+
+    try {
+      const [dashboardResult, eventLogResult, caseCardsResult] = await Promise.all([
+        getCaseDashboard(token, caseId),
+        getCaseEventLog(token, caseId),
+        getCaseCards(token, { status: 'ACTIVE' }),
+      ]);
+
+      setDashboard(dashboardResult.dashboard);
+      setEventLog(eventLogResult.eventLog);
+      setAvailableCaseCards(caseCardsResult.cards);
+
+      // Initialize forms from dashboard data
+      const d = dashboardResult.dashboard;
+      setAnesthesiaForm({
+        modality: d.anesthesiaPlan?.modality || '',
+        positioningConsiderations: d.anesthesiaPlan?.positioningConsiderations || '',
+        airwayNotes: d.anesthesiaPlan?.airwayNotes || '',
+        anticoagulationConsiderations: d.anesthesiaPlan?.anticoagulationConsiderations || '',
+      });
+      setSummaryForm({
+        estimatedDurationMinutes: d.estimatedDurationMinutes || '',
+        laterality: d.laterality || '',
+        orRoom: d.orRoom || '',
+        schedulerNotes: d.schedulerNotes || '',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, [token, caseId]);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+      return;
+    }
+    loadData();
+  }, [isLoading, user, router, loadData]);
+
+  const toggleSection = (section: string) => {
+    setCollapsedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) {
+        next.delete(section);
+      } else {
+        next.add(section);
+      }
+      return next;
+    });
+  };
+
+  const handleAttest = async () => {
+    if (!token || !caseId) return;
+
+    try {
+      await attestCaseReadiness(token, caseId);
+      setSuccessMessage('Case readiness attested successfully');
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to attest readiness');
+    }
+  };
+
+  const handleVoid = async () => {
+    if (!token || !caseId || !voidReason.trim()) return;
+
+    try {
+      await voidCaseAttestation(token, caseId, voidReason);
+      setSuccessMessage('Attestation voided');
+      setShowVoidModal(false);
+      setVoidReason('');
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to void attestation');
+    }
+  };
+
+  const handleUpdateAnesthesia = async () => {
+    if (!token || !caseId) return;
+
+    try {
+      await updateAnesthesiaPlan(token, caseId, {
+        modality: anesthesiaForm.modality || undefined,
+        positioningConsiderations: anesthesiaForm.positioningConsiderations || undefined,
+        airwayNotes: anesthesiaForm.airwayNotes || undefined,
+        anticoagulationConsiderations: anesthesiaForm.anticoagulationConsiderations || undefined,
+      });
+      setSuccessMessage('Anesthesia plan updated');
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update anesthesia plan');
+    }
+  };
+
+  const handleUpdateSummary = async () => {
+    if (!token || !caseId) return;
+
+    try {
+      await updateCaseSummary(token, caseId, {
+        estimatedDurationMinutes: summaryForm.estimatedDurationMinutes ? Number(summaryForm.estimatedDurationMinutes) : undefined,
+        laterality: summaryForm.laterality || undefined,
+        orRoom: summaryForm.orRoom || undefined,
+        schedulerNotes: summaryForm.schedulerNotes || undefined,
+      });
+      setSuccessMessage('Case summary updated');
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update case summary');
+    }
+  };
+
+  const handleAddOverride = async () => {
+    if (!token || !caseId) return;
+    if (!overrideForm.target || !overrideForm.overrideValue || !overrideForm.reason) {
+      setError('Target, override value, and reason are required');
+      return;
+    }
+
+    try {
+      await addCaseOverride(token, caseId, {
+        target: overrideForm.target,
+        originalValue: overrideForm.originalValue || undefined,
+        overrideValue: overrideForm.overrideValue,
+        reason: overrideForm.reason,
+      });
+      setSuccessMessage('Override added');
+      setShowOverrideModal(false);
+      setOverrideForm({ target: '', originalValue: '', overrideValue: '', reason: '' });
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add override');
+    }
+  };
+
+  const handleRemoveOverride = async (overrideId: string) => {
+    if (!token || !caseId) return;
+
+    if (!confirm('Are you sure you want to remove this override?')) return;
+
+    try {
+      await removeCaseOverride(token, caseId, overrideId);
+      setSuccessMessage('Override removed');
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove override');
+    }
+  };
+
+  const handleLinkCaseCard = async (versionId: string) => {
+    if (!token || !caseId) return;
+
+    try {
+      await linkCaseCard(token, caseId, versionId);
+      setSuccessMessage('Case card linked');
+      setShowLinkCaseCardModal(false);
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to link case card');
+    }
+  };
+
+  if (isLoading || isLoadingData) {
+    return (
+      <>
+        <AdminNav userRole={user?.role || ''} />
+        <main className="admin-main">
+          <div className="loading">Loading case dashboard...</div>
+        </main>
+      </>
+    );
+  }
+
+  if (!user || !dashboard) {
+    return (
+      <>
+        <AdminNav userRole={user?.role || ''} />
+        <main className="admin-main">
+          <div className="error-message">{error || 'Case not found'}</div>
+        </main>
+      </>
+    );
+  }
+
+  const getStatusColor = () => {
+    if (dashboard.attestationState === 'VOIDED') return 'var(--red)';
+    if (dashboard.attestationState === 'ATTESTED') return 'var(--green)';
+    if (dashboard.readinessState === 'RED') return 'var(--red)';
+    if (dashboard.readinessState === 'ORANGE') return 'var(--orange)';
+    return 'var(--text-muted)';
+  };
+
+  const getStatusLabel = () => {
+    if (dashboard.attestationState === 'VOIDED') return 'Voided';
+    if (dashboard.attestationState === 'ATTESTED') return 'Ready (Attested)';
+    if (dashboard.readinessState === 'RED') return 'Needs Attention';
+    if (dashboard.readinessState === 'ORANGE') return 'Needs Attention';
+    return 'Scheduled';
+  };
+
+  return (
+    <>
+      <AdminNav userRole={user?.role || ''} />
+      <main className="admin-main" style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
+        {/* Messages */}
+        {error && (
+          <div className="error-message" style={{ marginBottom: '1rem' }}>
+            {error}
+            <button onClick={() => setError('')} style={{ marginLeft: '1rem' }}>Dismiss</button>
+          </div>
+        )}
+        {successMessage && (
+          <div className="success-message" style={{ marginBottom: '1rem' }}>
+            {successMessage}
+            <button onClick={() => setSuccessMessage('')} style={{ marginLeft: '1rem' }}>Dismiss</button>
+          </div>
+        )}
+
+        {/* Section 1: Case Identity & Status Banner */}
+        <section className="dashboard-section" style={{
+          background: 'var(--surface)',
+          border: `3px solid ${getStatusColor()}`,
+          borderRadius: '8px',
+          padding: '1.5rem',
+          marginBottom: '1rem',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: '1.5rem' }}>{dashboard.procedureName}</h1>
+              <p style={{ margin: '0.5rem 0', color: 'var(--text-muted)' }}>
+                {dashboard.surgeon} | {dashboard.facility}
+              </p>
+              <p style={{ margin: '0.5rem 0' }}>
+                <strong>Date:</strong> {new Date(dashboard.scheduledDate).toLocaleDateString()}
+                {dashboard.scheduledTime && ` at ${dashboard.scheduledTime}`}
+                {dashboard.orRoom && ` | OR: ${dashboard.orRoom}`}
+              </p>
+              <p style={{ margin: '0.5rem 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Case ID: {dashboard.caseId}
+              </p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{
+                display: 'inline-block',
+                padding: '0.5rem 1rem',
+                borderRadius: '4px',
+                background: getStatusColor(),
+                color: 'white',
+                fontWeight: 'bold',
+                fontSize: '1.1rem',
+              }}>
+                {getStatusLabel()}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 2: Readiness Attestation Panel */}
+        <section className="dashboard-section" style={{
+          background: 'var(--surface)',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem',
+          border: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('attestation')}>
+            {collapsedSections.has('attestation') ? '+ ' : '- '}Readiness Attestation
+          </h2>
+          {!collapsedSections.has('attestation') && (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <strong>State:</strong> {dashboard.attestationState.replace('_', ' ')}
+                </div>
+                {dashboard.attestedBy && (
+                  <div>
+                    <strong>Attested By:</strong> {dashboard.attestedBy}
+                  </div>
+                )}
+                {dashboard.attestedAt && (
+                  <div>
+                    <strong>Attested:</strong> {new Date(dashboard.attestedAt).toLocaleString()}
+                  </div>
+                )}
+                {dashboard.voidReason && (
+                  <div>
+                    <strong>Void Reason:</strong> {dashboard.voidReason}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {dashboard.attestationState !== 'ATTESTED' && (
+                  <button
+                    onClick={handleAttest}
+                    className="btn-primary"
+                    disabled={!dashboard.caseCard || !dashboard.anesthesiaPlan?.modality}
+                    title={!dashboard.caseCard ? 'Link a Case Card first' : !dashboard.anesthesiaPlan?.modality ? 'Select anesthesia modality first' : ''}
+                  >
+                    Attest Readiness
+                  </button>
+                )}
+                {dashboard.attestationState === 'ATTESTED' && (
+                  <button onClick={() => setShowVoidModal(true)} className="btn-danger">
+                    Void Attestation
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Section 3: Case Summary */}
+        <section className="dashboard-section" style={{
+          background: 'var(--surface)',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem',
+          border: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('summary')}>
+            {collapsedSections.has('summary') ? '+ ' : '- '}Case Summary
+          </h2>
+          {!collapsedSections.has('summary') && (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="form-group">
+                  <label>Estimated Duration (min)</label>
+                  <input
+                    type="number"
+                    value={summaryForm.estimatedDurationMinutes}
+                    onChange={e => setSummaryForm(f => ({ ...f, estimatedDurationMinutes: e.target.value }))}
+                    placeholder="e.g., 120"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Laterality</label>
+                  <select
+                    value={summaryForm.laterality}
+                    onChange={e => setSummaryForm(f => ({ ...f, laterality: e.target.value }))}
+                  >
+                    <option value="">-- Select --</option>
+                    <option value="Left">Left</option>
+                    <option value="Right">Right</option>
+                    <option value="Bilateral">Bilateral</option>
+                    <option value="N/A">N/A</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>OR Room</label>
+                  <input
+                    type="text"
+                    value={summaryForm.orRoom}
+                    onChange={e => setSummaryForm(f => ({ ...f, orRoom: e.target.value }))}
+                    placeholder="e.g., OR-1"
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Scheduler Notes (non-PHI)</label>
+                <textarea
+                  value={summaryForm.schedulerNotes}
+                  onChange={e => setSummaryForm(f => ({ ...f, schedulerNotes: e.target.value }))}
+                  rows={2}
+                  placeholder="Notes visible to scheduling team..."
+                />
+              </div>
+              <button onClick={handleUpdateSummary} className="btn-secondary">
+                Save Summary
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* Section 4: Anesthesia Plan */}
+        <section className="dashboard-section" style={{
+          background: 'var(--surface)',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem',
+          border: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('anesthesia')}>
+            {collapsedSections.has('anesthesia') ? '+ ' : '- '}Anesthesia Plan
+          </h2>
+          {!collapsedSections.has('anesthesia') && (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="form-group">
+                  <label>Modality *</label>
+                  <select
+                    value={anesthesiaForm.modality}
+                    onChange={e => setAnesthesiaForm(f => ({ ...f, modality: e.target.value as AnesthesiaModality }))}
+                    required
+                  >
+                    <option value="">-- Select Modality --</option>
+                    {ANESTHESIA_MODALITIES.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Positioning Considerations</label>
+                  <input
+                    type="text"
+                    value={anesthesiaForm.positioningConsiderations}
+                    onChange={e => setAnesthesiaForm(f => ({ ...f, positioningConsiderations: e.target.value }))}
+                    placeholder="e.g., Lateral, prone..."
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="form-group">
+                  <label>Airway Notes</label>
+                  <input
+                    type="text"
+                    value={anesthesiaForm.airwayNotes}
+                    onChange={e => setAnesthesiaForm(f => ({ ...f, airwayNotes: e.target.value }))}
+                    placeholder="Optional notes..."
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Anticoagulation (non-PHI)</label>
+                  <input
+                    type="text"
+                    value={anesthesiaForm.anticoagulationConsiderations}
+                    onChange={e => setAnesthesiaForm(f => ({ ...f, anticoagulationConsiderations: e.target.value }))}
+                    placeholder="e.g., Standard protocol..."
+                  />
+                </div>
+              </div>
+              <button onClick={handleUpdateAnesthesia} className="btn-secondary">
+                Save Anesthesia Plan
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* Section 5: Linked Case Card */}
+        <section className="dashboard-section" style={{
+          background: 'var(--surface)',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem',
+          border: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('caseCard')}>
+            {collapsedSections.has('caseCard') ? '+ ' : '- '}Linked Case Card
+          </h2>
+          {!collapsedSections.has('caseCard') && (
+            <div>
+              {dashboard.caseCard ? (
+                <div style={{ marginBottom: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+                    <div><strong>Name:</strong> {dashboard.caseCard.name}</div>
+                    <div><strong>Version:</strong> {dashboard.caseCard.version}</div>
+                    <div><strong>Status:</strong> {dashboard.caseCard.status}</div>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--red)', marginBottom: '1rem' }}>No Case Card linked. Link a Case Card to enable attestation.</p>
+              )}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => setShowLinkCaseCardModal(true)} className="btn-secondary">
+                  {dashboard.caseCard ? 'Change Case Card' : 'Link Case Card'}
+                </button>
+                {dashboard.caseCard && (
+                  <button
+                    onClick={() => router.push(`/admin/case-cards?id=${dashboard.caseCard!.id}`)}
+                    className="btn-secondary"
+                  >
+                    View Case Card
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Section 6: Case-Specific Overrides */}
+        <section className="dashboard-section" style={{
+          background: 'var(--surface)',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem',
+          border: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('overrides')}>
+            {collapsedSections.has('overrides') ? '+ ' : '- '}Case-Specific Overrides ({dashboard.overrides.length})
+          </h2>
+          {!collapsedSections.has('overrides') && (
+            <div>
+              {dashboard.overrides.length > 0 ? (
+                <table className="data-table" style={{ marginBottom: '1rem' }}>
+                  <thead>
+                    <tr>
+                      <th>Target</th>
+                      <th>Original</th>
+                      <th>Override</th>
+                      <th>Reason</th>
+                      <th>Created By</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboard.overrides.map(o => (
+                      <tr key={o.id}>
+                        <td>{o.target}</td>
+                        <td>{o.originalValue || '-'}</td>
+                        <td>{o.overrideValue}</td>
+                        <td>{o.reason}</td>
+                        <td>{o.createdBy}</td>
+                        <td>
+                          <button
+                            onClick={() => handleRemoveOverride(o.id)}
+                            className="btn-small btn-danger"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>No overrides applied.</p>
+              )}
+              <button onClick={() => setShowOverrideModal(true)} className="btn-secondary">
+                Add Override
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* Section 7: Event Log */}
+        <section className="dashboard-section" style={{
+          background: 'var(--surface)',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem',
+          border: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('eventLog')}>
+            {collapsedSections.has('eventLog') ? '+ ' : '- '}Event Log
+          </h2>
+          {!collapsedSections.has('eventLog') && (
+            <div>
+              {eventLog.slice(0, 5).map(e => (
+                <div key={e.id} style={{
+                  padding: '0.5rem',
+                  borderBottom: '1px solid var(--border)',
+                  fontSize: '0.9rem',
+                }}>
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {new Date(e.createdAt).toLocaleString()}
+                  </span>
+                  {' | '}
+                  <strong>{e.userName}</strong> ({e.userRole})
+                  {' - '}
+                  {e.description}
+                </div>
+              ))}
+              {eventLog.length > 5 && (
+                <button
+                  onClick={() => setShowEventLogModal(true)}
+                  className="btn-link"
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  View all {eventLog.length} events
+                </button>
+              )}
+              {eventLog.length === 0 && (
+                <p style={{ color: 'var(--text-muted)' }}>No events recorded yet.</p>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Back button */}
+        <div style={{ marginTop: '2rem' }}>
+          <button onClick={() => router.back()} className="btn-secondary">
+            Back
+          </button>
+        </div>
+
+        {/* Void Modal */}
+        {showVoidModal && (
+          <div className="modal-overlay" onClick={() => setShowVoidModal(false)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+              <h3>Void Attestation</h3>
+              <p>This will void the current attestation. A reason is required.</p>
+              <div className="form-group">
+                <label>Reason *</label>
+                <textarea
+                  value={voidReason}
+                  onChange={e => setVoidReason(e.target.value)}
+                  rows={3}
+                  placeholder="Enter reason for voiding..."
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowVoidModal(false)} className="btn-secondary">Cancel</button>
+                <button onClick={handleVoid} className="btn-danger" disabled={!voidReason.trim()}>
+                  Void Attestation
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Override Modal */}
+        {showOverrideModal && (
+          <div className="modal-overlay" onClick={() => setShowOverrideModal(false)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+              <h3>Add Override</h3>
+              <div className="form-group">
+                <label>Target *</label>
+                <input
+                  type="text"
+                  value={overrideForm.target}
+                  onChange={e => setOverrideForm(f => ({ ...f, target: e.target.value }))}
+                  placeholder="e.g., instrumentation.primaryTrays"
+                />
+              </div>
+              <div className="form-group">
+                <label>Original Value</label>
+                <input
+                  type="text"
+                  value={overrideForm.originalValue}
+                  onChange={e => setOverrideForm(f => ({ ...f, originalValue: e.target.value }))}
+                  placeholder="What was the original value?"
+                />
+              </div>
+              <div className="form-group">
+                <label>Override Value *</label>
+                <input
+                  type="text"
+                  value={overrideForm.overrideValue}
+                  onChange={e => setOverrideForm(f => ({ ...f, overrideValue: e.target.value }))}
+                  placeholder="New value for this case"
+                />
+              </div>
+              <div className="form-group">
+                <label>Reason *</label>
+                <textarea
+                  value={overrideForm.reason}
+                  onChange={e => setOverrideForm(f => ({ ...f, reason: e.target.value }))}
+                  rows={2}
+                  placeholder="Why is this override needed?"
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowOverrideModal(false)} className="btn-secondary">Cancel</button>
+                <button onClick={handleAddOverride} className="btn-primary">Add Override</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Link Case Card Modal */}
+        {showLinkCaseCardModal && (
+          <div className="modal-overlay" onClick={() => setShowLinkCaseCardModal(false)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+              <h3>Link Case Card</h3>
+              <p>Select an active case card to link to this case:</p>
+              {availableCaseCards.length > 0 ? (
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  {availableCaseCards
+                    .filter(c => c.surgeonId === dashboard.surgeonId)
+                    .map(card => (
+                      <div
+                        key={card.currentVersionId}
+                        style={{
+                          padding: '1rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: '4px',
+                          marginBottom: '0.5rem',
+                          cursor: 'pointer',
+                          background: card.currentVersionId === dashboard.caseCard?.versionId ? 'var(--surface-hover)' : 'transparent',
+                        }}
+                        onClick={() => handleLinkCaseCard(card.currentVersionId!)}
+                      >
+                        <strong>{card.procedureName}</strong>
+                        <br />
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                          v{card.version} | {card.surgeonName}
+                        </span>
+                      </div>
+                    ))}
+                  {availableCaseCards.filter(c => c.surgeonId === dashboard.surgeonId).length === 0 && (
+                    <p style={{ color: 'var(--text-muted)' }}>
+                      No active case cards found for this surgeon.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-muted)' }}>No active case cards available.</p>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button onClick={() => setShowLinkCaseCardModal(false)} className="btn-secondary">Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Full Event Log Modal */}
+        {showEventLogModal && (
+          <div className="modal-overlay" onClick={() => setShowEventLogModal(false)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+              <h3>Event Log</h3>
+              <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                {eventLog.map(e => (
+                  <div key={e.id} style={{
+                    padding: '0.75rem',
+                    borderBottom: '1px solid var(--border)',
+                    fontSize: '0.9rem',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>
+                        <strong>{e.userName}</strong> ({e.userRole})
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        {new Date(e.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '0.25rem' }}>
+                      <span style={{
+                        background: 'var(--surface-hover)',
+                        padding: '0.125rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.8rem',
+                        marginRight: '0.5rem',
+                      }}>
+                        {e.eventType.replace(/_/g, ' ')}
+                      </span>
+                      {e.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button onClick={() => setShowEventLogModal(false)} className="btn-secondary">Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </>
+  );
+}
+
+export default function CaseDashboardPage() {
+  return (
+    <Suspense fallback={<div className="loading">Loading...</div>}>
+      <CaseDashboardContent />
+    </Suspense>
+  );
+}

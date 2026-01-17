@@ -365,6 +365,13 @@ function ProcedureCard({
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Case Dashboard link */}
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => router.push(`/case/${procedure.caseId}`)}
+          >
+            Dashboard
+          </button>
           {/* Only show Timeout/Debrief buttons for active, non-cancelled cases */}
           {featureEnabled && procedure.isActive && !procedure.isCancelled && (
             <>

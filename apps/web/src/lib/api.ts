@@ -1056,6 +1056,186 @@ export async function activateRoom(token: string, roomId: string): Promise<{ suc
 }
 
 // ============================================================================
+// CASE DASHBOARD
+// ============================================================================
+
+export type AnesthesiaModality = 'GENERAL' | 'SPINAL' | 'REGIONAL' | 'MAC' | 'LOCAL';
+export type AttestationState = 'NOT_ATTESTED' | 'ATTESTED' | 'VOIDED';
+export type CaseEventType =
+  | 'CASE_CARD_LINKED'
+  | 'CASE_CARD_CHANGED'
+  | 'READINESS_ATTESTED'
+  | 'READINESS_VOIDED'
+  | 'OVERRIDE_ADDED'
+  | 'OVERRIDE_MODIFIED'
+  | 'OVERRIDE_REMOVED'
+  | 'SCHEDULING_CHANGED'
+  | 'ANESTHESIA_PLAN_CHANGED'
+  | 'CASE_CREATED'
+  | 'CASE_ACTIVATED'
+  | 'CASE_CANCELLED';
+
+export interface CaseDashboardCaseCard {
+  id: string;
+  name: string;
+  version: string;
+  versionId: string;
+  status: string;
+}
+
+export interface CaseDashboardAnesthesiaPlan {
+  modality: AnesthesiaModality | null;
+  positioningConsiderations: string | null;
+  airwayNotes: string | null;
+  anticoagulationConsiderations: string | null;
+}
+
+export interface CaseDashboardOverride {
+  id: string;
+  target: string;
+  originalValue: string | null;
+  overrideValue: string;
+  reason: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface CaseDashboardData {
+  caseId: string;
+  facility: string;
+  facilityId: string;
+  scheduledDate: string;
+  scheduledTime: string | null;
+  surgeon: string;
+  surgeonId: string;
+  procedureName: string;
+  status: string;
+  attestationState: AttestationState;
+  attestedBy: string | null;
+  attestedAt: string | null;
+  voidReason: string | null;
+  estimatedDurationMinutes: number | null;
+  laterality: string | null;
+  orRoom: string | null;
+  schedulerNotes: string | null;
+  caseCard: CaseDashboardCaseCard | null;
+  anesthesiaPlan: CaseDashboardAnesthesiaPlan | null;
+  overrides: CaseDashboardOverride[];
+  readinessState: 'GREEN' | 'ORANGE' | 'RED';
+  missingItems: MissingItem[];
+}
+
+export interface CaseDashboardEventLogEntry {
+  id: string;
+  eventType: CaseEventType;
+  userId: string;
+  userRole: string;
+  userName: string;
+  description: string;
+  createdAt: string;
+}
+
+export async function getCaseDashboard(
+  token: string,
+  caseId: string
+): Promise<{ dashboard: CaseDashboardData }> {
+  return api(`/case-dashboard/${caseId}`, { token });
+}
+
+export async function attestCaseReadiness(
+  token: string,
+  caseId: string
+): Promise<{ success: boolean; attestationState: AttestationState }> {
+  return api(`/case-dashboard/${caseId}/attest`, { method: 'POST', body: {}, token });
+}
+
+export async function voidCaseAttestation(
+  token: string,
+  caseId: string,
+  reason: string
+): Promise<{ success: boolean; attestationState: AttestationState }> {
+  return api(`/case-dashboard/${caseId}/void`, { method: 'POST', body: { reason }, token });
+}
+
+export async function updateAnesthesiaPlan(
+  token: string,
+  caseId: string,
+  data: {
+    modality?: AnesthesiaModality;
+    positioningConsiderations?: string;
+    airwayNotes?: string;
+    anticoagulationConsiderations?: string;
+  }
+): Promise<{ success: boolean }> {
+  return api(`/case-dashboard/${caseId}/anesthesia`, { method: 'PUT', body: data, token });
+}
+
+export async function linkCaseCard(
+  token: string,
+  caseId: string,
+  caseCardVersionId: string
+): Promise<{ success: boolean }> {
+  return api(`/case-dashboard/${caseId}/link-case-card`, {
+    method: 'PUT',
+    body: { caseCardVersionId },
+    token,
+  });
+}
+
+export async function addCaseOverride(
+  token: string,
+  caseId: string,
+  data: {
+    target: string;
+    originalValue?: string;
+    overrideValue: string;
+    reason: string;
+  }
+): Promise<{ success: boolean; overrideId: string }> {
+  return api(`/case-dashboard/${caseId}/overrides`, { method: 'POST', body: data, token });
+}
+
+export async function updateCaseOverride(
+  token: string,
+  caseId: string,
+  overrideId: string,
+  data: {
+    overrideValue?: string;
+    reason?: string;
+  }
+): Promise<{ success: boolean }> {
+  return api(`/case-dashboard/${caseId}/overrides/${overrideId}`, { method: 'PUT', body: data, token });
+}
+
+export async function removeCaseOverride(
+  token: string,
+  caseId: string,
+  overrideId: string
+): Promise<{ success: boolean }> {
+  return api(`/case-dashboard/${caseId}/overrides/${overrideId}`, { method: 'DELETE', token });
+}
+
+export async function getCaseEventLog(
+  token: string,
+  caseId: string
+): Promise<{ eventLog: CaseDashboardEventLogEntry[] }> {
+  return api(`/case-dashboard/${caseId}/event-log`, { token });
+}
+
+export async function updateCaseSummary(
+  token: string,
+  caseId: string,
+  data: {
+    estimatedDurationMinutes?: number;
+    laterality?: string;
+    orRoom?: string;
+    schedulerNotes?: string;
+  }
+): Promise<{ success: boolean }> {
+  return api(`/case-dashboard/${caseId}/case-summary`, { method: 'PUT', body: data, token });
+}
+
+// ============================================================================
 // HELPERS
 // ============================================================================
 
