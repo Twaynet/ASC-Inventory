@@ -19,7 +19,7 @@ services:
       retries: 5
 
   api:
-    image: ghcr.io/twaynet/asc-inventory-api:1.2.2
+    image: ghcr.io/twaynet/asc-inventory-api:1.2.3
     container_name: asc-api
     environment:
       NODE_ENV: production
@@ -38,7 +38,7 @@ services:
         condition: service_healthy
 
   web:
-    image: ghcr.io/twaynet/asc-inventory-web:1.2.2
+    image: ghcr.io/twaynet/asc-inventory-web:1.2.3
     container_name: asc-web
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001/api
