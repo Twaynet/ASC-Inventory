@@ -112,7 +112,8 @@ export type Facility = z.infer<typeof FacilitySchema>;
 export const UserSchema = z.object({
   id: z.string().uuid(),
   facilityId: z.string().uuid(),
-  email: z.string().email(),
+  username: z.string().min(3).max(100),
+  email: z.string().email().optional(), // Required for ADMIN, optional for others
   name: z.string().min(1).max(255),
   role: UserRole,
   passwordHash: z.string(), // Never exposed to API
@@ -201,7 +202,7 @@ export type PreferenceCardVersion = z.infer<typeof PreferenceCardVersionSchema>;
 export const CaseSchema = z.object({
   id: z.string().uuid(),
   facilityId: z.string().uuid(),
-  scheduledDate: z.date(),
+  scheduledDate: z.date().optional(), // Optional until case is activated
   scheduledTime: z.string().optional(), // HH:MM format
   surgeonId: z.string().uuid(),
   patientMrn: z.string().optional(), // Medical Record Number (minimal PHI)
@@ -209,6 +210,14 @@ export const CaseSchema = z.object({
   preferenceCardVersionId: z.string().uuid().optional(),
   status: CaseStatus,
   notes: z.string().optional(),
+  // Active/Inactive workflow
+  isActive: z.boolean().default(false),
+  activatedAt: z.date().optional(),
+  activatedByUserId: z.string().uuid().optional(),
+  // Cancellation tracking
+  isCancelled: z.boolean().default(false),
+  cancelledAt: z.date().optional(),
+  cancelledByUserId: z.string().uuid().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

@@ -382,6 +382,24 @@ export async function startChecklist(
   userId: string,
   roomId?: string
 ): Promise<ChecklistInstance> {
+  // Check if case is active - only active cases can have checklists
+  const caseResult = await query<{ is_active: boolean; is_cancelled: boolean }>(`
+    SELECT is_active, is_cancelled FROM surgical_case
+    WHERE id = $1 AND facility_id = $2
+  `, [caseId, facilityId]);
+
+  if (caseResult.rows.length === 0) {
+    throw new Error('Case not found');
+  }
+
+  if (!caseResult.rows[0].is_active) {
+    throw new Error('Cannot start checklist on an inactive case. Case must be activated by admin first.');
+  }
+
+  if (caseResult.rows[0].is_cancelled) {
+    throw new Error('Cannot start checklist on a cancelled case');
+  }
+
   // Check if checklist already exists
   const existing = await query<ChecklistInstanceRow>(`
     SELECT * FROM case_checklist_instance

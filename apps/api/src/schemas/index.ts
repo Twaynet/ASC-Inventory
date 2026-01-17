@@ -23,7 +23,7 @@ import {
 // ============================================================================
 
 export const LoginRequestSchema = z.object({
-  email: z.string().email(),
+  username: z.string().min(3).max(100),
   password: z.string().min(8),
 });
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
@@ -32,7 +32,8 @@ export const LoginResponseSchema = z.object({
   token: z.string(),
   user: z.object({
     id: z.string().uuid(),
-    email: z.string().email(),
+    username: z.string(),
+    email: z.string().email().nullable(),
     name: z.string(),
     role: UserRole,
     facilityId: z.string().uuid(),
@@ -42,11 +43,51 @@ export const LoginResponseSchema = z.object({
 export type LoginResponse = z.infer<typeof LoginResponseSchema>;
 
 // ============================================================================
+// USER MANAGEMENT SCHEMAS (ADMIN only)
+// ============================================================================
+
+// Username validation: 3-100 chars, alphanumeric + _.-
+const usernameRegex = /^[a-zA-Z0-9_.-]+$/;
+
+export const CreateUserRequestSchema = z.object({
+  username: z.string().min(3).max(100).regex(usernameRegex, 'Username can only contain letters, numbers, underscores, dots, and hyphens'),
+  email: z.string().email().optional(),
+  name: z.string().min(1).max(255),
+  role: UserRole,
+  password: z.string().min(8),
+}).refine(
+  (data) => data.role !== 'ADMIN' || data.email,
+  { message: 'Email is required for ADMIN role', path: ['email'] }
+);
+export type CreateUserRequest = z.infer<typeof CreateUserRequestSchema>;
+
+export const UpdateUserRequestSchema = z.object({
+  username: z.string().min(3).max(100).regex(usernameRegex, 'Username can only contain letters, numbers, underscores, dots, and hyphens').optional(),
+  email: z.string().email().nullable().optional(),
+  name: z.string().min(1).max(255).optional(),
+  role: UserRole.optional(),
+  password: z.string().min(8).optional(),
+});
+export type UpdateUserRequest = z.infer<typeof UpdateUserRequestSchema>;
+
+export const UserResponseSchema = z.object({
+  id: z.string().uuid(),
+  username: z.string(),
+  email: z.string().email().nullable(),
+  name: z.string(),
+  role: UserRole,
+  active: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type UserResponse = z.infer<typeof UserResponseSchema>;
+
+// ============================================================================
 // CASE SCHEMAS
 // ============================================================================
 
 export const CreateCaseRequestSchema = z.object({
-  scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+  scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // YYYY-MM-DD, optional until activation
   scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), // HH:MM
   surgeonId: z.string().uuid(),
   patientMrn: z.string().max(50).optional(),
@@ -71,7 +112,7 @@ export type UpdateCaseRequest = z.infer<typeof UpdateCaseRequestSchema>;
 export const CaseResponseSchema = z.object({
   id: z.string().uuid(),
   facilityId: z.string().uuid(),
-  scheduledDate: z.string(),
+  scheduledDate: z.string().nullable(),
   scheduledTime: z.string().nullable(),
   surgeonId: z.string().uuid(),
   surgeonName: z.string(),
@@ -80,10 +121,31 @@ export const CaseResponseSchema = z.object({
   preferenceCardVersionId: z.string().uuid().nullable(),
   status: CaseStatus,
   notes: z.string().nullable(),
+  // Active/Inactive workflow
+  isActive: z.boolean(),
+  activatedAt: z.string().nullable(),
+  activatedByUserId: z.string().uuid().nullable(),
+  // Cancellation tracking
+  isCancelled: z.boolean(),
+  cancelledAt: z.string().nullable(),
+  cancelledByUserId: z.string().uuid().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
 export type CaseResponse = z.infer<typeof CaseResponseSchema>;
+
+// Case Activation Schema (ADMIN only)
+export const ActivateCaseRequestSchema = z.object({
+  scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD required
+  scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), // HH:MM
+});
+export type ActivateCaseRequest = z.infer<typeof ActivateCaseRequestSchema>;
+
+// Cancel Case Schema (any user)
+export const CancelCaseRequestSchema = z.object({
+  reason: z.string().optional(),
+});
+export type CancelCaseRequest = z.infer<typeof CancelCaseRequestSchema>;
 
 // ============================================================================
 // CASE REQUIREMENT (SURGEON OVERRIDE) SCHEMAS

@@ -59,38 +59,45 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       }
     }
 
-    // Get surgeon IDs
+    // Get surgeon IDs and active/cancelled status
     const surgeonIds = new Map<string, string>();
+    const caseActiveStatus = new Map<string, { isActive: boolean; isCancelled: boolean }>();
     if (caseIds.length > 0) {
-      const surgeonResult = await query<{ id: string; surgeon_id: string }>(`
-        SELECT id, surgeon_id FROM surgical_case WHERE id = ANY($1)
+      const surgeonResult = await query<{ id: string; surgeon_id: string; is_active: boolean; is_cancelled: boolean }>(`
+        SELECT id, surgeon_id, is_active, is_cancelled FROM surgical_case WHERE id = ANY($1)
       `, [caseIds]);
       for (const row of surgeonResult.rows) {
         surgeonIds.set(row.id, row.surgeon_id);
+        caseActiveStatus.set(row.id, { isActive: row.is_active, isCancelled: row.is_cancelled });
       }
     }
 
     // Transform cache rows to response format
-    const cases = cacheRows.map(row => ({
-      caseId: row.case_id,
-      facilityId: row.facility_id,
-      scheduledDate: row.scheduled_date.toISOString().split('T')[0],
-      scheduledTime: caseTimes.get(row.case_id) || null,
-      procedureName: row.procedure_name,
-      surgeonId: surgeonIds.get(row.case_id) || '',
-      surgeonName: row.surgeon_name,
-      readinessState: row.readiness_state,
-      missingItems: row.missing_items as any[],
-      totalRequiredItems: row.total_required_items,
-      totalVerifiedItems: row.total_verified_items,
-      hasAttestation: row.has_attestation,
-      attestedAt: row.attested_at?.toISOString() || null,
-      attestedByName: row.attested_by_name,
-      attestationId: row.attestation_id,
-      hasSurgeonAcknowledgment: row.has_surgeon_acknowledgment,
-      surgeonAcknowledgedAt: row.surgeon_acknowledged_at?.toISOString() || null,
-      surgeonAcknowledgmentId: row.surgeon_acknowledgment_id,
-    }));
+    const cases = cacheRows.map(row => {
+      const activeStatus = caseActiveStatus.get(row.case_id) || { isActive: true, isCancelled: false };
+      return {
+        caseId: row.case_id,
+        facilityId: row.facility_id,
+        scheduledDate: row.scheduled_date.toISOString().split('T')[0],
+        scheduledTime: caseTimes.get(row.case_id) || null,
+        procedureName: row.procedure_name,
+        surgeonId: surgeonIds.get(row.case_id) || '',
+        surgeonName: row.surgeon_name,
+        readinessState: row.readiness_state,
+        missingItems: row.missing_items as any[],
+        totalRequiredItems: row.total_required_items,
+        totalVerifiedItems: row.total_verified_items,
+        hasAttestation: row.has_attestation,
+        attestedAt: row.attested_at?.toISOString() || null,
+        attestedByName: row.attested_by_name,
+        attestationId: row.attestation_id,
+        hasSurgeonAcknowledgment: row.has_surgeon_acknowledgment,
+        surgeonAcknowledgedAt: row.surgeon_acknowledged_at?.toISOString() || null,
+        surgeonAcknowledgmentId: row.surgeon_acknowledgment_id,
+        isActive: activeStatus.isActive,
+        isCancelled: activeStatus.isCancelled,
+      };
+    });
 
     // Calculate summary
     const summary = {

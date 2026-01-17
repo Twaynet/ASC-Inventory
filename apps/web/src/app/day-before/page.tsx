@@ -232,8 +232,28 @@ function ProcedureCard({
     }
   };
 
+  // Determine card class based on active/cancelled state
+  const cardClass = [
+    'procedure-card',
+    `status-${procedure.readinessState.toLowerCase()}`,
+    !isExpanded ? 'collapsed' : '',
+    !procedure.isActive ? 'inactive-case' : '',
+    procedure.isCancelled ? 'cancelled-case' : '',
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className={`procedure-card status-${procedure.readinessState.toLowerCase()} ${!isExpanded ? 'collapsed' : ''}`}>
+    <div className={cardClass}>
+      {/* Status banners for inactive/cancelled cases */}
+      {!procedure.isActive && !procedure.isCancelled && (
+        <div className="case-status-banner pending-approval">
+          PENDING APPROVAL - Case not yet activated by admin
+        </div>
+      )}
+      {procedure.isCancelled && (
+        <div className="case-status-banner cancelled">
+          CANCELLED
+        </div>
+      )}
       <div className="procedure-card-header" onClick={onToggleExpand}>
         <div className="procedure-card-info">
           <div className="procedure-card-title-row">
@@ -245,7 +265,7 @@ function ProcedureCard({
             <h3>{procedure.procedureName}</h3>
           </div>
           <p>
-            {formatTime(procedure.scheduledTime)} &bull; Dr. {procedure.surgeonName}
+            {procedure.scheduledDate ? formatTime(procedure.scheduledTime) : 'Date TBD'} &bull; Dr. {procedure.surgeonName}
           </p>
         </div>
         <div className={`readiness-badge ${procedure.readinessState.toLowerCase()}`}>
@@ -358,7 +378,8 @@ function ProcedureCard({
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {featureEnabled && (
+          {/* Only show Timeout/Debrief buttons for active, non-cancelled cases */}
+          {featureEnabled && procedure.isActive && !procedure.isCancelled && (
             <>
               <button
                 className="btn btn-secondary btn-sm"
@@ -374,7 +395,8 @@ function ProcedureCard({
               </button>
             </>
           )}
-          {canAttest && (
+          {/* Only show attestation buttons for active, non-cancelled cases */}
+          {canAttest && procedure.isActive && !procedure.isCancelled && (
             <button
               className="btn btn-primary btn-sm"
               onClick={handleAttest}
@@ -383,7 +405,7 @@ function ProcedureCard({
               {isAttesting ? 'Attesting...' : 'Attest Readiness'}
             </button>
           )}
-          {canAcknowledge && (
+          {canAcknowledge && procedure.isActive && !procedure.isCancelled && (
             <button
               className="btn btn-danger btn-sm"
               onClick={handleAcknowledge}

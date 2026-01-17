@@ -44,24 +44,24 @@ async function seed() {
     const passwordHash = await bcrypt.hash('password123', 10);
 
     const usersData = [
-      { email: 'admin@demo.com', name: 'Admin User', role: 'ADMIN' },
-      { email: 'scheduler@demo.com', name: 'Sarah Scheduler', role: 'SCHEDULER' },
-      { email: 'tech@demo.com', name: 'Tom Tech', role: 'INVENTORY_TECH' },
-      { email: 'circulator@demo.com', name: 'Carla Circulator', role: 'CIRCULATOR' },
-      { email: 'scrub@demo.com', name: 'Steve Scrub', role: 'SCRUB' },
-      { email: 'drsmith@demo.com', name: 'Dr. John Smith', role: 'SURGEON' },
-      { email: 'drjones@demo.com', name: 'Dr. Sarah Jones', role: 'SURGEON' },
+      { username: 'admin', email: 'admin@demo.com', name: 'Admin User', role: 'ADMIN' },
+      { username: 'scheduler', email: 'scheduler@demo.com', name: 'Sarah Scheduler', role: 'SCHEDULER' },
+      { username: 'tech', email: 'tech@demo.com', name: 'Tom Tech', role: 'INVENTORY_TECH' },
+      { username: 'circulator', email: 'circulator@demo.com', name: 'Carla Circulator', role: 'CIRCULATOR' },
+      { username: 'scrub', email: 'scrub@demo.com', name: 'Steve Scrub', role: 'SCRUB' },
+      { username: 'drsmith', email: 'drsmith@demo.com', name: 'Dr. John Smith', role: 'SURGEON' },
+      { username: 'drjones', email: 'drjones@demo.com', name: 'Dr. Sarah Jones', role: 'SURGEON' },
     ];
 
     const users: Record<string, string> = {};
     for (const user of usersData) {
       const result = await client.query(`
-        INSERT INTO app_user (facility_id, email, name, role, password_hash)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO app_user (facility_id, username, email, name, role, password_hash)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id
-      `, [facilityId, user.email, user.name, user.role, passwordHash]);
+      `, [facilityId, user.username, user.email, user.name, user.role, passwordHash]);
       users[user.role + '_' + user.name] = result.rows[0].id;
-      console.log(`Created user: ${user.name} (${user.email})`);
+      console.log(`Created user: ${user.name} (${user.username})`);
     }
 
     const drSmithId = users['SURGEON_Dr. John Smith'];
@@ -232,15 +232,17 @@ async function seed() {
     tomorrowDate.setDate(tomorrowDate.getDate() + 1);
     const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
 
-    // Case 1: GREEN - all items available
+    const adminId = users['ADMIN_Admin User'];
+
+    // Case 1: GREEN - all items available (active)
     const case1Result = await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
       )
-      VALUES ($1, $2, '08:00', $3, 'Total Hip Arthroplasty', $4, 'SCHEDULED')
+      VALUES ($1, $2, '08:00', $3, 'Total Hip Arthroplasty', $4, 'SCHEDULED', true, NOW(), $5)
       RETURNING id
-    `, [facilityId, tomorrowStr, drSmithId, hipVersionResult.rows[0].id]);
+    `, [facilityId, tomorrowStr, drSmithId, hipVersionResult.rows[0].id, adminId]);
 
     // Add requirements from preference card
     await client.query(`
@@ -258,15 +260,15 @@ async function seed() {
       catalog['Power Drill System'],
     ]);
 
-    // Case 2: GREEN - all items available
+    // Case 2: GREEN - all items available (active)
     const case2Result = await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
       )
-      VALUES ($1, $2, '10:30', $3, 'Total Knee Arthroplasty', $4, 'SCHEDULED')
+      VALUES ($1, $2, '10:30', $3, 'Total Knee Arthroplasty', $4, 'SCHEDULED', true, NOW(), $5)
       RETURNING id
-    `, [facilityId, tomorrowStr, drJonesId, kneeVersionResult.rows[0].id]);
+    `, [facilityId, tomorrowStr, drJonesId, kneeVersionResult.rows[0].id, adminId]);
 
     await client.query(`
       INSERT INTO case_requirement (case_id, catalog_id, quantity, is_surgeon_override)
@@ -279,15 +281,15 @@ async function seed() {
       catalog['Power Drill System'],
     ]);
 
-    // Case 3: RED - missing loaner tray
+    // Case 3: RED - missing loaner tray (active)
     const case3Result = await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
       )
-      VALUES ($1, $2, '13:00', $3, 'Lumbar Fusion', $4, 'SCHEDULED')
+      VALUES ($1, $2, '13:00', $3, 'Lumbar Fusion', $4, 'SCHEDULED', true, NOW(), $5)
       RETURNING id
-    `, [facilityId, tomorrowStr, drSmithId, spineVersionResult.rows[0].id]);
+    `, [facilityId, tomorrowStr, drSmithId, spineVersionResult.rows[0].id, adminId]);
 
     await client.query(`
       INSERT INTO case_requirement (case_id, catalog_id, quantity, is_surgeon_override)
@@ -315,47 +317,47 @@ async function seed() {
     day4.setDate(day4.getDate() + 4);
     const day4Str = day4.toISOString().split('T')[0];
 
-    // Test cases for debrief testing - Day +2
+    // Test cases for debrief testing - Day +2 (all active)
     await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
       )
       VALUES
-        ($1, $2, '07:30', $3, 'Hip Replacement - Test 1', $4, 'SCHEDULED'),
-        ($1, $2, '09:00', $3, 'Hip Replacement - Test 2', $4, 'SCHEDULED'),
-        ($1, $2, '10:30', $5, 'Knee Replacement - Test 1', $6, 'SCHEDULED'),
-        ($1, $2, '12:00', $5, 'Knee Replacement - Test 2', $6, 'SCHEDULED'),
-        ($1, $2, '14:00', $3, 'Hip Replacement - Test 3', $4, 'SCHEDULED')
-    `, [facilityId, dayAfterStr, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id]);
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 1', $4, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 2', $4, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 1', $6, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 2', $6, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 3', $4, 'SCHEDULED', true, NOW(), $7)
+    `, [facilityId, dayAfterStr, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId]);
 
-    // Test cases for debrief testing - Day +3
+    // Test cases for debrief testing - Day +3 (all active)
     await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
       )
       VALUES
-        ($1, $2, '07:30', $3, 'Hip Replacement - Test 4', $4, 'SCHEDULED'),
-        ($1, $2, '09:00', $3, 'Hip Replacement - Test 5', $4, 'SCHEDULED'),
-        ($1, $2, '10:30', $5, 'Knee Replacement - Test 3', $6, 'SCHEDULED'),
-        ($1, $2, '12:00', $5, 'Knee Replacement - Test 4', $6, 'SCHEDULED'),
-        ($1, $2, '14:00', $3, 'Hip Replacement - Test 6', $4, 'SCHEDULED')
-    `, [facilityId, day3Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id]);
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 4', $4, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 5', $4, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 3', $6, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 4', $6, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 6', $4, 'SCHEDULED', true, NOW(), $7)
+    `, [facilityId, day3Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId]);
 
-    // Test cases for debrief testing - Day +4
+    // Test cases for debrief testing - Day +4 (all active)
     await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
       )
       VALUES
-        ($1, $2, '07:30', $3, 'Hip Replacement - Test 7', $4, 'SCHEDULED'),
-        ($1, $2, '09:00', $3, 'Hip Replacement - Test 8', $4, 'SCHEDULED'),
-        ($1, $2, '10:30', $5, 'Knee Replacement - Test 5', $6, 'SCHEDULED'),
-        ($1, $2, '12:00', $5, 'Knee Replacement - Test 6', $6, 'SCHEDULED'),
-        ($1, $2, '14:00', $3, 'Hip Replacement - Test 9', $4, 'SCHEDULED')
-    `, [facilityId, day4Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id]);
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 7', $4, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 8', $4, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 5', $6, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 6', $6, 'SCHEDULED', true, NOW(), $7),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 9', $4, 'SCHEDULED', true, NOW(), $7)
+    `, [facilityId, day4Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId]);
 
     console.log('Created 15 additional test cases for debrief testing');
 
@@ -369,13 +371,14 @@ async function seed() {
 
     await client.query('COMMIT');
     console.log('\nSeeding completed successfully!');
-    console.log('\nTest Accounts:');
-    console.log('  admin@demo.com / password123 (Admin)');
-    console.log('  tech@demo.com / password123 (Inventory Tech)');
-    console.log('  circulator@demo.com / password123 (Circulator)');
-    console.log('  scrub@demo.com / password123 (Scrub Tech)');
-    console.log('  drsmith@demo.com / password123 (Surgeon)');
-    console.log('  drjones@demo.com / password123 (Surgeon)');
+    console.log('\nTest Accounts (login with username, not email):');
+    console.log('  admin / password123 (Admin)');
+    console.log('  scheduler / password123 (Scheduler)');
+    console.log('  tech / password123 (Inventory Tech)');
+    console.log('  circulator / password123 (Circulator)');
+    console.log('  scrub / password123 (Scrub Tech)');
+    console.log('  drsmith / password123 (Surgeon)');
+    console.log('  drjones / password123 (Surgeon)');
 
   } catch (err) {
     await client.query('ROLLBACK');

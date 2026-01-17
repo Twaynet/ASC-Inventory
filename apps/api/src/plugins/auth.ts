@@ -11,7 +11,8 @@ import { UserRole } from '@asc/domain';
 export interface JwtPayload {
   userId: string;
   facilityId: string;
-  email: string;
+  username: string;
+  email: string | null;
   name: string;
   role: UserRole;
 }

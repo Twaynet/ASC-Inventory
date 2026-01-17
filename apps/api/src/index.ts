@@ -8,6 +8,7 @@ import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
 import fastifyJwt from '@fastify/jwt';
 import { authRoutes } from './routes/auth.routes.js';
+import { usersRoutes } from './routes/users.routes.js';
 import { casesRoutes } from './routes/cases.routes.js';
 import { inventoryRoutes } from './routes/inventory.routes.js';
 import { readinessRoutes } from './routes/readiness.routes.js';
@@ -56,6 +57,7 @@ async function main() {
 
   // Register routes
   await fastify.register(authRoutes, { prefix: '/api/auth' });
+  await fastify.register(usersRoutes, { prefix: '/api/users' });
   await fastify.register(casesRoutes, { prefix: '/api/cases' });
   await fastify.register(inventoryRoutes, { prefix: '/api/inventory' });
   await fastify.register(readinessRoutes, { prefix: '/api/readiness' });

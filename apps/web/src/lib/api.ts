@@ -40,7 +40,8 @@ export interface LoginResponse {
   token: string;
   user: {
     id: string;
-    email: string;
+    username: string;
+    email: string | null;
     name: string;
     role: string;
     facilityId: string;
@@ -48,8 +49,8 @@ export interface LoginResponse {
   };
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
-  return api('/auth/login', { method: 'POST', body: { email, password } });
+export async function login(username: string, password: string): Promise<LoginResponse> {
+  return api('/auth/login', { method: 'POST', body: { username, password } });
 }
 
 export async function getMe(token: string): Promise<{ user: LoginResponse['user'] }> {
@@ -68,7 +69,7 @@ export interface MissingItem {
 export interface CaseReadiness {
   caseId: string;
   facilityId: string;
-  scheduledDate: string;
+  scheduledDate: string | null;
   scheduledTime: string | null;
   procedureName: string;
   surgeonId: string;
@@ -84,6 +85,9 @@ export interface CaseReadiness {
   hasSurgeonAcknowledgment: boolean;
   surgeonAcknowledgedAt: string | null;
   surgeonAcknowledgmentId: string | null;
+  // Active/Inactive workflow
+  isActive: boolean;
+  isCancelled: boolean;
 }
 
 export interface DayBeforeResponse {
@@ -423,4 +427,120 @@ export async function getPendingReviews(token: string): Promise<PendingReviewsRe
 
 export async function getMyPendingReviews(token: string): Promise<PendingReviewsResponse> {
   return api('/my-pending-reviews', { token });
+}
+
+// ============================================================================
+// USER MANAGEMENT (ADMIN only)
+// ============================================================================
+
+export interface User {
+  id: string;
+  username: string;
+  email: string | null;
+  name: string;
+  role: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  email?: string;
+  name: string;
+  role: string;
+  password: string;
+}
+
+export interface UpdateUserRequest {
+  username?: string;
+  email?: string | null;
+  name?: string;
+  role?: string;
+  password?: string;
+}
+
+export async function getUsers(token: string, includeInactive = false): Promise<{ users: User[] }> {
+  const query = includeInactive ? '?includeInactive=true' : '';
+  return api(`/users${query}`, { token });
+}
+
+export async function getUser(token: string, userId: string): Promise<{ user: User }> {
+  return api(`/users/${userId}`, { token });
+}
+
+export async function createUser(token: string, data: CreateUserRequest): Promise<{ user: User }> {
+  return api('/users', { method: 'POST', body: data, token });
+}
+
+export async function updateUser(token: string, userId: string, data: UpdateUserRequest): Promise<{ user: User }> {
+  return api(`/users/${userId}`, { method: 'PATCH', body: data, token });
+}
+
+export async function deactivateUser(token: string, userId: string): Promise<{ success: boolean }> {
+  return api(`/users/${userId}/deactivate`, { method: 'POST', body: {}, token });
+}
+
+export async function activateUser(token: string, userId: string): Promise<{ success: boolean }> {
+  return api(`/users/${userId}/activate`, { method: 'POST', body: {}, token });
+}
+
+// ============================================================================
+// CASE MANAGEMENT (Active/Inactive workflow)
+// ============================================================================
+
+export interface Case {
+  id: string;
+  facilityId: string;
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  surgeonId: string;
+  surgeonName: string;
+  patientMrn: string | null;
+  procedureName: string;
+  preferenceCardVersionId: string | null;
+  status: string;
+  notes: string | null;
+  isActive: boolean;
+  activatedAt: string | null;
+  activatedByUserId: string | null;
+  isCancelled: boolean;
+  cancelledAt: string | null;
+  cancelledByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivateCaseRequest {
+  scheduledDate: string;
+  scheduledTime?: string;
+}
+
+export async function getCases(token: string, filters?: { date?: string; status?: string; active?: string }): Promise<{ cases: Case[] }> {
+  const params = new URLSearchParams();
+  if (filters?.date) params.set('date', filters.date);
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.active !== undefined) params.set('active', filters.active);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return api(`/cases${query}`, { token });
+}
+
+export async function getCase(token: string, caseId: string): Promise<{ case: Case }> {
+  return api(`/cases/${caseId}`, { token });
+}
+
+export async function createCase(token: string, data: Partial<Case>): Promise<{ case: Case }> {
+  return api('/cases', { method: 'POST', body: data, token });
+}
+
+export async function activateCase(token: string, caseId: string, data: ActivateCaseRequest): Promise<{ case: Case }> {
+  return api(`/cases/${caseId}/activate`, { method: 'POST', body: data, token });
+}
+
+export async function deactivateCase(token: string, caseId: string): Promise<{ case: Case }> {
+  return api(`/cases/${caseId}/deactivate`, { method: 'POST', body: {}, token });
+}
+
+export async function cancelCase(token: string, caseId: string, reason?: string): Promise<{ case: Case }> {
+  return api(`/cases/${caseId}/cancel`, { method: 'POST', body: { reason }, token });
 }

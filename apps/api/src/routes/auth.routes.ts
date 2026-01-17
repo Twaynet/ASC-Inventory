@@ -11,7 +11,7 @@ import type { JwtPayload } from '../plugins/auth.js';
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * POST /auth/login
-   * Authenticate user and return JWT
+   * Authenticate user and return JWT (by username)
    */
   fastify.post('/login', async (request: FastifyRequest, reply: FastifyReply) => {
     const parseResult = LoginRequestSchema.safeParse(request.body);
@@ -22,22 +22,23 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const { email, password } = parseResult.data;
+    const { username, password } = parseResult.data;
 
-    // Find user by email (case-insensitive)
+    // Find user by username (case-insensitive)
     const result = await query<{
       id: string;
       facility_id: string;
-      email: string;
+      username: string;
+      email: string | null;
       name: string;
       role: string;
       password_hash: string;
       active: boolean;
     }>(`
-      SELECT u.id, u.facility_id, u.email, u.name, u.role, u.password_hash, u.active
+      SELECT u.id, u.facility_id, u.username, u.email, u.name, u.role, u.password_hash, u.active
       FROM app_user u
-      WHERE LOWER(u.email) = LOWER($1)
-    `, [email]);
+      WHERE LOWER(u.username) = LOWER($1)
+    `, [username]);
 
     if (result.rows.length === 0) {
       return reply.status(401).send({ error: 'Invalid credentials' });
@@ -66,6 +67,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const payload: JwtPayload = {
       userId: user.id,
       facilityId: user.facility_id,
+      username: user.username,
       email: user.email,
       name: user.name,
       role: user.role as any,
@@ -77,6 +79,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       token,
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         name: user.name,
         role: user.role,
@@ -100,6 +103,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send({
       user: {
         id: request.user.userId,
+        username: request.user.username,
         email: request.user.email,
         name: request.user.name,
         role: request.user.role,

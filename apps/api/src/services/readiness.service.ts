@@ -237,7 +237,8 @@ async function getSurgeons(facilityId: string): Promise<Map<string, User>> {
   const result = await query<{
     id: string;
     facility_id: string;
-    email: string;
+    username: string;
+    email: string | null;
     name: string;
     role: string;
     password_hash: string;
@@ -254,7 +255,8 @@ async function getSurgeons(facilityId: string): Promise<Map<string, User>> {
     map.set(row.id, {
       id: row.id as any,
       facilityId: row.facility_id as FacilityId,
-      email: row.email,
+      username: row.username,
+      email: row.email ?? undefined,
       name: row.name,
       role: row.role as any,
       passwordHash: row.password_hash,
