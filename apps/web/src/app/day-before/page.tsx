@@ -45,9 +45,8 @@ function formatDateParam(date: Date): string {
 
 function parseDateParam(dateStr: string | null): Date {
   if (!dateStr) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow;
+    // Default to today (works for month/week/day views)
+    return new Date();
   }
 
   // Handle YYYY-MM format for month view
@@ -69,7 +68,7 @@ function DayBeforeContent() {
   const viewParam = searchParams.get('view') as ViewMode | null;
   const dateParam = searchParams.get('date');
 
-  const [viewMode, setViewMode] = useState<ViewMode>(viewParam || 'day');
+  const [viewMode, setViewMode] = useState<ViewMode>(viewParam || 'month');
   const [currentDate, setCurrentDate] = useState<Date>(() => parseDateParam(dateParam));
   const [timeoutDebriefEnabled, setTimeoutDebriefEnabled] = useState(false);
   const [isTogglingFeature, setIsTogglingFeature] = useState(false);
