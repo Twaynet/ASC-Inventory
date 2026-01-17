@@ -13,6 +13,10 @@ import { casesRoutes } from './routes/cases.routes.js';
 import { inventoryRoutes } from './routes/inventory.routes.js';
 import { readinessRoutes } from './routes/readiness.routes.js';
 import { checklistsRoutes } from './routes/checklists.routes.js';
+import { locationsRoutes } from './routes/locations.routes.js';
+import { catalogRoutes } from './routes/catalog.routes.js';
+import { preferenceCardsRoutes } from './routes/preference-cards.routes.js';
+import { settingsRoutes } from './routes/settings.routes.js';
 
 const PORT = parseInt(process.env.PORT || '3001');
 const HOST = process.env.HOST || '0.0.0.0';
@@ -62,6 +66,10 @@ async function main() {
   await fastify.register(inventoryRoutes, { prefix: '/api/inventory' });
   await fastify.register(readinessRoutes, { prefix: '/api/readiness' });
   await fastify.register(checklistsRoutes, { prefix: '/api' });
+  await fastify.register(locationsRoutes, { prefix: '/api/locations' });
+  await fastify.register(catalogRoutes, { prefix: '/api/catalog' });
+  await fastify.register(preferenceCardsRoutes, { prefix: '/api/preference-cards' });
+  await fastify.register(settingsRoutes, { prefix: '/api/settings' });
 
   // Start server
   try {

@@ -5,11 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import {
   getCases,
+  createCase,
   activateCase,
   deactivateCase,
   cancelCase,
+  getSurgeons,
+  getPreferenceCards,
   type Case,
   type ActivateCaseRequest,
+  type User,
+  type PreferenceCard,
 } from '@/lib/api';
 
 function formatDate(dateStr: string): string {
@@ -35,10 +40,22 @@ export default function AdminCasesPage() {
   const router = useRouter();
 
   const [cases, setCases] = useState<Case[]>([]);
+  const [surgeons, setSurgeons] = useState<User[]>([]);
+  const [preferenceCards, setPreferenceCards] = useState<PreferenceCard[]>([]);
   const [filter, setFilter] = useState<'all' | 'inactive' | 'active' | 'cancelled'>('inactive');
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Create form state
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createFormData, setCreateFormData] = useState({
+    surgeonId: '',
+    procedureName: '',
+    preferenceCardVersionId: '',
+    patientMrn: '',
+    notes: '',
+  });
 
   // Activation form state
   const [activatingCase, setActivatingCase] = useState<Case | null>(null);
@@ -55,8 +72,14 @@ export default function AdminCasesPage() {
     if (!token) return;
     setIsLoadingData(true);
     try {
-      const result = await getCases(token);
-      setCases(result.cases);
+      const [casesResult, surgeonsResult, cardsResult] = await Promise.all([
+        getCases(token),
+        getSurgeons(token),
+        getPreferenceCards(token),
+      ]);
+      setCases(casesResult.cases);
+      setSurgeons(surgeonsResult.users);
+      setPreferenceCards(cardsResult.cards.filter(c => c.active));
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load cases');
@@ -83,6 +106,34 @@ export default function AdminCasesPage() {
         return true;
     }
   });
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+
+    try {
+      const caseData: Partial<Case> = {
+        surgeonId: createFormData.surgeonId,
+        procedureName: createFormData.procedureName,
+        patientMrn: createFormData.patientMrn || null,
+        notes: createFormData.notes || null,
+        preferenceCardVersionId: createFormData.preferenceCardVersionId || null,
+      };
+      await createCase(token, caseData);
+      setSuccessMessage('Case created successfully. It will remain inactive until approved and scheduled.');
+      setShowCreateForm(false);
+      setCreateFormData({
+        surgeonId: '',
+        procedureName: '',
+        preferenceCardVersionId: '',
+        patientMrn: '',
+        notes: '',
+      });
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create case');
+    }
+  };
 
   const handleActivate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,6 +257,118 @@ export default function AdminCasesPage() {
         {successMessage && (
           <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
             {successMessage}
+          </div>
+        )}
+
+        <div className="actions-bar">
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setShowCreateForm(true);
+              setActivatingCase(null);
+            }}
+          >
+            + Create Case
+          </button>
+        </div>
+
+        {/* Create Case Form */}
+        {showCreateForm && (
+          <div className="form-card">
+            <h2>Create New Case</h2>
+            <p className="form-note">
+              New cases start as inactive and must be approved and scheduled before appearing in readiness.
+            </p>
+            <form onSubmit={handleCreate}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Surgeon *</label>
+                  <select
+                    value={createFormData.surgeonId}
+                    onChange={(e) => {
+                      setCreateFormData({ ...createFormData, surgeonId: e.target.value, preferenceCardVersionId: '' });
+                    }}
+                    required
+                  >
+                    <option value="">Select surgeon...</option>
+                    {surgeons.map(s => (
+                      <option key={s.id} value={s.id}>Dr. {s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Procedure Name *</label>
+                  <input
+                    type="text"
+                    value={createFormData.procedureName}
+                    onChange={(e) => setCreateFormData({ ...createFormData, procedureName: e.target.value })}
+                    required
+                    placeholder="e.g., Total Hip Replacement"
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Preference Card</label>
+                  <select
+                    value={createFormData.preferenceCardVersionId}
+                    onChange={(e) => setCreateFormData({ ...createFormData, preferenceCardVersionId: e.target.value })}
+                    disabled={!createFormData.surgeonId}
+                  >
+                    <option value="">None</option>
+                    {preferenceCards
+                      .filter(c => c.surgeonId === createFormData.surgeonId && c.currentVersion)
+                      .map(c => (
+                        <option key={c.id} value={c.currentVersion!.id}>
+                          {c.procedureName} (v{c.currentVersion!.versionNumber})
+                        </option>
+                      ))}
+                  </select>
+                  {createFormData.surgeonId && !preferenceCards.some(c => c.surgeonId === createFormData.surgeonId) && (
+                    <small className="form-hint">No preference cards found for this surgeon</small>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label>Patient MRN</label>
+                  <input
+                    type="text"
+                    value={createFormData.patientMrn}
+                    onChange={(e) => setCreateFormData({ ...createFormData, patientMrn: e.target.value })}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Notes</label>
+                <input
+                  type="text"
+                  value={createFormData.notes}
+                  onChange={(e) => setCreateFormData({ ...createFormData, notes: e.target.value })}
+                  placeholder="Optional notes"
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary">
+                  Create Case
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setCreateFormData({
+                      surgeonId: '',
+                      procedureName: '',
+                      preferenceCardVersionId: '',
+                      patientMrn: '',
+                      notes: '',
+                    });
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         )}
 
@@ -368,6 +531,36 @@ export default function AdminCasesPage() {
       <style jsx>{`
         .admin-cases-page {
           padding: 2rem 0;
+        }
+
+        .actions-bar {
+          margin-bottom: 1.5rem;
+        }
+
+        .form-note {
+          color: #718096;
+          font-size: 0.875rem;
+          margin-bottom: 1rem;
+        }
+
+        .form-hint {
+          display: block;
+          color: #718096;
+          font-size: 0.75rem;
+          margin-top: 0.25rem;
+        }
+
+        .form-group select {
+          width: 100%;
+          padding: 0.5rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          font-size: 1rem;
+        }
+
+        .form-group select:disabled {
+          background: #f7fafc;
+          color: #a0aec0;
         }
 
         .summary-cards {

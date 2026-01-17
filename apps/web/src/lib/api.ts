@@ -544,3 +544,337 @@ export async function deactivateCase(token: string, caseId: string): Promise<{ c
 export async function cancelCase(token: string, caseId: string, reason?: string): Promise<{ case: Case }> {
   return api(`/cases/${caseId}/cancel`, { method: 'POST', body: { reason }, token });
 }
+
+// ============================================================================
+// LOCATIONS MANAGEMENT
+// ============================================================================
+
+export interface Location {
+  id: string;
+  name: string;
+  description: string | null;
+  parentLocationId: string | null;
+  parentLocationName: string | null;
+  childCount: number;
+  itemCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLocationRequest {
+  name: string;
+  description?: string;
+  parentLocationId?: string;
+}
+
+export interface UpdateLocationRequest {
+  name?: string;
+  description?: string | null;
+  parentLocationId?: string | null;
+}
+
+export async function getLocations(token: string): Promise<{ locations: Location[] }> {
+  return api('/locations', { token });
+}
+
+export async function getLocation(token: string, locationId: string): Promise<{ location: Location }> {
+  return api(`/locations/${locationId}`, { token });
+}
+
+export async function createLocation(token: string, data: CreateLocationRequest): Promise<{ location: Location }> {
+  return api('/locations', { method: 'POST', body: data, token });
+}
+
+export async function updateLocation(token: string, locationId: string, data: UpdateLocationRequest): Promise<{ location: Location }> {
+  return api(`/locations/${locationId}`, { method: 'PATCH', body: data, token });
+}
+
+export async function deleteLocation(token: string, locationId: string): Promise<{ success: boolean }> {
+  return api(`/locations/${locationId}`, { method: 'DELETE', token });
+}
+
+// ============================================================================
+// CATALOG MANAGEMENT
+// ============================================================================
+
+export type ItemCategory = 'IMPLANT' | 'INSTRUMENT' | 'HIGH_VALUE_SUPPLY' | 'LOANER';
+
+export interface CatalogItem {
+  id: string;
+  name: string;
+  description: string | null;
+  category: ItemCategory;
+  manufacturer: string | null;
+  catalogNumber: string | null;
+  requiresSterility: boolean;
+  isLoaner: boolean;
+  active: boolean;
+  inventoryCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCatalogItemRequest {
+  name: string;
+  description?: string;
+  category: ItemCategory;
+  manufacturer?: string;
+  catalogNumber?: string;
+  requiresSterility?: boolean;
+  isLoaner?: boolean;
+}
+
+export interface UpdateCatalogItemRequest {
+  name?: string;
+  description?: string | null;
+  category?: ItemCategory;
+  manufacturer?: string | null;
+  catalogNumber?: string | null;
+  requiresSterility?: boolean;
+  isLoaner?: boolean;
+}
+
+export async function getCatalogItems(
+  token: string,
+  filters?: { category?: ItemCategory; includeInactive?: boolean }
+): Promise<{ items: CatalogItem[] }> {
+  const params = new URLSearchParams();
+  if (filters?.category) params.set('category', filters.category);
+  if (filters?.includeInactive) params.set('includeInactive', 'true');
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return api(`/catalog${query}`, { token });
+}
+
+export async function getCatalogItem(token: string, catalogId: string): Promise<{ item: CatalogItem }> {
+  return api(`/catalog/${catalogId}`, { token });
+}
+
+export async function createCatalogItem(token: string, data: CreateCatalogItemRequest): Promise<{ item: CatalogItem }> {
+  return api('/catalog', { method: 'POST', body: data, token });
+}
+
+export async function updateCatalogItem(token: string, catalogId: string, data: UpdateCatalogItemRequest): Promise<{ item: CatalogItem }> {
+  return api(`/catalog/${catalogId}`, { method: 'PATCH', body: data, token });
+}
+
+export async function deactivateCatalogItem(token: string, catalogId: string): Promise<{ success: boolean }> {
+  return api(`/catalog/${catalogId}/deactivate`, { method: 'POST', body: {}, token });
+}
+
+export async function activateCatalogItem(token: string, catalogId: string): Promise<{ success: boolean }> {
+  return api(`/catalog/${catalogId}/activate`, { method: 'POST', body: {}, token });
+}
+
+// ============================================================================
+// PREFERENCE CARDS MANAGEMENT
+// ============================================================================
+
+export interface PreferenceCardItem {
+  catalogId: string;
+  catalogName: string;
+  category: ItemCategory;
+  quantity: number;
+  notes: string | null;
+}
+
+export interface PreferenceCardVersion {
+  id: string;
+  versionNumber: number;
+  items: PreferenceCardItem[];
+  createdByUserId: string;
+  createdByName: string;
+  createdAt: string;
+}
+
+export interface PreferenceCard {
+  id: string;
+  surgeonId: string;
+  surgeonName: string;
+  procedureName: string;
+  description: string | null;
+  active: boolean;
+  currentVersion: PreferenceCardVersion | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePreferenceCardRequest {
+  surgeonId: string;
+  procedureName: string;
+  description?: string;
+  items: Array<{ catalogId: string; quantity: number; notes?: string }>;
+}
+
+export interface UpdatePreferenceCardRequest {
+  procedureName?: string;
+  description?: string | null;
+}
+
+export interface CreatePreferenceCardVersionRequest {
+  items: Array<{ catalogId: string; quantity: number; notes?: string }>;
+}
+
+export async function getPreferenceCards(
+  token: string,
+  filters?: { surgeonId?: string; includeInactive?: boolean }
+): Promise<{ cards: PreferenceCard[] }> {
+  const params = new URLSearchParams();
+  if (filters?.surgeonId) params.set('surgeonId', filters.surgeonId);
+  if (filters?.includeInactive) params.set('includeInactive', 'true');
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return api(`/preference-cards${query}`, { token });
+}
+
+export async function getPreferenceCard(token: string, cardId: string): Promise<{ card: PreferenceCard }> {
+  return api(`/preference-cards/${cardId}`, { token });
+}
+
+export async function getPreferenceCardVersions(token: string, cardId: string): Promise<{ versions: PreferenceCardVersion[] }> {
+  return api(`/preference-cards/${cardId}/versions`, { token });
+}
+
+export async function createPreferenceCard(token: string, data: CreatePreferenceCardRequest): Promise<{ card: PreferenceCard }> {
+  return api('/preference-cards', { method: 'POST', body: data, token });
+}
+
+export async function updatePreferenceCard(token: string, cardId: string, data: UpdatePreferenceCardRequest): Promise<{ card: PreferenceCard }> {
+  return api(`/preference-cards/${cardId}`, { method: 'PATCH', body: data, token });
+}
+
+export async function createPreferenceCardVersion(
+  token: string,
+  cardId: string,
+  data: CreatePreferenceCardVersionRequest
+): Promise<{ version: PreferenceCardVersion }> {
+  return api(`/preference-cards/${cardId}/versions`, { method: 'POST', body: data, token });
+}
+
+export async function deactivatePreferenceCard(token: string, cardId: string): Promise<{ success: boolean }> {
+  return api(`/preference-cards/${cardId}/deactivate`, { method: 'POST', body: {}, token });
+}
+
+export async function activatePreferenceCard(token: string, cardId: string): Promise<{ success: boolean }> {
+  return api(`/preference-cards/${cardId}/activate`, { method: 'POST', body: {}, token });
+}
+
+// ============================================================================
+// INVENTORY ITEMS (Extended)
+// ============================================================================
+
+export interface InventoryItemDetail {
+  id: string;
+  catalogId: string;
+  catalogName: string;
+  category: ItemCategory;
+  barcode: string | null;
+  serialNumber: string | null;
+  lotNumber: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  sterilityStatus: string;
+  sterilityExpiresAt: string | null;
+  availabilityStatus: string;
+  lastVerifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateInventoryItemRequest {
+  catalogId: string;
+  serialNumber?: string;
+  lotNumber?: string;
+  barcode?: string;
+  locationId?: string;
+  sterilityStatus?: string;
+  sterilityExpiresAt?: string;
+}
+
+export interface UpdateInventoryItemRequest {
+  locationId?: string | null;
+  sterilityStatus?: string;
+  sterilityExpiresAt?: string | null;
+  barcode?: string | null;
+  serialNumber?: string | null;
+  lotNumber?: string | null;
+}
+
+export interface InventoryItemEvent {
+  id: string;
+  eventType: string;
+  eventData: Record<string, unknown>;
+  deviceId: string | null;
+  deviceName: string | null;
+  userId: string | null;
+  userName: string | null;
+  occurredAt: string;
+  createdAt: string;
+}
+
+export async function getInventoryItem(token: string, itemId: string): Promise<{ item: InventoryItemDetail }> {
+  return api(`/inventory/items/${itemId}`, { token });
+}
+
+export async function createInventoryItem(token: string, data: CreateInventoryItemRequest): Promise<{ item: InventoryItemDetail }> {
+  return api('/inventory/items', { method: 'POST', body: data, token });
+}
+
+export async function updateInventoryItem(token: string, itemId: string, data: UpdateInventoryItemRequest): Promise<{ item: InventoryItemDetail }> {
+  return api(`/inventory/items/${itemId}`, { method: 'PATCH', body: data, token });
+}
+
+export async function getInventoryItemHistory(token: string, itemId: string): Promise<{ events: InventoryItemEvent[] }> {
+  return api(`/inventory/items/${itemId}/history`, { token });
+}
+
+// ============================================================================
+// SETTINGS & ROOMS (Extended)
+// ============================================================================
+
+export interface RoomDetail {
+  id: string;
+  name: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRoomRequest {
+  name: string;
+}
+
+export interface UpdateRoomRequest {
+  name?: string;
+}
+
+export async function getSettingsRooms(
+  token: string,
+  includeInactive = false
+): Promise<{ rooms: RoomDetail[] }> {
+  const query = includeInactive ? '?includeInactive=true' : '';
+  return api(`/settings/rooms${query}`, { token });
+}
+
+export async function createRoom(token: string, data: CreateRoomRequest): Promise<{ room: RoomDetail }> {
+  return api('/settings/rooms', { method: 'POST', body: data, token });
+}
+
+export async function updateRoom(token: string, roomId: string, data: UpdateRoomRequest): Promise<{ room: RoomDetail }> {
+  return api(`/settings/rooms/${roomId}`, { method: 'PATCH', body: data, token });
+}
+
+export async function deactivateRoom(token: string, roomId: string): Promise<{ success: boolean }> {
+  return api(`/settings/rooms/${roomId}/deactivate`, { method: 'POST', body: {}, token });
+}
+
+export async function activateRoom(token: string, roomId: string): Promise<{ success: boolean }> {
+  return api(`/settings/rooms/${roomId}/activate`, { method: 'POST', body: {}, token });
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+export async function getSurgeons(token: string): Promise<{ users: User[] }> {
+  const result = await getUsers(token, false);
+  return { users: result.users.filter(u => u.role === 'SURGEON') };
+}

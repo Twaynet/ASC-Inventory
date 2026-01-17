@@ -9,8 +9,10 @@ import {
   CreateInventoryEventRequestSchema,
   BulkInventoryEventRequestSchema,
   CreateDeviceEventRequestSchema,
+  CreateInventoryItemRequestSchema,
+  UpdateInventoryItemRequestSchema,
 } from '../schemas/index.js';
-import { requireInventoryTech } from '../plugins/auth.js';
+import { requireInventoryTech, requireAdmin } from '../plugins/auth.js';
 
 export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -371,6 +373,338 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     const result = await query(sql, params);
 
     return reply.send({ items: result.rows });
+  });
+
+  /**
+   * GET /inventory/items/:id
+   * Get single inventory item details
+   */
+  fastify.get<{ Params: { id: string } }>('/items/:id', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId } = request.user;
+
+    const result = await query(`
+      SELECT
+        i.*,
+        c.name as catalog_name, c.category, c.manufacturer,
+        l.name as location_name,
+        u.name as last_verified_by_name
+      FROM inventory_item i
+      JOIN item_catalog c ON i.catalog_id = c.id
+      LEFT JOIN location l ON i.location_id = l.id
+      LEFT JOIN app_user u ON i.last_verified_by_user_id = u.id
+      WHERE i.id = $1 AND i.facility_id = $2
+    `, [id, facilityId]);
+
+    if (result.rows.length === 0) {
+      return reply.status(404).send({ error: 'Inventory item not found' });
+    }
+
+    const row = result.rows[0];
+    return reply.send({
+      item: {
+        id: row.id,
+        catalogId: row.catalog_id,
+        catalogName: row.catalog_name,
+        category: row.category,
+        manufacturer: row.manufacturer,
+        serialNumber: row.serial_number,
+        lotNumber: row.lot_number,
+        barcode: row.barcode,
+        locationId: row.location_id,
+        locationName: row.location_name,
+        sterilityStatus: row.sterility_status,
+        sterilityExpiresAt: row.sterility_expires_at?.toISOString() || null,
+        availabilityStatus: row.availability_status,
+        reservedForCaseId: row.reserved_for_case_id,
+        lastVerifiedAt: row.last_verified_at?.toISOString() || null,
+        lastVerifiedByUserId: row.last_verified_by_user_id,
+        lastVerifiedByName: row.last_verified_by_name,
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString(),
+      },
+    });
+  });
+
+  /**
+   * POST /inventory/items
+   * Create new inventory item (ADMIN only)
+   */
+  fastify.post('/items', {
+    preHandler: [requireAdmin],
+  }, async (request, reply) => {
+    const parseResult = CreateInventoryItemRequestSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        error: 'Validation error',
+        details: parseResult.error.flatten(),
+      });
+    }
+
+    const { facilityId } = request.user;
+    const data = parseResult.data;
+
+    // Verify catalog item exists
+    const catalogCheck = await query<{ id: string; requires_sterility: boolean }>(`
+      SELECT id, requires_sterility FROM item_catalog
+      WHERE id = $1 AND facility_id = $2 AND active = true
+    `, [data.catalogId, facilityId]);
+
+    if (catalogCheck.rows.length === 0) {
+      return reply.status(400).send({ error: 'Catalog item not found or inactive' });
+    }
+
+    // Verify location if specified
+    if (data.locationId) {
+      const locationCheck = await query(`
+        SELECT id FROM location WHERE id = $1 AND facility_id = $2
+      `, [data.locationId, facilityId]);
+
+      if (locationCheck.rows.length === 0) {
+        return reply.status(400).send({ error: 'Location not found' });
+      }
+    }
+
+    // Check barcode uniqueness if provided
+    if (data.barcode) {
+      const barcodeCheck = await query(`
+        SELECT id FROM inventory_item WHERE barcode = $1 AND facility_id = $2
+      `, [data.barcode, facilityId]);
+
+      if (barcodeCheck.rows.length > 0) {
+        return reply.status(400).send({ error: 'Barcode already exists' });
+      }
+    }
+
+    const sterilityStatus = data.sterilityStatus || (catalogCheck.rows[0].requires_sterility ? 'STERILE' : 'NON_STERILE');
+
+    const result = await query(`
+      INSERT INTO inventory_item (
+        facility_id, catalog_id, serial_number, lot_number, barcode,
+        location_id, sterility_status, sterility_expires_at, availability_status
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'AVAILABLE')
+      RETURNING *
+    `, [
+      facilityId,
+      data.catalogId,
+      data.serialNumber || null,
+      data.lotNumber || null,
+      data.barcode || null,
+      data.locationId || null,
+      sterilityStatus,
+      data.sterilityExpiresAt ? new Date(data.sterilityExpiresAt) : null,
+    ]);
+
+    const row = result.rows[0];
+
+    // Get catalog name
+    const catalogResult = await query<{ name: string; category: string }>(`
+      SELECT name, category FROM item_catalog WHERE id = $1
+    `, [data.catalogId]);
+
+    return reply.status(201).send({
+      item: {
+        id: row.id,
+        catalogId: row.catalog_id,
+        catalogName: catalogResult.rows[0].name,
+        category: catalogResult.rows[0].category,
+        serialNumber: row.serial_number,
+        lotNumber: row.lot_number,
+        barcode: row.barcode,
+        locationId: row.location_id,
+        sterilityStatus: row.sterility_status,
+        sterilityExpiresAt: row.sterility_expires_at?.toISOString() || null,
+        availabilityStatus: row.availability_status,
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString(),
+      },
+    });
+  });
+
+  /**
+   * PATCH /inventory/items/:id
+   * Update inventory item (ADMIN only)
+   */
+  fastify.patch<{ Params: { id: string } }>('/items/:id', {
+    preHandler: [requireAdmin],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId } = request.user;
+
+    const parseResult = UpdateInventoryItemRequestSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        error: 'Validation error',
+        details: parseResult.error.flatten(),
+      });
+    }
+
+    const data = parseResult.data;
+
+    // Check item exists
+    const existingResult = await query(`
+      SELECT id FROM inventory_item WHERE id = $1 AND facility_id = $2
+    `, [id, facilityId]);
+
+    if (existingResult.rows.length === 0) {
+      return reply.status(404).send({ error: 'Inventory item not found' });
+    }
+
+    // Verify location if changing
+    if (data.locationId) {
+      const locationCheck = await query(`
+        SELECT id FROM location WHERE id = $1 AND facility_id = $2
+      `, [data.locationId, facilityId]);
+
+      if (locationCheck.rows.length === 0) {
+        return reply.status(400).send({ error: 'Location not found' });
+      }
+    }
+
+    // Check barcode uniqueness if changing
+    if (data.barcode) {
+      const barcodeCheck = await query(`
+        SELECT id FROM inventory_item WHERE barcode = $1 AND facility_id = $2 AND id != $3
+      `, [data.barcode, facilityId, id]);
+
+      if (barcodeCheck.rows.length > 0) {
+        return reply.status(400).send({ error: 'Barcode already exists' });
+      }
+    }
+
+    // Build update query
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+
+    if (data.serialNumber !== undefined) {
+      updates.push(`serial_number = $${paramIndex++}`);
+      values.push(data.serialNumber);
+    }
+    if (data.lotNumber !== undefined) {
+      updates.push(`lot_number = $${paramIndex++}`);
+      values.push(data.lotNumber);
+    }
+    if (data.barcode !== undefined) {
+      updates.push(`barcode = $${paramIndex++}`);
+      values.push(data.barcode);
+    }
+    if (data.locationId !== undefined) {
+      updates.push(`location_id = $${paramIndex++}`);
+      values.push(data.locationId);
+    }
+    if (data.sterilityStatus !== undefined) {
+      updates.push(`sterility_status = $${paramIndex++}`);
+      values.push(data.sterilityStatus);
+    }
+    if (data.sterilityExpiresAt !== undefined) {
+      updates.push(`sterility_expires_at = $${paramIndex++}`);
+      values.push(data.sterilityExpiresAt ? new Date(data.sterilityExpiresAt) : null);
+    }
+
+    if (updates.length === 0) {
+      return reply.status(400).send({ error: 'No updates provided' });
+    }
+
+    values.push(id, facilityId);
+
+    await query(`
+      UPDATE inventory_item
+      SET ${updates.join(', ')}, updated_at = NOW()
+      WHERE id = $${paramIndex++} AND facility_id = $${paramIndex}
+    `, values);
+
+    // Return updated item
+    const result = await query(`
+      SELECT
+        i.*,
+        c.name as catalog_name, c.category,
+        l.name as location_name
+      FROM inventory_item i
+      JOIN item_catalog c ON i.catalog_id = c.id
+      LEFT JOIN location l ON i.location_id = l.id
+      WHERE i.id = $1
+    `, [id]);
+
+    const row = result.rows[0];
+    return reply.send({
+      item: {
+        id: row.id,
+        catalogId: row.catalog_id,
+        catalogName: row.catalog_name,
+        category: row.category,
+        serialNumber: row.serial_number,
+        lotNumber: row.lot_number,
+        barcode: row.barcode,
+        locationId: row.location_id,
+        locationName: row.location_name,
+        sterilityStatus: row.sterility_status,
+        sterilityExpiresAt: row.sterility_expires_at?.toISOString() || null,
+        availabilityStatus: row.availability_status,
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString(),
+      },
+    });
+  });
+
+  /**
+   * GET /inventory/items/:id/history
+   * Get event history for an inventory item
+   */
+  fastify.get<{ Params: { id: string } }>('/items/:id/history', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId } = request.user;
+
+    // Verify item exists
+    const itemCheck = await query(`
+      SELECT id FROM inventory_item WHERE id = $1 AND facility_id = $2
+    `, [id, facilityId]);
+
+    if (itemCheck.rows.length === 0) {
+      return reply.status(404).send({ error: 'Inventory item not found' });
+    }
+
+    const result = await query(`
+      SELECT
+        e.*,
+        u.name as performed_by_name,
+        l.name as location_name,
+        pl.name as previous_location_name,
+        c.procedure_name as case_name
+      FROM inventory_event e
+      LEFT JOIN app_user u ON e.performed_by_user_id = u.id
+      LEFT JOIN location l ON e.location_id = l.id
+      LEFT JOIN location pl ON e.previous_location_id = pl.id
+      LEFT JOIN surgical_case c ON e.case_id = c.id
+      WHERE e.inventory_item_id = $1
+      ORDER BY e.occurred_at DESC
+      LIMIT 100
+    `, [id]);
+
+    return reply.send({
+      events: result.rows.map(row => ({
+        id: row.id,
+        eventType: row.event_type,
+        caseId: row.case_id,
+        caseName: row.case_name,
+        locationId: row.location_id,
+        locationName: row.location_name,
+        previousLocationId: row.previous_location_id,
+        previousLocationName: row.previous_location_name,
+        sterilityStatus: row.sterility_status,
+        notes: row.notes,
+        performedByUserId: row.performed_by_user_id,
+        performedByName: row.performed_by_name,
+        deviceEventId: row.device_event_id,
+        occurredAt: row.occurred_at.toISOString(),
+        createdAt: row.created_at.toISOString(),
+      })),
+    });
   });
 }
 

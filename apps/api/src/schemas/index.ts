@@ -16,6 +16,7 @@ import {
   ChecklistType,
   ChecklistStatus,
   SignatureMethod,
+  ItemCategory,
 } from '@asc/domain';
 
 // ============================================================================
@@ -381,3 +382,116 @@ export const UpdateFacilitySettingsRequestSchema = z.object({
   enableTimeoutDebrief: z.boolean().optional(),
 });
 export type UpdateFacilitySettingsRequest = z.infer<typeof UpdateFacilitySettingsRequestSchema>;
+
+// ============================================================================
+// LOCATION SCHEMAS
+// ============================================================================
+
+export const CreateLocationRequestSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().max(500).optional(),
+  parentLocationId: z.string().uuid().nullable().optional(),
+});
+export type CreateLocationRequest = z.infer<typeof CreateLocationRequestSchema>;
+
+export const UpdateLocationRequestSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(500).nullable().optional(),
+  parentLocationId: z.string().uuid().nullable().optional(),
+});
+export type UpdateLocationRequest = z.infer<typeof UpdateLocationRequestSchema>;
+
+// ============================================================================
+// ITEM CATALOG SCHEMAS
+// ============================================================================
+
+export const CreateCatalogItemRequestSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().max(500).optional(),
+  category: ItemCategory,
+  manufacturer: z.string().max(255).optional(),
+  catalogNumber: z.string().max(100).optional(),
+  requiresSterility: z.boolean().optional(),
+  isLoaner: z.boolean().optional(),
+});
+export type CreateCatalogItemRequest = z.infer<typeof CreateCatalogItemRequestSchema>;
+
+export const UpdateCatalogItemRequestSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(500).nullable().optional(),
+  category: ItemCategory.optional(),
+  manufacturer: z.string().max(255).nullable().optional(),
+  catalogNumber: z.string().max(100).nullable().optional(),
+  requiresSterility: z.boolean().optional(),
+  isLoaner: z.boolean().optional(),
+});
+export type UpdateCatalogItemRequest = z.infer<typeof UpdateCatalogItemRequestSchema>;
+
+// ============================================================================
+// PREFERENCE CARD SCHEMAS
+// ============================================================================
+
+export const PreferenceCardItemSchema = z.object({
+  catalogId: z.string().uuid(),
+  quantity: z.number().int().positive(),
+  notes: z.string().max(255).optional(),
+});
+export type PreferenceCardItem = z.infer<typeof PreferenceCardItemSchema>;
+
+export const CreatePreferenceCardRequestSchema = z.object({
+  surgeonId: z.string().uuid(),
+  procedureName: z.string().min(1).max(255),
+  description: z.string().max(500).optional(),
+  items: z.array(PreferenceCardItemSchema).min(1),
+});
+export type CreatePreferenceCardRequest = z.infer<typeof CreatePreferenceCardRequestSchema>;
+
+export const UpdatePreferenceCardRequestSchema = z.object({
+  procedureName: z.string().min(1).max(255).optional(),
+  description: z.string().max(500).nullable().optional(),
+});
+export type UpdatePreferenceCardRequest = z.infer<typeof UpdatePreferenceCardRequestSchema>;
+
+export const CreatePreferenceCardVersionRequestSchema = z.object({
+  items: z.array(PreferenceCardItemSchema).min(1),
+});
+export type CreatePreferenceCardVersionRequest = z.infer<typeof CreatePreferenceCardVersionRequestSchema>;
+
+// ============================================================================
+// INVENTORY ITEM CRUD SCHEMAS
+// ============================================================================
+
+export const CreateInventoryItemRequestSchema = z.object({
+  catalogId: z.string().uuid(),
+  serialNumber: z.string().max(100).optional(),
+  lotNumber: z.string().max(100).optional(),
+  barcode: z.string().max(100).optional(),
+  locationId: z.string().uuid().optional(),
+  sterilityStatus: SterilityStatus.optional(),
+  sterilityExpiresAt: z.string().datetime().optional(),
+});
+export type CreateInventoryItemRequest = z.infer<typeof CreateInventoryItemRequestSchema>;
+
+export const UpdateInventoryItemRequestSchema = z.object({
+  serialNumber: z.string().max(100).nullable().optional(),
+  lotNumber: z.string().max(100).nullable().optional(),
+  barcode: z.string().max(100).nullable().optional(),
+  locationId: z.string().uuid().nullable().optional(),
+  sterilityStatus: SterilityStatus.optional(),
+  sterilityExpiresAt: z.string().datetime().nullable().optional(),
+});
+export type UpdateInventoryItemRequest = z.infer<typeof UpdateInventoryItemRequestSchema>;
+
+// ============================================================================
+// ROOM SCHEMAS
+// ============================================================================
+
+export const CreateRoomRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+});
+export type CreateRoomRequest = z.infer<typeof CreateRoomRequestSchema>;
+
+export const UpdateRoomRequestSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+});
+export type UpdateRoomRequest = z.infer<typeof UpdateRoomRequestSchema>;
