@@ -11,7 +11,7 @@ export default function Home() {
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        router.push('/day-before');
+        router.push('/calendar');
       } else {
         router.push('/login');
       }

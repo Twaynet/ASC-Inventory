@@ -92,7 +92,7 @@ function DayBeforeContent() {
       params.set('date', formatDateParam(date));
     }
 
-    router.push(`/day-before?${params.toString()}`, { scroll: false });
+    router.push(`/calendar?${params.toString()}`, { scroll: false });
   }, [router]);
 
   // Handle view mode change

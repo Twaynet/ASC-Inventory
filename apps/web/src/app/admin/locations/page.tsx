@@ -135,7 +135,7 @@ export default function AdminLocationsPage() {
             <div className="header-left">
               <button
                 className="btn btn-secondary btn-sm back-btn"
-                onClick={() => router.push('/day-before')}
+                onClick={() => router.push('/calendar')}
               >
                 &larr; Back
               </button>
@@ -165,7 +165,7 @@ export default function AdminLocationsPage() {
           <div className="header-left">
             <button
               className="btn btn-secondary btn-sm back-btn"
-              onClick={() => router.push('/day-before')}
+              onClick={() => router.push('/calendar')}
             >
               &larr; Back
             </button>

@@ -301,7 +301,7 @@ export default function DebriefPage() {
           <div className="header-left">
             <button
               className="btn btn-secondary btn-sm back-btn"
-              onClick={() => router.push('/day-before')}
+              onClick={() => router.push('/calendar')}
             >
               &larr; Back
             </button>
@@ -481,7 +481,7 @@ export default function DebriefPage() {
                     </p>
                     <button
                       className="btn btn-secondary btn-md"
-                      onClick={() => router.push('/day-before')}
+                      onClick={() => router.push('/calendar')}
                     >
                       Return to Dashboard
                     </button>
