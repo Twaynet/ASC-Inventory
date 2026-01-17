@@ -1,6 +1,20 @@
-# ASC Inventory Truth System v1.2.2
+# ASC Inventory Truth System v1.2.3
 
 A clinically honest, future-proof inventory system for Ambulatory Surgery Centers (ASCs).
+
+## What's New in v1.2.3
+
+### UX Improvements
+- **Prominent Signature Button:** Sign buttons now use a purple gradient with pulsing animation to draw user attention when it's their turn to sign
+- **Visual Icon:** Added ✍️ icon to signature buttons for quick recognition
+
+### Bug Fixes
+- **Database Roles:** Added SCRUB and ANESTHESIA roles to database enum (migration 006)
+- **Template Creation:** Fixed checklist templates not being created for new facilities
+
+### Seed Data Improvements
+- **SCRUB Test User:** Added scrub@demo.com test account for testing SCRUB workflows
+- **Additional Test Cases:** Added 15 extra surgical cases across multiple days for repeated debrief testing
 
 ## What's New in v1.2.2
 
@@ -284,8 +298,8 @@ docker pull ghcr.io/twaynet/asc-inventory-api:latest
 docker pull ghcr.io/twaynet/asc-inventory-web:latest
 
 # Or pull a specific version
-docker pull ghcr.io/twaynet/asc-inventory-api:1.2.2
-docker pull ghcr.io/twaynet/asc-inventory-web:1.2.2
+docker pull ghcr.io/twaynet/asc-inventory-api:1.2.3
+docker pull ghcr.io/twaynet/asc-inventory-web:1.2.3
 ```
 
 ### Production Docker Compose
@@ -307,7 +321,7 @@ services:
     restart: unless-stopped
 
   api:
-    image: ghcr.io/twaynet/asc-inventory-api:1.2.2
+    image: ghcr.io/twaynet/asc-inventory-api:1.2.3
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -322,7 +336,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: ghcr.io/twaynet/asc-inventory-web:1.2.2
+    image: ghcr.io/twaynet/asc-inventory-web:1.2.3
     environment:
       NEXT_PUBLIC_API_URL: ${API_URL}
     depends_on:
