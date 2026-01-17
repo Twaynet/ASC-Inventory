@@ -142,6 +142,30 @@ body {
   color: white;
 }
 
+/* Sign Action Button - prominent call-to-action for user's own signature */
+.btn-sign-action {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  animation: pulse-sign 2s infinite;
+}
+
+.btn-sign-action:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+  transform: translateY(-1px);
+}
+
+@keyframes pulse-sign {
+  0%, 100% {
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.6);
+  }
+}
+
 .btn-sm {
   padding: 0.25rem 0.75rem;
   font-size: 0.75rem;

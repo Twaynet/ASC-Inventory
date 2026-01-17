@@ -357,11 +357,11 @@ export default function TimeoutPage() {
 
                   {canSign && (
                     <button
-                      className="btn btn-secondary btn-md sign-btn"
+                      className="btn btn-sign-action btn-md sign-btn"
                       onClick={handleSign}
                       disabled={isSubmitting}
                     >
-                      {isSubmitting ? 'Signing...' : `Sign as ${signatureRole}`}
+                      {isSubmitting ? 'Signing...' : `✍️ Sign as ${signatureRole}`}
                     </button>
                   )}
                 </div>
