@@ -1059,7 +1059,7 @@ export async function activateRoom(token: string, roomId: string): Promise<{ suc
 // CASE DASHBOARD
 // ============================================================================
 
-export type AnesthesiaModality = 'GENERAL' | 'SPINAL' | 'REGIONAL' | 'MAC' | 'LOCAL';
+export type AnesthesiaModality = 'GENERAL' | 'SPINAL' | 'REGIONAL' | 'MAC' | 'LOCAL' | 'TIVA';
 export type AttestationState = 'NOT_ATTESTED' | 'ATTESTED' | 'VOIDED';
 export type CaseEventType =
   | 'CASE_CARD_LINKED'
@@ -1084,7 +1084,7 @@ export interface CaseDashboardCaseCard {
 }
 
 export interface CaseDashboardAnesthesiaPlan {
-  modality: AnesthesiaModality | null;
+  modalities: AnesthesiaModality[];
   positioningConsiderations: string | null;
   airwayNotes: string | null;
   anticoagulationConsiderations: string | null;
@@ -1161,7 +1161,7 @@ export async function updateAnesthesiaPlan(
   token: string,
   caseId: string,
   data: {
-    modality?: AnesthesiaModality;
+    modalities?: AnesthesiaModality[];
     positioningConsiderations?: string;
     airwayNotes?: string;
     anticoagulationConsiderations?: string;

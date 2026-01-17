@@ -27,6 +27,7 @@ const ANESTHESIA_MODALITIES: { value: AnesthesiaModality; label: string }[] = [
   { value: 'REGIONAL', label: 'Regional' },
   { value: 'MAC', label: 'MAC' },
   { value: 'LOCAL', label: 'Local' },
+  { value: 'TIVA', label: 'TIVA' },
 ];
 
 function CaseDashboardContent() {
@@ -63,8 +64,7 @@ function CaseDashboardContent() {
 
   // Anesthesia form state
   const [anesthesiaForm, setAnesthesiaForm] = useState({
-    modality: '' as AnesthesiaModality | '',
-    positioningConsiderations: '',
+    modalities: [] as AnesthesiaModality[],
     airwayNotes: '',
     anticoagulationConsiderations: '',
   });
@@ -97,8 +97,7 @@ function CaseDashboardContent() {
       // Initialize forms from dashboard data
       const d = dashboardResult.dashboard;
       setAnesthesiaForm({
-        modality: d.anesthesiaPlan?.modality || '',
-        positioningConsiderations: d.anesthesiaPlan?.positioningConsiderations || '',
+        modalities: d.anesthesiaPlan?.modalities || [],
         airwayNotes: d.anesthesiaPlan?.airwayNotes || '',
         anticoagulationConsiderations: d.anesthesiaPlan?.anticoagulationConsiderations || '',
       });
@@ -166,8 +165,7 @@ function CaseDashboardContent() {
 
     try {
       await updateAnesthesiaPlan(token, caseId, {
-        modality: anesthesiaForm.modality || undefined,
-        positioningConsiderations: anesthesiaForm.positioningConsiderations || undefined,
+        modalities: anesthesiaForm.modalities.length > 0 ? anesthesiaForm.modalities : undefined,
         airwayNotes: anesthesiaForm.airwayNotes || undefined,
         anticoagulationConsiderations: anesthesiaForm.anticoagulationConsiderations || undefined,
       });
@@ -176,6 +174,15 @@ function CaseDashboardContent() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update anesthesia plan');
     }
+  };
+
+  const toggleModality = (modality: AnesthesiaModality) => {
+    setAnesthesiaForm(f => ({
+      ...f,
+      modalities: f.modalities.includes(modality)
+        ? f.modalities.filter(m => m !== modality)
+        : [...f.modalities, modality],
+    }));
   };
 
   const handleUpdateSummary = async () => {
@@ -378,8 +385,8 @@ function CaseDashboardContent() {
                   <button
                     onClick={handleAttest}
                     className="btn-primary"
-                    disabled={!dashboard.caseCard || !dashboard.anesthesiaPlan?.modality}
-                    title={!dashboard.caseCard ? 'Link a Case Card first' : !dashboard.anesthesiaPlan?.modality ? 'Select anesthesia modality first' : ''}
+                    disabled={!dashboard.caseCard || !dashboard.anesthesiaPlan?.modalities?.length}
+                    title={!dashboard.caseCard ? 'Link a Case Card first' : !dashboard.anesthesiaPlan?.modalities?.length ? 'Select anesthesia modality first' : ''}
                   >
                     Attest Readiness
                   </button>
@@ -469,28 +476,19 @@ function CaseDashboardContent() {
           </h2>
           {!collapsedSections.has('anesthesia') && (
             <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-                <div className="form-group">
-                  <label>Modality *</label>
-                  <select
-                    value={anesthesiaForm.modality}
-                    onChange={e => setAnesthesiaForm(f => ({ ...f, modality: e.target.value as AnesthesiaModality }))}
-                    required
-                  >
-                    <option value="">-- Select Modality --</option>
-                    {ANESTHESIA_MODALITIES.map(m => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Positioning Considerations</label>
-                  <input
-                    type="text"
-                    value={anesthesiaForm.positioningConsiderations}
-                    onChange={e => setAnesthesiaForm(f => ({ ...f, positioningConsiderations: e.target.value }))}
-                    placeholder="e.g., Lateral, prone..."
-                  />
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label>Modality * <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply)</span></label>
+                <div className="modality-checkboxes">
+                  {ANESTHESIA_MODALITIES.map(m => (
+                    <label key={m.value} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={anesthesiaForm.modalities.includes(m.value)}
+                        onChange={() => toggleModality(m.value)}
+                      />
+                      {m.label}
+                    </label>
+                  ))}
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>

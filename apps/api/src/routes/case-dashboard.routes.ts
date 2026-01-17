@@ -43,7 +43,7 @@ interface CaseDashboardData {
     status: string;
   } | null;
   anesthesiaPlan: {
-    modality: string | null;
+    modalities: string[];
     positioningConsiderations: string | null;
     airwayNotes: string | null;
     anticoagulationConsiderations: string | null;
@@ -172,18 +172,18 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
     // Get anesthesia plan
     const anesthesiaResult = await query<{
-      modality: string | null;
+      modalities: string[] | null;
       positioning_considerations: string | null;
       airway_notes: string | null;
       anticoagulation_considerations: string | null;
     }>(`
-      SELECT modality, positioning_considerations, airway_notes, anticoagulation_considerations
+      SELECT modalities, positioning_considerations, airway_notes, anticoagulation_considerations
       FROM case_anesthesia_plan
       WHERE case_id = $1
     `, [caseId]);
 
     const anesthesiaPlan = anesthesiaResult.rows.length > 0 ? {
-      modality: anesthesiaResult.rows[0].modality,
+      modalities: anesthesiaResult.rows[0].modalities || [],
       positioningConsiderations: anesthesiaResult.rows[0].positioning_considerations,
       airwayNotes: anesthesiaResult.rows[0].airway_notes,
       anticoagulationConsiderations: anesthesiaResult.rows[0].anticoagulation_considerations,
@@ -287,11 +287,11 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     }
 
     // Check if anesthesia modality is selected
-    const anesthesiaResult = await query<{ modality: string | null }>(`
-      SELECT modality FROM case_anesthesia_plan WHERE case_id = $1
+    const anesthesiaResult = await query<{ modalities: string[] | null }>(`
+      SELECT modalities FROM case_anesthesia_plan WHERE case_id = $1
     `, [caseId]);
 
-    if (anesthesiaResult.rows.length === 0 || !anesthesiaResult.rows[0].modality) {
+    if (anesthesiaResult.rows.length === 0 || !anesthesiaResult.rows[0].modalities || anesthesiaResult.rows[0].modalities.length === 0) {
       return reply.status(400).send({ error: 'Cannot attest: Anesthesia modality not selected' });
     }
 
@@ -385,7 +385,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     const { caseId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
     const body = request.body as {
-      modality?: string;
+      modalities?: string[];
       positioningConsiderations?: string;
       airwayNotes?: string;
       anticoagulationConsiderations?: string;
@@ -402,10 +402,10 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
     // Upsert anesthesia plan
     await query(`
-      INSERT INTO case_anesthesia_plan (case_id, facility_id, modality, positioning_considerations, airway_notes, anticoagulation_considerations)
+      INSERT INTO case_anesthesia_plan (case_id, facility_id, modalities, positioning_considerations, airway_notes, anticoagulation_considerations)
       VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (case_id) DO UPDATE SET
-        modality = COALESCE($3, case_anesthesia_plan.modality),
+        modalities = COALESCE($3, case_anesthesia_plan.modalities),
         positioning_considerations = COALESCE($4, case_anesthesia_plan.positioning_considerations),
         airway_notes = COALESCE($5, case_anesthesia_plan.airway_notes),
         anticoagulation_considerations = COALESCE($6, case_anesthesia_plan.anticoagulation_considerations),
@@ -413,7 +413,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [
       caseId,
       facilityId,
-      body.modality || null,
+      body.modalities && body.modalities.length > 0 ? body.modalities : null,
       body.positioningConsiderations || null,
       body.airwayNotes || null,
       body.anticoagulationConsiderations || null,
