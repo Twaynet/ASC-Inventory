@@ -1241,6 +1241,7 @@ export async function updateCaseScheduling(
   data: {
     scheduledDate?: string;
     scheduledTime?: string | null;
+    orRoom?: string | null;
   }
 ): Promise<{ success: boolean }> {
   return api(`/case-dashboard/${caseId}/scheduling`, { method: 'PUT', body: data, token });

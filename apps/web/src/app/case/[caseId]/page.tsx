@@ -82,6 +82,7 @@ function CaseDashboardContent() {
   const [schedulingForm, setSchedulingForm] = useState({
     scheduledDate: '',
     scheduledTime: '',
+    orRoom: '',
   });
 
   const loadData = useCallback(async () => {
@@ -117,6 +118,7 @@ function CaseDashboardContent() {
       setSchedulingForm({
         scheduledDate: d.scheduledDate || '',
         scheduledTime: d.scheduledTime || '',
+        orRoom: d.orRoom || '',
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
@@ -220,6 +222,7 @@ function CaseDashboardContent() {
       await updateCaseScheduling(token, caseId, {
         scheduledDate: schedulingForm.scheduledDate || undefined,
         scheduledTime: schedulingForm.scheduledTime || null,
+        orRoom: schedulingForm.orRoom || null,
       });
       setSuccessMessage('Scheduling updated');
       loadData();
@@ -440,7 +443,7 @@ function CaseDashboardContent() {
           </h2>
           {!collapsedSections.has('scheduling') && (
             <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
                 <div className="form-group">
                   <label>Date *</label>
                   <input
@@ -455,6 +458,15 @@ function CaseDashboardContent() {
                     type="time"
                     value={schedulingForm.scheduledTime}
                     onChange={e => setSchedulingForm(f => ({ ...f, scheduledTime: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>OR Room</label>
+                  <input
+                    type="text"
+                    value={schedulingForm.orRoom}
+                    onChange={e => setSchedulingForm(f => ({ ...f, orRoom: e.target.value }))}
+                    placeholder="e.g., OR-1"
                   />
                 </div>
               </div>
@@ -500,15 +512,6 @@ function CaseDashboardContent() {
                     <option value="Bilateral">Bilateral</option>
                     <option value="N/A">N/A</option>
                   </select>
-                </div>
-                <div className="form-group">
-                  <label>OR Room</label>
-                  <input
-                    type="text"
-                    value={summaryForm.orRoom}
-                    onChange={e => setSummaryForm(f => ({ ...f, orRoom: e.target.value }))}
-                    placeholder="e.g., OR-1"
-                  />
                 </div>
               </div>
               <div className="form-group">

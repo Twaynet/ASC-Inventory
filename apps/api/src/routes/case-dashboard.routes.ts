@@ -728,7 +728,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
   /**
    * PUT /case-dashboard/:caseId/scheduling
-   * Update case scheduled date and time
+   * Update case scheduled date, time, and OR room
    */
   fastify.put<{ Params: { caseId: string } }>('/:caseId/scheduling', {
     preHandler: [fastify.authenticate],
@@ -738,15 +738,16 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     const body = request.body as {
       scheduledDate?: string;
       scheduledTime?: string | null;
+      orRoom?: string | null;
     };
 
-    if (!body.scheduledDate && body.scheduledTime === undefined) {
-      return reply.status(400).send({ error: 'scheduledDate or scheduledTime is required' });
+    if (!body.scheduledDate && body.scheduledTime === undefined && body.orRoom === undefined) {
+      return reply.status(400).send({ error: 'At least one field is required' });
     }
 
     // Verify case exists and get current values
-    const caseResult = await query<{ scheduled_date: Date; scheduled_time: string | null }>(`
-      SELECT scheduled_date, scheduled_time FROM surgical_case WHERE id = $1 AND facility_id = $2
+    const caseResult = await query<{ scheduled_date: Date; scheduled_time: string | null; or_room: string | null }>(`
+      SELECT scheduled_date, scheduled_time, or_room FROM surgical_case WHERE id = $1 AND facility_id = $2
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
@@ -755,6 +756,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
     const previousDate = caseResult.rows[0].scheduled_date.toISOString().split('T')[0];
     const previousTime = caseResult.rows[0].scheduled_time;
+    const previousRoom = caseResult.rows[0].or_room;
 
     // Build update query dynamically
     const updates: string[] = [];
@@ -768,6 +770,10 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     if (body.scheduledTime !== undefined) {
       updates.push(`scheduled_time = $${paramIndex++}`);
       values.push(body.scheduledTime);
+    }
+    if (body.orRoom !== undefined) {
+      updates.push(`or_room = $${paramIndex++}`);
+      values.push(body.orRoom);
     }
 
     values.push(caseId);
@@ -783,6 +789,9 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     }
     if (body.scheduledTime !== undefined && body.scheduledTime !== previousTime) {
       changes.push(`Time: ${previousTime || 'TBD'} → ${body.scheduledTime || 'TBD'}`);
+    }
+    if (body.orRoom !== undefined && body.orRoom !== previousRoom) {
+      changes.push(`OR: ${previousRoom || 'TBD'} → ${body.orRoom || 'TBD'}`);
     }
 
     // Log event
