@@ -19,6 +19,7 @@ import { preferenceCardsRoutes } from './routes/preference-cards.routes.js';
 import { settingsRoutes } from './routes/settings.routes.js';
 import { caseCardsRoutes } from './routes/case-cards.routes.js';
 import { caseDashboardRoutes } from './routes/case-dashboard.routes.js';
+import { reportsRoutes } from './routes/reports.routes.js';
 
 const PORT = parseInt(process.env.PORT || '3001');
 const HOST = process.env.HOST || '0.0.0.0';
@@ -74,6 +75,7 @@ async function main() {
   await fastify.register(settingsRoutes, { prefix: '/api/settings' });
   await fastify.register(caseCardsRoutes, { prefix: '/api/case-cards' });
   await fastify.register(caseDashboardRoutes, { prefix: '/api/case-dashboard' });
+  await fastify.register(reportsRoutes, { prefix: '/api/reports' });
 
   // Start server
   try {
