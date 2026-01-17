@@ -301,6 +301,81 @@ export async function getCaseCardSurgeons(
   return api('/case-cards/surgeons', { token });
 }
 
+// ============================================================================
+// CASE CARD FEEDBACK (from Debrief)
+// ============================================================================
+
+export interface CaseCardFeedbackSubmitRequest {
+  surgicalCaseId: string;
+  itemsUnused?: string[];
+  itemsMissing?: string[];
+  setupIssues?: string;
+  staffComments?: string;
+  suggestedEdits?: string;
+}
+
+export interface CaseCardFeedback {
+  id: string;
+  surgicalCaseId: string;
+  procedureName: string;
+  scheduledDate: string;
+  itemsUnused: string[];
+  itemsMissing: string[];
+  setupIssues: string | null;
+  staffComments: string | null;
+  suggestedEdits: string | null;
+  submittedByUserId: string;
+  submittedByName: string;
+  reviewedAt: string | null;
+  reviewedByUserId: string | null;
+  reviewedByName: string | null;
+  reviewNotes: string | null;
+  reviewAction: 'ACKNOWLEDGED' | 'APPLIED' | 'DISMISSED' | null;
+  createdAt: string;
+}
+
+export interface CaseCardFeedbackResponse {
+  feedback: CaseCardFeedback[];
+  summary: {
+    total: number;
+    pending: number;
+    reviewed: number;
+  };
+}
+
+export async function submitCaseCardFeedback(
+  token: string,
+  caseCardId: string,
+  data: CaseCardFeedbackSubmitRequest
+): Promise<{ feedbackId: string; createdAt: string }> {
+  return api(`/case-cards/${caseCardId}/feedback`, { method: 'POST', body: data, token });
+}
+
+export async function getCaseCardFeedback(
+  token: string,
+  caseCardId: string,
+  status?: 'pending' | 'reviewed'
+): Promise<CaseCardFeedbackResponse> {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return api(`/case-cards/${caseCardId}/feedback${query}`, { token });
+}
+
+export async function reviewCaseCardFeedback(
+  token: string,
+  caseCardId: string,
+  feedbackId: string,
+  action: 'ACKNOWLEDGED' | 'APPLIED' | 'DISMISSED',
+  notes?: string
+): Promise<{ success: boolean; feedbackId: string; action: string; reviewedAt: string }> {
+  return api(`/case-cards/${caseCardId}/feedback/${feedbackId}/review`, {
+    method: 'POST',
+    body: { action, notes },
+    token,
+  });
+}
+
 // Attestations
 export interface CreateAttestationRequest {
   caseId: string;

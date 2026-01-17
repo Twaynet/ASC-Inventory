@@ -9,8 +9,11 @@ import {
   respondToChecklist,
   signChecklist,
   completeChecklist,
+  getCaseDashboard,
+  submitCaseCardFeedback,
   type CaseChecklistsResponse,
   type ChecklistItem,
+  type CaseDashboardData,
 } from '@/lib/api';
 
 /**
@@ -150,10 +153,22 @@ export default function DebriefPage() {
   const caseId = params?.caseId as string;
 
   const [checklistData, setChecklistData] = useState<CaseChecklistsResponse | null>(null);
+  const [caseDashboard, setCaseDashboard] = useState<CaseDashboardData | null>(null);
   const [localResponses, setLocalResponses] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Feedback form state
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackForm, setFeedbackForm] = useState({
+    itemsUnused: '',
+    itemsMissing: '',
+    setupIssues: '',
+    staffComments: '',
+    suggestedEdits: '',
+  });
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -164,13 +179,19 @@ export default function DebriefPage() {
   const loadData = useCallback(async () => {
     if (!token || !caseId) return;
     try {
-      const result = await getCaseChecklists(token, caseId);
-      setChecklistData(result);
+      const [checklistResult, dashboardResult] = await Promise.all([
+        getCaseChecklists(token, caseId),
+        getCaseDashboard(token, caseId).catch(() => null),
+      ]);
+      setChecklistData(checklistResult);
+      if (dashboardResult) {
+        setCaseDashboard(dashboardResult.dashboard);
+      }
       setError('');
 
-      if (result.debrief) {
+      if (checklistResult.debrief) {
         const existing: Record<string, string> = {};
-        for (const resp of result.debrief.responses) {
+        for (const resp of checklistResult.debrief.responses) {
           existing[resp.itemKey] = resp.value;
         }
         setLocalResponses(existing);
@@ -241,6 +262,40 @@ export default function DebriefPage() {
       setSuccessMessage('Post-Op Debrief completed!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to complete checklist');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!token || !caseId || !caseDashboard?.caseCard) return;
+    setIsSubmitting(true);
+    setError('');
+    try {
+      // Parse comma-separated items into arrays
+      const itemsUnused = feedbackForm.itemsUnused
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+      const itemsMissing = feedbackForm.itemsMissing
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+      await submitCaseCardFeedback(token, caseDashboard.caseCard.id, {
+        surgicalCaseId: caseId,
+        itemsUnused: itemsUnused.length > 0 ? itemsUnused : undefined,
+        itemsMissing: itemsMissing.length > 0 ? itemsMissing : undefined,
+        setupIssues: feedbackForm.setupIssues || undefined,
+        staffComments: feedbackForm.staffComments || undefined,
+        suggestedEdits: feedbackForm.suggestedEdits || undefined,
+      });
+      setFeedbackSubmitted(true);
+      setShowFeedbackForm(false);
+      setSuccessMessage('Feedback submitted! Thank you for helping improve the case card.');
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit feedback');
     } finally {
       setIsSubmitting(false);
     }
@@ -479,6 +534,138 @@ export default function DebriefPage() {
                     <p className="completion-message">
                       Debrief completed. The procedure may now be marked as complete.
                     </p>
+
+                    {/* Case Card Feedback Section */}
+                    {caseDashboard?.caseCard && !feedbackSubmitted && (
+                      <div className="feedback-section" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                        {!showFeedbackForm ? (
+                          <div style={{
+                            padding: '1rem',
+                            background: 'var(--surface)',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)'
+                          }}>
+                            <p style={{ margin: '0 0 0.75rem 0' }}>
+                              <strong>Case Card Feedback</strong>
+                            </p>
+                            <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                              Help improve the case card for &quot;{caseDashboard.caseCard.name}&quot; by providing feedback on what worked and what could be better.
+                            </p>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => setShowFeedbackForm(true)}
+                            >
+                              Provide Feedback
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{
+                            padding: '1rem',
+                            background: 'var(--surface)',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)'
+                          }}>
+                            <h3 style={{ margin: '0 0 1rem 0' }}>
+                              Case Card Feedback: {caseDashboard.caseCard.name}
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                              <div>
+                                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
+                                  Items Not Used (comma-separated)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={feedbackForm.itemsUnused}
+                                  onChange={(e) => setFeedbackForm(f => ({ ...f, itemsUnused: e.target.value }))}
+                                  placeholder="e.g., Bovie tip, Extra sutures"
+                                  style={{ width: '100%', padding: '0.5rem' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
+                                  Items Missing/Needed (comma-separated)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={feedbackForm.itemsMissing}
+                                  onChange={(e) => setFeedbackForm(f => ({ ...f, itemsMissing: e.target.value }))}
+                                  placeholder="e.g., Larger retractor, Extra sponges"
+                                  style={{ width: '100%', padding: '0.5rem' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
+                                  Setup/Positioning Issues
+                                </label>
+                                <textarea
+                                  value={feedbackForm.setupIssues}
+                                  onChange={(e) => setFeedbackForm(f => ({ ...f, setupIssues: e.target.value }))}
+                                  placeholder="Any issues with room setup, patient positioning, equipment placement..."
+                                  rows={2}
+                                  style={{ width: '100%', padding: '0.5rem' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
+                                  Staff Comments
+                                </label>
+                                <textarea
+                                  value={feedbackForm.staffComments}
+                                  onChange={(e) => setFeedbackForm(f => ({ ...f, staffComments: e.target.value }))}
+                                  placeholder="General comments from the team..."
+                                  rows={2}
+                                  style={{ width: '100%', padding: '0.5rem' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
+                                  Suggested Edits to Case Card
+                                </label>
+                                <textarea
+                                  value={feedbackForm.suggestedEdits}
+                                  onChange={(e) => setFeedbackForm(f => ({ ...f, suggestedEdits: e.target.value }))}
+                                  placeholder="Specific changes you'd recommend for the case card..."
+                                  rows={2}
+                                  style={{ width: '100%', padding: '0.5rem' }}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  onClick={handleSubmitFeedback}
+                                  disabled={isSubmitting}
+                                >
+                                  {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
+                                </button>
+                                <button
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => setShowFeedbackForm(false)}
+                                  disabled={isSubmitting}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {feedbackSubmitted && (
+                      <div style={{
+                        padding: '1rem',
+                        background: 'rgba(46, 125, 50, 0.1)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--green)',
+                        marginTop: '1.5rem',
+                        marginBottom: '1.5rem'
+                      }}>
+                        <p style={{ margin: 0, color: 'var(--green)' }}>
+                          Thank you! Your feedback has been submitted for review.
+                        </p>
+                      </div>
+                    )}
+
                     <button
                       className="btn btn-secondary btn-md"
                       onClick={() => router.push('/calendar')}

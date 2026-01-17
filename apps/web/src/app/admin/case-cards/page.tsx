@@ -12,6 +12,8 @@ import {
   activateCaseCard,
   deprecateCaseCard,
   getCaseCardSurgeons,
+  getCaseCardFeedback,
+  reviewCaseCardFeedback,
   type CaseCardSummary,
   type CaseCardDetail,
   type CaseCardVersionData,
@@ -19,6 +21,7 @@ import {
   type CaseCardCreateRequest,
   type CaseCardUpdateRequest,
   type CaseType,
+  type CaseCardFeedback,
 } from '@/lib/api';
 
 const CASE_TYPES: { value: CaseType; label: string }[] = [
@@ -85,6 +88,15 @@ export default function AdminCaseCardsPage() {
   const [viewingEditLog, setViewingEditLog] = useState<CaseCardSummary | null>(null);
   const [editLog, setEditLog] = useState<CaseCardEditLogEntry[]>([]);
   const [isLoadingEditLog, setIsLoadingEditLog] = useState(false);
+
+  // Feedback modal
+  const [viewingFeedback, setViewingFeedback] = useState<CaseCardSummary | null>(null);
+  const [feedbackList, setFeedbackList] = useState<CaseCardFeedback[]>([]);
+  const [feedbackSummary, setFeedbackSummary] = useState<{ total: number; pending: number; reviewed: number }>({ total: 0, pending: 0, reviewed: 0 });
+  const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
+  const [reviewingFeedback, setReviewingFeedback] = useState<CaseCardFeedback | null>(null);
+  const [reviewAction, setReviewAction] = useState<'ACKNOWLEDGED' | 'APPLIED' | 'DISMISSED'>('ACKNOWLEDGED');
+  const [reviewNotes, setReviewNotes] = useState('');
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -251,6 +263,37 @@ export default function AdminCaseCardsPage() {
       setError(err instanceof Error ? err.message : 'Failed to load edit log');
     } finally {
       setIsLoadingEditLog(false);
+    }
+  };
+
+  const viewFeedback = async (card: CaseCardSummary) => {
+    if (!token) return;
+    setViewingFeedback(card);
+    setIsLoadingFeedback(true);
+    try {
+      const result = await getCaseCardFeedback(token, card.id);
+      setFeedbackList(result.feedback);
+      setFeedbackSummary(result.summary);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load feedback');
+    } finally {
+      setIsLoadingFeedback(false);
+    }
+  };
+
+  const handleReviewFeedback = async () => {
+    if (!token || !viewingFeedback || !reviewingFeedback) return;
+    try {
+      await reviewCaseCardFeedback(token, viewingFeedback.id, reviewingFeedback.id, reviewAction, reviewNotes || undefined);
+      setSuccessMessage('Feedback reviewed successfully');
+      setReviewingFeedback(null);
+      setReviewNotes('');
+      // Reload feedback list
+      const result = await getCaseCardFeedback(token, viewingFeedback.id);
+      setFeedbackList(result.feedback);
+      setFeedbackSummary(result.summary);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to review feedback');
     }
   };
 
@@ -923,6 +966,12 @@ export default function AdminCaseCardsPage() {
                         >
                           History
                         </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => viewFeedback(card)}
+                        >
+                          Feedback
+                        </button>
                         {card.status === 'DRAFT' && (
                           <button
                             className="btn btn-success btn-sm"
@@ -982,6 +1031,136 @@ export default function AdminCaseCardsPage() {
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Feedback Modal */}
+        {viewingFeedback && (
+          <div className="modal-overlay" onClick={() => { setViewingFeedback(null); setReviewingFeedback(null); }}>
+            <div className="modal feedback-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>Feedback: {viewingFeedback.procedureName}</h2>
+                <button className="close-btn" onClick={() => { setViewingFeedback(null); setReviewingFeedback(null); }}>
+                  &times;
+                </button>
+              </div>
+              <div className="modal-body">
+                {isLoadingFeedback ? (
+                  <div className="loading">Loading feedback...</div>
+                ) : (
+                  <>
+                    <div className="feedback-summary">
+                      <span className="feedback-stat">
+                        <strong>{feedbackSummary.total}</strong> Total
+                      </span>
+                      <span className="feedback-stat pending">
+                        <strong>{feedbackSummary.pending}</strong> Pending
+                      </span>
+                      <span className="feedback-stat reviewed">
+                        <strong>{feedbackSummary.reviewed}</strong> Reviewed
+                      </span>
+                    </div>
+                    {feedbackList.length === 0 ? (
+                      <p className="empty-state">No feedback submitted for this case card.</p>
+                    ) : (
+                      <div className="feedback-list">
+                        {feedbackList.map((fb) => (
+                          <div key={fb.id} className={`feedback-entry ${fb.reviewedAt ? 'reviewed' : 'pending'}`}>
+                            <div className="feedback-header">
+                              <span className="feedback-case">
+                                Case: {fb.procedureName} ({new Date(fb.scheduledDate).toLocaleDateString()})
+                              </span>
+                              <span className={`feedback-status ${fb.reviewedAt ? 'reviewed' : 'pending'}`}>
+                                {fb.reviewedAt ? fb.reviewAction : 'Pending Review'}
+                              </span>
+                            </div>
+                            <div className="feedback-content">
+                              {fb.itemsUnused.length > 0 && (
+                                <div className="feedback-field">
+                                  <strong>Items Not Used:</strong> {fb.itemsUnused.join(', ')}
+                                </div>
+                              )}
+                              {fb.itemsMissing.length > 0 && (
+                                <div className="feedback-field">
+                                  <strong>Items Missing:</strong> {fb.itemsMissing.join(', ')}
+                                </div>
+                              )}
+                              {fb.setupIssues && (
+                                <div className="feedback-field">
+                                  <strong>Setup Issues:</strong> {fb.setupIssues}
+                                </div>
+                              )}
+                              {fb.staffComments && (
+                                <div className="feedback-field">
+                                  <strong>Staff Comments:</strong> {fb.staffComments}
+                                </div>
+                              )}
+                              {fb.suggestedEdits && (
+                                <div className="feedback-field">
+                                  <strong>Suggested Edits:</strong> {fb.suggestedEdits}
+                                </div>
+                              )}
+                            </div>
+                            <div className="feedback-meta">
+                              <span>Submitted by {fb.submittedByName} on {new Date(fb.createdAt).toLocaleDateString()}</span>
+                              {fb.reviewedAt && (
+                                <span>Reviewed by {fb.reviewedByName} on {new Date(fb.reviewedAt).toLocaleDateString()}</span>
+                              )}
+                            </div>
+                            {!fb.reviewedAt && user?.role === 'ADMIN' && (
+                              <div className="feedback-actions">
+                                {reviewingFeedback?.id === fb.id ? (
+                                  <div className="review-form">
+                                    <select
+                                      value={reviewAction}
+                                      onChange={(e) => setReviewAction(e.target.value as 'ACKNOWLEDGED' | 'APPLIED' | 'DISMISSED')}
+                                    >
+                                      <option value="ACKNOWLEDGED">Acknowledge</option>
+                                      <option value="APPLIED">Mark as Applied</option>
+                                      <option value="DISMISSED">Dismiss</option>
+                                    </select>
+                                    <input
+                                      type="text"
+                                      placeholder="Review notes (optional)"
+                                      value={reviewNotes}
+                                      onChange={(e) => setReviewNotes(e.target.value)}
+                                    />
+                                    <div className="review-buttons">
+                                      <button className="btn btn-primary btn-sm" onClick={handleReviewFeedback}>
+                                        Submit Review
+                                      </button>
+                                      <button className="btn btn-secondary btn-sm" onClick={() => setReviewingFeedback(null)}>
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={() => {
+                                      setReviewingFeedback(fb);
+                                      setReviewAction('ACKNOWLEDGED');
+                                      setReviewNotes('');
+                                    }}
+                                  >
+                                    Review
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {fb.reviewNotes && (
+                              <div className="feedback-review-notes">
+                                <strong>Review Notes:</strong> {fb.reviewNotes}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1375,6 +1554,130 @@ export default function AdminCaseCardsPage() {
 
         .btn-danger:hover {
           background: #c53030;
+        }
+
+        /* Feedback Modal Styles */
+        .feedback-modal {
+          max-width: 700px;
+        }
+
+        .feedback-summary {
+          display: flex;
+          gap: 1rem;
+          margin-bottom: 1rem;
+          padding: 0.75rem;
+          background: #f8f9fa;
+          border-radius: 4px;
+        }
+
+        .feedback-stat {
+          font-size: 0.875rem;
+        }
+
+        .feedback-stat.pending strong {
+          color: #d69e2e;
+        }
+
+        .feedback-stat.reviewed strong {
+          color: #38a169;
+        }
+
+        .feedback-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .feedback-entry {
+          padding: 1rem;
+          background: #f8f9fa;
+          border-radius: 4px;
+          border-left: 3px solid #3b82f6;
+        }
+
+        .feedback-entry.pending {
+          border-left-color: #d69e2e;
+        }
+
+        .feedback-entry.reviewed {
+          border-left-color: #38a169;
+        }
+
+        .feedback-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 0.75rem;
+        }
+
+        .feedback-case {
+          font-weight: 500;
+        }
+
+        .feedback-status {
+          font-size: 0.75rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+        }
+
+        .feedback-status.pending {
+          background: #faf089;
+          color: #744210;
+        }
+
+        .feedback-status.reviewed {
+          background: #c6f6d5;
+          color: #276749;
+        }
+
+        .feedback-content {
+          margin-bottom: 0.75rem;
+        }
+
+        .feedback-field {
+          font-size: 0.875rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .feedback-meta {
+          font-size: 0.75rem;
+          color: #718096;
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .feedback-actions {
+          margin-top: 0.75rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid #e2e8f0;
+        }
+
+        .review-form {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .review-form select,
+        .review-form input {
+          padding: 0.5rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          font-size: 0.875rem;
+        }
+
+        .review-buttons {
+          display: flex;
+          gap: 0.5rem;
+        }
+
+        .feedback-review-notes {
+          margin-top: 0.5rem;
+          padding-top: 0.5rem;
+          border-top: 1px solid #e2e8f0;
+          font-size: 0.875rem;
+          font-style: italic;
         }
       `}</style>
     </>
