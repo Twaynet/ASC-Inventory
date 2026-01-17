@@ -1,6 +1,39 @@
-# ASC Inventory Truth System v1.2.3
+# ASC Inventory Truth System v1.3.0
 
 A clinically honest, future-proof inventory system for Ambulatory Surgery Centers (ASCs).
+
+## What's New in v1.3.0
+
+### Username-Based Authentication
+- **Login with Username:** All users now login with username instead of email
+- **User Management:** ADMIN can onboard/offboard users via `/admin/users` page
+- **Email Optional:** Email is now optional for non-ADMIN users
+- **Username Validation:** 3-100 characters, alphanumeric with `_.-` allowed
+
+### Case Active/Inactive Workflow
+- **Pending Approval:** New cases start as inactive (pending admin approval)
+- **Admin Activation:** Only ADMIN can activate cases and set scheduled date/time
+- **Checklist Gates:** Only active cases can have Time Out/Debrief checklists
+- **Case Cancellation:** Any user can cancel a case at any stage
+- **Case Management:** New `/admin/cases` page for activation management
+- **Visual Indicators:** Inactive cases show "PENDING APPROVAL" banner, cancelled cases show "CANCELLED" with red styling
+
+### New API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/users` | List all users in facility | ADMIN |
+| POST | `/api/users` | Create new user (onboard) | ADMIN |
+| PATCH | `/api/users/:id` | Update user | ADMIN |
+| POST | `/api/users/:id/deactivate` | Deactivate user (offboard) | ADMIN |
+| POST | `/api/users/:id/activate` | Reactivate user | ADMIN |
+| POST | `/api/cases/:id/activate` | Activate case with date/time | ADMIN |
+| POST | `/api/cases/:id/deactivate` | Deactivate case | ADMIN |
+| POST | `/api/cases/:id/cancel` | Cancel case | Any |
+
+### Database Migrations
+- **007_username_auth.sql:** Adds username column, makes email optional
+- **008_case_active_status.sql:** Adds is_active, is_cancelled tracking fields
 
 ## What's New in v1.2.3
 
@@ -164,14 +197,14 @@ docker-compose exec api npm run db:seed
 
 ### 3. Test Accounts
 
-| Email | Password | Role |
-|-------|----------|------|
-| admin@demo.com | password123 | Admin |
-| tech@demo.com | password123 | Inventory Tech |
-| circulator@demo.com | password123 | Circulator |
-| scrub@demo.com | password123 | Scrub Tech |
-| drsmith@demo.com | password123 | Surgeon |
-| drjones@demo.com | password123 | Surgeon |
+| Username | Password | Role |
+|----------|----------|------|
+| admin | password123 | Admin |
+| tech | password123 | Inventory Tech |
+| circulator | password123 | Circulator |
+| scrub | password123 | Scrub Tech |
+| drsmith | password123 | Surgeon |
+| drjones | password123 | Surgeon |
 
 ## Quick Start (Local Development)
 
@@ -227,18 +260,32 @@ cd apps/web && npm run dev
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| POST | `/api/auth/login` | Login, returns JWT | No |
+| POST | `/api/auth/login` | Login with username | No |
 | GET | `/api/auth/me` | Get current user | Yes |
+
+### Users (ADMIN only)
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/users` | List all users in facility | ADMIN |
+| GET | `/api/users/:id` | Get user details | ADMIN |
+| POST | `/api/users` | Create user (onboard) | ADMIN |
+| PATCH | `/api/users/:id` | Update user | ADMIN |
+| POST | `/api/users/:id/deactivate` | Deactivate user | ADMIN |
+| POST | `/api/users/:id/activate` | Reactivate user | ADMIN |
 
 ### Cases
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | GET | `/api/cases` | List cases | Yes |
-| POST | `/api/cases` | Create case | Scheduler |
+| POST | `/api/cases` | Create case (starts inactive) | Yes |
 | GET | `/api/cases/:id` | Get case details | Yes |
-| PATCH | `/api/cases/:id` | Update case | Scheduler |
-| POST | `/api/cases/:id/preference-card` | Select preference card | Scheduler |
+| PATCH | `/api/cases/:id` | Update case | Yes |
+| POST | `/api/cases/:id/activate` | Activate case with date/time | ADMIN |
+| POST | `/api/cases/:id/deactivate` | Deactivate case | ADMIN |
+| POST | `/api/cases/:id/cancel` | Cancel case | Yes |
+| POST | `/api/cases/:id/preference-card` | Select preference card | Yes |
 | PUT | `/api/cases/:id/requirements` | Surgeon override | Surgeon |
 
 ### Inventory Events
@@ -298,8 +345,8 @@ docker pull ghcr.io/twaynet/asc-inventory-api:latest
 docker pull ghcr.io/twaynet/asc-inventory-web:latest
 
 # Or pull a specific version
-docker pull ghcr.io/twaynet/asc-inventory-api:1.2.3
-docker pull ghcr.io/twaynet/asc-inventory-web:1.2.3
+docker pull ghcr.io/twaynet/asc-inventory-api:1.3.0
+docker pull ghcr.io/twaynet/asc-inventory-web:1.3.0
 ```
 
 ### Production Docker Compose
@@ -321,7 +368,7 @@ services:
     restart: unless-stopped
 
   api:
-    image: ghcr.io/twaynet/asc-inventory-api:1.2.3
+    image: ghcr.io/twaynet/asc-inventory-api:1.3.0
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -336,7 +383,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: ghcr.io/twaynet/asc-inventory-web:1.2.3
+    image: ghcr.io/twaynet/asc-inventory-web:1.3.0
     environment:
       NEXT_PUBLIC_API_URL: ${API_URL}
     depends_on:
@@ -444,8 +491,9 @@ The following items are **intentionally excluded** from v1.2 to maintain scope d
 - [ ] Expiration date alerts/workflows
 - [ ] Consignment inventory tracking
 
-### Simplified in v1.2
-- **Auth:** Basic JWT, no refresh tokens, no password reset
+### Simplified in v1.3
+- **Auth:** Username/password JWT, no refresh tokens, no password reset, no SSO
+- **User Management:** ADMIN-only onboarding/offboarding, no self-service
 - **Timezone:** Simplified handling (full IANA support deferred)
 - **Caching:** Application-level table, not Redis
 - **Search:** Basic filtering, no full-text search
