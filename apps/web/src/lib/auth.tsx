@@ -7,7 +7,7 @@ interface AuthContextType {
   user: LoginResponse['user'] | null;
   token: string | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (facilityKey: string, username: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -38,8 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (username: string, password: string) => {
-    const response = await apiLogin(username, password);
+  const login = async (facilityKey: string, username: string, password: string) => {
+    const response = await apiLogin(facilityKey, username, password);
     setUser(response.user);
     setToken(response.token);
     localStorage.setItem('asc_token', response.token);

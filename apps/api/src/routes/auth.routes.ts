@@ -22,9 +22,26 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const { username, password } = parseResult.data;
+    const { facilityKey, username, password } = parseResult.data;
 
-    // Find user by username (case-insensitive)
+    // Find facility by key first
+    const facilityResult = await query<{
+      id: string;
+      name: string;
+      facility_key: string;
+    }>(`
+      SELECT id, name, facility_key
+      FROM facility
+      WHERE facility_key = $1
+    `, [facilityKey]);
+
+    if (facilityResult.rows.length === 0) {
+      return reply.status(401).send({ error: 'Facility not found' });
+    }
+
+    const facility = facilityResult.rows[0];
+
+    // Find user by username within the facility (case-insensitive)
     const result = await query<{
       id: string;
       facility_id: string;
@@ -37,8 +54,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     }>(`
       SELECT u.id, u.facility_id, u.username, u.email, u.name, u.role, u.password_hash, u.active
       FROM app_user u
-      WHERE LOWER(u.username) = LOWER($1)
-    `, [username]);
+      WHERE u.facility_id = $1 AND LOWER(u.username) = LOWER($2)
+    `, [facility.id, username]);
 
     if (result.rows.length === 0) {
       return reply.status(401).send({ error: 'Invalid credentials' });
@@ -56,12 +73,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(401).send({ error: 'Invalid credentials' });
     }
 
-    // Get facility name
-    const facilityResult = await query<{ name: string }>(`
-      SELECT name FROM facility WHERE id = $1
-    `, [user.facility_id]);
-
-    const facilityName = facilityResult.rows[0]?.name || 'Unknown';
+    const facilityName = facility.name;
 
     // Generate JWT
     const payload: JwtPayload = {

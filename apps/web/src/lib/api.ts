@@ -49,8 +49,8 @@ export interface LoginResponse {
   };
 }
 
-export async function login(username: string, password: string): Promise<LoginResponse> {
-  return api('/auth/login', { method: 'POST', body: { username, password } });
+export async function login(facilityKey: string, username: string, password: string): Promise<LoginResponse> {
+  return api('/auth/login', { method: 'POST', body: { facilityKey, username, password } });
 }
 
 export async function getMe(token: string): Promise<{ user: LoginResponse['user'] }> {

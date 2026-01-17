@@ -24,6 +24,7 @@ function EyeOffIcon() {
 }
 
 export default function LoginPage() {
+  const [facilityKey, setFacilityKey] = useState('ASC-00001');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -45,7 +46,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await login(username, password);
+      await login(facilityKey, username, password);
       router.push('/day-before');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -63,6 +64,17 @@ export default function LoginPage() {
       <div className="login-card">
         <h1>ASC Inventory System</h1>
         <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="facilityKey">Facility Key</label>
+            <input
+              id="facilityKey"
+              type="text"
+              value={facilityKey}
+              onChange={(e) => setFacilityKey(e.target.value)}
+              placeholder="ASC-00001"
+              required
+            />
+          </div>
           <div className="form-group">
             <label htmlFor="username">Username</label>
             <input

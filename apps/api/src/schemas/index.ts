@@ -24,6 +24,7 @@ import {
 // ============================================================================
 
 export const LoginRequestSchema = z.object({
+  facilityKey: z.string().min(1).max(20),
   username: z.string().min(3).max(100),
   password: z.string().min(8),
 });
