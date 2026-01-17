@@ -270,16 +270,24 @@ export default function AdminInventoryPage() {
         </div>
 
         <div className="actions-bar">
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setShowCreateForm(true);
-              setEditingItem(null);
-              setFormData({});
-            }}
-          >
-            + Add Inventory Item
-          </button>
+          <div className="actions-left">
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setShowCreateForm(true);
+                setEditingItem(null);
+                setFormData({});
+              }}
+            >
+              + Add Inventory Item
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => router.push('/admin/inventory/check-in')}
+            >
+              Scanner Check-In
+            </button>
+          </div>
           <div className="filters">
             <select
               value={filterCatalog}
@@ -586,6 +594,12 @@ export default function AdminInventoryPage() {
           margin-bottom: 1.5rem;
           flex-wrap: wrap;
           gap: 1rem;
+        }
+
+        .actions-left {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
         }
 
         .filters {

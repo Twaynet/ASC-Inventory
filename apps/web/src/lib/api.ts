@@ -951,6 +951,7 @@ export interface InventoryItemDetail {
   catalogId: string;
   catalogName: string;
   category: ItemCategory;
+  manufacturer?: string;
   barcode: string | null;
   serialNumber: string | null;
   lotNumber: string | null;
@@ -960,6 +961,8 @@ export interface InventoryItemDetail {
   sterilityExpiresAt: string | null;
   availabilityStatus: string;
   lastVerifiedAt: string | null;
+  lastVerifiedByUserId: string | null;
+  lastVerifiedByName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1010,6 +1013,27 @@ export async function updateInventoryItem(token: string, itemId: string, data: U
 export async function getInventoryItemHistory(token: string, itemId: string): Promise<{ events: InventoryItemEvent[] }> {
   return api(`/inventory/items/${itemId}/history`, { token });
 }
+
+// Create inventory event (manual actions like VERIFY, RECEIVE, LOCATION_CHANGED)
+export interface CreateInventoryEventRequest {
+  inventoryItemId: string;
+  eventType: string;
+  caseId?: string;
+  locationId?: string;
+  sterilityStatus?: string;
+  notes?: string;
+  occurredAt?: string;
+}
+
+export async function createInventoryEvent(
+  token: string,
+  data: CreateInventoryEventRequest
+): Promise<{ success: boolean }> {
+  return api('/inventory/events', { method: 'POST', body: data, token });
+}
+
+// Alias for sendDeviceEvent (for consistency)
+export const createDeviceEvent = sendDeviceEvent;
 
 // ============================================================================
 // SETTINGS & ROOMS (Extended)
