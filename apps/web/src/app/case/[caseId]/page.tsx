@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { AdminNav } from '@/app/components/AdminNav';
+import { Header } from '@/app/components/Header';
 import {
   getCaseDashboard,
   attestCaseReadiness,
@@ -54,6 +54,7 @@ function CaseDashboardContent() {
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [showEventLogModal, setShowEventLogModal] = useState(false);
   const [showLinkCaseCardModal, setShowLinkCaseCardModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   // Inline editing states
   const [isEditingScheduling, setIsEditingScheduling] = useState(false);
@@ -297,10 +298,18 @@ function CaseDashboardContent() {
     }
   };
 
+  const handlePrint = () => {
+    setShowPrintModal(true);
+  };
+
+  const executePrint = () => {
+    window.print();
+  };
+
   if (isLoading || isLoadingData) {
     return (
       <>
-        <AdminNav userRole={user?.role || ''} />
+        <Header title="Case Dashboard" />
         <main className="admin-main">
           <div className="loading">Loading case dashboard...</div>
         </main>
@@ -311,7 +320,7 @@ function CaseDashboardContent() {
   if (!user || !dashboard) {
     return (
       <>
-        <AdminNav userRole={user?.role || ''} />
+        <Header title="Case Dashboard" />
         <main className="admin-main">
           <div className="error-message">{error || 'Case not found'}</div>
         </main>
@@ -335,9 +344,18 @@ function CaseDashboardContent() {
     return 'Scheduled';
   };
 
+  // Print-specific functions that return hex colors instead of CSS variables
+  const getPrintStatusColor = () => {
+    if (dashboard.attestationState === 'VOIDED') return '#e53e3e';
+    if (dashboard.attestationState === 'ATTESTED') return '#38a169';
+    if (dashboard.readinessState === 'RED') return '#e53e3e';
+    if (dashboard.readinessState === 'ORANGE') return '#dd6b20';
+    return '#718096';
+  };
+
   return (
     <>
-      <AdminNav userRole={user?.role || ''} />
+      <Header title="Case Dashboard" />
       <main className="admin-main" style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
         {/* Messages */}
         {error && (
@@ -628,7 +646,7 @@ function CaseDashboardContent() {
                 </button>
                 {dashboard.caseCard && (
                   <button
-                    onClick={() => router.push(`/admin/case-cards?id=${dashboard.caseCard!.id}`)}
+                    onClick={() => router.push(`/case-cards?id=${dashboard.caseCard!.id}`)}
                     className="btn-secondary"
                   >
                     View Case Card
@@ -738,10 +756,13 @@ function CaseDashboardContent() {
           )}
         </section>
 
-        {/* Back button */}
-        <div style={{ marginTop: '2rem' }}>
+        {/* Back and Print buttons */}
+        <div style={{ marginTop: '2rem', display: 'flex', gap: '0.5rem' }}>
           <button onClick={() => router.back()} className="btn-secondary">
             Back
+          </button>
+          <button onClick={handlePrint} className="btn-secondary">
+            Print Case Dashboard
           </button>
         </div>
 
@@ -907,7 +928,181 @@ function CaseDashboardContent() {
             </div>
           </div>
         )}
+
+        {/* Print Case Dashboard Modal */}
+        {showPrintModal && (
+          <div className="modal-overlay print-modal-overlay" onClick={() => setShowPrintModal(false)}>
+            <div className="modal-content print-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh', overflow: 'auto' }}>
+              <div className="modal-header no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0 }}>Print Case Dashboard</h3>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button className="btn-primary" onClick={executePrint}>Print</button>
+                  <button className="btn-secondary" onClick={() => setShowPrintModal(false)}>Close</button>
+                </div>
+              </div>
+              <div className="print-content">
+                {/* Case Identity Banner */}
+                <div className="print-header" style={{
+                  borderBottom: '3px solid ' + getPrintStatusColor(),
+                  paddingBottom: '1rem',
+                  marginBottom: '1.5rem'
+                }}>
+                  <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.75rem' }}>{dashboard.procedureName}</h1>
+                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                    <span><strong>Surgeon:</strong> {dashboard.surgeon}</span>
+                    <span><strong>Facility:</strong> {dashboard.facility}</span>
+                    <span><strong>Case ID:</strong> {dashboard.caseId}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                    <span><strong>Scheduled:</strong> {new Date(dashboard.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                    {dashboard.scheduledTime && ` at ${dashboard.scheduledTime}`}
+                    {dashboard.orRoom && ` | OR: ${dashboard.orRoom}`}</span>
+                  </div>
+                  <div style={{
+                    display: 'inline-block',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '4px',
+                    background: getPrintStatusColor(),
+                    color: 'white',
+                    fontWeight: 'bold',
+                    marginTop: '0.5rem'
+                  }}>
+                    {getStatusLabel()}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Case Summary */}
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                    <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Case Summary</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
+                      {dashboard.estimatedDurationMinutes && (
+                        <div><strong>Estimated Duration:</strong> {dashboard.estimatedDurationMinutes} minutes</div>
+                      )}
+                      {dashboard.laterality && (
+                        <div><strong>Laterality:</strong> {dashboard.laterality}</div>
+                      )}
+                    </div>
+                    {dashboard.schedulerNotes && (
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+                        <strong>Scheduler Notes:</strong> {dashboard.schedulerNotes}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Anesthesia Plan */}
+                  {dashboard.anesthesiaPlan && (dashboard.anesthesiaPlan.modalities.length > 0 || dashboard.anesthesiaPlan.airwayNotes || dashboard.anesthesiaPlan.anticoagulationConsiderations) && (
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                      <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Anesthesia Plan</h4>
+                      {dashboard.anesthesiaPlan.modalities.length > 0 && (
+                        <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                          <strong>Modalities:</strong> {dashboard.anesthesiaPlan.modalities.join(', ')}
+                        </div>
+                      )}
+                      {dashboard.anesthesiaPlan.airwayNotes && (
+                        <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                          <strong>Airway Notes:</strong> {dashboard.anesthesiaPlan.airwayNotes}
+                        </div>
+                      )}
+                      {dashboard.anesthesiaPlan.anticoagulationConsiderations && (
+                        <div style={{ fontSize: '0.875rem' }}>
+                          <strong>Anticoagulation:</strong> {dashboard.anesthesiaPlan.anticoagulationConsiderations}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Linked Case Card */}
+                  {dashboard.caseCard && (
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                      <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Linked Case Card</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
+                        <div><strong>Name:</strong> {dashboard.caseCard.name}</div>
+                        <div><strong>Version:</strong> {dashboard.caseCard.version}</div>
+                        <div><strong>Status:</strong> {dashboard.caseCard.status}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Case-Specific Overrides */}
+                  {dashboard.overrides.length > 0 && (
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                      <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Case-Specific Overrides ({dashboard.overrides.length})</h4>
+                      <table style={{ width: '100%', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                            <th style={{ padding: '0.5rem', textAlign: 'left' }}>Target</th>
+                            <th style={{ padding: '0.5rem', textAlign: 'left' }}>Original</th>
+                            <th style={{ padding: '0.5rem', textAlign: 'left' }}>Override</th>
+                            <th style={{ padding: '0.5rem', textAlign: 'left' }}>Reason</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dashboard.overrides.map(o => (
+                            <tr key={o.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                              <td style={{ padding: '0.5rem' }}>{o.target}</td>
+                              <td style={{ padding: '0.5rem' }}>{o.originalValue || '-'}</td>
+                              <td style={{ padding: '0.5rem' }}>{o.overrideValue}</td>
+                              <td style={{ padding: '0.5rem' }}>{o.reason}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Readiness Attestation */}
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                    <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Readiness Attestation</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
+                      <div><strong>State:</strong> {dashboard.attestationState.replace('_', ' ')}</div>
+                      {dashboard.attestedBy && <div><strong>Attested By:</strong> {dashboard.attestedBy}</div>}
+                      {dashboard.attestedAt && <div><strong>Attested:</strong> {new Date(dashboard.attestedAt).toLocaleString()}</div>}
+                    </div>
+                    {dashboard.voidReason && (
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+                        <strong>Void Reason:</strong> {dashboard.voidReason}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#718096' }}>
+                  <span>Printed: {new Date().toLocaleString()}</span>
+                  <span>Facility: {user?.facilityName}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      <style jsx>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .print-modal-overlay,
+          .print-modal-overlay * {
+            visibility: visible;
+          }
+          .print-modal-overlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: white;
+          }
+          .print-modal {
+            width: 100%;
+            max-width: none;
+            max-height: none;
+            box-shadow: none;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
     </>
   );
 }

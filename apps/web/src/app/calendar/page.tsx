@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { AdminNav } from '@/app/components/AdminNav';
+import { Header } from '@/app/components/Header';
 import {
   getCalendarSummary,
   getFacilitySettings,
@@ -236,21 +236,7 @@ function DayBeforeContent() {
 
   return (
     <>
-      <header className="header">
-        <div className="container header-content">
-          <h1>Case Calendar</h1>
-          <div className="header-user">
-            <AdminNav userRole={user.role} />
-            <span>
-              {user.name} ({user.role})
-            </span>
-            <span>{user.facilityName}</span>
-            <button className="btn btn-secondary btn-sm" onClick={logout}>
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header title="Case Calendar" />
 
       <main className="container">
         {/* Admin: Time Out/Debrief Feature Toggle */}

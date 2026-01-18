@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { Header } from '@/app/components/Header';
 import {
   getCatalogItems,
   createCatalogItem,
@@ -181,25 +182,7 @@ export default function AdminCatalogPage() {
   if (user.role !== 'ADMIN') {
     return (
       <>
-        <header className="header">
-          <div className="container header-content">
-            <div className="header-left">
-              <button
-                className="btn btn-secondary btn-sm back-btn"
-                onClick={() => router.push('/calendar')}
-              >
-                &larr; Back
-              </button>
-              <h1>Item Catalog</h1>
-            </div>
-            <div className="header-user">
-              <span>{user.name} ({user.role})</span>
-              <button className="btn btn-secondary btn-sm" onClick={logout}>
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </header>
+        <Header title="Catalog Management" />
         <main className="container">
           <div className="alert alert-error">
             Access denied. This page is only available to administrators.
@@ -211,26 +194,7 @@ export default function AdminCatalogPage() {
 
   return (
     <>
-      <header className="header">
-        <div className="container header-content">
-          <div className="header-left">
-            <button
-              className="btn btn-secondary btn-sm back-btn"
-              onClick={() => router.push('/calendar')}
-            >
-              &larr; Back
-            </button>
-            <h1>Item Catalog</h1>
-          </div>
-          <div className="header-user">
-            <span>{user.name} ({user.role})</span>
-            <span>{user.facilityName}</span>
-            <button className="btn btn-secondary btn-sm" onClick={logout}>
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header title="Catalog Management" />
 
       <main className="container admin-catalog-page">
         {error && <div className="alert alert-error">{error}</div>}

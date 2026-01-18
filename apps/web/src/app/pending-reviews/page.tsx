@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { Header } from '@/app/components/Header';
 import {
   getMyPendingReviews,
   recordAsyncReview,
@@ -85,27 +86,7 @@ export default function PendingReviewsPage() {
   if (user.role !== 'SCRUB' && user.role !== 'SURGEON') {
     return (
       <>
-        <header className="header">
-          <div className="container header-content">
-            <div className="header-left">
-              <button
-                className="btn btn-secondary btn-sm back-btn"
-                onClick={() => router.push('/calendar')}
-              >
-                &larr; Back
-              </button>
-              <h1>Pending Reviews</h1>
-            </div>
-            <div className="header-user">
-              <span>
-                {user.name} ({user.role})
-              </span>
-              <button className="btn btn-secondary btn-sm" onClick={logout}>
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </header>
+        <Header title="Pending Reviews" />
         <main className="container">
           <div className="alert alert-info">
             This page is only for SCRUB and SURGEON roles.
@@ -120,28 +101,7 @@ export default function PendingReviewsPage() {
 
   return (
     <>
-      <header className="header">
-        <div className="container header-content">
-          <div className="header-left">
-            <button
-              className="btn btn-secondary btn-sm back-btn"
-              onClick={() => router.push('/calendar')}
-            >
-              &larr; Back
-            </button>
-            <h1>My Pending Reviews</h1>
-          </div>
-          <div className="header-user">
-            <span>
-              {user.name} ({user.role})
-            </span>
-            <span>{user.facilityName}</span>
-            <button className="btn btn-secondary btn-sm" onClick={logout}>
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header title="My Pending Reviews" />
 
       <main className="container pending-reviews-page">
         {error && <div className="alert alert-error">{error}</div>}

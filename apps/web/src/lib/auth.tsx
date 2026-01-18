@@ -1,7 +1,18 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { login as apiLogin, getMe, type LoginResponse } from './api';
+import {
+  type Role,
+  type Capability,
+  normalizeRoles,
+  deriveCapabilities,
+  getAccessibleFeatures,
+  generateDebugInfo,
+  type DebugInfo,
+  type FeatureDefinition,
+  type AccessDecision,
+} from './access-control';
 
 interface AuthContextType {
   user: LoginResponse['user'] | null;
@@ -64,4 +75,40 @@ export function useAuth() {
     throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
+}
+
+/**
+ * Hook for access control with multi-role support
+ * Provides derived roles[], capabilities[], and feature access info
+ */
+export function useAccessControl() {
+  const { user } = useAuth();
+
+  return useMemo(() => {
+    if (!user) {
+      return {
+        roles: [] as Role[],
+        capabilities: [] as Capability[],
+        features: [] as { feature: FeatureDefinition; decision: AccessDecision }[],
+        debugInfo: null as DebugInfo | null,
+        hasRole: (_role: Role) => false,
+        hasCapability: (_cap: Capability) => false,
+      };
+    }
+
+    // Convert single role to roles array (backward compatibility)
+    const roles = normalizeRoles(user.role);
+    const capabilities = deriveCapabilities(roles);
+    const features = getAccessibleFeatures(roles, capabilities);
+    const debugInfo = generateDebugInfo(roles, capabilities);
+
+    return {
+      roles,
+      capabilities,
+      features,
+      debugInfo,
+      hasRole: (role: Role) => roles.includes(role),
+      hasCapability: (cap: Capability) => capabilities.includes(cap),
+    };
+  }, [user]);
 }

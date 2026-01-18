@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { Header } from '@/app/components/Header';
 import { useScannerService, ScanProcessResult } from '@/lib/useScannerService';
 import {
   createInventoryEvent,
@@ -140,20 +141,7 @@ export default function InventoryCheckInPage() {
   if (!hasAccess) {
     return (
       <>
-        <header className="header">
-          <div className="container header-content">
-            <div className="header-left">
-              <button className="btn btn-secondary btn-sm back-btn" onClick={() => router.push('/calendar')}>
-                &larr; Back
-              </button>
-              <h1>Inventory Check-In</h1>
-            </div>
-            <div className="header-user">
-              <span>{user.name} ({user.role})</span>
-              <button className="btn btn-secondary btn-sm" onClick={logout}>Sign Out</button>
-            </div>
-          </div>
-        </header>
+        <Header title="Inventory Check-In" />
         <main className="container">
           <div className="alert alert-error">
             Access denied. This page requires ADMIN or INVENTORY_TECH role.
@@ -165,21 +153,7 @@ export default function InventoryCheckInPage() {
 
   return (
     <>
-      <header className="header">
-        <div className="container header-content">
-          <div className="header-left">
-            <button className="btn btn-secondary btn-sm back-btn" onClick={() => router.push('/admin/inventory')}>
-              &larr; Inventory
-            </button>
-            <h1>Inventory Check-In</h1>
-          </div>
-          <div className="header-user">
-            <span>{user.name}</span>
-            <span>{user.facilityName}</span>
-            <button className="btn btn-secondary btn-sm" onClick={logout}>Sign Out</button>
-          </div>
-        </div>
-      </header>
+      <Header title="Inventory Check-In" />
 
       <main className="container check-in-page">
         {error && <div className="alert alert-error" onClick={() => setError('')}>{error}</div>}

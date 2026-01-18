@@ -1,0 +1,26 @@
+  Updated role mappings now match seed data:
+  Username: admin
+  Role: ADMIN
+  Capabilities: USER_MANAGE, LOCATION_MANAGE, CATALOG_MANAGE, INVENTORY_MANAGE, REPORTS_VIEW,
+    SETTINGS_MANAGE, CASE_VIEW
+  ────────────────────────────────────────
+  Username: scheduler
+  Role: SCHEDULER
+  Capabilities: CASE_VIEW
+  ────────────────────────────────────────
+  Username: tech
+  Role: INVENTORY_TECH
+  Capabilities: INVENTORY_READ, INVENTORY_CHECKIN
+  ────────────────────────────────────────
+  Username: circulator
+  Role: CIRCULATOR
+  Capabilities: CASE_VIEW, CHECKLIST_ATTEST, OR_DEBRIEF, OR_TIMEOUT
+  ────────────────────────────────────────
+  Username: scrub
+  Role: SCRUB
+  Capabilities: CASE_VIEW, VERIFY_SCAN, CHECKLIST_ATTEST
+  ────────────────────────────────────────
+  Username: drsmith/drjones
+  Role: SURGEON
+  Capabilities: CASE_VIEW, CHECKLIST_ATTEST
+  The System Dashboard should now correctly display features based on each user's role when they log in.

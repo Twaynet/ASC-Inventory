@@ -36,7 +36,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push('/calendar');
+      router.push('/dashboard');
     }
   }, [user, isLoading, router]);
 
@@ -47,7 +47,7 @@ export default function LoginPage() {
 
     try {
       await login(facilityKey, username, password);
-      router.push('/calendar');
+      router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

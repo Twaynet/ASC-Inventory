@@ -11,7 +11,7 @@ export default function Home() {
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        router.push('/calendar');
+        router.push('/dashboard');
       } else {
         router.push('/login');
       }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { AdminNav } from '@/app/components/AdminNav';
+import { Header } from '@/app/components/Header';
 import {
   getInventoryReadinessReport,
   getVerificationActivityReport,
@@ -169,11 +169,8 @@ export default function AdminReportsPage() {
 
   return (
     <>
-      <AdminNav userRole={user.role} />
+      <Header title="Reports" />
       <main className="admin-main" style={{ maxWidth: '1400px', margin: '0 auto', padding: '1rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h1 style={{ margin: 0 }}>Operational Reports</h1>
-        </div>
 
         {error && (
           <div className="error-message" style={{ marginBottom: '1rem' }}>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { Header } from '@/app/components/Header';
 import {
   getCaseCards,
   getCaseCard,
@@ -74,7 +75,6 @@ export default function AdminCaseCardsPage() {
 
   // Collapsible sections
   const [sections, setSections] = useState<FormSection[]>([
-    { id: 'header', label: 'Header Information', expanded: true },
     { id: 'patientFlags', label: 'Patient-Dependent Flags (Non-PHI)', expanded: false },
     { id: 'instrumentation', label: 'Instrumentation', expanded: false },
     { id: 'equipment', label: 'Equipment', expanded: false },
@@ -98,6 +98,9 @@ export default function AdminCaseCardsPage() {
   const [reviewAction, setReviewAction] = useState<'ACKNOWLEDGED' | 'APPLIED' | 'DISMISSED'>('ACKNOWLEDGED');
   const [reviewNotes, setReviewNotes] = useState('');
 
+  // Print modal
+  const [printingCard, setPrintingCard] = useState<{ card: CaseCardDetail; currentVersion: CaseCardVersionData | null } | null>(null);
+
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login');
@@ -120,7 +123,7 @@ export default function AdminCaseCardsPage() {
       setSurgeons(surgeonsResult.surgeons);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load case cards');
+      setError(err instanceof Error ? err.message : 'Failed to load preference cards');
     } finally {
       setIsLoadingData(false);
     }
@@ -167,11 +170,11 @@ export default function AdminCaseCardsPage() {
 
     try {
       await createCaseCard(token, formData);
-      setSuccessMessage('Case card created successfully');
+      setSuccessMessage('Preference card created successfully');
       resetForm();
       loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create case card');
+      setError(err instanceof Error ? err.message : 'Failed to create preference card');
     }
   };
 
@@ -192,11 +195,11 @@ export default function AdminCaseCardsPage() {
         versionBump: 'minor',
       };
       await updateCaseCard(token, editingCard.card.id, updateData);
-      setSuccessMessage('Case card updated successfully');
+      setSuccessMessage('Preference card updated successfully');
       resetForm();
       loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update case card');
+      setError(err instanceof Error ? err.message : 'Failed to update preference card');
     }
   };
 
@@ -204,24 +207,24 @@ export default function AdminCaseCardsPage() {
     if (!token) return;
     try {
       await activateCaseCard(token, cardId);
-      setSuccessMessage('Case card activated successfully');
+      setSuccessMessage('Preference card activated successfully');
       loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to activate case card');
+      setError(err instanceof Error ? err.message : 'Failed to activate preference card');
     }
   };
 
   const handleDeprecate = async (cardId: string) => {
     if (!token) return;
-    const reason = prompt('Please enter a reason for deprecating this case card:');
+    const reason = prompt('Please enter a reason for deprecating this preference card:');
     if (reason === null) return;
 
     try {
       await deprecateCaseCard(token, cardId, reason);
-      setSuccessMessage('Case card deprecated successfully');
+      setSuccessMessage('Preference card deprecated successfully');
       loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to deprecate case card');
+      setError(err instanceof Error ? err.message : 'Failed to deprecate preference card');
     }
   };
 
@@ -248,7 +251,7 @@ export default function AdminCaseCardsPage() {
       });
       setShowForm(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load case card details');
+      setError(err instanceof Error ? err.message : 'Failed to load preference card details');
     }
   };
 
@@ -297,6 +300,20 @@ export default function AdminCaseCardsPage() {
     }
   };
 
+  const handlePrint = async (card: CaseCardSummary) => {
+    if (!token) return;
+    try {
+      const result = await getCaseCard(token, card.id);
+      setPrintingCard(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load preference card for printing');
+    }
+  };
+
+  const executePrint = () => {
+    window.print();
+  };
+
   const updateNestedField = (section: string, key: string, value: unknown) => {
     setFormData(prev => ({
       ...prev,
@@ -318,26 +335,7 @@ export default function AdminCaseCardsPage() {
 
   return (
     <>
-      <header className="header">
-        <div className="container header-content">
-          <div className="header-left">
-            <button
-              className="btn btn-secondary btn-sm back-btn"
-              onClick={() => router.push('/calendar')}
-            >
-              &larr; Back
-            </button>
-            <h1>Case Cards</h1>
-          </div>
-          <div className="header-user">
-            <span>{user.name} ({user.role})</span>
-            <span>{user.facilityName}</span>
-            <button className="btn btn-secondary btn-sm" onClick={logout}>
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header title="Case Cards" />
 
       <main className="container case-cards-page">
         {error && <div className="alert alert-error" onClick={() => setError('')}>{error}</div>}
@@ -374,7 +372,7 @@ export default function AdminCaseCardsPage() {
               setShowForm(true);
             }}
           >
-            + Create Case Card
+            + Create Preference Card
           </button>
           <div className="filters">
             <input
@@ -408,11 +406,11 @@ export default function AdminCaseCardsPage() {
         {/* Create/Edit Form */}
         {showForm && (
           <div className="form-card">
-            <h2>{editingCard ? 'Edit Case Card' : 'Create New Case Card'}</h2>
+            <h2>{editingCard ? 'Edit Preference Card' : 'Create New Preference Card'}</h2>
             <form onSubmit={editingCard ? handleUpdate : handleCreate}>
-              {/* Basic Info Section */}
+              {/* Header Information Section (per spec Section 2) */}
               <div className="form-section">
-                <h3>Basic Information</h3>
+                <h3>Header Information</h3>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Surgeon *</label>
@@ -904,11 +902,20 @@ export default function AdminCaseCardsPage() {
 
               <div className="form-actions">
                 <button type="submit" className="btn btn-primary">
-                  {editingCard ? 'Save Changes' : 'Create Case Card'}
+                  {editingCard ? 'Save Changes' : 'Create Preference Card'}
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={resetForm}>
                   Cancel
                 </button>
+                {editingCard && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setPrintingCard(editingCard)}
+                  >
+                    Print
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -916,7 +923,7 @@ export default function AdminCaseCardsPage() {
 
         {/* Cards Table */}
         {isLoadingData ? (
-          <div className="loading">Loading case cards...</div>
+          <div className="loading">Loading preference cards...</div>
         ) : (
           <div className="table-container">
             <table className="data-table">
@@ -935,7 +942,7 @@ export default function AdminCaseCardsPage() {
                 {cards.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="empty-state">
-                      No case cards found. Create your first card to get started.
+                      No preference cards found. Create your first card to get started.
                     </td>
                   </tr>
                 ) : (
@@ -960,6 +967,12 @@ export default function AdminCaseCardsPage() {
                             Edit
                           </button>
                         )}
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => handlePrint(card)}
+                        >
+                          Print
+                        </button>
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => viewEditLog(card)}
@@ -1064,7 +1077,7 @@ export default function AdminCaseCardsPage() {
                       </span>
                     </div>
                     {feedbackList.length === 0 ? (
-                      <p className="empty-state">No feedback submitted for this case card.</p>
+                      <p className="empty-state">No feedback submitted for this preference card.</p>
                     ) : (
                       <div className="feedback-list">
                         {feedbackList.map((fb) => (
@@ -1162,6 +1175,209 @@ export default function AdminCaseCardsPage() {
                     )}
                   </>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Print Modal */}
+        {printingCard && (
+          <div className="modal-overlay print-modal-overlay" onClick={() => setPrintingCard(null)}>
+            <div className="modal print-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header no-print">
+                <h2>Print Preference Card</h2>
+                <div className="print-actions">
+                  <button className="btn btn-primary" onClick={executePrint}>
+                    Print
+                  </button>
+                  <button className="close-btn" onClick={() => setPrintingCard(null)}>
+                    &times;
+                  </button>
+                </div>
+              </div>
+              <div className="modal-body print-content">
+                <div className="print-header">
+                  <h1>{printingCard.card.procedureName}</h1>
+                  <div className="print-meta">
+                    <span><strong>Surgeon:</strong> {printingCard.card.surgeonName}</span>
+                    <span><strong>Version:</strong> v{printingCard.card.version}</span>
+                    <span><strong>Status:</strong> {printingCard.card.status}</span>
+                  </div>
+                  <div className="print-meta">
+                    <span><strong>Case Type:</strong> {printingCard.card.caseType}</span>
+                    {printingCard.card.defaultDurationMinutes && (
+                      <span><strong>Est. Duration:</strong> {printingCard.card.defaultDurationMinutes} min</span>
+                    )}
+                    {printingCard.card.procedureCodes.length > 0 && (
+                      <span><strong>CPT:</strong> {printingCard.card.procedureCodes.join(', ')}</span>
+                    )}
+                  </div>
+                  {printingCard.card.turnoverNotes && (
+                    <div className="print-notes">
+                      <strong>Turnover Notes:</strong> {printingCard.card.turnoverNotes}
+                    </div>
+                  )}
+                </div>
+
+                {printingCard.currentVersion && (() => {
+                  const pf = printingCard.currentVersion.patientFlags as Record<string, boolean> | undefined;
+                  const inst = printingCard.currentVersion.instrumentation as Record<string, unknown> | undefined;
+                  const equip = printingCard.currentVersion.equipment as Record<string, unknown> | undefined;
+                  const supp = printingCard.currentVersion.supplies as Record<string, unknown> | undefined;
+                  const meds = printingCard.currentVersion.medications as Record<string, unknown> | undefined;
+                  const setup = printingCard.currentVersion.setupPositioning as Record<string, unknown> | undefined;
+                  const notes = printingCard.currentVersion.surgeonNotes as Record<string, unknown> | undefined;
+                  return (
+                  <div className="print-sections">
+                    {/* Patient Flags */}
+                    {pf && Object.values(pf).some(v => v) && (
+                      <div className="print-section">
+                        <h3>Patient-Dependent Flags</h3>
+                        <ul>
+                          {pf.latexAllergy && <li>Latex-Free Required</li>}
+                          {pf.iodineAllergy && <li>Iodine-Free Required</li>}
+                          {pf.nickelFree && <li>Nickel-Free Implants</li>}
+                          {pf.anticoagulation && <li>Anticoagulation Consideration</li>}
+                          {pf.infectionRisk && <li>Infection Risk</li>}
+                          {pf.neuromonitoringRequired && <li>Neuromonitoring Required</li>}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Instrumentation */}
+                    {inst && Object.values(inst).some(v => v) && (
+                      <div className="print-section">
+                        <h3>Instrumentation</h3>
+                        {Boolean(inst.primaryTrays) && (
+                          <div><strong>Primary Trays:</strong><pre>{String(inst.primaryTrays)}</pre></div>
+                        )}
+                        {Boolean(inst.supplementalTrays) && (
+                          <div><strong>Supplemental Trays:</strong><pre>{String(inst.supplementalTrays)}</pre></div>
+                        )}
+                        {Boolean(inst.looseInstruments) && (
+                          <div><strong>Loose Instruments:</strong><pre>{String(inst.looseInstruments)}</pre></div>
+                        )}
+                        <div className="print-flags">
+                          {Boolean(inst.flashAllowed) && <span>Flash Sterilization Allowed</span>}
+                          {Boolean(inst.peelPackOnly) && <span>Peel Pack Only</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Equipment */}
+                    {equip && Object.values(equip).some(v => v) && (
+                      <div className="print-section">
+                        <h3>Equipment</h3>
+                        {Boolean(equip.energyDevices) && (
+                          <div><strong>Energy Devices:</strong><pre>{String(equip.energyDevices)}</pre></div>
+                        )}
+                        {Boolean(equip.tourniquetLocation || equip.tourniquetPressure) && (
+                          <div><strong>Tourniquet:</strong> {String(equip.tourniquetLocation || '')} {equip.tourniquetPressure ? `@ ${equip.tourniquetPressure}` : ''}</div>
+                        )}
+                        {Boolean(equip.imaging) && (
+                          <div><strong>Imaging:</strong> {String(equip.imaging)}</div>
+                        )}
+                        {Boolean(equip.specializedDevices) && (
+                          <div><strong>Specialized Devices:</strong><pre>{String(equip.specializedDevices)}</pre></div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Supplies */}
+                    {supp && Object.values(supp).some(v => v) && (
+                      <div className="print-section">
+                        <h3>Supplies</h3>
+                        {Boolean(supp.gloves) && (
+                          <div><strong>Gloves:</strong><pre>{String(supp.gloves)}</pre></div>
+                        )}
+                        {Boolean(supp.drapes) && (
+                          <div><strong>Drapes:</strong><pre>{String(supp.drapes)}</pre></div>
+                        )}
+                        {Boolean(supp.implants) && (
+                          <div><strong>Implants:</strong><pre>{String(supp.implants)}</pre></div>
+                        )}
+                        {Boolean(supp.sutures) && (
+                          <div><strong>Sutures:</strong><pre>{String(supp.sutures)}</pre></div>
+                        )}
+                        {Boolean(supp.disposables) && (
+                          <div><strong>Disposables:</strong><pre>{String(supp.disposables)}</pre></div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Medications */}
+                    {meds && Object.values(meds).some(v => v) && (
+                      <div className="print-section">
+                        <h3>Medications & Solutions</h3>
+                        {Boolean(meds.localAnesthetic) && (
+                          <div><strong>Local Anesthetic:</strong><pre>{String(meds.localAnesthetic)}</pre></div>
+                        )}
+                        {Boolean(meds.antibiotics) && (
+                          <div><strong>Antibiotics:</strong><pre>{String(meds.antibiotics)}</pre></div>
+                        )}
+                        {Boolean(meds.irrigation) && (
+                          <div><strong>Irrigation:</strong><pre>{String(meds.irrigation)}</pre></div>
+                        )}
+                        {Boolean(meds.topicalAgents) && (
+                          <div><strong>Topical Agents:</strong><pre>{String(meds.topicalAgents)}</pre></div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Setup & Positioning */}
+                    {setup && Object.values(setup).some(v => v) && (
+                      <div className="print-section">
+                        <h3>Setup & Positioning</h3>
+                        {Boolean(setup.patientPosition) && (
+                          <div><strong>Patient Position:</strong> {String(setup.patientPosition)}</div>
+                        )}
+                        {Boolean(setup.tableConfiguration) && (
+                          <div><strong>Table Configuration:</strong> {String(setup.tableConfiguration)}</div>
+                        )}
+                        {Boolean(setup.paddingRequirements) && (
+                          <div><strong>Padding:</strong><pre>{String(setup.paddingRequirements)}</pre></div>
+                        )}
+                        {Boolean(setup.mayoStandCount || setup.mayoStandPlacement) && (
+                          <div><strong>Mayo Stand:</strong> {setup.mayoStandCount ? `${setup.mayoStandCount}x` : ''} {String(setup.mayoStandPlacement || '')}</div>
+                        )}
+                        {Boolean(setup.backTableNotes) && (
+                          <div><strong>Back Table:</strong><pre>{String(setup.backTableNotes)}</pre></div>
+                        )}
+                        {Boolean(setup.orFlowNotes) && (
+                          <div><strong>OR Flow Notes:</strong><pre>{String(setup.orFlowNotes)}</pre></div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Surgeon Notes */}
+                    {notes && Object.values(notes).some(v => v) && (
+                      <div className="print-section">
+                        <h3>Surgeon Notes & Preferences</h3>
+                        {Boolean(notes.preferences) && (
+                          <div><strong>Preferences:</strong><pre>{String(notes.preferences)}</pre></div>
+                        )}
+                        {Boolean(notes.holdPrnItems) && (
+                          <div><strong>Hold / PRN Items:</strong><pre>{String(notes.holdPrnItems)}</pre></div>
+                        )}
+                        {Boolean(notes.decisionTriggers) && (
+                          <div><strong>Decision Triggers:</strong><pre>{String(notes.decisionTriggers)}</pre></div>
+                        )}
+                        {Boolean(notes.teachingModifiers) && (
+                          <div><strong>Teaching Case Modifiers:</strong><pre>{String(notes.teachingModifiers)}</pre></div>
+                        )}
+                        {Boolean(notes.revisionAddOns) && (
+                          <div><strong>Revision-Only Add-Ons:</strong><pre>{String(notes.revisionAddOns)}</pre></div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  );
+                })()}
+
+                <div className="print-footer">
+                  <span>Printed: {new Date().toLocaleString()}</span>
+                  <span>Facility: {user?.facilityName}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1678,6 +1894,153 @@ export default function AdminCaseCardsPage() {
           border-top: 1px solid #e2e8f0;
           font-size: 0.875rem;
           font-style: italic;
+        }
+
+        /* Print Modal Styles */
+        .print-modal {
+          max-width: 800px;
+          max-height: 90vh;
+        }
+
+        .print-modal .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .print-actions {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+        }
+
+        .print-content {
+          background: white;
+        }
+
+        .print-header {
+          border-bottom: 2px solid #2d3748;
+          padding-bottom: 1rem;
+          margin-bottom: 1rem;
+        }
+
+        .print-header h1 {
+          margin: 0 0 0.5rem 0;
+          font-size: 1.5rem;
+        }
+
+        .print-meta {
+          display: flex;
+          gap: 1.5rem;
+          flex-wrap: wrap;
+          font-size: 0.875rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .print-notes {
+          font-size: 0.875rem;
+          margin-top: 0.5rem;
+          padding: 0.5rem;
+          background: #f7fafc;
+          border-radius: 4px;
+        }
+
+        .print-sections {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .print-section {
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          padding: 1rem;
+          page-break-inside: avoid;
+        }
+
+        .print-section h3 {
+          margin: 0 0 0.75rem 0;
+          font-size: 1rem;
+          color: #2d3748;
+          border-bottom: 1px solid #e2e8f0;
+          padding-bottom: 0.5rem;
+        }
+
+        .print-section pre {
+          margin: 0.25rem 0 0.5rem 0;
+          font-family: inherit;
+          white-space: pre-wrap;
+          font-size: 0.875rem;
+          background: #f7fafc;
+          padding: 0.5rem;
+          border-radius: 4px;
+        }
+
+        .print-section ul {
+          margin: 0;
+          padding-left: 1.5rem;
+        }
+
+        .print-section li {
+          font-size: 0.875rem;
+          margin-bottom: 0.25rem;
+        }
+
+        .print-flags {
+          display: flex;
+          gap: 1rem;
+          margin-top: 0.5rem;
+        }
+
+        .print-flags span {
+          background: #edf2f7;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.75rem;
+        }
+
+        .print-footer {
+          margin-top: 1.5rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.75rem;
+          color: #718096;
+        }
+
+        /* Print-specific styles */
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+
+          .print-modal-overlay,
+          .print-modal-overlay * {
+            visibility: visible;
+          }
+
+          .print-modal-overlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: white;
+          }
+
+          .print-modal {
+            width: 100%;
+            max-width: none;
+            max-height: none;
+            box-shadow: none;
+          }
+
+          .no-print {
+            display: none !important;
+          }
+
+          .print-section {
+            break-inside: avoid;
+          }
         }
       `}</style>
     </>

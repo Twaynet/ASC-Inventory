@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { Header } from '@/app/components/Header';
 import {
   getInventoryItems,
   getInventoryItem,
@@ -188,25 +189,7 @@ export default function AdminInventoryPage() {
   if (user.role !== 'ADMIN') {
     return (
       <>
-        <header className="header">
-          <div className="container header-content">
-            <div className="header-left">
-              <button
-                className="btn btn-secondary btn-sm back-btn"
-                onClick={() => router.push('/calendar')}
-              >
-                &larr; Back
-              </button>
-              <h1>Inventory Management</h1>
-            </div>
-            <div className="header-user">
-              <span>{user.name} ({user.role})</span>
-              <button className="btn btn-secondary btn-sm" onClick={logout}>
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </header>
+        <Header title="Inventory Management" />
         <main className="container">
           <div className="alert alert-error">
             Access denied. This page is only available to administrators.
@@ -218,26 +201,7 @@ export default function AdminInventoryPage() {
 
   return (
     <>
-      <header className="header">
-        <div className="container header-content">
-          <div className="header-left">
-            <button
-              className="btn btn-secondary btn-sm back-btn"
-              onClick={() => router.push('/calendar')}
-            >
-              &larr; Back
-            </button>
-            <h1>Inventory Management</h1>
-          </div>
-          <div className="header-user">
-            <span>{user.name} ({user.role})</span>
-            <span>{user.facilityName}</span>
-            <button className="btn btn-secondary btn-sm" onClick={logout}>
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header title="Inventory Management" />
 
       <main className="container admin-inventory-page">
         {error && <div className="alert alert-error">{error}</div>}
@@ -476,7 +440,7 @@ export default function AdminInventoryPage() {
                             color: STATUS_COLORS[item.availability_status]?.color || '#4a5568',
                           }}
                         >
-                          {item.availability_status.replace('_', ' ')}
+                          {(item.availability_status || 'UNKNOWN').replace('_', ' ')}
                         </span>
                       </td>
                       <td>
