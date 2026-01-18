@@ -55,6 +55,9 @@ function CaseDashboardContent() {
   const [showEventLogModal, setShowEventLogModal] = useState(false);
   const [showLinkCaseCardModal, setShowLinkCaseCardModal] = useState(false);
 
+  // Inline editing states
+  const [isEditingScheduling, setIsEditingScheduling] = useState(false);
+
   // Override form state
   const [overrideForm, setOverrideForm] = useState({
     target: '',
@@ -225,10 +228,23 @@ function CaseDashboardContent() {
         orRoom: schedulingForm.orRoom || null,
       });
       setSuccessMessage('Scheduling updated');
+      setIsEditingScheduling(false);
       loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update scheduling');
     }
+  };
+
+  const handleCancelSchedulingEdit = () => {
+    // Reset form to current dashboard values
+    if (dashboard) {
+      setSchedulingForm({
+        scheduledDate: dashboard.scheduledDate || '',
+        scheduledTime: dashboard.scheduledTime || '',
+        orRoom: dashboard.orRoom || '',
+      });
+    }
+    setIsEditingScheduling(false);
   };
 
   const handleAddOverride = async () => {
@@ -351,11 +367,49 @@ function CaseDashboardContent() {
               <p style={{ margin: '0.5rem 0', color: 'var(--text-muted)' }}>
                 {dashboard.surgeon} | {dashboard.facility}
               </p>
-              <p style={{ margin: '0.5rem 0' }}>
-                <strong>Scheduled:</strong> {new Date(dashboard.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                {dashboard.scheduledTime && ` at ${dashboard.scheduledTime}`}
-                {dashboard.orRoom && ` | OR: ${dashboard.orRoom}`}
-              </p>
+              {isEditingScheduling ? (
+                <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <strong>Scheduled:</strong>
+                  <input
+                    type="date"
+                    value={schedulingForm.scheduledDate}
+                    onChange={e => setSchedulingForm(f => ({ ...f, scheduledDate: e.target.value }))}
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.9rem' }}
+                  />
+                  <span>at</span>
+                  <input
+                    type="time"
+                    value={schedulingForm.scheduledTime}
+                    onChange={e => setSchedulingForm(f => ({ ...f, scheduledTime: e.target.value }))}
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.9rem' }}
+                  />
+                  <span>| OR:</span>
+                  <input
+                    type="text"
+                    value={schedulingForm.orRoom}
+                    onChange={e => setSchedulingForm(f => ({ ...f, orRoom: e.target.value }))}
+                    placeholder="OR Room"
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.9rem', width: '80px' }}
+                  />
+                  <button onClick={handleUpdateScheduling} className="btn-small btn-primary" style={{ padding: '0.25rem 0.5rem' }}>
+                    Save
+                  </button>
+                  <button onClick={handleCancelSchedulingEdit} className="btn-small btn-secondary" style={{ padding: '0.25rem 0.5rem' }}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <p
+                  style={{ margin: '0.5rem 0', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                  onClick={() => setIsEditingScheduling(true)}
+                  title="Click to edit scheduling"
+                >
+                  <strong>Scheduled:</strong> {new Date(dashboard.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                  {dashboard.scheduledTime && ` at ${dashboard.scheduledTime}`}
+                  {dashboard.orRoom && ` | OR: ${dashboard.orRoom}`}
+                  <span style={{ fontSize: '1rem', color: '#3182ce', marginLeft: '0.25rem' }} title="Edit scheduling">✎</span>
+                </p>
+              )}
               <p style={{ margin: '0.5rem 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 Case ID: {dashboard.caseId}
               </p>
@@ -436,54 +490,7 @@ function CaseDashboardContent() {
           )}
         </section>
 
-        {/* Section 3: Scheduling */}
-        <section className="dashboard-section" style={{
-          background: 'var(--surface)',
-          borderRadius: '8px',
-          padding: '1rem',
-          marginBottom: '1rem',
-          border: '1px solid var(--border)',
-        }}>
-          <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('scheduling')}>
-            {collapsedSections.has('scheduling') ? '+ ' : '- '}Scheduling
-          </h2>
-          {!collapsedSections.has('scheduling') && (
-            <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-                <div className="form-group">
-                  <label>Date *</label>
-                  <input
-                    type="date"
-                    value={schedulingForm.scheduledDate}
-                    onChange={e => setSchedulingForm(f => ({ ...f, scheduledDate: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Time</label>
-                  <input
-                    type="time"
-                    value={schedulingForm.scheduledTime}
-                    onChange={e => setSchedulingForm(f => ({ ...f, scheduledTime: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>OR Room</label>
-                  <input
-                    type="text"
-                    value={schedulingForm.orRoom}
-                    onChange={e => setSchedulingForm(f => ({ ...f, orRoom: e.target.value }))}
-                    placeholder="e.g., OR-1"
-                  />
-                </div>
-              </div>
-              <button onClick={handleUpdateScheduling} className="btn-secondary">
-                Save Scheduling
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Section 4: Case Summary */}
+        {/* Section 3: Case Summary */}
         <section className="dashboard-section" style={{
           background: 'var(--surface)',
           borderRadius: '8px',
