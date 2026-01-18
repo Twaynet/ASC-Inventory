@@ -134,17 +134,15 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
         sc.or_room,
         u.name as surgeon_name,
         crc.readiness_state,
-        crc.total_required,
-        crc.total_verified,
-        crc.total_available,
+        crc.total_required_items as total_required,
+        crc.total_verified_items as total_verified,
         crc.missing_items,
-        crc.attestation_state,
+        crc.has_attestation,
         crc.attested_at,
-        au.name as attested_by_name
+        crc.attested_by_name
       FROM surgical_case sc
       JOIN app_user u ON sc.surgeon_id = u.id
       LEFT JOIN case_readiness_cache crc ON sc.id = crc.case_id
-      LEFT JOIN app_user au ON crc.attested_by_user_id = au.id
       WHERE sc.facility_id = $1
         AND sc.scheduled_date BETWEEN $2 AND $3
         AND sc.is_cancelled = false
@@ -175,9 +173,8 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       readiness_state: string | null;
       total_required: number | null;
       total_verified: number | null;
-      total_available: number | null;
       missing_items: unknown | null;
-      attestation_state: string | null;
+      has_attestation: boolean | null;
       attested_at: Date | null;
       attested_by_name: string | null;
     }>(sql, params);
@@ -193,9 +190,8 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       readinessState: row.readiness_state || 'UNKNOWN',
       totalRequired: row.total_required || 0,
       totalVerified: row.total_verified || 0,
-      totalAvailable: row.total_available || 0,
       missingCount: Array.isArray(row.missing_items) ? row.missing_items.length : 0,
-      attestationState: row.attestation_state || 'NOT_ATTESTED',
+      hasAttestation: row.has_attestation ? 'Yes' : 'No',
       attestedAt: formatTimestampForCSV(row.attested_at),
       attestedByName: row.attested_by_name || '',
     }));
@@ -206,15 +202,15 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       greenCount: rows.filter(r => r.readinessState === 'GREEN').length,
       orangeCount: rows.filter(r => r.readinessState === 'ORANGE').length,
       redCount: rows.filter(r => r.readinessState === 'RED').length,
-      attestedCount: rows.filter(r => r.attestationState === 'ATTESTED').length,
+      attestedCount: rows.filter(r => r.hasAttestation === 'Yes').length,
       dateRange: { start, end },
     };
 
     if (format === 'csv') {
       const headers = [
         'scheduledDate', 'scheduledTime', 'procedureName', 'surgeonName', 'orRoom',
-        'caseStatus', 'readinessState', 'totalRequired', 'totalVerified', 'totalAvailable',
-        'missingCount', 'attestationState', 'attestedAt', 'attestedByName',
+        'caseStatus', 'readinessState', 'totalRequired', 'totalVerified',
+        'missingCount', 'hasAttestation', 'attestedAt', 'attestedByName',
       ];
       const csv = generateCSV(headers, rows);
       return reply
@@ -523,7 +519,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
         sc.estimated_duration_minutes,
         u.name as surgeon_name,
         crc.readiness_state,
-        crc.attestation_state,
+        crc.has_attestation,
         cc.procedure_name as case_card_name,
         (SELECT COUNT(*) FROM case_checklist_instance cci WHERE cci.case_id = sc.id AND cci.status = 'COMPLETED') as checklists_completed
       FROM surgical_case sc
@@ -562,7 +558,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       estimated_duration_minutes: number | null;
       surgeon_name: string;
       readiness_state: string | null;
-      attestation_state: string | null;
+      has_attestation: boolean | null;
       case_card_name: string | null;
       checklists_completed: string;
     }>(sql, params);
@@ -580,7 +576,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       estimatedDuration: row.estimated_duration_minutes || '',
       surgeonName: row.surgeon_name,
       readinessState: row.readiness_state || 'UNKNOWN',
-      attestationState: row.attestation_state || 'NOT_ATTESTED',
+      hasAttestation: row.has_attestation ? 'Yes' : 'No',
       caseCardName: row.case_card_name || '',
       checklistsCompleted: parseInt(row.checklists_completed),
     }));
@@ -597,7 +593,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       activeCases: rows.filter(r => r.isActive === 'Yes').length,
       cancelledCases: rows.filter(r => r.isCancelled === 'Yes').length,
       withCaseCard: rows.filter(r => r.caseCardName !== '').length,
-      attestedCases: rows.filter(r => r.attestationState === 'ATTESTED').length,
+      attestedCases: rows.filter(r => r.hasAttestation === 'Yes').length,
       dateRange: { start, end },
     };
 
@@ -605,7 +601,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       const headers = [
         'scheduledDate', 'scheduledTime', 'procedureName', 'surgeonName', 'orRoom',
         'status', 'isActive', 'isCancelled', 'cancelledAt', 'estimatedDuration',
-        'readinessState', 'attestationState', 'caseCardName', 'checklistsCompleted',
+        'readinessState', 'hasAttestation', 'caseCardName', 'checklistsCompleted',
       ];
       const csv = generateCSV(headers, rows);
       return reply
