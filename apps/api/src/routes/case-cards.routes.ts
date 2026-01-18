@@ -2,16 +2,35 @@
  * Case Card Management Routes
  * CRUD endpoints for surgical case cards
  *
- * Based on case-card-spec.md v1.0
+ * Based on:
+ * - case-card-spec.md v1.0
+ * - spc-governance-workflow.md v1.1
+ *
  * Rules:
  * - Only ONE Active version per Procedure + Surgeon + Facility
  * - Deprecated cards are read-only
+ * - Deleted cards are read-only (soft-delete tombstone)
  * - No patient identifiers permitted
- * - All edits are logged
+ * - All edits are logged (append-only)
+ * - SCHEDULER role cannot edit case cards
+ * - Soft-lock prevents concurrent edits
+ * - Only OWNER-SURGEON or ADMIN can deactivate
+ * - Only OWNER-SURGEON can soft-delete
  */
+
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { query } from '../db/index.js';
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+// Roles allowed to view/edit case cards (SCHEDULER excluded per governance doc)
+const CASE_CARD_ALLOWED_ROLES = ['ADMIN', 'INVENTORY_TECH', 'CIRCULATOR', 'SCRUB', 'SURGEON'];
+
+// Lock timeout in minutes (auto-expire after inactivity)
+const LOCK_TIMEOUT_MINUTES = 30;
 
 // ============================================================================
 // Types
@@ -36,6 +55,15 @@ interface CaseCardRow {
   updated_at: Date;
   created_by_user_id: string;
   created_by_name: string;
+  // Soft-lock fields
+  locked_by_user_id: string | null;
+  locked_by_name?: string | null;
+  locked_at: Date | null;
+  lock_expires_at: Date | null;
+  // Soft-delete fields
+  deleted_at: Date | null;
+  deleted_by_user_id: string | null;
+  delete_reason: string | null;
 }
 
 interface CaseCardVersionRow {
@@ -61,11 +89,43 @@ interface EditLogRow {
   editor_user_id: string;
   editor_name: string;
   editor_role: string;
+  action_type: string | null;
   change_summary: string;
   reason_for_change: string | null;
   previous_version_id: string | null;
   new_version_id: string | null;
   edited_at: Date;
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Check if user role is allowed to access case cards
+ * Per governance doc: SCHEDULER is explicitly excluded
+ */
+function isRoleAllowed(role: string): boolean {
+  return CASE_CARD_ALLOWED_ROLES.includes(role);
+}
+
+/**
+ * Check if a lock is expired
+ */
+function isLockExpired(lockExpiresAt: Date | null): boolean {
+  if (!lockExpiresAt) return true;
+  return new Date() > new Date(lockExpiresAt);
+}
+
+/**
+ * Clear expired lock from a card (in-memory check, DB updated separately)
+ */
+async function clearExpiredLock(cardId: string): Promise<void> {
+  await query(`
+    UPDATE case_card
+    SET locked_by_user_id = NULL, locked_at = NULL, lock_expires_at = NULL
+    WHERE id = $1 AND lock_expires_at IS NOT NULL AND NOW() > lock_expires_at
+  `, [cardId]);
 }
 
 // ============================================================================
@@ -76,18 +136,20 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /case-cards
    * List all case cards in facility
+   * Note: DELETED cards excluded by default unless includeDeleted=true
    */
   fastify.get<{
     Querystring: {
       surgeonId?: string;
       status?: string;
       search?: string;
+      includeDeleted?: string;
     };
   }>('/', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const { facilityId } = request.user;
-    const { surgeonId, status, search } = request.query;
+    const { surgeonId, status, search, includeDeleted } = request.query;
 
     let sql = `
       SELECT
@@ -96,14 +158,23 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
         cc.default_duration_minutes, cc.status,
         cc.version_major, cc.version_minor, cc.version_patch,
         cc.current_version_id, cc.created_at, cc.updated_at,
-        cc.created_by_user_id, cu.name as created_by_name
+        cc.created_by_user_id, cu.name as created_by_name,
+        cc.locked_by_user_id, lu.name as locked_by_name,
+        cc.locked_at, cc.lock_expires_at,
+        cc.deleted_at, cc.deleted_by_user_id, cc.delete_reason
       FROM case_card cc
       JOIN app_user u ON cc.surgeon_id = u.id
       JOIN app_user cu ON cc.created_by_user_id = cu.id
+      LEFT JOIN app_user lu ON cc.locked_by_user_id = lu.id
       WHERE cc.facility_id = $1
     `;
     const params: unknown[] = [facilityId];
     let paramIndex = 2;
+
+    // Exclude DELETED cards unless explicitly requested
+    if (includeDeleted !== 'true') {
+      sql += ` AND cc.status != 'DELETED'`;
+    }
 
     if (surgeonId) {
       sql += ` AND cc.surgeon_id = $${paramIndex++}`;
@@ -129,33 +200,56 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     const result = await query<CaseCardRow>(sql, params);
 
     return reply.send({
-      cards: result.rows.map(row => ({
-        id: row.id,
-        surgeonId: row.surgeon_id,
-        surgeonName: row.surgeon_name,
-        procedureName: row.procedure_name,
-        procedureCodes: row.procedure_codes || [],
-        caseType: row.case_type,
-        defaultDurationMinutes: row.default_duration_minutes,
-        status: row.status,
-        version: `${row.version_major}.${row.version_minor}.${row.version_patch}`,
-        currentVersionId: row.current_version_id,
-        createdAt: row.created_at.toISOString(),
-        updatedAt: row.updated_at.toISOString(),
-        createdByName: row.created_by_name,
-      })),
+      cards: result.rows.map(row => {
+        // Check if lock is expired
+        const lockExpired = isLockExpired(row.lock_expires_at);
+        const isLocked = row.locked_by_user_id && !lockExpired;
+
+        return {
+          id: row.id,
+          surgeonId: row.surgeon_id,
+          surgeonName: row.surgeon_name,
+          procedureName: row.procedure_name,
+          procedureCodes: row.procedure_codes || [],
+          caseType: row.case_type,
+          defaultDurationMinutes: row.default_duration_minutes,
+          status: row.status,
+          version: `${row.version_major}.${row.version_minor}.${row.version_patch}`,
+          currentVersionId: row.current_version_id,
+          createdAt: row.created_at.toISOString(),
+          updatedAt: row.updated_at.toISOString(),
+          createdByName: row.created_by_name,
+          // Lock info (per governance: visible to viewers)
+          lock: isLocked ? {
+            lockedByUserId: row.locked_by_user_id,
+            lockedByName: row.locked_by_name,
+            lockedAt: row.locked_at?.toISOString(),
+            expiresAt: row.lock_expires_at?.toISOString(),
+          } : null,
+          // Soft-delete info (for audit)
+          deleted: row.deleted_at ? {
+            deletedAt: row.deleted_at.toISOString(),
+            deletedByUserId: row.deleted_by_user_id,
+            reason: row.delete_reason,
+          } : null,
+        };
+      }),
     });
   });
 
   /**
    * GET /case-cards/:id
    * Get case card with current version data
+   * Includes lock status per governance doc
    */
   fastify.get<{ Params: { id: string } }>('/:id', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
+
+    // Clear any expired lock first
+    await clearExpiredLock(id);
 
     const cardResult = await query<CaseCardRow>(`
       SELECT
@@ -164,10 +258,14 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
         cc.default_duration_minutes, cc.turnover_notes, cc.status,
         cc.version_major, cc.version_minor, cc.version_patch,
         cc.current_version_id, cc.created_at, cc.updated_at,
-        cc.created_by_user_id, cu.name as created_by_name
+        cc.created_by_user_id, cu.name as created_by_name,
+        cc.locked_by_user_id, lu.name as locked_by_name,
+        cc.locked_at, cc.lock_expires_at,
+        cc.deleted_at, cc.deleted_by_user_id, cc.delete_reason
       FROM case_card cc
       JOIN app_user u ON cc.surgeon_id = u.id
       JOIN app_user cu ON cc.created_by_user_id = cu.id
+      LEFT JOIN app_user lu ON cc.locked_by_user_id = lu.id
       WHERE cc.id = $1 AND cc.facility_id = $2
     `, [id, facilityId]);
 
@@ -211,6 +309,10 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       }
     }
 
+    // Check lock status
+    const lockExpired = isLockExpired(card.lock_expires_at);
+    const isLocked = card.locked_by_user_id && !lockExpired;
+
     return reply.send({
       card: {
         id: card.id,
@@ -227,6 +329,19 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
         createdAt: card.created_at.toISOString(),
         updatedAt: card.updated_at.toISOString(),
         createdByName: card.created_by_name,
+        // Lock info (per governance: visible to viewers)
+        lock: isLocked ? {
+          lockedByUserId: card.locked_by_user_id,
+          lockedByName: card.locked_by_name,
+          lockedAt: card.locked_at?.toISOString(),
+          expiresAt: card.lock_expires_at?.toISOString(),
+        } : null,
+        // Soft-delete info (for audit)
+        deleted: card.deleted_at ? {
+          deletedAt: card.deleted_at.toISOString(),
+          deletedByUserId: card.deleted_by_user_id,
+          reason: card.delete_reason,
+        } : null,
       },
       currentVersion,
     });
@@ -319,12 +434,18 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * POST /case-cards
    * Create new case card with initial version
+   * Per governance: SCHEDULER role cannot create case cards
    */
   fastify.post('/', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const { facilityId, userId, name: userName, role: userRole } = request.user;
     const body = request.body as any;
+
+    // Per governance doc: SCHEDULER is explicitly excluded from case-card editing
+    if (!isRoleAllowed(userRole)) {
+      return reply.status(403).send({ error: 'Your role does not have permission to create case cards' });
+    }
 
     // Validate required fields
     if (!body.surgeonId || !body.procedureName) {
@@ -443,6 +564,10 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * PUT /case-cards/:id
    * Update case card (creates new version, logs edit)
+   * Per governance:
+   * - SCHEDULER role cannot edit
+   * - Must hold lock or lock must be expired
+   * - DELETED/DEPRECATED cards are read-only
    */
   fastify.put<{ Params: { id: string } }>('/:id', {
     preHandler: [fastify.authenticate],
@@ -451,6 +576,14 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     const { facilityId, userId, name: userName, role: userRole } = request.user;
     const body = request.body as any;
 
+    // Per governance doc: SCHEDULER is explicitly excluded from case-card editing
+    if (!isRoleAllowed(userRole)) {
+      return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
+    }
+
+    // Clear any expired lock first
+    await clearExpiredLock(id);
+
     // Check card exists and is editable
     const existingResult = await query<{
       status: string;
@@ -458,8 +591,11 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       version_major: number;
       version_minor: number;
       version_patch: number;
+      locked_by_user_id: string | null;
+      lock_expires_at: Date | null;
     }>(`
-      SELECT status, current_version_id, version_major, version_minor, version_patch
+      SELECT status, current_version_id, version_major, version_minor, version_patch,
+             locked_by_user_id, lock_expires_at
       FROM case_card WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
@@ -469,8 +605,25 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
     const existing = existingResult.rows[0];
 
+    // Check status - DEPRECATED and DELETED are read-only
     if (existing.status === 'DEPRECATED') {
       return reply.status(400).send({ error: 'Deprecated case cards are read-only' });
+    }
+
+    if (existing.status === 'DELETED') {
+      return reply.status(400).send({ error: 'Deleted case cards are read-only' });
+    }
+
+    // Check soft-lock - must hold lock or lock must be expired
+    if (existing.locked_by_user_id && existing.locked_by_user_id !== userId) {
+      const lockExpired = isLockExpired(existing.lock_expires_at);
+      if (!lockExpired) {
+        return reply.status(409).send({
+          error: 'Case card is locked by another user',
+          lockedByUserId: existing.locked_by_user_id,
+          lockExpiresAt: existing.lock_expires_at?.toISOString(),
+        });
+      }
     }
 
     if (!body.changeSummary) {
@@ -627,7 +780,8 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /case-cards/:id/deprecate
-   * Deprecate an active case card
+   * Deactivate (deprecate) an active case card
+   * Per governance: Only OWNER-SURGEON and/or ADMIN can deactivate
    */
   fastify.post<{ Params: { id: string } }>('/:id/deprecate', {
     preHandler: [fastify.authenticate],
@@ -636,40 +790,551 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     const { facilityId, userId, name: userName, role: userRole } = request.user;
     const body = request.body as any;
 
-    const result = await query<{ status: string }>(`
-      SELECT status FROM case_card WHERE id = $1 AND facility_id = $2
+    const result = await query<{ status: string; surgeon_id: string }>(`
+      SELECT status, surgeon_id FROM case_card WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
       return reply.status(404).send({ error: 'Case card not found' });
     }
 
-    if (result.rows[0].status === 'DEPRECATED') {
-      return reply.status(400).send({ error: 'Case card is already deprecated' });
+    const card = result.rows[0];
+
+    // Per governance doc: Only OWNER-SURGEON or ADMIN can deactivate
+    const isOwnerSurgeon = card.surgeon_id === userId;
+    const isAdmin = userRole === 'ADMIN';
+
+    if (!isOwnerSurgeon && !isAdmin) {
+      return reply.status(403).send({
+        error: 'Only the case card owner (surgeon) or an administrator can deactivate this card',
+      });
+    }
+
+    if (card.status === 'DEPRECATED') {
+      return reply.status(400).send({ error: 'Case card is already deactivated' });
+    }
+
+    if (card.status === 'DELETED') {
+      return reply.status(400).send({ error: 'Cannot deactivate a deleted case card' });
+    }
+
+    // Reason is required per governance doc
+    if (!body.reason) {
+      return reply.status(400).send({ error: 'Reason is required for deactivation' });
     }
 
     await query(`
       UPDATE case_card SET status = 'DEPRECATED' WHERE id = $1
     `, [id]);
 
-    // Log the status change
+    // Log the status change with action_type
     await query(`
       INSERT INTO case_card_edit_log (
         case_card_id, facility_id, editor_user_id, editor_name, editor_role,
-        change_summary, reason_for_change
+        action_type, change_summary, reason_for_change
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `, [
       id,
       facilityId,
       userId,
       userName,
       userRole,
-      'Status changed to DEPRECATED',
-      body.reason || 'Deprecated',
+      'DEACTIVATE',
+      'Status changed to DEPRECATED (deactivated)',
+      body.reason,
     ]);
 
     return reply.send({ success: true, status: 'DEPRECATED' });
+  });
+
+  /**
+   * POST /case-cards/:id/delete
+   * Soft-delete a case card (tombstone)
+   * Per governance: Only OWNER-SURGEON can soft-delete
+   */
+  fastify.post<{ Params: { id: string } }>('/:id/delete', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const body = request.body as any;
+
+    const result = await query<{ status: string; surgeon_id: string }>(`
+      SELECT status, surgeon_id FROM case_card WHERE id = $1 AND facility_id = $2
+    `, [id, facilityId]);
+
+    if (result.rows.length === 0) {
+      return reply.status(404).send({ error: 'Case card not found' });
+    }
+
+    const card = result.rows[0];
+
+    // Per governance doc: Only OWNER-SURGEON can soft-delete
+    const isOwnerSurgeon = card.surgeon_id === userId;
+
+    if (!isOwnerSurgeon) {
+      return reply.status(403).send({
+        error: 'Only the case card owner (surgeon) can delete this card',
+      });
+    }
+
+    if (card.status === 'DELETED') {
+      return reply.status(400).send({ error: 'Case card is already deleted' });
+    }
+
+    // Reason is required per governance doc
+    if (!body.reason) {
+      return reply.status(400).send({ error: 'Reason is required for deletion' });
+    }
+
+    // Soft-delete: set status and record deletion info
+    await query(`
+      UPDATE case_card
+      SET status = 'DELETED', deleted_at = NOW(), deleted_by_user_id = $1, delete_reason = $2
+      WHERE id = $3
+    `, [userId, body.reason, id]);
+
+    // Log the deletion with action_type
+    await query(`
+      INSERT INTO case_card_edit_log (
+        case_card_id, facility_id, editor_user_id, editor_name, editor_role,
+        action_type, change_summary, reason_for_change
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [
+      id,
+      facilityId,
+      userId,
+      userName,
+      userRole,
+      'DELETE',
+      'Case card soft-deleted (tombstone)',
+      body.reason,
+    ]);
+
+    return reply.send({ success: true, status: 'DELETED' });
+  });
+
+  /**
+   * POST /case-cards/:id/clone
+   * Seed (clone) a case card to create a new one
+   * Per governance: Any allowed role may seed from any existing card
+   */
+  fastify.post<{ Params: { id: string } }>('/:id/clone', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id: sourceId } = request.params;
+    const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const body = request.body as any;
+
+    // Per governance doc: SCHEDULER is explicitly excluded
+    if (!isRoleAllowed(userRole)) {
+      return reply.status(403).send({ error: 'Your role does not have permission to clone case cards' });
+    }
+
+    // Validate required fields
+    if (!body.targetSurgeonId) {
+      return reply.status(400).send({ error: 'targetSurgeonId is required' });
+    }
+
+    // Get source card with current version
+    const sourceResult = await query<CaseCardRow & { current_version_id: string }>(`
+      SELECT cc.*, u.name as surgeon_name
+      FROM case_card cc
+      JOIN app_user u ON cc.surgeon_id = u.id
+      WHERE cc.id = $1 AND cc.facility_id = $2
+    `, [sourceId, facilityId]);
+
+    if (sourceResult.rows.length === 0) {
+      return reply.status(404).send({ error: 'Source case card not found' });
+    }
+
+    const source = sourceResult.rows[0];
+
+    // Verify target surgeon exists
+    const surgeonCheck = await query<{ name: string; role: string }>(`
+      SELECT name, role FROM app_user WHERE id = $1 AND facility_id = $2 AND active = true
+    `, [body.targetSurgeonId, facilityId]);
+
+    if (surgeonCheck.rows.length === 0) {
+      return reply.status(400).send({ error: 'Target surgeon not found' });
+    }
+
+    if (surgeonCheck.rows[0].role !== 'SURGEON') {
+      return reply.status(400).send({ error: 'Target user is not a surgeon' });
+    }
+
+    // Determine procedure name (can override or inherit)
+    const newProcedureName = body.procedureName || source.procedure_name;
+
+    // Check for duplicate
+    const nameCheck = await query(`
+      SELECT id FROM case_card
+      WHERE surgeon_id = $1 AND LOWER(procedure_name) = LOWER($2) AND facility_id = $3
+    `, [body.targetSurgeonId, newProcedureName, facilityId]);
+
+    if (nameCheck.rows.length > 0) {
+      return reply.status(400).send({
+        error: 'Case card with this procedure name already exists for the target surgeon',
+      });
+    }
+
+    // Get source version data
+    let sourceVersion = null;
+    if (source.current_version_id) {
+      const versionResult = await query<CaseCardVersionRow>(`
+        SELECT * FROM case_card_version WHERE id = $1
+      `, [source.current_version_id]);
+      if (versionResult.rows.length > 0) {
+        sourceVersion = versionResult.rows[0];
+      }
+    }
+
+    // Create new card (per governance: new CaseCardID, starts as DRAFT)
+    const newCardResult = await query<{ id: string }>(`
+      INSERT INTO case_card (
+        facility_id, surgeon_id, procedure_name, procedure_codes,
+        case_type, default_duration_minutes, turnover_notes,
+        status, version_major, version_minor, version_patch,
+        created_by_user_id
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT', 1, 0, 0, $8)
+      RETURNING id
+    `, [
+      facilityId,
+      body.targetSurgeonId,
+      newProcedureName,
+      source.procedure_codes || [],
+      source.case_type,
+      source.default_duration_minutes,
+      source.turnover_notes,
+      userId,
+    ]);
+
+    const newCardId = newCardResult.rows[0].id;
+
+    // Create initial version (cloned from source)
+    const newVersionResult = await query<{ id: string }>(`
+      INSERT INTO case_card_version (
+        case_card_id, version_number,
+        header_info, patient_flags, instrumentation, equipment,
+        supplies, medications, setup_positioning, surgeon_notes,
+        created_by_user_id
+      )
+      VALUES ($1, '1.0.0', $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id
+    `, [
+      newCardId,
+      sourceVersion?.header_info || '{}',
+      sourceVersion?.patient_flags || '{}',
+      sourceVersion?.instrumentation || '{}',
+      sourceVersion?.equipment || '{}',
+      sourceVersion?.supplies || '{}',
+      sourceVersion?.medications || '{}',
+      sourceVersion?.setup_positioning || '{}',
+      sourceVersion?.surgeon_notes || '{}',
+      userId,
+    ]);
+
+    const newVersionId = newVersionResult.rows[0].id;
+
+    // Update card with current version
+    await query(`
+      UPDATE case_card SET current_version_id = $1 WHERE id = $2
+    `, [newVersionId, newCardId]);
+
+    // Log the creation (per governance: new audit log, no provenance required)
+    await query(`
+      INSERT INTO case_card_edit_log (
+        case_card_id, facility_id, editor_user_id, editor_name, editor_role,
+        action_type, change_summary, reason_for_change, new_version_id
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [
+      newCardId,
+      facilityId,
+      userId,
+      userName,
+      userRole,
+      'CREATE',
+      `Case card created (seeded from ${source.surgeon_name}'s card)`,
+      body.reason || 'Seeded from existing card',
+      newVersionId,
+    ]);
+
+    return reply.status(201).send({
+      card: {
+        id: newCardId,
+        surgeonId: body.targetSurgeonId,
+        surgeonName: surgeonCheck.rows[0].name,
+        procedureName: newProcedureName,
+        status: 'DRAFT',
+        version: '1.0.0',
+        currentVersionId: newVersionId,
+        clonedFrom: {
+          cardId: sourceId,
+          surgeonName: source.surgeon_name,
+        },
+      },
+    });
+  });
+
+  /**
+   * POST /case-cards/:id/lock
+   * Acquire soft-lock for editing
+   * Per governance: Lock prevents others from saving while held
+   */
+  fastify.post<{ Params: { id: string } }>('/:id/lock', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId, userId, name: userName, role: userRole } = request.user;
+
+    // Per governance doc: SCHEDULER is explicitly excluded
+    if (!isRoleAllowed(userRole)) {
+      return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
+    }
+
+    // Clear any expired lock first
+    await clearExpiredLock(id);
+
+    const result = await query<{
+      status: string;
+      locked_by_user_id: string | null;
+      lock_expires_at: Date | null;
+    }>(`
+      SELECT status, locked_by_user_id, lock_expires_at
+      FROM case_card WHERE id = $1 AND facility_id = $2
+    `, [id, facilityId]);
+
+    if (result.rows.length === 0) {
+      return reply.status(404).send({ error: 'Case card not found' });
+    }
+
+    const card = result.rows[0];
+
+    // Cannot lock read-only cards
+    if (card.status === 'DEPRECATED' || card.status === 'DELETED') {
+      return reply.status(400).send({ error: 'Cannot lock a read-only case card' });
+    }
+
+    // Check if already locked by someone else
+    if (card.locked_by_user_id && card.locked_by_user_id !== userId) {
+      const lockExpired = isLockExpired(card.lock_expires_at);
+      if (!lockExpired) {
+        // Get lock holder name
+        const holderResult = await query<{ name: string }>(`
+          SELECT name FROM app_user WHERE id = $1
+        `, [card.locked_by_user_id]);
+
+        return reply.status(409).send({
+          error: 'Case card is already locked by another user',
+          lockedByUserId: card.locked_by_user_id,
+          lockedByName: holderResult.rows[0]?.name || 'Unknown',
+          lockExpiresAt: card.lock_expires_at?.toISOString(),
+        });
+      }
+    }
+
+    // Acquire or extend lock
+    const expiresAt = new Date(Date.now() + LOCK_TIMEOUT_MINUTES * 60 * 1000);
+
+    await query(`
+      UPDATE case_card
+      SET locked_by_user_id = $1, locked_at = NOW(), lock_expires_at = $2
+      WHERE id = $3
+    `, [userId, expiresAt, id]);
+
+    return reply.send({
+      success: true,
+      lock: {
+        lockedByUserId: userId,
+        lockedByName: userName,
+        lockedAt: new Date().toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        timeoutMinutes: LOCK_TIMEOUT_MINUTES,
+      },
+    });
+  });
+
+  /**
+   * POST /case-cards/:id/unlock
+   * Release soft-lock
+   * Per governance: Lock expires on explicit exit/save or timeout
+   */
+  fastify.post<{ Params: { id: string } }>('/:id/unlock', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId, userId } = request.user;
+
+    const result = await query<{ locked_by_user_id: string | null }>(`
+      SELECT locked_by_user_id FROM case_card WHERE id = $1 AND facility_id = $2
+    `, [id, facilityId]);
+
+    if (result.rows.length === 0) {
+      return reply.status(404).send({ error: 'Case card not found' });
+    }
+
+    const card = result.rows[0];
+
+    // Only lock holder can release (or anyone if expired)
+    if (card.locked_by_user_id && card.locked_by_user_id !== userId) {
+      return reply.status(403).send({ error: 'Only the lock holder can release the lock' });
+    }
+
+    await query(`
+      UPDATE case_card
+      SET locked_by_user_id = NULL, locked_at = NULL, lock_expires_at = NULL
+      WHERE id = $1
+    `, [id]);
+
+    return reply.send({ success: true });
+  });
+
+  /**
+   * POST /case-cards/:id/revert/:versionId
+   * Revert to a prior version (append-only: creates new version from old)
+   * Per governance: Revert is a new edit that restores prior content
+   */
+  fastify.post<{ Params: { id: string; versionId: string } }>('/:id/revert/:versionId', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id, versionId } = request.params;
+    const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const body = request.body as any;
+
+    // Per governance doc: SCHEDULER is explicitly excluded
+    if (!isRoleAllowed(userRole)) {
+      return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
+    }
+
+    // Clear any expired lock first
+    await clearExpiredLock(id);
+
+    // Get current card state
+    const cardResult = await query<{
+      status: string;
+      current_version_id: string;
+      version_major: number;
+      version_minor: number;
+      version_patch: number;
+      locked_by_user_id: string | null;
+      lock_expires_at: Date | null;
+    }>(`
+      SELECT status, current_version_id, version_major, version_minor, version_patch,
+             locked_by_user_id, lock_expires_at
+      FROM case_card WHERE id = $1 AND facility_id = $2
+    `, [id, facilityId]);
+
+    if (cardResult.rows.length === 0) {
+      return reply.status(404).send({ error: 'Case card not found' });
+    }
+
+    const card = cardResult.rows[0];
+
+    // Cannot revert read-only cards
+    if (card.status === 'DEPRECATED' || card.status === 'DELETED') {
+      return reply.status(400).send({ error: 'Cannot revert a read-only case card' });
+    }
+
+    // Check lock
+    if (card.locked_by_user_id && card.locked_by_user_id !== userId) {
+      const lockExpired = isLockExpired(card.lock_expires_at);
+      if (!lockExpired) {
+        return reply.status(409).send({
+          error: 'Case card is locked by another user',
+          lockedByUserId: card.locked_by_user_id,
+        });
+      }
+    }
+
+    // Get the version to revert to
+    const targetVersionResult = await query<CaseCardVersionRow>(`
+      SELECT * FROM case_card_version WHERE id = $1 AND case_card_id = $2
+    `, [versionId, id]);
+
+    if (targetVersionResult.rows.length === 0) {
+      return reply.status(404).send({ error: 'Target version not found' });
+    }
+
+    const targetVersion = targetVersionResult.rows[0];
+
+    // Reason is required per governance doc
+    if (!body.reason) {
+      return reply.status(400).send({ error: 'Reason is required for revert' });
+    }
+
+    // Per governance: Revert creates a NEW version with the old content
+    const newMajor = card.version_major;
+    const newMinor = card.version_minor;
+    const newPatch = card.version_patch + 1;
+    const newVersionNumber = `${newMajor}.${newMinor}.${newPatch}`;
+
+    // Create new version (copy of target version's content)
+    const newVersionResult = await query<{ id: string }>(`
+      INSERT INTO case_card_version (
+        case_card_id, version_number,
+        header_info, patient_flags, instrumentation, equipment,
+        supplies, medications, setup_positioning, surgeon_notes,
+        created_by_user_id
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id
+    `, [
+      id,
+      newVersionNumber,
+      targetVersion.header_info,
+      targetVersion.patient_flags,
+      targetVersion.instrumentation,
+      targetVersion.equipment,
+      targetVersion.supplies,
+      targetVersion.medications,
+      targetVersion.setup_positioning,
+      targetVersion.surgeon_notes,
+      userId,
+    ]);
+
+    const newVersionId = newVersionResult.rows[0].id;
+
+    // Update card
+    await query(`
+      UPDATE case_card
+      SET current_version_id = $1, version_major = $2, version_minor = $3, version_patch = $4
+      WHERE id = $5
+    `, [newVersionId, newMajor, newMinor, newPatch, id]);
+
+    // Log the revert (per governance: revert is logged as an audit event)
+    await query(`
+      INSERT INTO case_card_edit_log (
+        case_card_id, facility_id, editor_user_id, editor_name, editor_role,
+        action_type, change_summary, reason_for_change,
+        previous_version_id, new_version_id
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `, [
+      id,
+      facilityId,
+      userId,
+      userName,
+      userRole,
+      'REVERT',
+      `Reverted to version ${targetVersion.version_number}`,
+      body.reason,
+      card.current_version_id,
+      newVersionId,
+    ]);
+
+    return reply.send({
+      success: true,
+      version: newVersionNumber,
+      versionId: newVersionId,
+      revertedTo: {
+        versionId: versionId,
+        versionNumber: targetVersion.version_number,
+      },
+    });
   });
 
   /**
