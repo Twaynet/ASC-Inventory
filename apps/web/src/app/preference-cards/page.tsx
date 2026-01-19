@@ -1227,12 +1227,13 @@ export default function PreferenceCardsPage() {
                   const meds = printingCard.currentVersion.medications as Record<string, unknown> | undefined;
                   const setup = printingCard.currentVersion.setupPositioning as Record<string, unknown> | undefined;
                   const notes = printingCard.currentVersion.surgeonNotes as Record<string, unknown> | undefined;
+                  const hasPatientFlags = pf && Object.values(pf).some(v => v);
                   return (
                   <div className="print-sections">
                     {/* Patient Flags */}
-                    {pf && Object.values(pf).some(v => v) && (
-                      <div className="print-section">
-                        <h3>Patient-Dependent Flags</h3>
+                    <div className="print-section">
+                      <h3>Patient-Dependent Flags</h3>
+                      {hasPatientFlags ? (
                         <ul>
                           {pf.latexAllergy && <li>Latex-Free Required</li>}
                           {pf.iodineAllergy && <li>Iodine-Free Required</li>}
@@ -1241,135 +1242,161 @@ export default function PreferenceCardsPage() {
                           {pf.infectionRisk && <li>Infection Risk</li>}
                           {pf.neuromonitoringRequired && <li>Neuromonitoring Required</li>}
                         </ul>
-                      </div>
-                    )}
+                      ) : (
+                        <p className="empty-section">No patient-specific flags documented</p>
+                      )}
+                    </div>
 
                     {/* Instrumentation */}
-                    {inst && Object.values(inst).some(v => v) && (
-                      <div className="print-section">
-                        <h3>Instrumentation</h3>
-                        {Boolean(inst.primaryTrays) && (
-                          <div><strong>Primary Trays:</strong><pre>{String(inst.primaryTrays)}</pre></div>
-                        )}
-                        {Boolean(inst.supplementalTrays) && (
-                          <div><strong>Supplemental Trays:</strong><pre>{String(inst.supplementalTrays)}</pre></div>
-                        )}
-                        {Boolean(inst.looseInstruments) && (
-                          <div><strong>Loose Instruments:</strong><pre>{String(inst.looseInstruments)}</pre></div>
-                        )}
-                        <div className="print-flags">
-                          {Boolean(inst.flashAllowed) && <span>Flash Sterilization Allowed</span>}
-                          {Boolean(inst.peelPackOnly) && <span>Peel Pack Only</span>}
-                        </div>
-                      </div>
-                    )}
+                    <div className="print-section">
+                      <h3>Instrumentation</h3>
+                      {inst && Object.values(inst).some(v => v) ? (
+                        <>
+                          {Boolean(inst.primaryTrays) && (
+                            <div><strong>Primary Trays:</strong><pre>{String(inst.primaryTrays)}</pre></div>
+                          )}
+                          {Boolean(inst.supplementalTrays) && (
+                            <div><strong>Supplemental Trays:</strong><pre>{String(inst.supplementalTrays)}</pre></div>
+                          )}
+                          {Boolean(inst.looseInstruments) && (
+                            <div><strong>Loose Instruments:</strong><pre>{String(inst.looseInstruments)}</pre></div>
+                          )}
+                          <div className="print-flags">
+                            {Boolean(inst.flashAllowed) && <span>Flash Sterilization Allowed</span>}
+                            {Boolean(inst.peelPackOnly) && <span>Peel Pack Only</span>}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="empty-section">No instrumentation documented</p>
+                      )}
+                    </div>
 
                     {/* Equipment */}
-                    {equip && Object.values(equip).some(v => v) && (
-                      <div className="print-section">
-                        <h3>Equipment</h3>
-                        {Boolean(equip.energyDevices) && (
-                          <div><strong>Energy Devices:</strong><pre>{String(equip.energyDevices)}</pre></div>
-                        )}
-                        {Boolean(equip.tourniquetLocation || equip.tourniquetPressure) && (
-                          <div><strong>Tourniquet:</strong> {String(equip.tourniquetLocation || '')} {equip.tourniquetPressure ? `@ ${equip.tourniquetPressure}` : ''}</div>
-                        )}
-                        {Boolean(equip.imaging) && (
-                          <div><strong>Imaging:</strong> {String(equip.imaging)}</div>
-                        )}
-                        {Boolean(equip.specializedDevices) && (
-                          <div><strong>Specialized Devices:</strong><pre>{String(equip.specializedDevices)}</pre></div>
-                        )}
-                      </div>
-                    )}
+                    <div className="print-section">
+                      <h3>Equipment</h3>
+                      {equip && Object.values(equip).some(v => v) ? (
+                        <>
+                          {Boolean(equip.energyDevices) && (
+                            <div><strong>Energy Devices:</strong><pre>{String(equip.energyDevices)}</pre></div>
+                          )}
+                          {Boolean(equip.tourniquetLocation || equip.tourniquetPressure) && (
+                            <div><strong>Tourniquet:</strong> {String(equip.tourniquetLocation || '')} {equip.tourniquetPressure ? `@ ${equip.tourniquetPressure}` : ''}</div>
+                          )}
+                          {Boolean(equip.imaging) && (
+                            <div><strong>Imaging:</strong> {String(equip.imaging)}</div>
+                          )}
+                          {Boolean(equip.specializedDevices) && (
+                            <div><strong>Specialized Devices:</strong><pre>{String(equip.specializedDevices)}</pre></div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="empty-section">No equipment documented</p>
+                      )}
+                    </div>
 
                     {/* Supplies */}
-                    {supp && Object.values(supp).some(v => v) && (
-                      <div className="print-section">
-                        <h3>Supplies</h3>
-                        {Boolean(supp.gloves) && (
-                          <div><strong>Gloves:</strong><pre>{String(supp.gloves)}</pre></div>
-                        )}
-                        {Boolean(supp.drapes) && (
-                          <div><strong>Drapes:</strong><pre>{String(supp.drapes)}</pre></div>
-                        )}
-                        {Boolean(supp.implants) && (
-                          <div><strong>Implants:</strong><pre>{String(supp.implants)}</pre></div>
-                        )}
-                        {Boolean(supp.sutures) && (
-                          <div><strong>Sutures:</strong><pre>{String(supp.sutures)}</pre></div>
-                        )}
-                        {Boolean(supp.disposables) && (
-                          <div><strong>Disposables:</strong><pre>{String(supp.disposables)}</pre></div>
-                        )}
-                      </div>
-                    )}
+                    <div className="print-section">
+                      <h3>Supplies</h3>
+                      {supp && Object.values(supp).some(v => v) ? (
+                        <>
+                          {Boolean(supp.gloves) && (
+                            <div><strong>Gloves:</strong><pre>{String(supp.gloves)}</pre></div>
+                          )}
+                          {Boolean(supp.drapes) && (
+                            <div><strong>Drapes:</strong><pre>{String(supp.drapes)}</pre></div>
+                          )}
+                          {Boolean(supp.implants) && (
+                            <div><strong>Implants:</strong><pre>{String(supp.implants)}</pre></div>
+                          )}
+                          {Boolean(supp.sutures) && (
+                            <div><strong>Sutures:</strong><pre>{String(supp.sutures)}</pre></div>
+                          )}
+                          {Boolean(supp.disposables) && (
+                            <div><strong>Disposables:</strong><pre>{String(supp.disposables)}</pre></div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="empty-section">No supplies documented</p>
+                      )}
+                    </div>
 
                     {/* Medications */}
-                    {meds && Object.values(meds).some(v => v) && (
-                      <div className="print-section">
-                        <h3>Medications & Solutions</h3>
-                        {Boolean(meds.localAnesthetic) && (
-                          <div><strong>Local Anesthetic:</strong><pre>{String(meds.localAnesthetic)}</pre></div>
-                        )}
-                        {Boolean(meds.antibiotics) && (
-                          <div><strong>Antibiotics:</strong><pre>{String(meds.antibiotics)}</pre></div>
-                        )}
-                        {Boolean(meds.irrigation) && (
-                          <div><strong>Irrigation:</strong><pre>{String(meds.irrigation)}</pre></div>
-                        )}
-                        {Boolean(meds.topicalAgents) && (
-                          <div><strong>Topical Agents:</strong><pre>{String(meds.topicalAgents)}</pre></div>
-                        )}
-                      </div>
-                    )}
+                    <div className="print-section">
+                      <h3>Medications & Solutions</h3>
+                      {meds && Object.values(meds).some(v => v) ? (
+                        <>
+                          {Boolean(meds.localAnesthetic) && (
+                            <div><strong>Local Anesthetic:</strong><pre>{String(meds.localAnesthetic)}</pre></div>
+                          )}
+                          {Boolean(meds.antibiotics) && (
+                            <div><strong>Antibiotics:</strong><pre>{String(meds.antibiotics)}</pre></div>
+                          )}
+                          {Boolean(meds.irrigation) && (
+                            <div><strong>Irrigation:</strong><pre>{String(meds.irrigation)}</pre></div>
+                          )}
+                          {Boolean(meds.topicalAgents) && (
+                            <div><strong>Topical Agents:</strong><pre>{String(meds.topicalAgents)}</pre></div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="empty-section">No medications/solutions documented</p>
+                      )}
+                    </div>
 
                     {/* Setup & Positioning */}
-                    {setup && Object.values(setup).some(v => v) && (
-                      <div className="print-section">
-                        <h3>Setup & Positioning</h3>
-                        {Boolean(setup.patientPosition) && (
-                          <div><strong>Patient Position:</strong> {String(setup.patientPosition)}</div>
-                        )}
-                        {Boolean(setup.tableConfiguration) && (
-                          <div><strong>Table Configuration:</strong> {String(setup.tableConfiguration)}</div>
-                        )}
-                        {Boolean(setup.paddingRequirements) && (
-                          <div><strong>Padding:</strong><pre>{String(setup.paddingRequirements)}</pre></div>
-                        )}
-                        {Boolean(setup.mayoStandCount || setup.mayoStandPlacement) && (
-                          <div><strong>Mayo Stand:</strong> {setup.mayoStandCount ? `${setup.mayoStandCount}x` : ''} {String(setup.mayoStandPlacement || '')}</div>
-                        )}
-                        {Boolean(setup.backTableNotes) && (
-                          <div><strong>Back Table:</strong><pre>{String(setup.backTableNotes)}</pre></div>
-                        )}
-                        {Boolean(setup.orFlowNotes) && (
-                          <div><strong>OR Flow Notes:</strong><pre>{String(setup.orFlowNotes)}</pre></div>
-                        )}
-                      </div>
-                    )}
+                    <div className="print-section">
+                      <h3>Setup & Positioning</h3>
+                      {setup && Object.values(setup).some(v => v) ? (
+                        <>
+                          {Boolean(setup.patientPosition) && (
+                            <div><strong>Patient Position:</strong> {String(setup.patientPosition)}</div>
+                          )}
+                          {Boolean(setup.tableConfiguration) && (
+                            <div><strong>Table Configuration:</strong> {String(setup.tableConfiguration)}</div>
+                          )}
+                          {Boolean(setup.paddingRequirements) && (
+                            <div><strong>Padding:</strong><pre>{String(setup.paddingRequirements)}</pre></div>
+                          )}
+                          {Boolean(setup.mayoStandCount || setup.mayoStandPlacement) && (
+                            <div><strong>Mayo Stand:</strong> {setup.mayoStandCount ? `${setup.mayoStandCount}x` : ''} {String(setup.mayoStandPlacement || '')}</div>
+                          )}
+                          {Boolean(setup.backTableNotes) && (
+                            <div><strong>Back Table:</strong><pre>{String(setup.backTableNotes)}</pre></div>
+                          )}
+                          {Boolean(setup.orFlowNotes) && (
+                            <div><strong>OR Flow Notes:</strong><pre>{String(setup.orFlowNotes)}</pre></div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="empty-section">No setup/positioning documented</p>
+                      )}
+                    </div>
 
                     {/* Surgeon Notes */}
-                    {notes && Object.values(notes).some(v => v) && (
-                      <div className="print-section">
-                        <h3>Surgeon Notes & Preferences</h3>
-                        {Boolean(notes.preferences) && (
-                          <div><strong>Preferences:</strong><pre>{String(notes.preferences)}</pre></div>
-                        )}
-                        {Boolean(notes.holdPrnItems) && (
-                          <div><strong>Hold / PRN Items:</strong><pre>{String(notes.holdPrnItems)}</pre></div>
-                        )}
-                        {Boolean(notes.decisionTriggers) && (
-                          <div><strong>Decision Triggers:</strong><pre>{String(notes.decisionTriggers)}</pre></div>
-                        )}
-                        {Boolean(notes.teachingModifiers) && (
-                          <div><strong>Teaching Case Modifiers:</strong><pre>{String(notes.teachingModifiers)}</pre></div>
-                        )}
-                        {Boolean(notes.revisionAddOns) && (
-                          <div><strong>Revision-Only Add-Ons:</strong><pre>{String(notes.revisionAddOns)}</pre></div>
-                        )}
-                      </div>
-                    )}
+                    <div className="print-section">
+                      <h3>Surgeon Notes & Preferences</h3>
+                      {notes && Object.values(notes).some(v => v) ? (
+                        <>
+                          {Boolean(notes.preferences) && (
+                            <div><strong>Preferences:</strong><pre>{String(notes.preferences)}</pre></div>
+                          )}
+                          {Boolean(notes.holdPrnItems) && (
+                            <div><strong>Hold / PRN Items:</strong><pre>{String(notes.holdPrnItems)}</pre></div>
+                          )}
+                          {Boolean(notes.decisionTriggers) && (
+                            <div><strong>Decision Triggers:</strong><pre>{String(notes.decisionTriggers)}</pre></div>
+                          )}
+                          {Boolean(notes.teachingModifiers) && (
+                            <div><strong>Teaching Case Modifiers:</strong><pre>{String(notes.teachingModifiers)}</pre></div>
+                          )}
+                          {Boolean(notes.revisionAddOns) && (
+                            <div><strong>Revision-Only Add-Ons:</strong><pre>{String(notes.revisionAddOns)}</pre></div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="empty-section">No surgeon notes/preferences documented</p>
+                      )}
+                    </div>
                   </div>
                   );
                 })()}
@@ -1920,99 +1947,136 @@ export default function PreferenceCardsPage() {
 
         .print-header {
           border-bottom: 2px solid #2d3748;
-          padding-bottom: 1rem;
-          margin-bottom: 1rem;
+          padding-bottom: 0.5rem;
+          margin-bottom: 0.75rem;
         }
 
         .print-header h1 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.5rem;
+          margin: 0 0 0.25rem 0;
+          font-size: 1.25rem;
+          line-height: 1.2;
         }
 
         .print-meta {
           display: flex;
-          gap: 1.5rem;
+          gap: 1rem;
           flex-wrap: wrap;
-          font-size: 0.875rem;
-          margin-bottom: 0.5rem;
+          font-size: 0.75rem;
+          margin-bottom: 0.25rem;
+          line-height: 1.4;
         }
 
         .print-notes {
-          font-size: 0.875rem;
-          margin-top: 0.5rem;
-          padding: 0.5rem;
+          font-size: 0.75rem;
+          margin-top: 0.25rem;
+          padding: 0.25rem 0.5rem;
           background: #f7fafc;
-          border-radius: 4px;
+          border-radius: 2px;
+          line-height: 1.4;
         }
 
         .print-sections {
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 0.5rem;
         }
 
         .print-section {
           border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          padding: 1rem;
+          border-radius: 2px;
+          padding: 0.5rem;
           page-break-inside: avoid;
         }
 
         .print-section h3 {
-          margin: 0 0 0.75rem 0;
-          font-size: 1rem;
+          margin: 0 0 0.375rem 0;
+          font-size: 0.875rem;
+          font-weight: 600;
           color: #2d3748;
           border-bottom: 1px solid #e2e8f0;
-          padding-bottom: 0.5rem;
+          padding-bottom: 0.25rem;
+          line-height: 1.2;
+        }
+
+        .empty-section {
+          color: #a0aec0;
+          font-style: italic;
+          font-size: 0.75rem;
+          margin: 0;
+          line-height: 1.4;
         }
 
         .print-section pre {
-          margin: 0.25rem 0 0.5rem 0;
+          margin: 0.125rem 0 0.25rem 0;
           font-family: inherit;
           white-space: pre-wrap;
-          font-size: 0.875rem;
+          font-size: 0.75rem;
           background: #f7fafc;
-          padding: 0.5rem;
-          border-radius: 4px;
+          padding: 0.25rem 0.375rem;
+          border-radius: 2px;
+          line-height: 1.4;
         }
 
         .print-section ul {
           margin: 0;
-          padding-left: 1.5rem;
+          padding-left: 1.25rem;
         }
 
         .print-section li {
-          font-size: 0.875rem;
-          margin-bottom: 0.25rem;
+          font-size: 0.75rem;
+          margin-bottom: 0.125rem;
+          line-height: 1.4;
         }
 
         .print-flags {
           display: flex;
-          gap: 1rem;
-          margin-top: 0.5rem;
+          gap: 0.5rem;
+          margin-top: 0.25rem;
+          flex-wrap: wrap;
         }
 
         .print-flags span {
           background: #edf2f7;
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-size: 0.75rem;
+          padding: 0.125rem 0.375rem;
+          border-radius: 2px;
+          font-size: 0.65rem;
+          line-height: 1.3;
         }
 
         .print-footer {
-          margin-top: 1.5rem;
-          padding-top: 1rem;
+          margin-top: 0.75rem;
+          padding-top: 0.5rem;
           border-top: 1px solid #e2e8f0;
           display: flex;
           justify-content: space-between;
-          font-size: 0.75rem;
+          font-size: 0.65rem;
           color: #718096;
+          line-height: 1.3;
         }
 
         /* Print-specific styles */
         @media print {
+          @page {
+            margin: 0.5in;
+            size: letter;
+          }
+
+          body {
+            margin: 0;
+            padding: 0;
+          }
+
+          /* Hide everything except print modal */
           body * {
             visibility: hidden;
+          }
+
+          body {
+            background: white;
+          }
+
+          header {
+            display: none !important;
           }
 
           .print-modal-overlay,
@@ -2021,17 +2085,39 @@ export default function PreferenceCardsPage() {
           }
 
           .print-modal-overlay {
-            position: absolute;
-            left: 0;
-            top: 0;
-            background: white;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            display: block !important;
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            overflow: visible !important;
+            z-index: 9999 !important;
           }
 
           .print-modal {
-            width: 100%;
-            max-width: none;
-            max-height: none;
-            box-shadow: none;
+            width: 100% !important;
+            max-width: none !important;
+            max-height: none !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+            overflow: visible !important;
+          }
+
+          .modal-body {
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          .print-content {
+            padding: 0 !important;
           }
 
           .no-print {
@@ -2040,6 +2126,16 @@ export default function PreferenceCardsPage() {
 
           .print-section {
             break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .print-header {
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.375rem;
+          }
+
+          .print-sections {
+            gap: 0.375rem;
           }
         }
       `}</style>
