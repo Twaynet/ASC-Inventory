@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-18
 **Version:** v1.4.4+
-**Recent Changes:** `/admin/case-cards` → `/case-cards`, Print functionality added
+**Recent Changes:** `/case-cards` → `/preference-cards` (canonical route rename per LAW_NOMENCLATURE.md)
 
 ---
 
@@ -68,13 +68,13 @@ This is a surgical inventory management system built with Next.js 13+ (App Route
         - Client Component: Yes ('use client')
 ```
 
-### Case Cards (Surgical Preference Cards)
+### Surgeon Preference Cards (SPCs)
 ```
-/case-cards
+/preference-cards
 └── page.tsx
-    - Route: GET /case-cards
-    - Purpose: Surgical preference card management interface
-    - Previous Route: /admin/case-cards (MOVED IN LATEST COMMIT)
+    - Route: GET /preference-cards
+    - Purpose: Surgeon Preference Card (SPC) management interface
+    - Previous Route: /case-cards (renamed per LAW_NOMENCLATURE.md)
     - Behavior: CRUD operations for preference cards
     - Features:
       * Card creation and editing with versioning
@@ -85,8 +85,15 @@ This is a surgical inventory management system built with Next.js 13+ (App Route
       * Filtering by surgeon, status, and search term
       * Summary statistics
     - Client Component: Yes ('use client')
-    - Note: Now at root level instead of admin subdirectory
     - Access: All roles (not admin-only)
+
+/case-cards
+└── page.tsx
+    - Route: GET /case-cards
+    - Purpose: Legacy redirect (backward compatibility)
+    - Behavior: Redirects to /preference-cards
+    - Client Component: Yes ('use client')
+    - Note: Maintained for existing bookmarks/links
 ```
 
 ### Operational Workflow Routes
@@ -229,8 +236,7 @@ Navigation links (displayed for ADMIN role only):
 - `/admin/locations` - Locations
 - `/admin/catalog` - Catalog
 - `/admin/inventory` - Inventory
-- `/admin/preference-cards` - Preference Cards
-- `/case-cards` - Case Cards (UPDATED - non-admin path)
+- `/preference-cards` - Surgeon Preference Cards
 - `/admin/reports` - Reports
 - `/admin/settings` - Settings
 - `/admin/pending-reviews` - Pending Reviews
@@ -239,30 +245,32 @@ Navigation links (displayed for ADMIN role only):
 
 ## Recent Changes Log
 
-### 2026-01-18: Route Restructuring
-**Change:** Moved `/admin/case-cards` → `/case-cards`
+### 2026-01-18: LAW-Compliant Route Rename
+**Change:** Renamed `/case-cards` → `/preference-cards` per LAW_NOMENCLATURE.md
 - **Files Modified:**
-  - Created: `apps/web/src/app/case-cards/page.tsx`
-  - Deleted: `apps/web/src/app/admin/case-cards/page.tsx`
+  - Created: `apps/web/src/app/preference-cards/page.tsx` (canonical SPC route)
+  - Updated: `apps/web/src/app/case-cards/page.tsx` (now redirects to /preference-cards)
   - Updated: `apps/web/src/app/components/AdminNav.tsx` (nav link)
-  - Updated: `apps/web/src/app/case/[caseId]/page.tsx` ("View Case Card" button)
-- **Reason:** Case Cards should be accessible to all roles, not just admins
+  - Updated: `apps/web/src/app/case/[caseId]/page.tsx` ("View Preference Card" button)
+  - Updated: `apps/web/src/lib/access-control.ts` (feature definition)
+  - Updated: `docs/LAW_NOMENCLATURE.md` (canonical route documentation)
+- **Reason:** LAW_NOMENCLATURE.md forbids calling SPCs "case cards" in UI
 - **Status:** Complete
 
 ### 2026-01-18: Print Functionality Added
 **Change:** Added print buttons to Case Dashboard
 - **Affected Routes:**
-  - `/case-cards` - Print button in grid list and edit form
-  - `/case/[caseId]` - Print button in "Linked Case Card" section
-- **Implementation:** Print modal with full case card details, print-specific CSS
+  - `/preference-cards` - Print button in grid list and edit form
+  - `/case/[caseId]` - Print button in "Linked Preference Card" section
+- **Implementation:** Print modal with full preference card details, print-specific CSS
 - **Status:** Complete
 
 ### v1.4.4: Operational Reports
 - **Route:** `/admin/reports`
 - **Feature:** CSV export functionality added
 
-### v1.4.3: Case Card Feedback
-- **Routes:** `/case-cards`, `/or/debrief/[caseId]`
+### v1.4.3: SPC Feedback
+- **Routes:** `/preference-cards`, `/or/debrief/[caseId]`
 - **Feature:** Feedback submission and review workflow
 
 ### v1.4.2: Readiness Verification
@@ -271,20 +279,19 @@ Navigation links (displayed for ADMIN role only):
 
 ---
 
-## Naming Observations & Issues
+## Naming Observations & Compliance
 
-### Route Terminology
-**Case Card vs Preference Card:**
-- **Canonical Term:** "Case Card" (per `cli-preamble-vocabulary.md`)
-- **Deprecated Term:** "Surgical Card" (forbidden)
-- **Current Usage:**
-  - `/case-cards` - Uses "Case Cards" terminology (correct)
-  - `/admin/preference-cards` - Uses "Preference Cards" terminology (different system)
+### Route Terminology (per LAW_NOMENCLATURE.md)
+**Surgeon Preference Card (SPC) vs Case Card (CC):**
+- **SPC:** Surgeon-specific defaults/intent (reusable)
+- **CC:** Execution artifact tied to one case instance (not reusable)
+- **Canonical SPC Route:** `/preference-cards`
+- **Legacy Redirect:** `/case-cards` → `/preference-cards`
 
-### Potential Confusion
-- `/case-cards` - Surgical preference cards with detailed sections (instrumentation, equipment, etc.)
-- `/admin/preference-cards` - Inventory-based preference cards (links to catalog items)
-- **Note:** These are two different systems serving different purposes
+### Route Compliance Status
+- `/preference-cards` - LAW-compliant (correct terminology)
+- `/case-cards` - Legacy redirect for backward compatibility
+- API routes (`/api/case-cards/*`) - Internal backend paths (not UI-facing)
 
 ---
 
@@ -296,7 +303,8 @@ apps/web/src/app/
 ├── page.tsx (root redirect)
 ├── login/page.tsx
 ├── calendar/page.tsx
-├── case-cards/page.tsx ← MOVED from /admin/case-cards
+├── preference-cards/page.tsx ← Canonical SPC route
+├── case-cards/page.tsx ← Legacy redirect to /preference-cards
 ├── case/
 │   └── [caseId]/
 │       ├── page.tsx (Print button added)

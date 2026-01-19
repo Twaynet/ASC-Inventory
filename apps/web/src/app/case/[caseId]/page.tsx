@@ -642,14 +642,14 @@ function CaseDashboardContent() {
               )}
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button onClick={() => setShowLinkCaseCardModal(true)} className="btn-secondary">
-                  {dashboard.caseCard ? 'Change Case Card' : 'Link Case Card'}
+                  {dashboard.caseCard ? 'Change Preference Card' : 'Link Preference Card'}
                 </button>
                 {dashboard.caseCard && (
                   <button
-                    onClick={() => router.push(`/case-cards?id=${dashboard.caseCard!.id}`)}
+                    onClick={() => router.push(`/preference-cards?id=${dashboard.caseCard!.id}`)}
                     className="btn-secondary"
                   >
-                    View Case Card
+                    View Preference Card
                   </button>
                 )}
               </div>

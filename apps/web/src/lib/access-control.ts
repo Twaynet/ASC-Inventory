@@ -73,10 +73,10 @@ export const FEATURES: FeatureDefinition[] = [
     group: 'core',
   },
   {
-    id: 'case-cards',
-    title: 'Case Cards',
-    description: 'Manage surgical preference card templates',
-    path: '/case-cards',
+    id: 'preference-cards',
+    title: 'Surgeon Preference Cards',
+    description: 'Manage surgeon preference cards (SPCs)',
+    path: '/preference-cards',
     group: 'core',
   },
   {

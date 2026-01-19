@@ -1,5 +1,5 @@
 # LAW: Nomenclature and Entity Separation
-Version: 1.0  
+Version: 1.1
 Project: ASC Inventory Truth
 
 ---
@@ -52,7 +52,8 @@ Purpose:
 - To act as the **source document** from which case-specific artifacts are derived
 
 Canonical UI:
-- `/case-cards` is the authoritative SPC interface
+- `/preference-cards` is the authoritative SPC interface
+- `/case-cards` is a legacy redirect (maintained for backward compatibility)
 
 ---
 
