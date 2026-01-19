@@ -406,7 +406,7 @@ export default function PreferenceCardsPage() {
         {showForm && (
           <div className="form-card">
             <h2>{editingCard ? 'Edit Preference Card' : 'Create New Preference Card'}</h2>
-            <form onSubmit={editingCard ? handleUpdate : handleCreate}>
+            <form onSubmit={editingCard ? handleUpdate : handleCreate} autoComplete="off">
               {/* Header Information Section (per spec Section 2) */}
               <div className="form-section">
                 <h3>Header Information</h3>
@@ -418,6 +418,7 @@ export default function PreferenceCardsPage() {
                       onChange={(e) => setFormData({ ...formData, surgeonId: e.target.value })}
                       required
                       disabled={!!editingCard}
+                      autoComplete="off"
                     >
                       <option value="">Select surgeon...</option>
                       {surgeons.map(s => (
