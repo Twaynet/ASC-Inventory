@@ -35,6 +35,16 @@ interface CaseDashboardData {
   laterality: string | null;
   orRoom: string | null;
   schedulerNotes: string | null;
+  caseType: string;
+  procedureCodes: string[];
+  patientFlags: {
+    latexAllergy: boolean;
+    iodineAllergy: boolean;
+    nickelFree: boolean;
+    anticoagulation: boolean;
+    infectionRisk: boolean;
+    neuromonitoringRequired: boolean;
+  };
   caseCard: {
     id: string;
     name: string;
@@ -103,6 +113,9 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       laterality: string | null;
       or_room: string | null;
       scheduler_notes: string | null;
+      case_type: string;
+      procedure_codes: string[];
+      patient_flags: any;
       case_card_version_id: string | null;
     }>(`
       SELECT
@@ -113,6 +126,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
         sc.attestation_state, sc.attestation_void_reason,
         sc.estimated_duration_minutes, sc.laterality,
         sc.or_room, sc.scheduler_notes,
+        sc.case_type, sc.procedure_codes, sc.patient_flags,
         sc.case_card_version_id
       FROM surgical_case sc
       JOIN facility f ON sc.facility_id = f.id
@@ -248,6 +262,16 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       laterality: caseData.laterality,
       orRoom: caseData.or_room,
       schedulerNotes: caseData.scheduler_notes,
+      caseType: caseData.case_type || 'ELECTIVE',
+      procedureCodes: caseData.procedure_codes || [],
+      patientFlags: caseData.patient_flags || {
+        latexAllergy: false,
+        iodineAllergy: false,
+        nickelFree: false,
+        anticoagulation: false,
+        infectionRisk: false,
+        neuromonitoringRequired: false,
+      },
       caseCard,
       anesthesiaPlan,
       overrides: overridesResult.rows.map(o => ({
@@ -690,6 +714,16 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       laterality?: string;
       orRoom?: string;
       schedulerNotes?: string;
+      caseType?: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION';
+      procedureCodes?: string[];
+      patientFlags?: {
+        latexAllergy: boolean;
+        iodineAllergy: boolean;
+        nickelFree: boolean;
+        anticoagulation: boolean;
+        infectionRisk: boolean;
+        neuromonitoringRequired: boolean;
+      };
     };
 
     // Verify case exists
@@ -707,13 +741,19 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
         estimated_duration_minutes = COALESCE($1, estimated_duration_minutes),
         laterality = COALESCE($2, laterality),
         or_room = COALESCE($3, or_room),
-        scheduler_notes = COALESCE($4, scheduler_notes)
-      WHERE id = $5
+        scheduler_notes = COALESCE($4, scheduler_notes),
+        case_type = COALESCE($5, case_type),
+        procedure_codes = COALESCE($6, procedure_codes),
+        patient_flags = COALESCE($7, patient_flags)
+      WHERE id = $8
     `, [
       body.estimatedDurationMinutes,
       body.laterality,
       body.orRoom,
       body.schedulerNotes,
+      body.caseType,
+      body.procedureCodes,
+      body.patientFlags ? JSON.stringify(body.patientFlags) : null,
       caseId,
     ]);
 

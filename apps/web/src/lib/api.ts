@@ -1428,6 +1428,16 @@ export interface CaseDashboardData {
   laterality: string | null;
   orRoom: string | null;
   schedulerNotes: string | null;
+  caseType: string;
+  procedureCodes: string[];
+  patientFlags: {
+    latexAllergy: boolean;
+    iodineAllergy: boolean;
+    nickelFree: boolean;
+    anticoagulation: boolean;
+    infectionRisk: boolean;
+    neuromonitoringRequired: boolean;
+  };
   caseCard: CaseDashboardCaseCard | null;
   anesthesiaPlan: CaseDashboardAnesthesiaPlan | null;
   overrides: CaseDashboardOverride[];
@@ -1540,6 +1550,16 @@ export async function updateCaseSummary(
     laterality?: string;
     orRoom?: string;
     schedulerNotes?: string;
+    caseType?: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION';
+    procedureCodes?: string[];
+    patientFlags?: {
+      latexAllergy: boolean;
+      iodineAllergy: boolean;
+      nickelFree: boolean;
+      anticoagulation: boolean;
+      infectionRisk: boolean;
+      neuromonitoringRequired: boolean;
+    };
   }
 ): Promise<{ success: boolean }> {
   return api(`/case-dashboard/${caseId}/case-summary`, { method: 'PUT', body: data, token });

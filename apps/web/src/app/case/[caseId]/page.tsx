@@ -31,6 +31,13 @@ const ANESTHESIA_MODALITIES: { value: AnesthesiaModality; label: string }[] = [
   { value: 'TIVA', label: 'TIVA' },
 ];
 
+const CASE_TYPES: { value: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION'; label: string }[] = [
+  { value: 'ELECTIVE', label: 'Elective' },
+  { value: 'ADD_ON', label: 'Add-On' },
+  { value: 'TRAUMA', label: 'Trauma' },
+  { value: 'REVISION', label: 'Revision' },
+];
+
 function CaseDashboardContent() {
   const { user, token, isLoading, logout } = useAuth();
   const router = useRouter();
@@ -80,6 +87,16 @@ function CaseDashboardContent() {
     laterality: '',
     orRoom: '',
     schedulerNotes: '',
+    caseType: 'ELECTIVE' as 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION',
+    procedureCodes: [] as string[],
+    patientFlags: {
+      latexAllergy: false,
+      iodineAllergy: false,
+      nickelFree: false,
+      anticoagulation: false,
+      infectionRisk: false,
+      neuromonitoringRequired: false,
+    },
   });
 
   // Scheduling form state
@@ -118,6 +135,16 @@ function CaseDashboardContent() {
         laterality: d.laterality || '',
         orRoom: d.orRoom || '',
         schedulerNotes: d.schedulerNotes || '',
+        caseType: (d as any).caseType || 'ELECTIVE',
+        procedureCodes: (d as any).procedureCodes || [],
+        patientFlags: (d as any).patientFlags || {
+          latexAllergy: false,
+          iodineAllergy: false,
+          nickelFree: false,
+          anticoagulation: false,
+          infectionRisk: false,
+          neuromonitoringRequired: false,
+        },
       });
       setSchedulingForm({
         scheduledDate: d.scheduledDate || '',
@@ -211,6 +238,9 @@ function CaseDashboardContent() {
         laterality: summaryForm.laterality || undefined,
         orRoom: summaryForm.orRoom || undefined,
         schedulerNotes: summaryForm.schedulerNotes || undefined,
+        caseType: summaryForm.caseType,
+        procedureCodes: summaryForm.procedureCodes.length > 0 ? summaryForm.procedureCodes : undefined,
+        patientFlags: summaryForm.patientFlags,
       });
       setSuccessMessage('Case summary updated');
       loadData();
@@ -523,6 +553,17 @@ function CaseDashboardContent() {
             <div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
                 <div className="form-group">
+                  <label>Case Type</label>
+                  <select
+                    value={summaryForm.caseType}
+                    onChange={e => setSummaryForm(f => ({ ...f, caseType: e.target.value as typeof summaryForm.caseType }))}
+                  >
+                    {CASE_TYPES.map(ct => (
+                      <option key={ct.value} value={ct.value}>{ct.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
                   <label>Estimated Duration (min)</label>
                   <input
                     type="number"
@@ -543,6 +584,68 @@ function CaseDashboardContent() {
                     <option value="Bilateral">Bilateral</option>
                     <option value="N/A">N/A</option>
                   </select>
+                </div>
+              </div>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label>Procedure Codes (CPT) - comma separated</label>
+                <input
+                  type="text"
+                  value={summaryForm.procedureCodes.join(', ')}
+                  onChange={e => setSummaryForm(f => ({ ...f, procedureCodes: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
+                  placeholder="e.g., 27130, 27447"
+                />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Patient-Specific Flags (Non-PHI)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={summaryForm.patientFlags.latexAllergy}
+                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, latexAllergy: e.target.checked } }))}
+                    />
+                    Latex-Free Required
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={summaryForm.patientFlags.iodineAllergy}
+                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, iodineAllergy: e.target.checked } }))}
+                    />
+                    Iodine-Free Required
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={summaryForm.patientFlags.nickelFree}
+                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, nickelFree: e.target.checked } }))}
+                    />
+                    Nickel-Free Implants
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={summaryForm.patientFlags.anticoagulation}
+                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, anticoagulation: e.target.checked } }))}
+                    />
+                    Anticoagulation Consideration
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={summaryForm.patientFlags.infectionRisk}
+                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, infectionRisk: e.target.checked } }))}
+                    />
+                    Infection Risk
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={summaryForm.patientFlags.neuromonitoringRequired}
+                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, neuromonitoringRequired: e.target.checked } }))}
+                    />
+                    Neuromonitoring Required
+                  </label>
                 </div>
               </div>
               <div className="form-group">
