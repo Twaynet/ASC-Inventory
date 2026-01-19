@@ -158,13 +158,6 @@ This is a surgical inventory management system built with Next.js 13+ (App Route
 │       - Purpose: Administrative review queue
 │       - Client Component: Yes ('use client')
 │
-├── preference-cards/
-│   └── page.tsx
-│       - Route: GET /admin/preference-cards
-│       - Purpose: Simpler inventory-based preference cards (catalog items)
-│       - Note: Different from /case-cards (surgical preference cards)
-│       - Client Component: Yes ('use client')
-│
 ├── reports/
 │   └── page.tsx
 │       - Route: GET /admin/reports

@@ -194,16 +194,6 @@ export const FEATURES: FeatureDefinition[] = [
     badge: 'Admin',
   },
   {
-    id: 'admin-preference-cards',
-    title: 'Preference Cards',
-    description: 'Manage inventory-based preference cards',
-    path: '/admin/preference-cards',
-    group: 'admin',
-    requiredRoles: ['ADMIN'],
-    badge: 'Admin',
-    notes: 'Inventory-based cards (different from surgical Case Cards)',
-  },
-  {
     id: 'admin-reports',
     title: 'Reports',
     description: 'View operational reports and export data',
