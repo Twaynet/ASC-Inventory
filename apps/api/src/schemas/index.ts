@@ -92,7 +92,6 @@ export const CreateCaseRequestSchema = z.object({
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // YYYY-MM-DD, optional until activation
   scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), // HH:MM
   surgeonId: z.string().uuid(),
-  patientMrn: z.string().max(50).optional(),
   procedureName: z.string().min(1).max(255),
   preferenceCardId: z.string().uuid().optional(),
   notes: z.string().optional(),
@@ -103,7 +102,6 @@ export const UpdateCaseRequestSchema = z.object({
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
   surgeonId: z.string().uuid().optional(),
-  patientMrn: z.string().max(50).nullable().optional(),
   procedureName: z.string().min(1).max(255).optional(),
   preferenceCardVersionId: z.string().uuid().nullable().optional(),
   status: CaseStatus.optional(),
@@ -118,7 +116,6 @@ export const CaseResponseSchema = z.object({
   scheduledTime: z.string().nullable(),
   surgeonId: z.string().uuid(),
   surgeonName: z.string(),
-  patientMrn: z.string().nullable(),
   procedureName: z.string(),
   preferenceCardVersionId: z.string().uuid().nullable(),
   status: CaseStatus,

@@ -123,7 +123,6 @@ export default function AdminPendingReviewsPage() {
               <thead>
                 <tr>
                   <th>Procedure</th>
-                  <th>Patient MRN</th>
                   <th>Surgeon</th>
                   <th>Completed</th>
                   <th>Pending</th>
@@ -141,7 +140,6 @@ export default function AdminPendingReviewsPage() {
                   return (
                     <tr key={review.instanceId} className={isOld ? 'old-review' : ''}>
                       <td className="procedure-name">{review.caseName}</td>
-                      <td>{review.patientMrn}</td>
                       <td>{review.surgeonName}</td>
                       <td>{completedAt.toLocaleString()}</td>
                       <td>

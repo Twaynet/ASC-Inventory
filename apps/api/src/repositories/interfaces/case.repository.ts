@@ -10,7 +10,6 @@ export interface SurgicalCase {
   scheduledTime: string | null;
   surgeonId: string;
   surgeonName?: string;
-  patientMrn: string | null;
   procedureName: string;
   preferenceCardVersionId: string | null;
   status: 'DRAFT' | 'SCHEDULED' | 'READY' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
@@ -40,7 +39,6 @@ export interface CreateCaseData {
   scheduledDate?: string | null;
   scheduledTime?: string | null;
   surgeonId: string;
-  patientMrn?: string | null;
   procedureName: string;
   preferenceCardVersionId?: string | null;
   notes?: string | null;
@@ -50,7 +48,6 @@ export interface UpdateCaseData {
   scheduledDate?: string | null;
   scheduledTime?: string | null;
   surgeonId?: string;
-  patientMrn?: string | null;
   procedureName?: string;
   preferenceCardVersionId?: string | null;
   status?: SurgicalCase['status'];

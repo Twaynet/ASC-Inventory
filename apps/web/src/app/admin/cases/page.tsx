@@ -54,7 +54,6 @@ export default function AdminCasesPage() {
     surgeonId: '',
     procedureName: '',
     preferenceCardVersionId: '',
-    patientMrn: '',
     notes: '',
   });
 
@@ -116,7 +115,6 @@ export default function AdminCasesPage() {
       const caseData: Partial<Case> = {
         surgeonId: createFormData.surgeonId,
         procedureName: createFormData.procedureName,
-        patientMrn: createFormData.patientMrn || null,
         notes: createFormData.notes || null,
         preferenceCardVersionId: createFormData.preferenceCardVersionId || null,
       };
@@ -127,7 +125,6 @@ export default function AdminCasesPage() {
         surgeonId: '',
         procedureName: '',
         preferenceCardVersionId: '',
-        patientMrn: '',
         notes: '',
       });
       loadData();
@@ -292,15 +289,6 @@ export default function AdminCasesPage() {
                     <small className="form-hint">No preference cards found for this surgeon</small>
                   )}
                 </div>
-                <div className="form-group">
-                  <label>Patient MRN</label>
-                  <input
-                    type="text"
-                    value={createFormData.patientMrn}
-                    onChange={(e) => setCreateFormData({ ...createFormData, patientMrn: e.target.value })}
-                    placeholder="Optional"
-                  />
-                </div>
               </div>
               <div className="form-group">
                 <label>Notes</label>
@@ -324,7 +312,6 @@ export default function AdminCasesPage() {
                       surgeonId: '',
                       procedureName: '',
                       preferenceCardVersionId: '',
-                      patientMrn: '',
                       notes: '',
                     });
                   }}

@@ -128,7 +128,6 @@ export default function PendingReviewsPage() {
               <div key={review.instanceId} className="pending-review-card">
                 <div className="review-header">
                   <h3>{review.caseName}</h3>
-                  <span className="review-mrn">MRN: {review.patientMrn}</span>
                 </div>
                 <div className="review-details">
                   <p><strong>Surgeon:</strong> {review.surgeonName}</p>
@@ -160,7 +159,6 @@ export default function PendingReviewsPage() {
               <h2>Complete Review</h2>
               <p className="modal-case-info">
                 <strong>{reviewingCase.caseName}</strong><br />
-                MRN: {reviewingCase.patientMrn}<br />
                 Surgeon: {reviewingCase.surgeonName}
               </p>
 

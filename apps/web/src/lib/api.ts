@@ -865,7 +865,6 @@ export interface PendingReview {
   instanceId: string;
   caseId: string;
   caseName: string;
-  patientMrn: string;
   surgeonName: string;
   completedAt: string;
   pendingScrub: boolean;
@@ -967,7 +966,6 @@ export interface Case {
   scheduledTime: string | null;
   surgeonId: string;
   surgeonName: string;
-  patientMrn: string | null;
   procedureName: string;
   preferenceCardVersionId: string | null;
   status: string;

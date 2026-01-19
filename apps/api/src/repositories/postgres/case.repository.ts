@@ -21,7 +21,6 @@ interface CaseRow {
   scheduled_time: string | null;
   surgeon_id: string;
   surgeon_name?: string;
-  patient_mrn: string | null;
   procedure_name: string;
   preference_card_version_id: string | null;
   status: string;
@@ -54,7 +53,6 @@ function mapCaseRow(row: CaseRow): SurgicalCase {
     scheduledTime: row.scheduled_time,
     surgeonId: row.surgeon_id,
     surgeonName: row.surgeon_name,
-    patientMrn: row.patient_mrn,
     procedureName: row.procedure_name,
     preferenceCardVersionId: row.preference_card_version_id,
     status: row.status as SurgicalCase['status'],
@@ -131,16 +129,15 @@ export class PostgresCaseRepository implements ICaseRepository {
     const result = await query<CaseRow>(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        patient_mrn, procedure_name, preference_card_version_id, status, notes,
+        procedure_name, preference_card_version_id, status, notes,
         is_active, is_cancelled
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT', $8, false, false)
+      ) VALUES ($1, $2, $3, $4, $5, $6, 'DRAFT', $7, false, false)
       RETURNING *, (SELECT name FROM app_user WHERE id = $4) as surgeon_name
     `, [
       data.facilityId,
       data.scheduledDate ?? null,
       data.scheduledTime ?? null,
       data.surgeonId,
-      data.patientMrn ?? null,
       data.procedureName,
       data.preferenceCardVersionId ?? null,
       data.notes ?? null,
@@ -165,10 +162,6 @@ export class PostgresCaseRepository implements ICaseRepository {
     if (data.surgeonId !== undefined) {
       updates.push(`surgeon_id = $${paramIndex++}`);
       values.push(data.surgeonId);
-    }
-    if (data.patientMrn !== undefined) {
-      updates.push(`patient_mrn = $${paramIndex++}`);
-      values.push(data.patientMrn);
     }
     if (data.procedureName !== undefined) {
       updates.push(`procedure_name = $${paramIndex++}`);

@@ -205,7 +205,6 @@ export const CaseSchema = z.object({
   scheduledDate: z.date().optional(), // Optional until case is activated
   scheduledTime: z.string().optional(), // HH:MM format
   surgeonId: z.string().uuid(),
-  patientMrn: z.string().optional(), // Medical Record Number (minimal PHI)
   procedureName: z.string().min(1).max(255),
   preferenceCardVersionId: z.string().uuid().optional(),
   status: CaseStatus,

@@ -710,7 +710,6 @@ export interface PendingReview {
   instanceId: string;
   caseId: string;
   caseName: string;
-  patientMrn: string;
   surgeonName: string;
   completedAt: string;
   pendingScrub: boolean;
@@ -823,7 +822,6 @@ export async function getPendingReviews(facilityId: string): Promise<PendingRevi
     instance_id: string;
     case_id: string;
     case_name: string;
-    patient_mrn: string;
     surgeon_name: string;
     completed_at: Date;
     pending_scrub_review: boolean;
@@ -835,7 +833,6 @@ export async function getPendingReviews(facilityId: string): Promise<PendingRevi
       cci.id as instance_id,
       cci.case_id,
       c.procedure_name as case_name,
-      c.patient_mrn,
       u.name as surgeon_name,
       cci.completed_at,
       cci.pending_scrub_review,
@@ -856,7 +853,6 @@ export async function getPendingReviews(facilityId: string): Promise<PendingRevi
     instanceId: row.instance_id,
     caseId: row.case_id,
     caseName: row.case_name,
-    patientMrn: row.patient_mrn,
     surgeonName: row.surgeon_name || 'Unknown',
     completedAt: row.completed_at.toISOString(),
     pendingScrub: row.pending_scrub_review,
