@@ -75,7 +75,6 @@ export default function PreferenceCardsPage() {
 
   // Collapsible sections
   const [sections, setSections] = useState<FormSection[]>([
-    { id: 'patientFlags', label: 'Patient-Dependent Flags (Non-PHI)', expanded: false },
     { id: 'instrumentation', label: 'Instrumentation', expanded: false },
     { id: 'equipment', label: 'Equipment', expanded: false },
     { id: 'supplies', label: 'Supplies', expanded: false },
@@ -437,40 +436,6 @@ export default function PreferenceCardsPage() {
                     />
                   </div>
                 </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Case Type</label>
-                    <select
-                      value={formData.caseType}
-                      onChange={(e) => setFormData({ ...formData, caseType: e.target.value as CaseType })}
-                    >
-                      {CASE_TYPES.map(ct => (
-                        <option key={ct.value} value={ct.value}>{ct.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Default Duration (minutes)</label>
-                    <input
-                      type="number"
-                      value={formData.defaultDurationMinutes || ''}
-                      onChange={(e) => setFormData({ ...formData, defaultDurationMinutes: e.target.value ? parseInt(e.target.value) : undefined })}
-                      placeholder="Estimated skin-to-skin time"
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Procedure Codes (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={(formData.procedureCodes || []).join(', ')}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      procedureCodes: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-                    })}
-                    placeholder="CPT codes, e.g., 27130, 27447"
-                  />
-                </div>
                 <div className="form-group">
                   <label>Turnover Notes</label>
                   <textarea
@@ -495,62 +460,6 @@ export default function PreferenceCardsPage() {
                   </button>
                   {section.expanded && (
                     <div className="section-content">
-                      {section.id === 'patientFlags' && (
-                        <>
-                          <p className="section-note">Checkbox-driven flags. No free-text patient data allowed.</p>
-                          <div className="checkbox-grid">
-                            <label className="checkbox-item">
-                              <input
-                                type="checkbox"
-                                checked={!!getNestedValue('patientFlags', 'latexAllergy')}
-                                onChange={(e) => updateNestedField('patientFlags', 'latexAllergy', e.target.checked)}
-                              />
-                              Latex-Free Required
-                            </label>
-                            <label className="checkbox-item">
-                              <input
-                                type="checkbox"
-                                checked={!!getNestedValue('patientFlags', 'iodineAllergy')}
-                                onChange={(e) => updateNestedField('patientFlags', 'iodineAllergy', e.target.checked)}
-                              />
-                              Iodine-Free Required
-                            </label>
-                            <label className="checkbox-item">
-                              <input
-                                type="checkbox"
-                                checked={!!getNestedValue('patientFlags', 'nickelFree')}
-                                onChange={(e) => updateNestedField('patientFlags', 'nickelFree', e.target.checked)}
-                              />
-                              Nickel-Free Implants
-                            </label>
-                            <label className="checkbox-item">
-                              <input
-                                type="checkbox"
-                                checked={!!getNestedValue('patientFlags', 'anticoagulation')}
-                                onChange={(e) => updateNestedField('patientFlags', 'anticoagulation', e.target.checked)}
-                              />
-                              Anticoagulation Consideration
-                            </label>
-                            <label className="checkbox-item">
-                              <input
-                                type="checkbox"
-                                checked={!!getNestedValue('patientFlags', 'infectionRisk')}
-                                onChange={(e) => updateNestedField('patientFlags', 'infectionRisk', e.target.checked)}
-                              />
-                              Infection Risk
-                            </label>
-                            <label className="checkbox-item">
-                              <input
-                                type="checkbox"
-                                checked={!!getNestedValue('patientFlags', 'neuromonitoringRequired')}
-                                onChange={(e) => updateNestedField('patientFlags', 'neuromonitoringRequired', e.target.checked)}
-                              />
-                              Neuromonitoring Required
-                            </label>
-                          </div>
-                        </>
-                      )}
-
                       {section.id === 'instrumentation' && (
                         <>
                           <div className="form-group">
@@ -1203,15 +1112,6 @@ export default function PreferenceCardsPage() {
                     <span><strong>Version:</strong> v{printingCard.card.version}</span>
                     <span><strong>Status:</strong> {printingCard.card.status}</span>
                   </div>
-                  <div className="print-meta">
-                    <span><strong>Case Type:</strong> {printingCard.card.caseType}</span>
-                    {printingCard.card.defaultDurationMinutes && (
-                      <span><strong>Est. Duration:</strong> {printingCard.card.defaultDurationMinutes} min</span>
-                    )}
-                    {printingCard.card.procedureCodes.length > 0 && (
-                      <span><strong>CPT:</strong> {printingCard.card.procedureCodes.join(', ')}</span>
-                    )}
-                  </div>
                   {printingCard.card.turnoverNotes && (
                     <div className="print-notes">
                       <strong>Turnover Notes:</strong> {printingCard.card.turnoverNotes}
@@ -1220,33 +1120,14 @@ export default function PreferenceCardsPage() {
                 </div>
 
                 {printingCard.currentVersion && (() => {
-                  const pf = printingCard.currentVersion.patientFlags as Record<string, boolean> | undefined;
                   const inst = printingCard.currentVersion.instrumentation as Record<string, unknown> | undefined;
                   const equip = printingCard.currentVersion.equipment as Record<string, unknown> | undefined;
                   const supp = printingCard.currentVersion.supplies as Record<string, unknown> | undefined;
                   const meds = printingCard.currentVersion.medications as Record<string, unknown> | undefined;
                   const setup = printingCard.currentVersion.setupPositioning as Record<string, unknown> | undefined;
                   const notes = printingCard.currentVersion.surgeonNotes as Record<string, unknown> | undefined;
-                  const hasPatientFlags = pf && Object.values(pf).some(v => v);
                   return (
                   <div className="print-sections">
-                    {/* Patient Flags */}
-                    <div className="print-section">
-                      <h3>Patient-Dependent Flags</h3>
-                      {hasPatientFlags ? (
-                        <ul>
-                          {pf.latexAllergy && <li>Latex-Free Required</li>}
-                          {pf.iodineAllergy && <li>Iodine-Free Required</li>}
-                          {pf.nickelFree && <li>Nickel-Free Implants</li>}
-                          {pf.anticoagulation && <li>Anticoagulation Consideration</li>}
-                          {pf.infectionRisk && <li>Infection Risk</li>}
-                          {pf.neuromonitoringRequired && <li>Neuromonitoring Required</li>}
-                        </ul>
-                      ) : (
-                        <p className="empty-section">No patient-specific flags documented</p>
-                      )}
-                    </div>
-
                     {/* Instrumentation */}
                     <div className="print-section">
                       <h3>Instrumentation</h3>
