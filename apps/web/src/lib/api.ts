@@ -967,6 +967,8 @@ export interface Case {
   facilityId: string;
   scheduledDate: string | null;
   scheduledTime: string | null;
+  requestedDate: string | null;
+  requestedTime: string | null;
   surgeonId: string;
   surgeonName: string;
   procedureName: string;
@@ -979,6 +981,9 @@ export interface Case {
   isCancelled: boolean;
   cancelledAt: string | null;
   cancelledByUserId: string | null;
+  rejectedAt: string | null;
+  rejectedByUserId: string | null;
+  rejectionReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1015,6 +1020,14 @@ export async function deactivateCase(token: string, caseId: string): Promise<{ c
 
 export async function cancelCase(token: string, caseId: string, reason?: string): Promise<{ case: Case }> {
   return api(`/cases/${caseId}/cancel`, { method: 'POST', body: { reason }, token });
+}
+
+export async function approveCase(token: string, caseId: string, data: { scheduledDate: string; scheduledTime?: string }): Promise<{ case: Case }> {
+  return api(`/cases/${caseId}/approve`, { method: 'POST', body: data, token });
+}
+
+export async function rejectCase(token: string, caseId: string, reason: string): Promise<{ case: Case }> {
+  return api(`/cases/${caseId}/reject`, { method: 'POST', body: { reason }, token });
 }
 
 // ============================================================================
@@ -1639,6 +1652,5 @@ export async function getCaseVerification(
 // ============================================================================
 
 export async function getSurgeons(token: string): Promise<{ users: User[] }> {
-  const result = await getUsers(token, false);
-  return { users: result.users.filter(u => u.role === 'SURGEON') };
+  return api('/users/surgeons', { token });
 }

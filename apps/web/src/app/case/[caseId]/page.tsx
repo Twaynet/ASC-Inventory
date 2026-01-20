@@ -447,16 +447,27 @@ function CaseDashboardContent() {
                   </button>
                 </div>
               ) : (
-                <p
-                  style={{ margin: '0.5rem 0', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-                  onClick={() => setIsEditingScheduling(true)}
-                  title="Click to edit scheduling"
-                >
-                  <strong>Scheduled:</strong> {new Date(dashboard.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                  {dashboard.scheduledTime && ` at ${dashboard.scheduledTime}`}
-                  {dashboard.orRoom && ` | OR: ${dashboard.orRoom}`}
-                  <span style={{ fontSize: '1rem', color: '#3182ce', marginLeft: '0.25rem' }} title="Edit scheduling">✎</span>
-                </p>
+                <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <p style={{ margin: 0 }}>
+                    <strong>Scheduled:</strong> {new Date(dashboard.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                    {dashboard.scheduledTime && ` at ${dashboard.scheduledTime}`}
+                    {dashboard.orRoom && ` | OR: ${dashboard.orRoom}`}
+                  </p>
+                  <button
+                    onClick={() => setIsEditingScheduling(true)}
+                    className="btn-primary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.375rem',
+                      padding: '0.375rem 0.75rem',
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    <span>✎</span>
+                    Edit
+                  </button>
+                </div>
               )}
               <p style={{ margin: '0.5rem 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 Case ID: {dashboard.caseId}

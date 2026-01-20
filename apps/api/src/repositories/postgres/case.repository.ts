@@ -10,6 +10,8 @@ import {
   CreateCaseData,
   UpdateCaseData,
   ActivateCaseData,
+  ApproveCaseData,
+  RejectCaseData,
   CaseFilters,
   RequirementItem,
 } from '../interfaces/case.repository.js';
@@ -19,6 +21,8 @@ interface CaseRow {
   facility_id: string;
   scheduled_date: string | null;
   scheduled_time: string | null;
+  requested_date: string | null;
+  requested_time: string | null;
   surgeon_id: string;
   surgeon_name?: string;
   procedure_name: string;
@@ -31,6 +35,9 @@ interface CaseRow {
   is_cancelled: boolean;
   cancelled_at: Date | null;
   cancelled_by_user_id: string | null;
+  rejected_at: Date | null;
+  rejected_by_user_id: string | null;
+  rejection_reason: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -51,6 +58,8 @@ function mapCaseRow(row: CaseRow): SurgicalCase {
     facilityId: row.facility_id,
     scheduledDate: row.scheduled_date,
     scheduledTime: row.scheduled_time,
+    requestedDate: row.requested_date,
+    requestedTime: row.requested_time,
     surgeonId: row.surgeon_id,
     surgeonName: row.surgeon_name,
     procedureName: row.procedure_name,
@@ -63,6 +72,9 @@ function mapCaseRow(row: CaseRow): SurgicalCase {
     isCancelled: row.is_cancelled,
     cancelledAt: row.cancelled_at,
     cancelledByUserId: row.cancelled_by_user_id,
+    rejectedAt: row.rejected_at,
+    rejectedByUserId: row.rejected_by_user_id,
+    rejectionReason: row.rejection_reason,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -128,15 +140,17 @@ export class PostgresCaseRepository implements ICaseRepository {
   async create(data: CreateCaseData): Promise<SurgicalCase> {
     const result = await query<CaseRow>(`
       INSERT INTO surgical_case (
-        facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, notes,
+        facility_id, scheduled_date, scheduled_time, requested_date, requested_time,
+        surgeon_id, procedure_name, preference_card_version_id, status, notes,
         is_active, is_cancelled
-      ) VALUES ($1, $2, $3, $4, $5, $6, 'DRAFT', $7, false, false)
-      RETURNING *, (SELECT name FROM app_user WHERE id = $4) as surgeon_name
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'REQUESTED', $9, false, false)
+      RETURNING *, (SELECT name FROM app_user WHERE id = $6) as surgeon_name
     `, [
       data.facilityId,
       data.scheduledDate ?? null,
       data.scheduledTime ?? null,
+      data.requestedDate ?? null,
+      data.requestedTime ?? null,
       data.surgeonId,
       data.procedureName,
       data.preferenceCardVersionId ?? null,
@@ -213,6 +227,50 @@ export class PostgresCaseRepository implements ICaseRepository {
       WHERE id = $1 AND facility_id = $2
       RETURNING *, (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name
     `, [id, facilityId, userId, data.scheduledDate, data.scheduledTime ?? null]);
+
+    if (result.rows.length === 0) return null;
+    return mapCaseRow(result.rows[0]);
+  }
+
+  async approve(
+    id: string,
+    facilityId: string,
+    userId: string,
+    data: ApproveCaseData
+  ): Promise<SurgicalCase | null> {
+    const result = await query<CaseRow>(`
+      UPDATE surgical_case
+      SET scheduled_date = $3,
+          scheduled_time = $4,
+          status = 'SCHEDULED',
+          is_active = true,
+          activated_at = NOW(),
+          activated_by_user_id = $5,
+          updated_at = NOW()
+      WHERE id = $1 AND facility_id = $2 AND status = 'REQUESTED'
+      RETURNING *, (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name
+    `, [id, facilityId, data.scheduledDate, data.scheduledTime ?? null, userId]);
+
+    if (result.rows.length === 0) return null;
+    return mapCaseRow(result.rows[0]);
+  }
+
+  async reject(
+    id: string,
+    facilityId: string,
+    userId: string,
+    data: RejectCaseData
+  ): Promise<SurgicalCase | null> {
+    const result = await query<CaseRow>(`
+      UPDATE surgical_case
+      SET status = 'REJECTED',
+          rejected_at = NOW(),
+          rejected_by_user_id = $3,
+          rejection_reason = $4,
+          updated_at = NOW()
+      WHERE id = $1 AND facility_id = $2 AND status = 'REQUESTED'
+      RETURNING *, (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name
+    `, [id, facilityId, userId, data.reason]);
 
     if (result.rows.length === 0) return null;
     return mapCaseRow(result.rows[0]);

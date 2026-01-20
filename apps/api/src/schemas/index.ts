@@ -91,6 +91,8 @@ export type UserResponse = z.infer<typeof UserResponseSchema>;
 export const CreateCaseRequestSchema = z.object({
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // YYYY-MM-DD, optional until activation
   scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), // HH:MM
+  requestedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // User's preferred date
+  requestedTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), // User's preferred time
   surgeonId: z.string().uuid(),
   procedureName: z.string().min(1).max(255),
   preferenceCardId: z.string().uuid().optional(),
@@ -114,6 +116,8 @@ export const CaseResponseSchema = z.object({
   facilityId: z.string().uuid(),
   scheduledDate: z.string().nullable(),
   scheduledTime: z.string().nullable(),
+  requestedDate: z.string().nullable(),
+  requestedTime: z.string().nullable(),
   surgeonId: z.string().uuid(),
   surgeonName: z.string(),
   procedureName: z.string(),
@@ -128,6 +132,10 @@ export const CaseResponseSchema = z.object({
   isCancelled: z.boolean(),
   cancelledAt: z.string().nullable(),
   cancelledByUserId: z.string().uuid().nullable(),
+  // Rejection tracking
+  rejectedAt: z.string().nullable(),
+  rejectedByUserId: z.string().uuid().nullable(),
+  rejectionReason: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -145,6 +153,19 @@ export const CancelCaseRequestSchema = z.object({
   reason: z.string().optional(),
 });
 export type CancelCaseRequest = z.infer<typeof CancelCaseRequestSchema>;
+
+// Approve Case Request Schema (ADMIN/SCHEDULER only)
+export const ApproveCaseRequestSchema = z.object({
+  scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD required
+  scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), // HH:MM optional
+});
+export type ApproveCaseRequest = z.infer<typeof ApproveCaseRequestSchema>;
+
+// Reject Case Request Schema (ADMIN/SCHEDULER only)
+export const RejectCaseRequestSchema = z.object({
+  reason: z.string().min(1).max(500), // Required
+});
+export type RejectCaseRequest = z.infer<typeof RejectCaseRequestSchema>;
 
 // ============================================================================
 // CASE REQUIREMENT (SURGEON OVERRIDE) SCHEMAS

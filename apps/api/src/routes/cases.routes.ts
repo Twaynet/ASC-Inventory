@@ -11,6 +11,8 @@ import {
   SetCaseRequirementsRequestSchema,
   SelectPreferenceCardRequestSchema,
   ActivateCaseRequestSchema,
+  ApproveCaseRequestSchema,
+  RejectCaseRequestSchema,
   CancelCaseRequestSchema,
 } from '../schemas/index.js';
 import { requireScheduler, requireSurgeon, requireAdmin } from '../plugins/auth.js';
@@ -24,6 +26,8 @@ function formatCase(c: SurgicalCase) {
     facilityId: c.facilityId,
     scheduledDate: c.scheduledDate,
     scheduledTime: c.scheduledTime,
+    requestedDate: c.requestedDate,
+    requestedTime: c.requestedTime,
     surgeonId: c.surgeonId,
     surgeonName: c.surgeonName,
     procedureName: c.procedureName,
@@ -36,6 +40,9 @@ function formatCase(c: SurgicalCase) {
     isCancelled: c.isCancelled,
     cancelledAt: c.cancelledAt?.toISOString() || null,
     cancelledByUserId: c.cancelledByUserId,
+    rejectedAt: c.rejectedAt?.toISOString() || null,
+    rejectedByUserId: c.rejectedByUserId,
+    rejectionReason: c.rejectionReason,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
   };
@@ -116,6 +123,8 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       facilityId,
       scheduledDate: data.scheduledDate,
       scheduledTime: data.scheduledTime,
+      requestedDate: data.requestedDate,
+      requestedTime: data.requestedTime,
       surgeonId: data.surgeonId,
       procedureName: data.procedureName,
       preferenceCardVersionId,
@@ -189,10 +198,10 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(404).send({ error: 'Procedure not found' });
     }
 
-    // Only ADMIN can modify date/time on active cases
+    // Only ADMIN or SCHEDULER can modify date/time on active cases
     if (caseStatus.isActive && (data.scheduledDate !== undefined || data.scheduledTime !== undefined)) {
-      if (role !== 'ADMIN') {
-        return reply.status(403).send({ error: 'Only ADMIN can modify date/time on active cases' });
+      if (role !== 'ADMIN' && role !== 'SCHEDULER') {
+        return reply.status(403).send({ error: 'Only ADMIN or SCHEDULER can modify date/time on active cases' });
       }
     }
 
@@ -279,6 +288,69 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     return reply.send({ case: formatCase(activated) });
+  });
+
+  /**
+   * POST /cases/:id/approve
+   * Approve a case request (ADMIN/SCHEDULER only)
+   * Transitions from REQUESTED to SCHEDULED
+   */
+  fastify.post<{ Params: { id: string } }>('/:id/approve', {
+    preHandler: [requireScheduler],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId, userId } = request.user;
+
+    const parseResult = ApproveCaseRequestSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        error: 'Validation error',
+        details: parseResult.error.flatten(),
+      });
+    }
+
+    const data = parseResult.data;
+
+    const approved = await caseRepo.approve(id, facilityId, userId, {
+      scheduledDate: data.scheduledDate,
+      scheduledTime: data.scheduledTime,
+    });
+
+    if (!approved) {
+      return reply.status(404).send({ error: 'Case not found or not in REQUESTED status' });
+    }
+
+    return reply.send({ case: formatCase(approved) });
+  });
+
+  /**
+   * POST /cases/:id/reject
+   * Reject a case request (ADMIN/SCHEDULER only)
+   * Transitions from REQUESTED to REJECTED
+   */
+  fastify.post<{ Params: { id: string } }>('/:id/reject', {
+    preHandler: [requireScheduler],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId, userId } = request.user;
+
+    const parseResult = RejectCaseRequestSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        error: 'Validation error',
+        details: parseResult.error.flatten(),
+      });
+    }
+
+    const { reason } = parseResult.data;
+
+    const rejected = await caseRepo.reject(id, facilityId, userId, { reason });
+
+    if (!rejected) {
+      return reply.status(404).send({ error: 'Case not found or not in REQUESTED status' });
+    }
+
+    return reply.send({ case: formatCase(rejected) });
   });
 
   /**

@@ -64,6 +64,32 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   /**
+   * GET /users/surgeons
+   * Get list of surgeons (all authenticated users)
+   * Used for case request forms
+   */
+  fastify.get('/surgeons', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+
+    const result = await query<UserRow>(`
+      SELECT id, name
+      FROM app_user
+      WHERE facility_id = $1 AND role = 'SURGEON' AND active = true
+      ORDER BY name ASC
+    `, [facilityId]);
+
+    return reply.send({
+      users: result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        role: 'SURGEON',
+      })),
+    });
+  });
+
+  /**
    * GET /users/:id
    * Get single user details (ADMIN only)
    */

@@ -73,6 +73,13 @@ export const FEATURES: FeatureDefinition[] = [
     group: 'core',
   },
   {
+    id: 'case-requests',
+    title: 'Case Requests',
+    description: 'Request new surgical cases and view your submissions',
+    path: '/cases',
+    group: 'core',
+  },
+  {
     id: 'preference-cards',
     title: 'Surgeon Preference Cards',
     description: 'Manage surgeon preference cards (SPCs)',
@@ -137,10 +144,10 @@ export const FEATURES: FeatureDefinition[] = [
   {
     id: 'admin-cases',
     title: 'Cases',
-    description: 'Create, edit, and manage surgical cases',
+    description: 'Approve, reject, and manage all surgical cases',
     path: '/admin/cases',
     group: 'admin',
-    requiredRoles: ['ADMIN'],
+    requiredRoles: ['ADMIN', 'SCHEDULER'],
     badge: 'Admin',
   },
   {

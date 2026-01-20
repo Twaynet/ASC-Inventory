@@ -8,6 +8,8 @@ import {
   getCases,
   createCase,
   activateCase,
+  approveCase,
+  rejectCase,
   deactivateCase,
   cancelCase,
   getSurgeons,
@@ -29,11 +31,8 @@ function formatDate(dateStr: string): string {
 
 function formatTime(timeStr: string | null): string {
   if (!timeStr) return 'TBD';
-  const [hours, minutes] = timeStr.split(':');
-  const hour = parseInt(hours);
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  const hour12 = hour % 12 || 12;
-  return `${hour12}:${minutes} ${ampm}`;
+  // Return 24-hour format as-is (HH:MM)
+  return timeStr;
 }
 
 export default function AdminCasesPage() {
@@ -62,6 +61,15 @@ export default function AdminCasesPage() {
   const [activationDate, setActivationDate] = useState('');
   const [activationTime, setActivationTime] = useState('');
 
+  // Approval form state
+  const [approvingCase, setApprovingCase] = useState<Case | null>(null);
+  const [approvalDate, setApprovalDate] = useState('');
+  const [approvalTime, setApprovalTime] = useState('');
+
+  // Rejection form state
+  const [rejectingCase, setRejectingCase] = useState<Case | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login');
@@ -89,7 +97,7 @@ export default function AdminCasesPage() {
   }, [token]);
 
   useEffect(() => {
-    if (token && user?.role === 'ADMIN') {
+    if (token && (user?.role === 'ADMIN' || user?.role === 'SCHEDULER')) {
       loadData();
     }
   }, [token, user, loadData]);
@@ -187,17 +195,63 @@ export default function AdminCasesPage() {
     setActivationTime(c.scheduledTime || '');
   };
 
+  const handleApprove = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !approvingCase) return;
+
+    try {
+      await approveCase(token, approvingCase.id, {
+        scheduledDate: approvalDate,
+        scheduledTime: approvalTime || undefined,
+      });
+      setSuccessMessage('Case request approved successfully');
+      setApprovingCase(null);
+      setApprovalDate('');
+      setApprovalTime('');
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve case');
+    }
+  };
+
+  const handleReject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !rejectingCase || !rejectionReason.trim()) return;
+
+    try {
+      await rejectCase(token, rejectingCase.id, rejectionReason);
+      setSuccessMessage('Case request rejected');
+      setRejectingCase(null);
+      setRejectionReason('');
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reject case');
+    }
+  };
+
+  const startApproval = (c: Case) => {
+    setApprovingCase(c);
+    // Pre-fill with requested date/time if available
+    setApprovalDate(c.requestedDate || '');
+    setApprovalTime(c.requestedTime || '');
+  };
+
+  const startRejection = (c: Case) => {
+    setRejectingCase(c);
+    setRejectionReason('');
+  };
+
   if (isLoading || !user) {
     return <div className="loading">Loading...</div>;
   }
 
-  if (user.role !== 'ADMIN') {
+  if (user.role !== 'ADMIN' && user.role !== 'SCHEDULER') {
     return (
       <>
         <Header title="Cases" />
         <main className="container">
           <div className="alert alert-error">
-            Access denied. This page is only available to administrators.
+            Access denied. This page is only available to administrators and schedulers.
           </div>
         </main>
       </>
@@ -402,6 +456,97 @@ export default function AdminCasesPage() {
           </div>
         )}
 
+        {/* Approval Form */}
+        {approvingCase && (
+          <div className="form-card">
+            <h2>Approve Case Request: {approvingCase.procedureName}</h2>
+            <p className="form-subtitle">
+              Surgeon: Dr. {approvingCase.surgeonName}
+            </p>
+            {approvingCase.requestedDate && (
+              <p className="requested-info">
+                Requested Date/Time: {formatDate(approvingCase.requestedDate)} {approvingCase.requestedTime ? `at ${formatTime(approvingCase.requestedTime)}` : ''}
+                <br />
+                <small>(Shown for reference - you can schedule for a different date/time)</small>
+              </p>
+            )}
+            <form onSubmit={handleApprove}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Scheduled Date *</label>
+                  <input
+                    type="date"
+                    value={approvalDate}
+                    onChange={(e) => setApprovalDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Scheduled Time</label>
+                  <input
+                    type="time"
+                    value={approvalTime}
+                    onChange={(e) => setApprovalTime(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary">
+                  Approve & Schedule
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setApprovingCase(null);
+                    setApprovalDate('');
+                    setApprovalTime('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Rejection Form */}
+        {rejectingCase && (
+          <div className="form-card">
+            <h2>Reject Case Request: {rejectingCase.procedureName}</h2>
+            <p className="form-subtitle">
+              Surgeon: Dr. {rejectingCase.surgeonName}
+            </p>
+            <form onSubmit={handleReject}>
+              <div className="form-group">
+                <label>Rejection Reason *</label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  required
+                  rows={4}
+                  placeholder="Provide a reason for rejecting this case request..."
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn btn-danger">
+                  Reject Request
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setRejectingCase(null);
+                    setRejectionReason('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
         {/* Cases Table */}
         {isLoadingData ? (
           <div className="loading">Loading cases...</div>
@@ -423,11 +568,24 @@ export default function AdminCasesPage() {
               </thead>
               <tbody>
                 {filteredCases.map((c) => (
-                  <tr key={c.id} className={c.isCancelled ? 'cancelled-row' : !c.isActive ? 'inactive-row' : ''}>
+                  <tr key={c.id} className={c.isCancelled ? 'cancelled-row' : c.status === 'REJECTED' ? 'rejected-row' : !c.isActive ? 'inactive-row' : ''}>
                     <td className="procedure-name">{c.procedureName}</td>
                     <td>Dr. {c.surgeonName}</td>
                     <td>
-                      {c.scheduledDate ? (
+                      {c.status === 'REQUESTED' ? (
+                        <div>
+                          {c.requestedDate || c.requestedTime ? (
+                            <>
+                              <div className="requested-info">
+                                Requested: {c.requestedDate ? formatDate(c.requestedDate) : 'No date'}
+                                {c.requestedTime && ` at ${formatTime(c.requestedTime)}`}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-muted">No preference specified</span>
+                          )}
+                        </div>
+                      ) : c.scheduledDate ? (
                         <>
                           {formatDate(c.scheduledDate)}
                           {c.scheduledTime && ` at ${formatTime(c.scheduledTime)}`}
@@ -437,7 +595,11 @@ export default function AdminCasesPage() {
                       )}
                     </td>
                     <td>
-                      {c.isCancelled ? (
+                      {c.status === 'REQUESTED' ? (
+                        <span className="status-badge requested">Requested</span>
+                      ) : c.status === 'REJECTED' ? (
+                        <span className="status-badge rejected">Rejected</span>
+                      ) : c.isCancelled ? (
                         <span className="status-badge cancelled">Cancelled</span>
                       ) : c.isActive ? (
                         <span className="status-badge active">Active</span>
@@ -446,14 +608,29 @@ export default function AdminCasesPage() {
                       )}
                     </td>
                     <td className="actions-cell">
-                      {!c.isActive && !c.isCancelled && (
+                      {c.status === 'REQUESTED' && !c.isCancelled ? (
+                        <>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => startApproval(c)}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => startRejection(c)}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : !c.isActive && !c.isCancelled && c.status !== 'REJECTED' ? (
                         <button
                           className="btn btn-primary btn-sm"
                           onClick={() => startActivation(c)}
                         >
                           Activate
                         </button>
-                      )}
+                      ) : null}
                       {c.isActive && !c.isCancelled && c.status !== 'IN_PROGRESS' && c.status !== 'COMPLETED' && (
                         <button
                           className="btn btn-secondary btn-sm"
@@ -462,7 +639,7 @@ export default function AdminCasesPage() {
                           Deactivate
                         </button>
                       )}
-                      {!c.isCancelled && (
+                      {!c.isCancelled && c.status !== 'REJECTED' && (
                         <button
                           className="btn btn-danger btn-sm"
                           onClick={() => handleCancel(c.id)}
@@ -693,6 +870,27 @@ export default function AdminCasesPage() {
         .status-badge.cancelled {
           background: #fed7d7;
           color: #c53030;
+        }
+
+        .status-badge.requested {
+          background: #dbeafe;
+          color: #1e40af;
+        }
+
+        .status-badge.rejected {
+          background: #fee2e2;
+          color: #991b1b;
+        }
+
+        .requested-info {
+          color: #6b7280;
+          font-size: 0.875rem;
+          font-style: italic;
+        }
+
+        .rejected-row {
+          opacity: 0.7;
+          background: #fef2f2;
         }
 
         .actions-cell {

@@ -35,11 +35,13 @@ export type UserRole = z.infer<typeof UserRole>;
 
 export const CaseStatus = z.enum([
   'DRAFT',
+  'REQUESTED',
   'SCHEDULED',
   'READY',
   'IN_PROGRESS',
   'COMPLETED',
   'CANCELLED',
+  'REJECTED',
 ]);
 export type CaseStatus = z.infer<typeof CaseStatus>;
 

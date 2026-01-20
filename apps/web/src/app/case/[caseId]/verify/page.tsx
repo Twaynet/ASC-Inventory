@@ -378,14 +378,9 @@ function CaseVerificationContent() {
         </section>
 
         {/* Back to Case Dashboard */}
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={() => router.push(`/case/${caseId}`)} className="btn-secondary">
-            Back to Case Dashboard
-          </button>
-          <button onClick={() => router.back()} className="btn-secondary">
-            Back
-          </button>
-        </div>
+        <button onClick={() => router.push(`/case/${caseId}`)} className="btn-secondary">
+          Back to Case Dashboard
+        </button>
       </main>
     </>
   );

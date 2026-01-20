@@ -8,11 +8,13 @@ export interface SurgicalCase {
   facilityId: string;
   scheduledDate: string | null;
   scheduledTime: string | null;
+  requestedDate: string | null;
+  requestedTime: string | null;
   surgeonId: string;
   surgeonName?: string;
   procedureName: string;
   preferenceCardVersionId: string | null;
-  status: 'DRAFT' | 'SCHEDULED' | 'READY' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  status: 'DRAFT' | 'REQUESTED' | 'SCHEDULED' | 'READY' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED';
   notes: string | null;
   isActive: boolean;
   activatedAt: Date | null;
@@ -20,6 +22,9 @@ export interface SurgicalCase {
   isCancelled: boolean;
   cancelledAt: Date | null;
   cancelledByUserId: string | null;
+  rejectedAt: Date | null;
+  rejectedByUserId: string | null;
+  rejectionReason: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +43,8 @@ export interface CreateCaseData {
   facilityId: string;
   scheduledDate?: string | null;
   scheduledTime?: string | null;
+  requestedDate?: string | null;
+  requestedTime?: string | null;
   surgeonId: string;
   procedureName: string;
   preferenceCardVersionId?: string | null;
@@ -57,6 +64,15 @@ export interface UpdateCaseData {
 export interface ActivateCaseData {
   scheduledDate: string;
   scheduledTime?: string | null;
+}
+
+export interface ApproveCaseData {
+  scheduledDate: string;
+  scheduledTime?: string | null;
+}
+
+export interface RejectCaseData {
+  reason: string;
 }
 
 export interface CaseFilters {
@@ -81,6 +97,8 @@ export interface ICaseRepository {
   create(data: CreateCaseData): Promise<SurgicalCase>;
   update(id: string, facilityId: string, data: UpdateCaseData): Promise<SurgicalCase | null>;
   activate(id: string, facilityId: string, userId: string, data: ActivateCaseData): Promise<SurgicalCase | null>;
+  approve(id: string, facilityId: string, userId: string, data: ApproveCaseData): Promise<SurgicalCase | null>;
+  reject(id: string, facilityId: string, userId: string, data: RejectCaseData): Promise<SurgicalCase | null>;
   deactivate(id: string, facilityId: string): Promise<SurgicalCase | null>;
   cancel(id: string, facilityId: string, userId: string, reason?: string): Promise<SurgicalCase | null>;
 
