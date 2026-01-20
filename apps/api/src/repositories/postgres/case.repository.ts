@@ -18,6 +18,7 @@ import {
 
 interface CaseRow {
   id: string;
+  case_number: string;
   facility_id: string;
   scheduled_date: string | null;
   scheduled_time: string | null;
@@ -55,6 +56,7 @@ interface RequirementRow {
 function mapCaseRow(row: CaseRow): SurgicalCase {
   return {
     id: row.id,
+    caseNumber: row.case_number,
     facilityId: row.facility_id,
     scheduledDate: row.scheduled_date,
     scheduledTime: row.scheduled_time,
@@ -105,6 +107,18 @@ export class PostgresCaseRepository implements ICaseRepository {
     return mapCaseRow(result.rows[0]);
   }
 
+  async findByCaseNumber(caseNumber: string, facilityId: string): Promise<SurgicalCase | null> {
+    const result = await query<CaseRow>(`
+      SELECT c.*, u.name as surgeon_name
+      FROM surgical_case c
+      JOIN app_user u ON c.surgeon_id = u.id
+      WHERE c.case_number = $1 AND c.facility_id = $2
+    `, [caseNumber, facilityId]);
+
+    if (result.rows.length === 0) return null;
+    return mapCaseRow(result.rows[0]);
+  }
+
   async findMany(facilityId: string, filters?: CaseFilters): Promise<SurgicalCase[]> {
     let sql = `
       SELECT c.*, u.name as surgeon_name
@@ -130,6 +144,10 @@ export class PostgresCaseRepository implements ICaseRepository {
       sql += ` AND c.surgeon_id = $${params.length + 1}`;
       params.push(filters.surgeonId);
     }
+    if (filters?.search) {
+      sql += ` AND (c.case_number ILIKE $${params.length + 1} OR u.name ILIKE $${params.length + 1} OR c.procedure_name ILIKE $${params.length + 1})`;
+      params.push(`%${filters.search}%`);
+    }
 
     sql += ` ORDER BY c.scheduled_date NULLS LAST, c.scheduled_time NULLS LAST`;
 
@@ -140,10 +158,10 @@ export class PostgresCaseRepository implements ICaseRepository {
   async create(data: CreateCaseData): Promise<SurgicalCase> {
     const result = await query<CaseRow>(`
       INSERT INTO surgical_case (
-        facility_id, scheduled_date, scheduled_time, requested_date, requested_time,
+        facility_id, case_number, scheduled_date, scheduled_time, requested_date, requested_time,
         surgeon_id, procedure_name, preference_card_version_id, status, notes,
         is_active, is_cancelled
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'REQUESTED', $9, false, false)
+      ) VALUES ($1, generate_case_number($1), $2, $3, $4, $5, $6, $7, $8, 'REQUESTED', $9, false, false)
       RETURNING *, (SELECT name FROM app_user WHERE id = $6) as surgeon_name
     `, [
       data.facilityId,

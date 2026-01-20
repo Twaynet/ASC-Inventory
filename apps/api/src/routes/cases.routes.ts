@@ -23,6 +23,7 @@ import { getCaseRepository, SurgicalCase } from '../repositories/index.js';
 function formatCase(c: SurgicalCase) {
   return {
     id: c.id,
+    caseNumber: c.caseNumber,
     facilityId: c.facilityId,
     scheduledDate: c.scheduledDate,
     scheduledTime: c.scheduledTime,
@@ -53,20 +54,21 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * GET /cases
-   * List cases (with optional date filter)
+   * List cases (with optional filters)
    */
   fastify.get('/', {
     preHandler: [fastify.authenticate],
   }, async (request: FastifyRequest<{
-    Querystring: { date?: string; status?: string; active?: string };
+    Querystring: { date?: string; status?: string; active?: string; search?: string };
   }>, reply: FastifyReply) => {
     const { facilityId } = request.user;
-    const { date, status, active } = request.query;
+    const { date, status, active, search } = request.query;
 
     const cases = await caseRepo.findMany(facilityId, {
       date,
       status,
       active: active !== undefined ? active === 'true' : undefined,
+      search,
     });
 
     return reply.send({

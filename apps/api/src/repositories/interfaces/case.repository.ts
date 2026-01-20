@@ -5,6 +5,7 @@
 
 export interface SurgicalCase {
   id: string;
+  caseNumber: string;
   facilityId: string;
   scheduledDate: string | null;
   scheduledTime: string | null;
@@ -80,6 +81,7 @@ export interface CaseFilters {
   status?: string;
   active?: boolean;
   surgeonId?: string;
+  search?: string; // Search by case_number, surgeon name, or procedure name
 }
 
 export interface RequirementItem {
@@ -91,6 +93,7 @@ export interface RequirementItem {
 export interface ICaseRepository {
   // Case queries
   findById(id: string, facilityId: string): Promise<SurgicalCase | null>;
+  findByCaseNumber(caseNumber: string, facilityId: string): Promise<SurgicalCase | null>;
   findMany(facilityId: string, filters?: CaseFilters): Promise<SurgicalCase[]>;
 
   // Case mutations

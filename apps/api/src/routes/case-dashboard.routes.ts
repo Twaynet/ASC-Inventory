@@ -19,6 +19,7 @@ import { query } from '../db/index.js';
 
 interface CaseDashboardData {
   caseId: string;
+  caseNumber: string;
   facility: string;
   facilityId: string;
   scheduledDate: string;
@@ -99,6 +100,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     // Get case with all related data
     const caseResult = await query<{
       id: string;
+      case_number: string;
       facility_id: string;
       facility_name: string;
       scheduled_date: Date;
@@ -119,7 +121,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       case_card_version_id: string | null;
     }>(`
       SELECT
-        sc.id, sc.facility_id, f.name as facility_name,
+        sc.id, sc.case_number, sc.facility_id, f.name as facility_name,
         sc.scheduled_date, sc.scheduled_time,
         sc.surgeon_id, u.name as surgeon_name,
         sc.procedure_name, sc.status,
@@ -246,6 +248,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
     const dashboard: CaseDashboardData = {
       caseId: caseData.id,
+      caseNumber: caseData.case_number,
       facility: caseData.facility_name,
       facilityId: caseData.facility_id,
       scheduledDate: caseData.scheduled_date.toISOString().split('T')[0],

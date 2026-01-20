@@ -964,6 +964,7 @@ export async function activateUser(token: string, userId: string): Promise<{ suc
 
 export interface Case {
   id: string;
+  caseNumber: string;
   facilityId: string;
   scheduledDate: string | null;
   scheduledTime: string | null;
@@ -993,11 +994,12 @@ export interface ActivateCaseRequest {
   scheduledTime?: string;
 }
 
-export async function getCases(token: string, filters?: { date?: string; status?: string; active?: string }): Promise<{ cases: Case[] }> {
+export async function getCases(token: string, filters?: { date?: string; status?: string; active?: string; search?: string }): Promise<{ cases: Case[] }> {
   const params = new URLSearchParams();
   if (filters?.date) params.set('date', filters.date);
   if (filters?.status) params.set('status', filters.status);
   if (filters?.active !== undefined) params.set('active', filters.active);
+  if (filters?.search) params.set('search', filters.search);
   const query = params.toString() ? `?${params.toString()}` : '';
   return api(`/cases${query}`, { token });
 }
@@ -1028,6 +1030,14 @@ export async function approveCase(token: string, caseId: string, data: { schedul
 
 export async function rejectCase(token: string, caseId: string, reason: string): Promise<{ case: Case }> {
   return api(`/cases/${caseId}/reject`, { method: 'POST', body: { reason }, token });
+}
+
+export async function updateCase(
+  token: string,
+  caseId: string,
+  data: { procedureName?: string; surgeonId?: string }
+): Promise<{ case: Case }> {
+  return api(`/cases/${caseId}`, { method: 'PATCH', body: data, token });
 }
 
 // ============================================================================
@@ -1426,6 +1436,7 @@ export interface CaseDashboardOverride {
 
 export interface CaseDashboardData {
   caseId: string;
+  caseNumber: string;
   facility: string;
   facilityId: string;
   scheduledDate: string;

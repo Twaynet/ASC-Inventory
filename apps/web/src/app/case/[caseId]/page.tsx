@@ -14,12 +14,15 @@ import {
   getCaseEventLog,
   updateCaseSummary,
   updateCaseScheduling,
+  updateCase,
   getCaseCards,
   linkCaseCard,
+  getSurgeons,
   type CaseDashboardData,
   type CaseDashboardEventLogEntry,
   type AnesthesiaModality,
   type CaseCardSummary,
+  type User,
 } from '@/lib/api';
 
 const ANESTHESIA_MODALITIES: { value: AnesthesiaModality; label: string }[] = [
@@ -48,6 +51,7 @@ function CaseDashboardContent() {
   const [dashboard, setDashboard] = useState<CaseDashboardData | null>(null);
   const [eventLog, setEventLog] = useState<CaseDashboardEventLogEntry[]>([]);
   const [availableCaseCards, setAvailableCaseCards] = useState<CaseCardSummary[]>([]);
+  const [surgeons, setSurgeons] = useState<User[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -65,6 +69,10 @@ function CaseDashboardContent() {
 
   // Inline editing states
   const [isEditingScheduling, setIsEditingScheduling] = useState(false);
+  const [isEditingProcedure, setIsEditingProcedure] = useState(false);
+  const [isEditingSurgeon, setIsEditingSurgeon] = useState(false);
+  const [editProcedureName, setEditProcedureName] = useState('');
+  const [editSurgeonId, setEditSurgeonId] = useState('');
 
   // Override form state
   const [overrideForm, setOverrideForm] = useState({
@@ -113,18 +121,22 @@ function CaseDashboardContent() {
     setError('');
 
     try {
-      const [dashboardResult, eventLogResult, caseCardsResult] = await Promise.all([
+      const [dashboardResult, eventLogResult, caseCardsResult, surgeonsResult] = await Promise.all([
         getCaseDashboard(token, caseId),
         getCaseEventLog(token, caseId),
         getCaseCards(token, { status: 'ACTIVE' }),
+        getSurgeons(token),
       ]);
 
       setDashboard(dashboardResult.dashboard);
       setEventLog(eventLogResult.eventLog);
       setAvailableCaseCards(caseCardsResult.cards);
+      setSurgeons(surgeonsResult.users);
 
       // Initialize forms from dashboard data
       const d = dashboardResult.dashboard;
+      setEditProcedureName(d.procedureName);
+      setEditSurgeonId(d.surgeonId);
       setAnesthesiaForm({
         modalities: d.anesthesiaPlan?.modalities || [],
         airwayNotes: d.anesthesiaPlan?.airwayNotes || '',
@@ -278,6 +290,46 @@ function CaseDashboardContent() {
     setIsEditingScheduling(false);
   };
 
+  const handleUpdateProcedure = async () => {
+    if (!token || !caseId || !editProcedureName.trim()) return;
+
+    try {
+      await updateCase(token, caseId, { procedureName: editProcedureName.trim() });
+      setSuccessMessage('Procedure name updated');
+      setIsEditingProcedure(false);
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update procedure');
+    }
+  };
+
+  const handleCancelProcedureEdit = () => {
+    if (dashboard) {
+      setEditProcedureName(dashboard.procedureName);
+    }
+    setIsEditingProcedure(false);
+  };
+
+  const handleUpdateSurgeon = async () => {
+    if (!token || !caseId || !editSurgeonId) return;
+
+    try {
+      await updateCase(token, caseId, { surgeonId: editSurgeonId });
+      setSuccessMessage('Surgeon updated');
+      setIsEditingSurgeon(false);
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update surgeon');
+    }
+  };
+
+  const handleCancelSurgeonEdit = () => {
+    if (dashboard) {
+      setEditSurgeonId(dashboard.surgeonId);
+    }
+    setIsEditingSurgeon(false);
+  };
+
   const handleAddOverride = async () => {
     if (!token || !caseId) return;
     if (!overrideForm.target || !overrideForm.overrideValue || !overrideForm.reason) {
@@ -411,10 +463,64 @@ function CaseDashboardContent() {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <h1 style={{ margin: 0, fontSize: '1.5rem' }}>{dashboard.procedureName}</h1>
-              <p style={{ margin: '0.5rem 0', color: 'var(--text-muted)' }}>
-                {dashboard.surgeon} | {dashboard.facility}
-              </p>
+              {/* Procedure Name - Editable */}
+              {isEditingProcedure ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={editProcedureName}
+                    onChange={e => setEditProcedureName(e.target.value)}
+                    style={{ padding: '0.5rem', fontSize: '1.25rem', fontWeight: 'bold', width: '300px' }}
+                    autoFocus
+                  />
+                  <button onClick={handleUpdateProcedure} className="btn-small btn-primary">Save</button>
+                  <button onClick={handleCancelProcedureEdit} className="btn-small btn-secondary">Cancel</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => setIsEditingProcedure(true)}
+                    className="btn-primary"
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  >
+                    <span>✎</span> Edit
+                  </button>
+                  <h1 style={{ margin: 0, fontSize: '1.5rem' }}>{dashboard.procedureName}</h1>
+                </div>
+              )}
+
+              {/* Surgeon - Editable */}
+              {isEditingSurgeon ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.5rem 0' }}>
+                  <select
+                    value={editSurgeonId}
+                    onChange={e => setEditSurgeonId(e.target.value)}
+                    style={{ padding: '0.375rem', fontSize: '0.9rem' }}
+                  >
+                    {surgeons.map(s => (
+                      <option key={s.id} value={s.id}>Dr. {s.name}</option>
+                    ))}
+                  </select>
+                  <span style={{ color: 'var(--text-muted)' }}>| {dashboard.facility}</span>
+                  <button onClick={handleUpdateSurgeon} className="btn-small btn-primary">Save</button>
+                  <button onClick={handleCancelSurgeonEdit} className="btn-small btn-secondary">Cancel</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.5rem 0' }}>
+                  <button
+                    onClick={() => setIsEditingSurgeon(true)}
+                    className="btn-primary"
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  >
+                    <span>✎</span> Edit
+                  </button>
+                  <p style={{ margin: 0, color: 'var(--text-muted)' }}>
+                    {dashboard.surgeon} | {dashboard.facility}
+                  </p>
+                </div>
+              )}
+
+              {/* Scheduling - Editable */}
               {isEditingScheduling ? (
                 <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <strong>Scheduled:</strong>
@@ -447,30 +553,26 @@ function CaseDashboardContent() {
                   </button>
                 </div>
               ) : (
-                <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => setIsEditingScheduling(true)}
+                    className="btn-primary"
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  >
+                    <span>✎</span> Edit
+                  </button>
                   <p style={{ margin: 0 }}>
                     <strong>Scheduled:</strong> {new Date(dashboard.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                     {dashboard.scheduledTime && ` at ${dashboard.scheduledTime}`}
                     {dashboard.orRoom && ` | OR: ${dashboard.orRoom}`}
                   </p>
-                  <button
-                    onClick={() => setIsEditingScheduling(true)}
-                    className="btn-primary"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.375rem',
-                      padding: '0.375rem 0.75rem',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    <span>✎</span>
-                    Edit
-                  </button>
                 </div>
               )}
-              <p style={{ margin: '0.5rem 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Case ID: {dashboard.caseId}
+              <p style={{ margin: '0.5rem 0', fontSize: '0.95rem' }}>
+                <strong style={{ fontFamily: 'monospace', fontSize: '1.1rem' }}>{dashboard.caseNumber}</strong>
+                <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  (ID: {dashboard.caseId.slice(0, 8)}...)
+                </span>
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>

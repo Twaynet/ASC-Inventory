@@ -125,6 +125,7 @@ export default function CasesPage() {
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(c =>
+        c.caseNumber?.toLowerCase().includes(term) ||
         c.surgeonName?.toLowerCase().includes(term) ||
         c.procedureName.toLowerCase().includes(term)
       );
@@ -278,7 +279,7 @@ export default function CasesPage() {
             <div className="search-box">
               <input
                 type="text"
-                placeholder="Search by surgeon or procedure..."
+                placeholder="Search by case #, surgeon, or procedure..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input"
@@ -500,6 +501,7 @@ export default function CasesPage() {
                     {pendingCases.map((c) => (
                       <div key={c.id} className="pending-card">
                         <div className="pending-card-header">
+                          <span className="case-number">{c.caseNumber}</span>
                           <span className={getStatusBadgeClass(c.status)}>REQUESTED</span>
                         </div>
                         <div className="pending-card-body">
@@ -546,6 +548,7 @@ export default function CasesPage() {
                     <table className="data-table">
                       <thead>
                         <tr>
+                          <th>Case #</th>
                           <th>Status</th>
                           <th>Surgeon</th>
                           <th>Procedure</th>
@@ -556,6 +559,7 @@ export default function CasesPage() {
                       <tbody>
                         {otherCases.map((c) => (
                           <tr key={c.id}>
+                            <td className="case-number-cell">{c.caseNumber}</td>
                             <td>
                               <span className={getStatusBadgeClass(c.status)}>
                                 {c.status}
@@ -724,6 +728,23 @@ export default function CasesPage() {
           padding: 0.75rem 1rem;
           background: #f8fafc;
           border-bottom: 1px solid #e5e7eb;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .case-number {
+          font-family: monospace;
+          font-weight: 600;
+          color: #374151;
+          font-size: 0.875rem;
+        }
+
+        .case-number-cell {
+          font-family: monospace;
+          font-weight: 600;
+          color: #374151;
+          white-space: nowrap;
         }
 
         .pending-card-body {
