@@ -16,12 +16,15 @@ import {
   updateCaseScheduling,
   updateCase,
   getCaseCards,
+  getCaseCard,
   linkCaseCard,
   getSurgeons,
   type CaseDashboardData,
   type CaseDashboardEventLogEntry,
   type AnesthesiaModality,
   type CaseCardSummary,
+  type CaseCardDetail,
+  type CaseCardVersionData,
   type User,
 } from '@/lib/api';
 
@@ -66,6 +69,7 @@ function CaseDashboardContent() {
   const [showEventLogModal, setShowEventLogModal] = useState(false);
   const [showLinkCaseCardModal, setShowLinkCaseCardModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printingCard, setPrintingCard] = useState<{ card: CaseCardDetail; currentVersion: CaseCardVersionData | null } | null>(null);
 
   // Inline editing states
   const [isEditingScheduling, setIsEditingScheduling] = useState(false);
@@ -380,12 +384,23 @@ function CaseDashboardContent() {
     }
   };
 
-  const handlePrint = () => {
-    setShowPrintModal(true);
+  const handlePrintPreferenceCard = async () => {
+    if (!token || !dashboard?.caseCard) return;
+
+    try {
+      const result = await getCaseCard(token, dashboard.caseCard.id);
+      setPrintingCard(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load preference card for printing');
+    }
   };
 
   const executePrint = () => {
     window.print();
+  };
+
+  const handlePrint = () => {
+    setShowPrintModal(true);
   };
 
   if (isLoading || isLoadingData) {
@@ -862,10 +877,10 @@ function CaseDashboardContent() {
                 </button>
                 {dashboard.caseCard && (
                   <button
-                    onClick={() => router.push(`/preference-cards?id=${dashboard.caseCard!.id}`)}
+                    onClick={handlePrintPreferenceCard}
                     className="btn-secondary"
                   >
-                    View Preference Card
+                    Print Active Preference Card
                   </button>
                 )}
               </div>
@@ -1282,6 +1297,138 @@ function CaseDashboardContent() {
                     )}
                   </div>
                 </div>
+
+                <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#718096' }}>
+                  <span>Printed: {new Date().toLocaleString()}</span>
+                  <span>Facility: {user?.facilityName}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Print Preference Card Modal */}
+        {printingCard && (
+          <div className="modal-overlay print-modal-overlay" onClick={() => setPrintingCard(null)}>
+            <div className="modal-content print-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh', overflow: 'auto' }}>
+              <div className="modal-header no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0 }}>Print Preference Card</h3>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button className="btn-primary" onClick={executePrint}>Print</button>
+                  <button className="btn-secondary" onClick={() => setPrintingCard(null)}>Close</button>
+                </div>
+              </div>
+              <div className="print-content">
+                <div className="print-header" style={{ borderBottom: '2px solid #3182ce', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+                  <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.75rem' }}>{printingCard.card.procedureName}</h1>
+                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem' }}>
+                    <span><strong>Surgeon:</strong> {printingCard.card.surgeonName}</span>
+                    <span><strong>Version:</strong> v{printingCard.card.version}</span>
+                    <span><strong>Status:</strong> {printingCard.card.status}</span>
+                  </div>
+                  {printingCard.card.turnoverNotes && (
+                    <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#f7fafc', borderRadius: '4px', fontSize: '0.875rem' }}>
+                      <strong>Turnover Notes:</strong> {printingCard.card.turnoverNotes}
+                    </div>
+                  )}
+                </div>
+
+                {printingCard.currentVersion && (() => {
+                  const inst = printingCard.currentVersion.instrumentation as Record<string, unknown> | undefined;
+                  const equip = printingCard.currentVersion.equipment as Record<string, unknown> | undefined;
+                  const supp = printingCard.currentVersion.supplies as Record<string, unknown> | undefined;
+                  const meds = printingCard.currentVersion.medications as Record<string, unknown> | undefined;
+                  const setup = printingCard.currentVersion.setupPositioning as Record<string, unknown> | undefined;
+                  const notes = printingCard.currentVersion.surgeonNotes as Record<string, unknown> | undefined;
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {/* Instrumentation */}
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Instrumentation</h3>
+                        {inst && Object.values(inst).some(v => v) ? (
+                          <>
+                            {Boolean(inst.primaryTrays) && <div style={{ marginBottom: '0.5rem' }}><strong>Primary Trays:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(inst.primaryTrays)}</pre></div>}
+                            {Boolean(inst.supplementalTrays) && <div style={{ marginBottom: '0.5rem' }}><strong>Supplemental Trays:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(inst.supplementalTrays)}</pre></div>}
+                            {Boolean(inst.looseInstruments) && <div style={{ marginBottom: '0.5rem' }}><strong>Loose Instruments:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(inst.looseInstruments)}</pre></div>}
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                              {Boolean(inst.flashAllowed) && <span style={{ background: '#bee3f8', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>Flash Sterilization Allowed</span>}
+                              {Boolean(inst.peelPackOnly) && <span style={{ background: '#bee3f8', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>Peel Pack Only</span>}
+                            </div>
+                          </>
+                        ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No instrumentation documented</p>}
+                      </div>
+
+                      {/* Equipment */}
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Equipment</h3>
+                        {equip && Object.values(equip).some(v => v) ? (
+                          <>
+                            {Boolean(equip.energyDevices) && <div style={{ marginBottom: '0.5rem' }}><strong>Energy Devices:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(equip.energyDevices)}</pre></div>}
+                            {Boolean(equip.tourniquetLocation || equip.tourniquetPressure) && <div style={{ marginBottom: '0.5rem' }}><strong>Tourniquet:</strong> {String(equip.tourniquetLocation || '')} {equip.tourniquetPressure ? `@ ${equip.tourniquetPressure}` : ''}</div>}
+                            {Boolean(equip.imaging) && <div style={{ marginBottom: '0.5rem' }}><strong>Imaging:</strong> {String(equip.imaging)}</div>}
+                            {Boolean(equip.specializedDevices) && <div style={{ marginBottom: '0.5rem' }}><strong>Specialized Devices:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(equip.specializedDevices)}</pre></div>}
+                          </>
+                        ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No equipment documented</p>}
+                      </div>
+
+                      {/* Supplies */}
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Supplies</h3>
+                        {supp && Object.values(supp).some(v => v) ? (
+                          <>
+                            {Boolean(supp.gloves) && <div style={{ marginBottom: '0.5rem' }}><strong>Gloves:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(supp.gloves)}</pre></div>}
+                            {Boolean(supp.drapes) && <div style={{ marginBottom: '0.5rem' }}><strong>Drapes:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(supp.drapes)}</pre></div>}
+                            {Boolean(supp.implants) && <div style={{ marginBottom: '0.5rem' }}><strong>Implants:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(supp.implants)}</pre></div>}
+                            {Boolean(supp.sutures) && <div style={{ marginBottom: '0.5rem' }}><strong>Sutures:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(supp.sutures)}</pre></div>}
+                            {Boolean(supp.disposables) && <div style={{ marginBottom: '0.5rem' }}><strong>Disposables:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(supp.disposables)}</pre></div>}
+                          </>
+                        ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No supplies documented</p>}
+                      </div>
+
+                      {/* Medications */}
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Medications & Solutions</h3>
+                        {meds && Object.values(meds).some(v => v) ? (
+                          <>
+                            {Boolean(meds.localAnesthetic) && <div style={{ marginBottom: '0.5rem' }}><strong>Local Anesthetic:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(meds.localAnesthetic)}</pre></div>}
+                            {Boolean(meds.antibiotics) && <div style={{ marginBottom: '0.5rem' }}><strong>Antibiotics:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(meds.antibiotics)}</pre></div>}
+                            {Boolean(meds.irrigation) && <div style={{ marginBottom: '0.5rem' }}><strong>Irrigation:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(meds.irrigation)}</pre></div>}
+                            {Boolean(meds.topicalAgents) && <div style={{ marginBottom: '0.5rem' }}><strong>Topical Agents:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(meds.topicalAgents)}</pre></div>}
+                          </>
+                        ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No medications/solutions documented</p>}
+                      </div>
+
+                      {/* Setup & Positioning */}
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Setup & Positioning</h3>
+                        {setup && Object.values(setup).some(v => v) ? (
+                          <>
+                            {Boolean(setup.patientPosition) && <div style={{ marginBottom: '0.5rem' }}><strong>Patient Position:</strong> {String(setup.patientPosition)}</div>}
+                            {Boolean(setup.tableConfiguration) && <div style={{ marginBottom: '0.5rem' }}><strong>Table Configuration:</strong> {String(setup.tableConfiguration)}</div>}
+                            {Boolean(setup.paddingRequirements) && <div style={{ marginBottom: '0.5rem' }}><strong>Padding:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(setup.paddingRequirements)}</pre></div>}
+                            {Boolean(setup.mayoStandCount || setup.mayoStandPlacement) && <div style={{ marginBottom: '0.5rem' }}><strong>Mayo Stand:</strong> {setup.mayoStandCount ? `${setup.mayoStandCount}x` : ''} {String(setup.mayoStandPlacement || '')}</div>}
+                            {Boolean(setup.backTableNotes) && <div style={{ marginBottom: '0.5rem' }}><strong>Back Table:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(setup.backTableNotes)}</pre></div>}
+                            {Boolean(setup.orFlowNotes) && <div style={{ marginBottom: '0.5rem' }}><strong>OR Flow Notes:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(setup.orFlowNotes)}</pre></div>}
+                          </>
+                        ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No setup/positioning documented</p>}
+                      </div>
+
+                      {/* Surgeon Notes */}
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Surgeon Notes & Preferences</h3>
+                        {notes && Object.values(notes).some(v => v) ? (
+                          <>
+                            {Boolean(notes.preferences) && <div style={{ marginBottom: '0.5rem' }}><strong>Preferences:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(notes.preferences)}</pre></div>}
+                            {Boolean(notes.holdPrnItems) && <div style={{ marginBottom: '0.5rem' }}><strong>Hold / PRN Items:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(notes.holdPrnItems)}</pre></div>}
+                            {Boolean(notes.decisionTriggers) && <div style={{ marginBottom: '0.5rem' }}><strong>Decision Triggers:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(notes.decisionTriggers)}</pre></div>}
+                            {Boolean(notes.teachingModifiers) && <div style={{ marginBottom: '0.5rem' }}><strong>Teaching Case Modifiers:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(notes.teachingModifiers)}</pre></div>}
+                            {Boolean(notes.revisionAddOns) && <div style={{ marginBottom: '0.5rem' }}><strong>Revision-Only Add-Ons:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(notes.revisionAddOns)}</pre></div>}
+                          </>
+                        ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No surgeon notes/preferences documented</p>}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#718096' }}>
                   <span>Printed: {new Date().toLocaleString()}</span>
