@@ -14,7 +14,8 @@ export interface JwtPayload {
   username: string;
   email: string | null;
   name: string;
-  role: UserRole;
+  role: UserRole; // Primary role (backward compat)
+  roles: UserRole[]; // All assigned roles
 }
 
 // Extend @fastify/jwt module to type the user property
@@ -57,8 +58,11 @@ export function requireRoles(...allowedRoles: UserRole[]) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
-    // Then check role
-    if (!allowedRoles.includes(request.user.role)) {
+    // Check if ANY of the user's roles match any allowed role
+    const userRoles = request.user.roles || [request.user.role]; // Fallback for backward compat
+    const hasAllowedRole = userRoles.some(role => allowedRoles.includes(role));
+
+    if (!hasAllowedRole) {
       return reply.status(403).send({
         error: 'Forbidden',
         message: `Required roles: ${allowedRoles.join(', ')}`,

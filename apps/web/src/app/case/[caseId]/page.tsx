@@ -849,9 +849,9 @@ function CaseDashboardContent() {
             <div>
               <div className="form-group" style={{ marginBottom: '1rem' }}>
                 <label>Modality * <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply)</span></label>
-                <div className="modality-checkboxes">
+                <div className="pill-toggle-group">
                   {ANESTHESIA_MODALITIES.map(m => (
-                    <label key={m.value} className="checkbox-label">
+                    <label key={m.value} className="pill-toggle">
                       <input
                         type="checkbox"
                         checked={anesthesiaForm.modalities.includes(m.value)}

@@ -37,7 +37,8 @@ export const LoginResponseSchema = z.object({
     username: z.string(),
     email: z.string().email().nullable(),
     name: z.string(),
-    role: UserRole,
+    role: UserRole, // Primary role (backward compat)
+    roles: z.array(UserRole), // All assigned roles
     facilityId: z.string().uuid(),
     facilityName: z.string(),
   }),
@@ -55,10 +56,21 @@ export const CreateUserRequestSchema = z.object({
   username: z.string().min(3).max(100).regex(usernameRegex, 'Username can only contain letters, numbers, underscores, dots, and hyphens'),
   email: z.string().email().optional(),
   name: z.string().min(1).max(255),
-  role: UserRole,
+  role: UserRole.optional(), // Keep for backward compat
+  roles: z.array(UserRole).min(1).optional(), // New: array of roles
   password: z.string().min(8),
 }).refine(
-  (data) => data.role !== 'ADMIN' || data.email,
+  (data) => {
+    // Require at least one role source
+    return data.role || (data.roles && data.roles.length > 0);
+  },
+  { message: 'At least one role is required', path: ['roles'] }
+).refine(
+  (data) => {
+    // If ADMIN is among roles, require email
+    const allRoles = data.roles || (data.role ? [data.role] : []);
+    return !allRoles.includes('ADMIN') || data.email;
+  },
   { message: 'Email is required for ADMIN role', path: ['email'] }
 );
 export type CreateUserRequest = z.infer<typeof CreateUserRequestSchema>;
@@ -67,7 +79,8 @@ export const UpdateUserRequestSchema = z.object({
   username: z.string().min(3).max(100).regex(usernameRegex, 'Username can only contain letters, numbers, underscores, dots, and hyphens').optional(),
   email: z.string().email().nullable().optional(),
   name: z.string().min(1).max(255).optional(),
-  role: UserRole.optional(),
+  role: UserRole.optional(), // Keep for backward compat
+  roles: z.array(UserRole).min(1).optional(), // New: array of roles
   password: z.string().min(8).optional(),
 });
 export type UpdateUserRequest = z.infer<typeof UpdateUserRequestSchema>;
@@ -77,7 +90,8 @@ export const UserResponseSchema = z.object({
   username: z.string(),
   email: z.string().email().nullable(),
   name: z.string(),
-  role: UserRole,
+  role: UserRole, // Primary role (backward compat)
+  roles: z.array(UserRole), // All assigned roles
   active: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),

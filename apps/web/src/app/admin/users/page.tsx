@@ -15,7 +15,7 @@ import {
   type UpdateUserRequest,
 } from '@/lib/api';
 
-const ROLES = ['ADMIN', 'SCHEDULER', 'INVENTORY_TECH', 'CIRCULATOR', 'SCRUB', 'SURGEON'];
+const ROLES = ['ADMIN', 'SCHEDULER', 'INVENTORY_TECH', 'CIRCULATOR', 'SCRUB', 'SURGEON', 'ANESTHESIA'];
 
 export default function AdminUsersPage() {
   const { user, token, isLoading, logout } = useAuth();
@@ -63,7 +63,13 @@ export default function AdminUsersPage() {
     if (!token) return;
 
     try {
-      await createUser(token, formData as CreateUserRequest);
+      // Use roles array instead of single role
+      const createData = {
+        ...formData,
+        roles: formData.roles || [],
+      } as CreateUserRequest;
+      delete (createData as any).role; // Remove old single role field
+      await createUser(token, createData);
       setSuccessMessage('User created successfully');
       setShowCreateForm(false);
       setFormData({});
@@ -88,8 +94,18 @@ export default function AdminUsersPage() {
       if (formData.email !== editingUser.email) {
         updateData.email = formData.email || null;
       }
-      if (formData.role && formData.role !== editingUser.role) {
-        updateData.role = formData.role;
+      // Compare roles arrays - ensure existingRoles is always an array
+      let existingRoles: string[];
+      if (Array.isArray(editingUser.roles)) {
+        existingRoles = editingUser.roles;
+      } else if (typeof editingUser.roles === 'string') {
+        existingRoles = (editingUser.roles as string).replace(/[{}]/g, '').split(',').filter(Boolean);
+      } else {
+        existingRoles = [editingUser.role];
+      }
+      const newRoles = formData.roles || [];
+      if (JSON.stringify([...newRoles].sort()) !== JSON.stringify([...existingRoles].sort())) {
+        updateData.roles = newRoles;
       }
       if (formData.password) {
         updateData.password = formData.password;
@@ -132,11 +148,20 @@ export default function AdminUsersPage() {
 
   const startEdit = (u: User) => {
     setEditingUser(u);
+    // Ensure roles is always an array
+    let editRoles: string[];
+    if (Array.isArray(u.roles)) {
+      editRoles = u.roles;
+    } else if (typeof u.roles === 'string') {
+      editRoles = (u.roles as string).replace(/[{}]/g, '').split(',').filter(Boolean);
+    } else {
+      editRoles = [u.role];
+    }
     setFormData({
       username: u.username,
       name: u.name,
       email: u.email || '',
-      role: u.role,
+      roles: editRoles,
       password: '',
     });
     setShowCreateForm(false);
@@ -146,7 +171,16 @@ export default function AdminUsersPage() {
     return <div className="loading">Loading...</div>;
   }
 
-  if (user.role !== 'ADMIN') {
+  // Check if user has ADMIN role (support both roles array and legacy single role)
+  let currentUserRoles: string[];
+  if (Array.isArray(user.roles)) {
+    currentUserRoles = user.roles;
+  } else if (typeof user.roles === 'string') {
+    currentUserRoles = (user.roles as string).replace(/[{}]/g, '').split(',').filter(Boolean);
+  } else {
+    currentUserRoles = [user.role];
+  }
+  if (!currentUserRoles.includes('ADMIN')) {
     return (
       <>
         <Header title="User Management" />
@@ -177,7 +211,7 @@ export default function AdminUsersPage() {
             onClick={() => {
               setShowCreateForm(true);
               setEditingUser(null);
-              setFormData({});
+              setFormData({ roles: [] });
             }}
           >
             + Add User
@@ -221,28 +255,40 @@ export default function AdminUsersPage() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Email {formData.role === 'ADMIN' && '*'}</label>
+                  <label>Email {(formData.roles || []).includes('ADMIN') && '*'}</label>
                   <input
                     type="email"
                     value={formData.email || ''}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required={formData.role === 'ADMIN'}
+                    required={(formData.roles || []).includes('ADMIN')}
                     placeholder="email@facility.com"
                   />
                   <small>Required for ADMIN role</small>
                 </div>
                 <div className="form-group">
-                  <label>Role *</label>
-                  <select
-                    value={formData.role || ''}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    required={!editingUser}
-                  >
-                    <option value="">Select role...</option>
+                  <label>Roles *</label>
+                  <div className="pill-toggle-group">
                     {ROLES.map(r => (
-                      <option key={r} value={r}>{r}</option>
+                      <label key={r} className="pill-toggle">
+                        <input
+                          type="checkbox"
+                          checked={(formData.roles || []).includes(r)}
+                          onChange={(e) => {
+                            const currentRoles = formData.roles || [];
+                            if (e.target.checked) {
+                              setFormData({ ...formData, roles: [...currentRoles, r] });
+                            } else {
+                              setFormData({ ...formData, roles: currentRoles.filter(role => role !== r) });
+                            }
+                          }}
+                        />
+                        {r.replace('_', ' ')}
+                      </label>
                     ))}
-                  </select>
+                  </div>
+                  {!editingUser && (!formData.roles || formData.roles.length === 0) && (
+                    <small className="form-hint">Select at least one role</small>
+                  )}
                 </div>
               </div>
               <div className="form-group">
@@ -293,15 +339,28 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {users.map((u) => {
+                  // Ensure userRoles is always an array
+                  let userRoles: string[];
+                  if (Array.isArray(u.roles)) {
+                    userRoles = u.roles;
+                  } else if (typeof u.roles === 'string') {
+                    // Handle PostgreSQL array format like "{ADMIN,SCRUB}"
+                    userRoles = u.roles.replace(/[{}]/g, '').split(',').filter(Boolean);
+                  } else {
+                    userRoles = [u.role];
+                  }
+                  return (
                   <tr key={u.id} className={!u.active ? 'inactive-row' : ''}>
                     <td className="username">{u.username}</td>
                     <td>{u.name}</td>
                     <td>{u.email || '-'}</td>
-                    <td>
-                      <span className={`role-badge role-${u.role.toLowerCase()}`}>
-                        {u.role}
-                      </span>
+                    <td className="roles-cell">
+                      {userRoles.map(r => (
+                        <span key={r} className={`role-badge role-${r.toLowerCase()}`}>
+                          {r}
+                        </span>
+                      ))}
                     </td>
                     <td>
                       <span className={`status-badge ${u.active ? 'active' : 'inactive'}`}>
@@ -334,7 +393,8 @@ export default function AdminUsersPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>

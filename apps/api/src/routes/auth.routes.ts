@@ -8,6 +8,17 @@ import { query } from '../db/index.js';
 import { LoginRequestSchema } from '../schemas/index.js';
 import type { JwtPayload } from '../plugins/auth.js';
 
+// Helper to normalize roles to always be an array
+function normalizeRoles(roles: string[] | string | undefined, fallbackRole: string): string[] {
+  if (Array.isArray(roles)) {
+    return roles;
+  } else if (typeof roles === 'string') {
+    return roles.replace(/[{}]/g, '').split(',').filter(Boolean);
+  } else {
+    return [fallbackRole];
+  }
+}
+
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * POST /auth/login
@@ -49,10 +60,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       email: string | null;
       name: string;
       role: string;
+      roles: string[];
       password_hash: string;
       active: boolean;
     }>(`
-      SELECT u.id, u.facility_id, u.username, u.email, u.name, u.role, u.password_hash, u.active
+      SELECT u.id, u.facility_id, u.username, u.email, u.name, u.role, u.roles, u.password_hash, u.active
       FROM app_user u
       WHERE u.facility_id = $1 AND LOWER(u.username) = LOWER($2)
     `, [facility.id, username]);
@@ -75,6 +87,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const facilityName = facility.name;
 
+    // Get roles (normalize to array)
+    const userRoles = normalizeRoles(user.roles, user.role);
+
     // Generate JWT
     const payload: JwtPayload = {
       userId: user.id,
@@ -82,7 +97,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       username: user.username,
       email: user.email,
       name: user.name,
-      role: user.role as any,
+      role: userRoles[0] as any, // Primary role (first in array)
+      roles: userRoles as any[],
     };
 
     const token = fastify.jwt.sign(payload);
@@ -94,7 +110,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         username: user.username,
         email: user.email,
         name: user.name,
-        role: user.role,
+        role: userRoles[0], // Primary role (backward compat)
+        roles: userRoles,
         facilityId: user.facility_id,
         facilityName,
       },
@@ -112,13 +129,17 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT name FROM facility WHERE id = $1
     `, [request.user.facilityId]);
 
+    // Get roles (normalize to array)
+    const userRoles = normalizeRoles(request.user.roles, request.user.role);
+
     return reply.send({
       user: {
         id: request.user.userId,
         username: request.user.username,
         email: request.user.email,
         name: request.user.name,
-        role: request.user.role,
+        role: userRoles[0], // Primary role (backward compat)
+        roles: userRoles,
         facilityId: request.user.facilityId,
         facilityName: facilityResult.rows[0]?.name || 'Unknown',
       },

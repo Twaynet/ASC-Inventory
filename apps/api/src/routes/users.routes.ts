@@ -19,9 +19,21 @@ interface UserRow {
   email: string | null;
   name: string;
   role: string;
+  roles: string[] | string;
   active: boolean;
   created_at: Date;
   updated_at: Date;
+}
+
+// Helper to normalize roles to always be an array
+function normalizeRoles(roles: string[] | string | undefined, fallbackRole: string): string[] {
+  if (Array.isArray(roles)) {
+    return roles;
+  } else if (typeof roles === 'string') {
+    return roles.replace(/[{}]/g, '').split(',').filter(Boolean);
+  } else {
+    return [fallbackRole];
+  }
 }
 
 export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
@@ -36,7 +48,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const includeInactive = request.query.includeInactive === 'true';
 
     let sql = `
-      SELECT id, facility_id, username, email, name, role, active, created_at, updated_at
+      SELECT id, facility_id, username, email, name, role, roles, active, created_at, updated_at
       FROM app_user
       WHERE facility_id = $1
     `;
@@ -50,16 +62,20 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const result = await query<UserRow>(sql, [facilityId]);
 
     return reply.send({
-      users: result.rows.map(row => ({
-        id: row.id,
-        username: row.username,
-        email: row.email,
-        name: row.name,
-        role: row.role,
-        active: row.active,
-        createdAt: row.created_at.toISOString(),
-        updatedAt: row.updated_at.toISOString(),
-      })),
+      users: result.rows.map(row => {
+        const userRoles = normalizeRoles(row.roles, row.role);
+        return {
+          id: row.id,
+          username: row.username,
+          email: row.email,
+          name: row.name,
+          role: userRoles[0], // Primary role (backward compat)
+          roles: userRoles,
+          active: row.active,
+          createdAt: row.created_at.toISOString(),
+          updatedAt: row.updated_at.toISOString(),
+        };
+      }),
     });
   });
 
@@ -100,7 +116,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const { facilityId } = request.user;
 
     const result = await query<UserRow>(`
-      SELECT id, facility_id, username, email, name, role, active, created_at, updated_at
+      SELECT id, facility_id, username, email, name, role, roles, active, created_at, updated_at
       FROM app_user
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
@@ -110,13 +126,15 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const row = result.rows[0];
+    const userRoles = normalizeRoles(row.roles, row.role);
     return reply.send({
       user: {
         id: row.id,
         username: row.username,
         email: row.email,
         name: row.name,
-        role: row.role,
+        role: userRoles[0], // Primary role (backward compat)
+        roles: userRoles,
         active: row.active,
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
@@ -155,21 +173,27 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     // Hash password
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    // Create user
+    // Handle roles: use array if provided, otherwise use single role
+    const userRoles = data.roles || [data.role];
+    const primaryRole = userRoles[0];
+
+    // Create user with both role and roles columns
     const result = await query<UserRow>(`
-      INSERT INTO app_user (facility_id, username, email, name, role, password_hash, active)
-      VALUES ($1, $2, $3, $4, $5, $6, true)
-      RETURNING id, facility_id, username, email, name, role, active, created_at, updated_at
-    `, [facilityId, data.username, data.email || null, data.name, data.role, passwordHash]);
+      INSERT INTO app_user (facility_id, username, email, name, role, roles, password_hash, active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+      RETURNING id, facility_id, username, email, name, role, roles, active, created_at, updated_at
+    `, [facilityId, data.username, data.email || null, data.name, primaryRole, userRoles, passwordHash]);
 
     const row = result.rows[0];
+    const resultRoles = normalizeRoles(row.roles, row.role);
     return reply.status(201).send({
       user: {
         id: row.id,
         username: row.username,
         email: row.email,
         name: row.name,
-        role: row.role,
+        role: resultRoles[0], // Primary role (backward compat)
+        roles: resultRoles,
         active: row.active,
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
@@ -198,17 +222,21 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const data = parseResult.data;
 
     // Check user exists
-    const existingResult = await query<{ role: string }>(`
-      SELECT role FROM app_user WHERE id = $1 AND facility_id = $2
+    const existingResult = await query<{ role: string; roles: string[] }>(`
+      SELECT role, roles FROM app_user WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
     if (existingResult.rows.length === 0) {
       return reply.status(404).send({ error: 'User not found' });
     }
 
-    // If updating to ADMIN, require email
-    const newRole = data.role || existingResult.rows[0].role;
-    if (newRole === 'ADMIN' && data.email === null) {
+    // Determine new roles
+    const existingRoles = normalizeRoles(existingResult.rows[0].roles, existingResult.rows[0].role);
+    const newRoles = data.roles || (data.role ? [data.role] : existingRoles);
+    const primaryRole = newRoles[0];
+
+    // If any role is ADMIN, require email
+    if (newRoles.includes('ADMIN') && data.email === null) {
       return reply.status(400).send({ error: 'Email is required for ADMIN role' });
     }
 
@@ -241,9 +269,12 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       updates.push(`name = $${paramIndex++}`);
       values.push(data.name);
     }
-    if (data.role !== undefined) {
+    // Handle roles update (both role and roles columns)
+    if (data.roles !== undefined || data.role !== undefined) {
       updates.push(`role = $${paramIndex++}`);
-      values.push(data.role);
+      values.push(primaryRole);
+      updates.push(`roles = $${paramIndex++}`);
+      values.push(newRoles);
     }
     if (data.password !== undefined) {
       const passwordHash = await bcrypt.hash(data.password, 10);
@@ -261,7 +292,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       UPDATE app_user
       SET ${updates.join(', ')}, updated_at = NOW()
       WHERE id = $${paramIndex++} AND facility_id = $${paramIndex}
-      RETURNING id, facility_id, username, email, name, role, active, created_at, updated_at
+      RETURNING id, facility_id, username, email, name, role, roles, active, created_at, updated_at
     `, values);
 
     if (result.rows.length === 0) {
@@ -269,13 +300,15 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const row = result.rows[0];
+    const resultRoles = normalizeRoles(row.roles, row.role);
     return reply.send({
       user: {
         id: row.id,
         username: row.username,
         email: row.email,
         name: row.name,
-        role: row.role,
+        role: resultRoles[0], // Primary role (backward compat)
+        roles: resultRoles,
         active: row.active,
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),

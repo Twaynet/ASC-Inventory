@@ -96,8 +96,8 @@ export function useAccessControl() {
       };
     }
 
-    // Convert single role to roles array (backward compatibility)
-    const roles = normalizeRoles(user.role);
+    // Use roles array if available, fall back to single role for backward compat
+    const roles = user.roles ? normalizeRoles(user.roles) : normalizeRoles(user.role);
     const capabilities = deriveCapabilities(roles);
     const features = getAccessibleFeatures(roles, capabilities);
     const debugInfo = generateDebugInfo(roles, capabilities);

@@ -46,7 +46,8 @@ export interface LoginResponse {
     username: string;
     email: string | null;
     name: string;
-    role: string;
+    role: string; // Primary role (backward compat)
+    roles: string[]; // All assigned roles
     facilityId: string;
     facilityName: string;
   };
@@ -912,7 +913,8 @@ export interface User {
   username: string;
   email: string | null;
   name: string;
-  role: string;
+  role: string; // Primary role (backward compat)
+  roles: string[]; // All assigned roles
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -922,7 +924,8 @@ export interface CreateUserRequest {
   username: string;
   email?: string;
   name: string;
-  role: string;
+  role?: string; // Single role (backward compat)
+  roles?: string[]; // Multiple roles (preferred)
   password: string;
 }
 
@@ -930,7 +933,8 @@ export interface UpdateUserRequest {
   username?: string;
   email?: string | null;
   name?: string;
-  role?: string;
+  role?: string; // Single role (backward compat)
+  roles?: string[]; // Multiple roles (preferred)
   password?: string;
 }
 
