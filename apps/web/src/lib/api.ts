@@ -135,6 +135,7 @@ export interface CalendarCaseSummary {
   procedureName: string;
   surgeonName: string;
   readinessState: 'GREEN' | 'ORANGE' | 'RED';
+  isActive: boolean;
 }
 
 export interface CalendarSummaryResponse {
@@ -1445,6 +1446,7 @@ export interface CaseDashboardData {
   surgeonId: string;
   procedureName: string;
   status: string;
+  isActive: boolean;
   attestationState: AttestationState;
   attestedBy: string | null;
   attestedAt: string | null;

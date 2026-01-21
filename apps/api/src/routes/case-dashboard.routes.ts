@@ -13,6 +13,18 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { query } from '../db/index.js';
 
+/**
+ * Format a Date to YYYY-MM-DD string without timezone conversion.
+ * PostgreSQL DATE columns are returned at midnight UTC, so we need to
+ * extract the UTC date components to avoid day shifts.
+ */
+function formatDateLocal(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -28,6 +40,7 @@ interface CaseDashboardData {
   surgeonId: string;
   procedureName: string;
   status: string;
+  isActive: boolean;
   attestationState: string;
   attestedBy: string | null;
   attestedAt: string | null;
@@ -109,6 +122,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       surgeon_name: string;
       procedure_name: string;
       status: string;
+      is_active: boolean;
       attestation_state: string;
       attestation_void_reason: string | null;
       estimated_duration_minutes: number | null;
@@ -124,7 +138,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
         sc.id, sc.case_number, sc.facility_id, f.name as facility_name,
         sc.scheduled_date, sc.scheduled_time,
         sc.surgeon_id, u.name as surgeon_name,
-        sc.procedure_name, sc.status,
+        sc.procedure_name, sc.status, sc.is_active,
         sc.attestation_state, sc.attestation_void_reason,
         sc.estimated_duration_minutes, sc.laterality,
         sc.or_room, sc.scheduler_notes,
@@ -251,12 +265,13 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       caseNumber: caseData.case_number,
       facility: caseData.facility_name,
       facilityId: caseData.facility_id,
-      scheduledDate: caseData.scheduled_date.toISOString().split('T')[0],
+      scheduledDate: formatDateLocal(caseData.scheduled_date),
       scheduledTime: caseData.scheduled_time,
       surgeon: caseData.surgeon_name,
       surgeonId: caseData.surgeon_id,
       procedureName: caseData.procedure_name,
       status: caseData.status,
+      isActive: caseData.is_active,
       attestationState: caseData.attestation_state,
       attestedBy: attestationResult.rows[0]?.attested_by_name || null,
       attestedAt: attestationResult.rows[0]?.created_at?.toISOString() || null,
@@ -797,7 +812,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       return reply.status(404).send({ error: 'Case not found' });
     }
 
-    const previousDate = caseResult.rows[0].scheduled_date.toISOString().split('T')[0];
+    const previousDate = formatDateLocal(caseResult.rows[0].scheduled_date);
     const previousTime = caseResult.rows[0].scheduled_time;
     const previousRoom = caseResult.rows[0].or_room;
 

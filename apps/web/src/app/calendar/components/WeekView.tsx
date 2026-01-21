@@ -27,7 +27,11 @@ function getWeekDays(date: Date): Date[] {
 }
 
 function formatDateKey(date: Date): string {
-  return date.toISOString().split('T')[0];
+  // Use local date to avoid timezone shifts
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function formatTime(timeStr: string | null): string {
@@ -106,12 +110,13 @@ export function WeekView({
                   dayCases.map((c) => (
                     <div
                       key={c.caseId}
-                      className={`case-badge status-${c.readinessState.toLowerCase()}`}
+                      className={`case-badge ${c.isActive ? `status-${c.readinessState.toLowerCase()}` : 'inactive'}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleCaseClick(c.caseId);
                       }}
                     >
+                      {!c.isActive && <div className="case-badge-inactive-label">INACTIVE</div>}
                       <div className="case-badge-time">{formatTime(c.scheduledTime)}</div>
                       <div className="case-badge-name">{c.procedureName}</div>
                       <div className="case-badge-surgeon">Dr. {c.surgeonName}</div>

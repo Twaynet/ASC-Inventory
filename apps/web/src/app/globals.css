@@ -1583,10 +1583,10 @@ body {
   letter-spacing: 0.5px;
 }
 
-.case-status-banner.pending-approval {
-  background: var(--color-gray-200);
-  color: var(--color-gray-700);
-  border-bottom: 1px solid var(--color-gray-300);
+.case-status-banner.inactive {
+  background: var(--color-gray-500);
+  color: white;
+  border-bottom: 1px solid var(--color-gray-600);
 }
 
 .case-status-banner.cancelled {
@@ -1594,19 +1594,44 @@ body {
   color: white;
 }
 
-/* Inactive case styling */
+/* Inactive case styling - btn-secondary grey appearance */
 .procedure-card.inactive-case {
-  opacity: 0.7;
-  border-left-color: var(--color-gray-400) !important;
+  opacity: 1;
+  border-left: 4px solid var(--color-gray-500) !important;
+  background: var(--color-gray-200);
+  box-shadow: none;
 }
 
 .procedure-card.inactive-case .procedure-card-header {
-  background: var(--color-gray-100);
+  background: var(--color-gray-300);
+  color: var(--color-gray-700);
+}
+
+.procedure-card.inactive-case .procedure-card-header:hover {
+  background: var(--color-gray-400);
+}
+
+.procedure-card.inactive-case .procedure-card-info h3 {
+  color: var(--color-gray-700);
+}
+
+.procedure-card.inactive-case .procedure-card-info p {
+  color: var(--color-gray-600);
 }
 
 .procedure-card.inactive-case .readiness-badge {
+  background: var(--color-gray-500);
+  color: white;
+}
+
+.procedure-card.inactive-case .procedure-card-body {
   background: var(--color-gray-200);
-  color: var(--color-gray-500);
+  color: var(--color-gray-600);
+}
+
+.procedure-card.inactive-case .procedure-card-footer {
+  background: var(--color-gray-300);
+  border-top-color: var(--color-gray-400);
 }
 
 /* Cancelled case styling */
@@ -1964,6 +1989,28 @@ body {
 .case-badge.status-red {
   border-left-color: var(--color-red);
   background: var(--color-red-bg);
+}
+
+.case-badge.inactive {
+  border-left-color: var(--color-gray-500);
+  background: var(--color-gray-300);
+}
+
+.case-badge.inactive .case-badge-name,
+.case-badge.inactive .case-badge-time,
+.case-badge.inactive .case-badge-surgeon {
+  color: var(--color-gray-600);
+}
+
+.case-badge-inactive-label {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--color-gray-700);
+  background: var(--color-gray-400);
+  padding: 0.125rem 0.25rem;
+  border-radius: 2px;
+  margin-bottom: 0.25rem;
+  display: inline-block;
 }
 
 .case-badge-time {

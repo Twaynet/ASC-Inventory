@@ -21,6 +21,42 @@ import {
 } from '@asc/domain';
 
 // ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Format a Date to YYYY-MM-DD string without timezone conversion.
+ * PostgreSQL DATE columns are returned at midnight UTC, so we need to
+ * extract the date components directly to avoid day shifts.
+ */
+function formatDateLocal(date: Date): string {
+  // For PostgreSQL DATE columns, the date is stored without timezone
+  // When retrieved, it comes as midnight UTC. We want the UTC date parts.
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Parse a date string (YYYY-MM-DD) to a Date at midnight UTC.
+ * This ensures consistent handling when passing to PostgreSQL.
+ */
+function parseDateUTC(dateStr: string): Date {
+  return new Date(dateStr + 'T00:00:00.000Z');
+}
+
+/**
+ * Normalize a date input to both string and Date formats.
+ */
+function normalizeDateInput(input: Date | string): { dateStr: string; dateObj: Date } {
+  if (typeof input === 'string') {
+    return { dateStr: input, dateObj: parseDateUTC(input) };
+  }
+  return { dateStr: formatDateLocal(input), dateObj: input };
+}
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -50,8 +86,9 @@ interface CaseReadinessCacheRow {
 
 async function getCasesForDate(
   facilityId: string,
-  targetDate: Date
+  targetDate: Date | string
 ): Promise<CaseForReadiness[]> {
+  const dateStr = typeof targetDate === 'string' ? targetDate : formatDateLocal(targetDate);
   const result = await query<{
     id: string;
     facility_id: string;
@@ -66,7 +103,7 @@ async function getCasesForDate(
       AND scheduled_date = $2
       AND status NOT IN ('CANCELLED', 'COMPLETED')
     ORDER BY scheduled_time NULLS LAST, created_at
-  `, [facilityId, targetDate]);
+  `, [facilityId, dateStr]);
 
   return result.rows.map(row => ({
     id: row.id as CaseId,
@@ -281,16 +318,19 @@ async function getUserName(userId: string): Promise<string | undefined> {
 
 /**
  * Compute readiness for all cases on a given date (day-before query)
+ * @param targetDate - Date string (YYYY-MM-DD) or Date object
  */
 export async function computeDayBeforeReadiness(
   facilityId: string,
-  targetDate: Date
+  targetDate: Date | string
 ): Promise<{
   cases: ReadinessOutput[];
   surgeonNames: Map<string, string>;
 }> {
+  const { dateStr, dateObj } = normalizeDateInput(targetDate);
+
   // Fetch all required data
-  const cases = await getCasesForDate(facilityId, targetDate);
+  const cases = await getCasesForDate(facilityId, dateStr);
   const caseIds = cases.map(c => c.id);
 
   const [requirementsByCase, catalog, inventory, attestationsByCase, surgeons] = await Promise.all([
@@ -301,9 +341,8 @@ export async function computeDayBeforeReadiness(
     getSurgeons(facilityId),
   ]);
 
-  // Calculate cutoff (case date at start of day in facility timezone)
-  const cutoffDate = new Date(targetDate);
-  cutoffDate.setHours(0, 0, 0, 0);
+  // Calculate cutoff (case date at start of day in UTC)
+  const cutoffDate = dateObj;
 
   // Use pure domain logic for evaluation
   const results = evaluateBatchReadiness({
@@ -327,20 +366,23 @@ export async function computeDayBeforeReadiness(
 
 /**
  * Update the case_readiness_cache table
+ * @param targetDate - Date string (YYYY-MM-DD) or Date object
  */
 export async function updateReadinessCache(
   facilityId: string,
-  targetDate: Date
+  targetDate: Date | string
 ): Promise<void> {
+  const { dateStr, dateObj } = normalizeDateInput(targetDate);
+
   const { cases: readinessResults, surgeonNames } = await computeDayBeforeReadiness(
     facilityId,
-    targetDate
+    dateStr
   );
 
   // Get attestation info
   const attestationInfo = new Map<string, { name: string; id: string }>();
   const surgeonAckInfo = new Map<string, { id: string }>();
-  const casesForDate = await getCasesForDate(facilityId, targetDate);
+  const casesForDate = await getCasesForDate(facilityId, dateStr);
   const caseIds = casesForDate.map(c => c.id);
   const attestationsByCase = await getAttestationsForCases(caseIds);
 
@@ -391,7 +433,7 @@ export async function updateReadinessCache(
       `, [
         result.caseId,
         facilityId,
-        targetDate,
+        dateStr,
         caseData.procedureName,
         surgeonName,
         result.readinessState,
@@ -412,30 +454,34 @@ export async function updateReadinessCache(
 
 /**
  * Get cached readiness or compute fresh
+ * @param targetDate - Date string in YYYY-MM-DD format or Date object
  */
 export async function getDayBeforeReadiness(
   facilityId: string,
-  targetDate: Date,
+  targetDate: Date | string,
   forceRefresh = false
 ): Promise<CaseReadinessCacheRow[]> {
+  // Convert to string if Date object
+  const dateStr = typeof targetDate === 'string' ? targetDate : formatDateLocal(targetDate);
+
   if (forceRefresh) {
-    await updateReadinessCache(facilityId, targetDate);
+    await updateReadinessCache(facilityId, dateStr);
   }
 
   const result = await query<CaseReadinessCacheRow>(`
     SELECT * FROM case_readiness_cache
     WHERE facility_id = $1 AND scheduled_date = $2
     ORDER BY readiness_state DESC, procedure_name
-  `, [facilityId, targetDate]);
+  `, [facilityId, dateStr]);
 
   // If no cached data, compute and cache
   if (result.rows.length === 0) {
-    await updateReadinessCache(facilityId, targetDate);
+    await updateReadinessCache(facilityId, dateStr);
     const freshResult = await query<CaseReadinessCacheRow>(`
       SELECT * FROM case_readiness_cache
       WHERE facility_id = $1 AND scheduled_date = $2
       ORDER BY readiness_state DESC, procedure_name
-    `, [facilityId, targetDate]);
+    `, [facilityId, dateStr]);
     return freshResult.rows;
   }
 
@@ -461,18 +507,24 @@ export interface CalendarCaseSummary {
   procedureName: string;
   surgeonName: string;
   readinessState: 'GREEN' | 'ORANGE' | 'RED';
+  isActive: boolean;
 }
 
 /**
  * Get calendar summary for a date range
  * granularity 'day' returns daily aggregates, 'case' returns individual cases
+ * @param startDate - Date string (YYYY-MM-DD) or Date object
+ * @param endDate - Date string (YYYY-MM-DD) or Date object
  */
 export async function getCalendarSummary(
   facilityId: string,
-  startDate: Date,
-  endDate: Date,
+  startDate: Date | string,
+  endDate: Date | string,
   granularity: 'day' | 'case'
 ): Promise<{ days?: CalendarDaySummary[]; cases?: CalendarCaseSummary[] }> {
+  const startStr = typeof startDate === 'string' ? startDate : formatDateLocal(startDate);
+  const endStr = typeof endDate === 'string' ? endDate : formatDateLocal(endDate);
+
   if (granularity === 'day') {
     // Get daily aggregates from cache or compute
     const result = await query<{
@@ -494,13 +546,12 @@ export async function getCalendarSummary(
         AND sc.scheduled_date >= $2
         AND sc.scheduled_date <= $3
         AND sc.status NOT IN ('CANCELLED', 'COMPLETED')
-        AND sc.is_active = true
       GROUP BY sc.scheduled_date
       ORDER BY sc.scheduled_date
-    `, [facilityId, startDate, endDate]);
+    `, [facilityId, startStr, endStr]);
 
     const days: CalendarDaySummary[] = result.rows.map(row => ({
-      date: row.scheduled_date.toISOString().split('T')[0],
+      date: formatDateLocal(row.scheduled_date),
       caseCount: parseInt(row.case_count, 10),
       greenCount: parseInt(row.green_count, 10),
       orangeCount: parseInt(row.orange_count, 10),
@@ -517,6 +568,7 @@ export async function getCalendarSummary(
       procedure_name: string;
       surgeon_name: string;
       readiness_state: string | null;
+      is_active: boolean;
     }>(`
       SELECT
         sc.id,
@@ -524,7 +576,8 @@ export async function getCalendarSummary(
         sc.scheduled_time,
         sc.procedure_name,
         u.name as surgeon_name,
-        crc.readiness_state
+        crc.readiness_state,
+        sc.is_active
       FROM surgical_case sc
       JOIN app_user u ON sc.surgeon_id = u.id
       LEFT JOIN case_readiness_cache crc ON sc.id = crc.case_id
@@ -532,17 +585,17 @@ export async function getCalendarSummary(
         AND sc.scheduled_date >= $2
         AND sc.scheduled_date <= $3
         AND sc.status NOT IN ('CANCELLED', 'COMPLETED')
-        AND sc.is_active = true
       ORDER BY sc.scheduled_date, sc.scheduled_time NULLS LAST
-    `, [facilityId, startDate, endDate]);
+    `, [facilityId, startStr, endStr]);
 
     const cases: CalendarCaseSummary[] = result.rows.map(row => ({
       caseId: row.id,
-      scheduledDate: row.scheduled_date.toISOString().split('T')[0],
+      scheduledDate: formatDateLocal(row.scheduled_date),
       scheduledTime: row.scheduled_time,
       procedureName: row.procedure_name,
       surgeonName: row.surgeon_name,
       readinessState: (row.readiness_state || 'ORANGE') as 'GREEN' | 'ORANGE' | 'RED',
+      isActive: row.is_active,
     }));
 
     return { cases };

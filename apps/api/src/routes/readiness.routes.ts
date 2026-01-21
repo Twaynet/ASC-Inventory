@@ -14,6 +14,18 @@ import {
 } from '../services/readiness.service.js';
 // Auth decorators available if needed: requireAttestation, requireSurgeon
 
+/**
+ * Format a Date to YYYY-MM-DD string without timezone conversion.
+ * PostgreSQL DATE columns are returned at midnight UTC, so we need to
+ * extract the UTC date components to avoid day shifts.
+ */
+function formatDateLocal(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /readiness/day-before
@@ -27,20 +39,23 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     const { facilityId } = request.user;
     const { date, refresh } = request.query;
 
-    // Default to tomorrow in facility timezone
-    // For simplicity, using UTC - production should use facility timezone
-    let targetDate: Date;
+    // Get target date as string (YYYY-MM-DD format)
+    // If not provided, default to tomorrow
+    let targetDateStr: string;
     if (date) {
-      targetDate = new Date(date);
+      targetDateStr = date;
     } else {
-      targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + 1);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      targetDateStr = formatDateLocal(tomorrow);
     }
-    // Normalize to start of day
-    targetDate.setHours(0, 0, 0, 0);
+
+    // Create Date object for any functions that need it
+    // Parse as UTC to avoid timezone issues
+    const targetDate = new Date(targetDateStr + 'T00:00:00.000Z');
 
     const forceRefresh = refresh === 'true';
-    const cacheRows = await getDayBeforeReadiness(facilityId, targetDate, forceRefresh);
+    const cacheRows = await getDayBeforeReadiness(facilityId, targetDateStr, forceRefresh);
 
     // Get facility name
     const facilityResult = await query<{ name: string }>(`
@@ -79,7 +94,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       return {
         caseId: row.case_id,
         facilityId: row.facility_id,
-        scheduledDate: row.scheduled_date.toISOString().split('T')[0],
+        scheduledDate: formatDateLocal(row.scheduled_date),
         scheduledTime: caseTimes.get(row.case_id) || null,
         procedureName: row.procedure_name,
         surgeonId: surgeonIds.get(row.case_id) || '',
@@ -112,7 +127,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send({
       facilityId,
       facilityName,
-      targetDate: targetDate.toISOString().split('T')[0],
+      targetDate: formatDateLocal(targetDate),
       cases,
       summary,
     });
@@ -186,7 +201,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send({
       ...readiness,
       facilityId,
-      scheduledDate: caseResult.rows[0].scheduled_date.toISOString().split('T')[0],
+      scheduledDate: formatDateLocal(caseResult.rows[0].scheduled_date),
       scheduledTime: caseResult.rows[0].scheduled_time,
       procedureName: caseResult.rows[0].procedure_name,
       surgeonId: caseResult.rows[0].surgeon_id,
@@ -549,7 +564,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       caseId,
       procedureName: caseData.procedure_name,
       surgeonName: caseData.surgeon_name,
-      scheduledDate: caseData.scheduled_date.toISOString().split('T')[0],
+      scheduledDate: formatDateLocal(caseData.scheduled_date),
       scheduledTime: caseData.scheduled_time,
       requirements,
       summary: {
@@ -588,7 +603,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.send({
       success: true,
-      date: targetDate.toISOString().split('T')[0],
+      date: formatDateLocal(targetDate),
     });
   });
 }

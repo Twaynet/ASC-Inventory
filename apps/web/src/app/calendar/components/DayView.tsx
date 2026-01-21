@@ -232,8 +232,8 @@ function ProcedureCard({
     <div className={cardClass}>
       {/* Status banners for inactive/cancelled cases */}
       {!procedure.isActive && !procedure.isCancelled && (
-        <div className="case-status-banner pending-approval">
-          PENDING APPROVAL - Case not yet activated by admin
+        <div className="case-status-banner inactive">
+          INACTIVE
         </div>
       )}
       {procedure.isCancelled && (

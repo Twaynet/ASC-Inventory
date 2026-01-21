@@ -19,6 +19,8 @@ import {
   getCaseCard,
   linkCaseCard,
   getSurgeons,
+  activateCase,
+  deactivateCase,
   type CaseDashboardData,
   type CaseDashboardEventLogEntry,
   type AnesthesiaModality,
@@ -384,6 +386,27 @@ function CaseDashboardContent() {
     }
   };
 
+  const handleToggleActive = async () => {
+    if (!token || !caseId || !dashboard) return;
+
+    try {
+      if (dashboard.isActive) {
+        await deactivateCase(token, caseId);
+        setSuccessMessage('Case deactivated');
+      } else {
+        // Reactivate with existing scheduled date/time
+        await activateCase(token, caseId, {
+          scheduledDate: dashboard.scheduledDate,
+          scheduledTime: dashboard.scheduledTime || undefined,
+        });
+        setSuccessMessage('Case reactivated');
+      }
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update case status');
+    }
+  };
+
   const handlePrintPreferenceCard = async () => {
     if (!token || !dashboard?.caseCard) return;
 
@@ -426,6 +449,7 @@ function CaseDashboardContent() {
   }
 
   const getStatusColor = () => {
+    if (!dashboard.isActive) return 'var(--text-muted)';
     if (dashboard.attestationState === 'VOIDED') return 'var(--red)';
     if (dashboard.attestationState === 'ATTESTED') return 'var(--green)';
     if (dashboard.readinessState === 'RED') return 'var(--red)';
@@ -434,6 +458,7 @@ function CaseDashboardContent() {
   };
 
   const getStatusLabel = () => {
+    if (!dashboard.isActive) return 'Inactive';
     if (dashboard.attestationState === 'VOIDED') return 'Voided';
     if (dashboard.attestationState === 'ATTESTED') return 'Ready (Attested)';
     if (dashboard.readinessState === 'RED') return 'Needs Attention';
@@ -589,6 +614,23 @@ function CaseDashboardContent() {
                   (ID: {dashboard.caseId.slice(0, 8)}...)
                 </span>
               </p>
+              {/* Deactivate/Reactivate button for ADMIN and SCHEDULER */}
+              {(user.role === 'ADMIN' || user.role === 'SCHEDULER') && (
+                <div style={{ margin: '0.5rem 0' }}>
+                  <button
+                    onClick={handleToggleActive}
+                    className={dashboard.isActive ? 'btn-secondary' : 'btn-primary'}
+                    style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem' }}
+                  >
+                    {dashboard.isActive ? 'Deactivate Case' : 'Reactivate Case'}
+                  </button>
+                  {!dashboard.isActive && (
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Case is currently inactive
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{
