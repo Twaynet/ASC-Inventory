@@ -21,6 +21,7 @@ import {
   getSurgeons,
   activateCase,
   deactivateCase,
+  getConfigItems,
   type CaseDashboardData,
   type CaseDashboardEventLogEntry,
   type AnesthesiaModality,
@@ -28,16 +29,8 @@ import {
   type CaseCardDetail,
   type CaseCardVersionData,
   type User,
+  type ConfigItem,
 } from '@/lib/api';
-
-const ANESTHESIA_MODALITIES: { value: AnesthesiaModality; label: string }[] = [
-  { value: 'GENERAL', label: 'General' },
-  { value: 'SPINAL', label: 'Spinal' },
-  { value: 'REGIONAL', label: 'Regional' },
-  { value: 'MAC', label: 'MAC' },
-  { value: 'LOCAL', label: 'Local' },
-  { value: 'TIVA', label: 'TIVA' },
-];
 
 const CASE_TYPES: { value: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION'; label: string }[] = [
   { value: 'ELECTIVE', label: 'Elective' },
@@ -57,6 +50,8 @@ function CaseDashboardContent() {
   const [eventLog, setEventLog] = useState<CaseDashboardEventLogEntry[]>([]);
   const [availableCaseCards, setAvailableCaseCards] = useState<CaseCardSummary[]>([]);
   const [surgeons, setSurgeons] = useState<User[]>([]);
+  const [anesthesiaModalities, setAnesthesiaModalities] = useState<ConfigItem[]>([]);
+  const [patientFlagOptions, setPatientFlagOptions] = useState<ConfigItem[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -103,14 +98,7 @@ function CaseDashboardContent() {
     schedulerNotes: '',
     caseType: 'ELECTIVE' as 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION',
     procedureCodes: [] as string[],
-    patientFlags: {
-      latexAllergy: false,
-      iodineAllergy: false,
-      nickelFree: false,
-      anticoagulation: false,
-      infectionRisk: false,
-      neuromonitoringRequired: false,
-    },
+    patientFlags: {} as Record<string, boolean>,
   });
 
   // Scheduling form state
@@ -127,17 +115,23 @@ function CaseDashboardContent() {
     setError('');
 
     try {
-      const [dashboardResult, eventLogResult, caseCardsResult, surgeonsResult] = await Promise.all([
+      const [dashboardResult, eventLogResult, caseCardsResult, surgeonsResult, configItemsResult] = await Promise.all([
         getCaseDashboard(token, caseId),
         getCaseEventLog(token, caseId),
         getCaseCards(token, { status: 'ACTIVE' }),
         getSurgeons(token),
+        getConfigItems(token),
       ]);
 
       setDashboard(dashboardResult.dashboard);
       setEventLog(eventLogResult.eventLog);
       setAvailableCaseCards(caseCardsResult.cards);
       setSurgeons(surgeonsResult.users);
+
+      // Set config items for dynamic lists
+      const allItems = configItemsResult.items;
+      setAnesthesiaModalities(allItems.filter(i => i.itemType === 'ANESTHESIA_MODALITY'));
+      setPatientFlagOptions(allItems.filter(i => i.itemType === 'PATIENT_FLAG'));
 
       // Initialize forms from dashboard data
       const d = dashboardResult.dashboard;
@@ -155,14 +149,7 @@ function CaseDashboardContent() {
         schedulerNotes: d.schedulerNotes || '',
         caseType: (d as any).caseType || 'ELECTIVE',
         procedureCodes: (d as any).procedureCodes || [],
-        patientFlags: (d as any).patientFlags || {
-          latexAllergy: false,
-          iodineAllergy: false,
-          nickelFree: false,
-          anticoagulation: false,
-          infectionRisk: false,
-          neuromonitoringRequired: false,
-        },
+        patientFlags: (d as any).patientFlags || {},
       });
       setSchedulingForm({
         scheduledDate: d.scheduledDate || '',
@@ -768,54 +755,16 @@ function CaseDashboardContent() {
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Patient-Specific Flags (Non-PHI)</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={summaryForm.patientFlags.latexAllergy}
-                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, latexAllergy: e.target.checked } }))}
-                    />
-                    Latex-Free Required
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={summaryForm.patientFlags.iodineAllergy}
-                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, iodineAllergy: e.target.checked } }))}
-                    />
-                    Iodine-Free Required
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={summaryForm.patientFlags.nickelFree}
-                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, nickelFree: e.target.checked } }))}
-                    />
-                    Nickel-Free Implants
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={summaryForm.patientFlags.anticoagulation}
-                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, anticoagulation: e.target.checked } }))}
-                    />
-                    Anticoagulation Consideration
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={summaryForm.patientFlags.infectionRisk}
-                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, infectionRisk: e.target.checked } }))}
-                    />
-                    Infection Risk
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={summaryForm.patientFlags.neuromonitoringRequired}
-                      onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, neuromonitoringRequired: e.target.checked } }))}
-                    />
-                    Neuromonitoring Required
-                  </label>
+                  {patientFlagOptions.map(flag => (
+                    <label key={flag.itemKey} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={(summaryForm.patientFlags as Record<string, boolean>)[flag.itemKey] || false}
+                        onChange={e => setSummaryForm(f => ({ ...f, patientFlags: { ...f.patientFlags, [flag.itemKey]: e.target.checked } }))}
+                      />
+                      {flag.displayLabel}
+                    </label>
+                  ))}
                 </div>
               </div>
               <div className="form-group">
@@ -850,14 +799,14 @@ function CaseDashboardContent() {
               <div className="form-group" style={{ marginBottom: '1rem' }}>
                 <label>Modality * <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply)</span></label>
                 <div className="pill-toggle-group">
-                  {ANESTHESIA_MODALITIES.map(m => (
-                    <label key={m.value} className="pill-toggle">
+                  {anesthesiaModalities.map(m => (
+                    <label key={m.itemKey} className="pill-toggle">
                       <input
                         type="checkbox"
-                        checked={anesthesiaForm.modalities.includes(m.value)}
-                        onChange={() => toggleModality(m.value)}
+                        checked={anesthesiaForm.modalities.includes(m.itemKey as AnesthesiaModality)}
+                        onChange={() => toggleModality(m.itemKey as AnesthesiaModality)}
                       />
-                      {m.label}
+                      {m.displayLabel}
                     </label>
                   ))}
                 </div>

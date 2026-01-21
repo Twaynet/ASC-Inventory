@@ -528,3 +528,46 @@ export const UpdateRoomRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
 });
 export type UpdateRoomRequest = z.infer<typeof UpdateRoomRequestSchema>;
+
+// ============================================================================
+// FACILITY CONFIG ITEM SCHEMAS (General Settings)
+// ============================================================================
+
+export const ConfigItemType = z.enum(['PATIENT_FLAG', 'ANESTHESIA_MODALITY']);
+export type ConfigItemType = z.infer<typeof ConfigItemType>;
+
+// Key validation: must start with letter, contain only letters, numbers, underscores
+const itemKeyRegex = /^[a-zA-Z][a-zA-Z0-9_]*$/;
+
+export const CreateConfigItemRequestSchema = z.object({
+  itemType: ConfigItemType,
+  itemKey: z.string().min(1).max(100).regex(itemKeyRegex, 'Key must start with a letter and contain only letters, numbers, and underscores'),
+  displayLabel: z.string().min(1).max(255),
+  description: z.string().max(500).optional(),
+});
+export type CreateConfigItemRequest = z.infer<typeof CreateConfigItemRequestSchema>;
+
+export const UpdateConfigItemRequestSchema = z.object({
+  displayLabel: z.string().min(1).max(255).optional(),
+  description: z.string().max(500).nullable().optional(),
+});
+export type UpdateConfigItemRequest = z.infer<typeof UpdateConfigItemRequestSchema>;
+
+export const ReorderConfigItemsRequestSchema = z.object({
+  itemType: ConfigItemType,
+  orderedIds: z.array(z.string().uuid()).min(1),
+});
+export type ReorderConfigItemsRequest = z.infer<typeof ReorderConfigItemsRequestSchema>;
+
+export const ConfigItemResponseSchema = z.object({
+  id: z.string().uuid(),
+  itemType: ConfigItemType,
+  itemKey: z.string(),
+  displayLabel: z.string(),
+  description: z.string().nullable(),
+  sortOrder: z.number().int(),
+  active: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type ConfigItemResponse = z.infer<typeof ConfigItemResponseSchema>;

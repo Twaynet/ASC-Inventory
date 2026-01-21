@@ -1461,14 +1461,7 @@ export interface CaseDashboardData {
   schedulerNotes: string | null;
   caseType: string;
   procedureCodes: string[];
-  patientFlags: {
-    latexAllergy: boolean;
-    iodineAllergy: boolean;
-    nickelFree: boolean;
-    anticoagulation: boolean;
-    infectionRisk: boolean;
-    neuromonitoringRequired: boolean;
-  };
+  patientFlags: Record<string, boolean>;
   caseCard: CaseDashboardCaseCard | null;
   anesthesiaPlan: CaseDashboardAnesthesiaPlan | null;
   overrides: CaseDashboardOverride[];
@@ -1670,4 +1663,83 @@ export async function getCaseVerification(
 
 export async function getSurgeons(token: string): Promise<{ users: User[] }> {
   return api('/users/surgeons', { token });
+}
+
+// ============================================================================
+// FACILITY CONFIG ITEMS (General Settings)
+// ============================================================================
+
+export type ConfigItemType = 'PATIENT_FLAG' | 'ANESTHESIA_MODALITY';
+
+export interface ConfigItem {
+  id: string;
+  itemType: ConfigItemType;
+  itemKey: string;
+  displayLabel: string;
+  description: string | null;
+  sortOrder: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateConfigItemRequest {
+  itemType: ConfigItemType;
+  itemKey: string;
+  displayLabel: string;
+  description?: string;
+}
+
+export interface UpdateConfigItemRequest {
+  displayLabel?: string;
+  description?: string | null;
+}
+
+export async function getConfigItems(
+  token: string,
+  itemType?: ConfigItemType,
+  includeInactive?: boolean
+): Promise<{ items: ConfigItem[] }> {
+  const params = new URLSearchParams();
+  if (itemType) params.set('itemType', itemType);
+  if (includeInactive) params.set('includeInactive', 'true');
+  const queryString = params.toString();
+  return api(`/general-settings/config-items${queryString ? `?${queryString}` : ''}`, { token });
+}
+
+export async function createConfigItem(
+  token: string,
+  data: CreateConfigItemRequest
+): Promise<{ item: ConfigItem }> {
+  return api('/general-settings/config-items', { method: 'POST', body: data, token });
+}
+
+export async function updateConfigItem(
+  token: string,
+  id: string,
+  data: UpdateConfigItemRequest
+): Promise<{ item: ConfigItem }> {
+  return api(`/general-settings/config-items/${id}`, { method: 'PATCH', body: data, token });
+}
+
+export async function deactivateConfigItem(
+  token: string,
+  id: string
+): Promise<{ success: boolean }> {
+  return api(`/general-settings/config-items/${id}/deactivate`, { method: 'POST', token });
+}
+
+export async function activateConfigItem(
+  token: string,
+  id: string
+): Promise<{ success: boolean }> {
+  return api(`/general-settings/config-items/${id}/activate`, { method: 'POST', token });
+}
+
+export async function reorderConfigItems(
+  token: string,
+  itemType: ConfigItemType,
+  orderedIds: string[]
+): Promise<{ success: boolean }> {
+  return api('/general-settings/config-items/reorder', { method: 'PUT', body: { itemType, orderedIds }, token });
 }

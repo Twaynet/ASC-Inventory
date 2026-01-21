@@ -15,7 +15,8 @@ const ADMIN_LINKS = [
   { href: '/admin/inventory', label: 'Inventory' },
   { href: '/preference-cards', label: 'Surgeon Preference Cards' },
   { href: '/admin/reports', label: 'Reports' },
-  { href: '/admin/settings', label: 'Settings' },
+  { href: '/admin/general-settings', label: 'General Settings' },
+  { href: '/admin/settings', label: 'Rooms & Features' },
   { href: '/admin/pending-reviews', label: 'Pending Reviews' },
 ];
 
@@ -64,7 +65,7 @@ export function AdminNav({ userRole }: AdminNavProps) {
           {ADMIN_LINKS.map((link) => (
             <button
               key={link.href}
-              className={`admin-nav-item ${pathname === link.href ? 'current' : ''}`}
+              className={`admin-nav-item ${pathname === link.href || pathname?.startsWith(link.href + '/') ? 'current' : ''}`}
               onClick={() => router.push(link.href)}
             >
               {link.label}
