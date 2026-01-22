@@ -11,9 +11,12 @@ import {
   deactivateConfigItem,
   activateConfigItem,
   reorderConfigItems,
+  getFacilitySettings,
+  updateFacilitySettings,
   type ConfigItem,
   type ConfigItemType,
   type CreateConfigItemRequest,
+  type FacilitySettings,
 } from '@/lib/api';
 
 interface SectionConfig {
@@ -46,13 +49,15 @@ export default function CaseDashboardSettingsPage() {
   const router = useRouter();
 
   const [items, setItems] = useState<ConfigItem[]>([]);
+  const [settings, setSettings] = useState<FacilitySettings | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Expanded sections state
-  const [expandedSections, setExpandedSections] = useState<Set<ConfigItemType>>(new Set());
+  // Expanded sections state (includes 'FEATURE_TOGGLES' as a special section)
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
   // Form state
   const [showCreateForm, setShowCreateForm] = useState<ConfigItemType | null>(null);
@@ -73,11 +78,15 @@ export default function CaseDashboardSettingsPage() {
     if (!token) return;
     setIsLoadingData(true);
     try {
-      const result = await getConfigItems(token, undefined, showInactive);
-      setItems(result.items);
+      const [configResult, settingsResult] = await Promise.all([
+        getConfigItems(token, undefined, showInactive),
+        getFacilitySettings(token),
+      ]);
+      setItems(configResult.items);
+      setSettings(settingsResult);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load config items');
+      setError(err instanceof Error ? err.message : 'Failed to load settings');
     } finally {
       setIsLoadingData(false);
     }
@@ -92,7 +101,7 @@ export default function CaseDashboardSettingsPage() {
     }
   }, [token, user, loadData]);
 
-  const toggleSection = (type: ConfigItemType) => {
+  const toggleSection = (type: string) => {
     setExpandedSections(prev => {
       const next = new Set(prev);
       if (next.has(type)) {
@@ -102,6 +111,26 @@ export default function CaseDashboardSettingsPage() {
       }
       return next;
     });
+  };
+
+  const handleToggleFeature = async () => {
+    if (!token || !settings) return;
+    setIsSavingSettings(true);
+    try {
+      const result = await updateFacilitySettings(token, {
+        enableTimeoutDebrief: !settings.enableTimeoutDebrief,
+      });
+      setSettings(result);
+      setSuccessMessage(
+        result.enableTimeoutDebrief
+          ? 'Time Out & Debrief feature enabled'
+          : 'Time Out & Debrief feature disabled'
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update settings');
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
 
   const getItemsForType = (type: ConfigItemType): ConfigItem[] => {
@@ -291,6 +320,50 @@ export default function CaseDashboardSettingsPage() {
           <div className="loading">Loading settings...</div>
         ) : (
           <div className="collapsible-sections">
+            {/* Time Out & Debrief Feature Toggle Section */}
+            <div className="collapsible-section">
+              <button
+                className={`section-header ${expandedSections.has('FEATURE_TOGGLES') ? 'expanded' : ''}`}
+                onClick={() => toggleSection('FEATURE_TOGGLES')}
+                aria-expanded={expandedSections.has('FEATURE_TOGGLES')}
+              >
+                <div className="section-header-content">
+                  <span className="section-arrow">{expandedSections.has('FEATURE_TOGGLES') ? '▼' : '▶'}</span>
+                  <div className="section-title-block">
+                    <h2>Time Out & Debrief Checklists</h2>
+                    <span className={`feature-status ${settings?.enableTimeoutDebrief ? 'enabled' : 'disabled'}`}>
+                      {settings?.enableTimeoutDebrief ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              {expandedSections.has('FEATURE_TOGGLES') && (
+                <div className="section-content">
+                  <div className="feature-toggle">
+                    <div className="feature-info">
+                      <p className="section-description">
+                        Enable surgical safety checklists for case time out (before surgery)
+                        and post-operative debrief with role-based signatures.
+                      </p>
+                    </div>
+                    <div className="toggle-control">
+                      <button
+                        className={`toggle-btn ${settings?.enableTimeoutDebrief ? 'active' : ''}`}
+                        onClick={handleToggleFeature}
+                        disabled={isSavingSettings}
+                      >
+                        <span className="toggle-slider"></span>
+                      </button>
+                      <span className="toggle-label">
+                        {settings?.enableTimeoutDebrief ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {SECTIONS.map((section) => {
               const sectionItems = getItemsForType(section.type);
               const isExpanded = expandedSections.has(section.type);
@@ -622,6 +695,82 @@ export default function CaseDashboardSettingsPage() {
         .section-content {
           padding: 1.5rem;
           background: #fafbfc;
+        }
+
+        .feature-status {
+          font-size: 0.75rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-weight: 600;
+        }
+
+        .feature-status.enabled {
+          background: #c6f6d5;
+          color: #276749;
+        }
+
+        .feature-status.disabled {
+          background: #fed7d7;
+          color: #c53030;
+        }
+
+        .feature-toggle {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 2rem;
+        }
+
+        .feature-info {
+          flex: 1;
+        }
+
+        .toggle-control {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex-shrink: 0;
+        }
+
+        .toggle-btn {
+          position: relative;
+          width: 50px;
+          height: 26px;
+          background: #cbd5e0;
+          border: none;
+          border-radius: 13px;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .toggle-btn.active {
+          background: #38a169;
+        }
+
+        .toggle-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .toggle-slider {
+          position: absolute;
+          top: 3px;
+          left: 3px;
+          width: 20px;
+          height: 20px;
+          background: white;
+          border-radius: 50%;
+          transition: transform 0.2s;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-btn.active .toggle-slider {
+          transform: translateX(24px);
+        }
+
+        .toggle-label {
+          font-size: 0.875rem;
+          color: #4a5568;
         }
 
         .section-description {

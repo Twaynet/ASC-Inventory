@@ -16,7 +16,6 @@ const ADMIN_LINKS = [
   { href: '/preference-cards', label: 'Surgeon Preference Cards' },
   { href: '/admin/reports', label: 'Reports' },
   { href: '/admin/general-settings', label: 'General Settings' },
-  { href: '/admin/settings', label: 'Rooms & Features' },
   { href: '/admin/pending-reviews', label: 'Pending Reviews' },
 ];
 

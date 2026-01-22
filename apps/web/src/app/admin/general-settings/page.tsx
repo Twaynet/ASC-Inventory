@@ -15,20 +15,19 @@ interface SettingsCard {
 
 const SETTINGS_CARDS: SettingsCard[] = [
   {
+    id: 'operating-rooms',
+    title: 'Operating Rooms',
+    description: 'Manage operating rooms available at your facility for case scheduling',
+    path: '/admin/general-settings/operating-rooms',
+    icon: '🚪',
+  },
+  {
     id: 'case-dashboard',
     title: 'Case Dashboard Settings',
-    description: 'Configure Patient Flags, Anesthesia Modalities, and other case-specific options',
+    description: 'Configure Patient Flags, Anesthesia Modalities, Time Out & Debrief, and other case-specific options',
     path: '/admin/general-settings/case-dashboard',
     icon: '🏥',
   },
-  // Future settings cards can be added here:
-  // {
-  //   id: 'scheduling',
-  //   title: 'Scheduling Settings',
-  //   description: 'Configure scheduling rules and defaults',
-  //   path: '/admin/general-settings/scheduling',
-  //   icon: '📅',
-  // },
 ];
 
 export default function AdminGeneralSettingsPage() {
