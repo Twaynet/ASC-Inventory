@@ -1,16 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
+import { getCases } from '@/lib/api';
 import type { FeatureDefinition, AccessDecision } from '@/lib/access-control';
 
 export default function SystemDashboard() {
-  const { user, isLoading, logout } = useAuth();
+  const { user, token, isLoading, logout } = useAuth();
   const { features, debugInfo } = useAccessControl();
   const router = useRouter();
   const [debugExpanded, setDebugExpanded] = useState(false);
+  const [pendingCaseCount, setPendingCaseCount] = useState<number>(0);
+
+  // Fetch pending case requests count
+  useEffect(() => {
+    if (token) {
+      getCases(token, { status: 'REQUESTED' })
+        .then((result) => {
+          setPendingCaseCount(result.cases.length);
+        })
+        .catch(() => {
+          // Ignore errors for badge count
+        });
+    }
+  }, [token]);
 
   // Redirect to login if not authenticated
   if (!isLoading && !user) {
@@ -43,6 +58,7 @@ export default function SystemDashboard() {
           title="Core"
           features={coreFeatures}
           onNavigate={(path) => router.push(path)}
+          badgeCounts={{ 'case-requests': pendingCaseCount }}
         />
 
         {/* Case Workflow Features */}
@@ -226,9 +242,10 @@ interface FeatureSectionProps {
   title: string;
   features: { feature: FeatureDefinition; decision: AccessDecision }[];
   onNavigate: (path: string) => void;
+  badgeCounts?: Record<string, number>;
 }
 
-function FeatureSection({ title, features, onNavigate }: FeatureSectionProps) {
+function FeatureSection({ title, features, onNavigate, badgeCounts }: FeatureSectionProps) {
   // Filter to only show allowed features (or contextual info cards)
   const visibleFeatures = features.filter(
     (f) => f.decision.allowed || f.feature.isContextual
@@ -248,6 +265,7 @@ function FeatureSection({ title, features, onNavigate }: FeatureSectionProps) {
             feature={feature}
             decision={decision}
             onNavigate={onNavigate}
+            badgeCount={badgeCounts?.[feature.id]}
           />
         ))}
       </div>
@@ -280,9 +298,10 @@ interface FeatureCardProps {
   feature: FeatureDefinition;
   decision: AccessDecision;
   onNavigate: (path: string) => void;
+  badgeCount?: number;
 }
 
-function FeatureCard({ feature, decision, onNavigate }: FeatureCardProps) {
+function FeatureCard({ feature, decision, onNavigate, badgeCount }: FeatureCardProps) {
   const isClickable = decision.allowed && feature.path && !feature.isContextual;
 
   const handleClick = () => {
@@ -305,11 +324,16 @@ function FeatureCard({ feature, decision, onNavigate }: FeatureCardProps) {
     >
       <div className="card-header">
         <h3>{feature.title}</h3>
-        {feature.badge && (
-          <span className={`badge ${feature.badge.toLowerCase()}`}>
-            {feature.badge}
-          </span>
-        )}
+        <div className="badges">
+          {badgeCount !== undefined && badgeCount > 0 && (
+            <span className="badge count">{badgeCount}</span>
+          )}
+          {feature.badge && (
+            <span className={`badge ${feature.badge.toLowerCase()}`}>
+              {feature.badge}
+            </span>
+          )}
+        </div>
       </div>
       <p className="description">{feature.description}</p>
       {feature.notes && <p className="notes">{feature.notes}</p>}
@@ -370,6 +394,20 @@ function FeatureCard({ feature, decision, onNavigate }: FeatureCardProps) {
         .badge.contextual {
           background: #e9d8fd;
           color: #6b46c1;
+        }
+
+        .badge.count {
+          background: #3b82f6;
+          color: white;
+          min-width: 1.25rem;
+          text-align: center;
+          border-radius: 9999px;
+        }
+
+        .badges {
+          display: flex;
+          gap: 0.375rem;
+          align-items: center;
         }
 
         .description {

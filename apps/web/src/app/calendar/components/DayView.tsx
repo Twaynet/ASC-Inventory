@@ -13,6 +13,7 @@ import {
   type CaseReadiness,
   type DeviceEventResponse,
 } from '@/lib/api';
+import { CreateCaseModal } from '@/components/CreateCaseModal';
 
 // Scanner notification component
 interface ScanNotification {
@@ -440,6 +441,7 @@ export function DayView({ selectedDate, token, user, timeoutDebriefEnabled }: Da
   const [sortBy, setSortBy] = useState<'time' | 'status' | 'surgeon' | 'name'>('time');
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Scanner state
   const [scannerEnabled, setScannerEnabled] = useState(true);
@@ -692,6 +694,12 @@ export function DayView({ selectedDate, token, user, timeoutDebriefEnabled }: Da
         >
           {isRefreshing ? 'Refreshing...' : 'Refresh'}
         </button>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={() => setShowCreateModal(true)}
+        >
+          + Create Case
+        </button>
       </div>
 
       {error && (
@@ -833,6 +841,14 @@ export function DayView({ selectedDate, token, user, timeoutDebriefEnabled }: Da
           )}
         </>
       )}
+
+      <CreateCaseModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={loadData}
+        token={token}
+        defaultDate={selectedDate}
+      />
     </>
   );
 }
