@@ -100,6 +100,7 @@ export function usePageData<T>(options: UsePageDataOptions<T>): UsePageDataResul
     } finally {
       setIsLoadingData(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, accessDenied, depsKey]);
 
   // Initial fetch

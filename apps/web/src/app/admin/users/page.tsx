@@ -342,11 +342,12 @@ export default function AdminUsersPage() {
                 {users.map((u) => {
                   // Ensure userRoles is always an array
                   let userRoles: string[];
-                  if (Array.isArray(u.roles)) {
-                    userRoles = u.roles;
-                  } else if (typeof u.roles === 'string') {
+                  const roles = u.roles as string[] | string | undefined;
+                  if (Array.isArray(roles)) {
+                    userRoles = roles;
+                  } else if (typeof roles === 'string') {
                     // Handle PostgreSQL array format like "{ADMIN,SCRUB}"
-                    userRoles = u.roles.replace(/[{}]/g, '').split(',').filter(Boolean);
+                    userRoles = roles.replace(/[{}]/g, '').split(',').filter(Boolean);
                   } else {
                     userRoles = [u.role];
                   }

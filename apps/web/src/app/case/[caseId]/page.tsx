@@ -619,7 +619,7 @@ function CaseDashboardContent() {
                 </div>
               )}
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
               <div style={{
                 display: 'inline-block',
                 padding: '0.5rem 1rem',
@@ -631,6 +631,9 @@ function CaseDashboardContent() {
               }}>
                 {getStatusLabel()}
               </div>
+              <button onClick={handlePrint} className="btn-secondary" style={{ fontSize: '0.875rem', padding: '0.375rem 0.75rem' }}>
+                Print Case Dashboard
+              </button>
             </div>
           </div>
         </section>
@@ -1169,11 +1172,17 @@ function CaseDashboardContent() {
                   paddingBottom: '1rem',
                   marginBottom: '1.5rem'
                 }}>
-                  <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.75rem' }}>{dashboard.procedureName}</h1>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                    <h1 style={{ margin: 0, fontSize: '1.75rem' }}>{dashboard.procedureName}</h1>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '1.25rem', fontWeight: 'bold' }}>{dashboard.caseNumber}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#718096' }}>Case #</div>
+                    </div>
+                  </div>
                   <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
                     <span><strong>Surgeon:</strong> {dashboard.surgeon}</span>
                     <span><strong>Facility:</strong> {dashboard.facility}</span>
-                    <span><strong>Case ID:</strong> {dashboard.caseId}</span>
+                    <span><strong>Case Type:</strong> {(dashboard as any).caseType ? (dashboard as any).caseType.replace('_', ' ') : 'Elective'}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
                     <span><strong>Scheduled:</strong> {new Date(dashboard.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
@@ -1198,58 +1207,96 @@ function CaseDashboardContent() {
                   <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
                     <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Case Summary</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
-                      {dashboard.estimatedDurationMinutes && (
-                        <div><strong>Estimated Duration:</strong> {dashboard.estimatedDurationMinutes} minutes</div>
-                      )}
-                      {dashboard.laterality && (
-                        <div><strong>Laterality:</strong> {dashboard.laterality}</div>
-                      )}
+                      <div><strong>Estimated Duration:</strong> {dashboard.estimatedDurationMinutes ? `${dashboard.estimatedDurationMinutes} minutes` : '—'}</div>
+                      <div><strong>Laterality:</strong> {dashboard.laterality || '—'}</div>
                     </div>
-                    {dashboard.schedulerNotes && (
-                      <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
-                        <strong>Scheduler Notes:</strong> {dashboard.schedulerNotes}
-                      </div>
-                    )}
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+                      <strong>Procedure Codes (CPT):</strong> {(dashboard as any).procedureCodes?.length > 0 ? (dashboard as any).procedureCodes.join(', ') : '—'}
+                    </div>
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+                      <strong>Scheduler Notes:</strong> {dashboard.schedulerNotes || '—'}
+                    </div>
                   </div>
 
-                  {/* Anesthesia Plan */}
-                  {dashboard.anesthesiaPlan && (dashboard.anesthesiaPlan.modalities.length > 0 || dashboard.anesthesiaPlan.airwayNotes || dashboard.anesthesiaPlan.anticoagulationConsiderations) && (
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                      <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Anesthesia Plan</h4>
-                      {dashboard.anesthesiaPlan.modalities.length > 0 && (
-                        <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                          <strong>Modalities:</strong> {dashboard.anesthesiaPlan.modalities.join(', ')}
-                        </div>
-                      )}
-                      {dashboard.anesthesiaPlan.airwayNotes && (
-                        <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                          <strong>Airway Notes:</strong> {dashboard.anesthesiaPlan.airwayNotes}
-                        </div>
-                      )}
-                      {dashboard.anesthesiaPlan.anticoagulationConsiderations && (
-                        <div style={{ fontSize: '0.875rem' }}>
-                          <strong>Anticoagulation:</strong> {dashboard.anesthesiaPlan.anticoagulationConsiderations}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {/* Patient Flags - always show, highlight if any are set */}
+                  {(() => {
+                    const activeFlags = Object.entries((dashboard as any).patientFlags || {}).filter(([_, v]) => v);
+                    const hasFlags = activeFlags.length > 0;
+                    return (
+                      <div style={{
+                        border: hasFlags ? '2px solid #f56565' : '1px solid #e2e8f0',
+                        borderRadius: '4px',
+                        padding: '1rem',
+                        background: hasFlags ? '#fff5f5' : 'transparent'
+                      }}>
+                        <h4 style={{
+                          margin: '0 0 0.75rem 0',
+                          fontSize: '1rem',
+                          borderBottom: hasFlags ? '1px solid #feb2b2' : '1px solid #e2e8f0',
+                          paddingBottom: '0.5rem',
+                          color: hasFlags ? '#c53030' : 'inherit'
+                        }}>
+                          Patient-Specific Flags
+                        </h4>
+                        {hasFlags ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.875rem' }}>
+                            {activeFlags.map(([key]) => {
+                              const flagOption = patientFlagOptions.find(f => f.itemKey === key);
+                              return (
+                                <span key={key} style={{
+                                  background: '#fed7d7',
+                                  color: '#c53030',
+                                  padding: '0.25rem 0.75rem',
+                                  borderRadius: '9999px',
+                                  fontWeight: 500
+                                }}>
+                                  {flagOption?.displayLabel || key}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.875rem', color: '#718096' }}>None</div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
-                  {/* Linked Case Card */}
-                  {dashboard.caseCard && (
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                      <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Linked Case Card</h4>
+                  {/* Anesthesia Plan - always show */}
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                    <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Anesthesia Plan</h4>
+                    <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                      <strong>Modalities:</strong> {dashboard.anesthesiaPlan?.modalities?.length ? dashboard.anesthesiaPlan.modalities.map(m => {
+                        const modalityOption = anesthesiaModalities.find(opt => opt.itemKey === m);
+                        return modalityOption?.displayLabel || m;
+                      }).join(', ') : '—'}
+                    </div>
+                    <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                      <strong>Airway Notes:</strong> {dashboard.anesthesiaPlan?.airwayNotes || '—'}
+                    </div>
+                    <div style={{ fontSize: '0.875rem' }}>
+                      <strong>Anticoagulation:</strong> {dashboard.anesthesiaPlan?.anticoagulationConsiderations || '—'}
+                    </div>
+                  </div>
+
+                  {/* Linked Case Card - always show */}
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                    <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Linked Preference Card</h4>
+                    {dashboard.caseCard ? (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
                         <div><strong>Name:</strong> {dashboard.caseCard.name}</div>
                         <div><strong>Version:</strong> {dashboard.caseCard.version}</div>
                         <div><strong>Status:</strong> {dashboard.caseCard.status}</div>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div style={{ fontSize: '0.875rem', color: '#c53030' }}>No preference card linked</div>
+                    )}
+                  </div>
 
-                  {/* Case-Specific Overrides */}
-                  {dashboard.overrides.length > 0 && (
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                      <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Case-Specific Overrides ({dashboard.overrides.length})</h4>
+                  {/* Case-Specific Overrides - always show */}
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
+                    <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Case-Specific Overrides ({dashboard.overrides.length})</h4>
+                    {dashboard.overrides.length > 0 ? (
                       <table style={{ width: '100%', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
@@ -1263,15 +1310,17 @@ function CaseDashboardContent() {
                           {dashboard.overrides.map(o => (
                             <tr key={o.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                               <td style={{ padding: '0.5rem' }}>{o.target}</td>
-                              <td style={{ padding: '0.5rem' }}>{o.originalValue || '-'}</td>
+                              <td style={{ padding: '0.5rem' }}>{o.originalValue || '—'}</td>
                               <td style={{ padding: '0.5rem' }}>{o.overrideValue}</td>
                               <td style={{ padding: '0.5rem' }}>{o.reason}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                    </div>
-                  )}
+                    ) : (
+                      <div style={{ fontSize: '0.875rem', color: '#718096' }}>None</div>
+                    )}
+                  </div>
 
                   {/* Readiness Attestation */}
                   <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
@@ -1451,9 +1500,36 @@ function CaseDashboardContent() {
             max-width: none;
             max-height: none;
             box-shadow: none;
+            padding: 0;
+            margin: 0;
           }
           .no-print {
             display: none !important;
+          }
+          /* Keep sections together on page breaks */
+          .print-content > div > div {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          /* Ensure header stays with first content */
+          .print-header {
+            break-after: avoid;
+            page-break-after: avoid;
+          }
+          /* Print-friendly adjustments */
+          .print-content {
+            font-size: 11pt;
+          }
+          .print-content h1 {
+            font-size: 16pt;
+          }
+          .print-content h3, .print-content h4 {
+            font-size: 12pt;
+          }
+          /* Ensure colored badges print properly */
+          .print-content span[style*="background"] {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>

@@ -249,7 +249,7 @@ export default function CasesPage() {
 
   return (
     <div className="page-container">
-      <Header user={user} onLogout={logout} />
+      <Header title="My Case Requests" />
 
       <main className="main-content">
         <div className="content-wrapper">
@@ -598,14 +598,14 @@ export default function CasesPage() {
               {/* Empty State */}
               {cases.length === 0 && (
                 <div className="empty-state">
-                  <p>No case requests yet. Click "New Case Request" to get started.</p>
+                  <p>No case requests yet. Click &ldquo;New Case Request&rdquo; to get started.</p>
                 </div>
               )}
 
               {/* No Search Results */}
               {cases.length > 0 && filteredCases.length === 0 && (
                 <div className="empty-state">
-                  <p>No cases match your search "{searchTerm}"</p>
+                  <p>No cases match your search &ldquo;{searchTerm}&rdquo;</p>
                   <button className="btn btn-secondary" onClick={() => setSearchTerm('')}>
                     Clear Search
                   </button>

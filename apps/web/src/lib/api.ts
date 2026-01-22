@@ -1576,14 +1576,7 @@ export async function updateCaseSummary(
     schedulerNotes?: string;
     caseType?: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION';
     procedureCodes?: string[];
-    patientFlags?: {
-      latexAllergy: boolean;
-      iodineAllergy: boolean;
-      nickelFree: boolean;
-      anticoagulation: boolean;
-      infectionRisk: boolean;
-      neuromonitoringRequired: boolean;
-    };
+    patientFlags?: Record<string, boolean>;
   }
 ): Promise<{ success: boolean }> {
   return api(`/case-dashboard/${caseId}/case-summary`, { method: 'PUT', body: data, token });
