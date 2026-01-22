@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
@@ -66,6 +66,10 @@ export function usePageData<T>(options: UsePageDataOptions<T>): UsePageDataResul
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Stabilize fetchFn to prevent infinite loops
+  const fetchFnRef = useRef(fetchFn);
+  fetchFnRef.current = fetchFn;
+
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !user) {
@@ -79,13 +83,16 @@ export function usePageData<T>(options: UsePageDataOptions<T>): UsePageDataResul
     ? !requiredRoles.some(role => userRoles.includes(role))
     : false;
 
+  // Serialize deps for stable comparison
+  const depsKey = JSON.stringify(deps);
+
   const loadData = useCallback(async () => {
     if (!token) return;
     if (accessDenied) return;
 
     setIsLoadingData(true);
     try {
-      const result = await fetchFn(token);
+      const result = await fetchFnRef.current(token);
       setData(result);
       setError('');
     } catch (err) {
@@ -93,7 +100,7 @@ export function usePageData<T>(options: UsePageDataOptions<T>): UsePageDataResul
     } finally {
       setIsLoadingData(false);
     }
-  }, [token, fetchFn, accessDenied, ...deps]);
+  }, [token, accessDenied, depsKey]);
 
   // Initial fetch
   useEffect(() => {
