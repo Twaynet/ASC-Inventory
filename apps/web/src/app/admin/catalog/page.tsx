@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { useState } from 'react';
 import { Header } from '@/app/components/Header';
+import { PageAlerts } from '@/app/components/Alert';
+import { StatusBadge } from '@/app/components/StatusBadge';
+import { usePageData, withErrorHandling } from '@/lib/hooks/usePageData';
 import {
   getCatalogItems,
   createCatalogItem,
@@ -33,126 +34,124 @@ const CATEGORY_COLORS: Record<ItemCategory, { bg: string; color: string }> = {
 };
 
 export default function AdminCatalogPage() {
-  const { user, token, isLoading, logout } = useAuth();
-  const router = useRouter();
-
-  const [items, setItems] = useState<CatalogItem[]>([]);
+  // Filter state (managed locally since it affects data fetching)
   const [showInactive, setShowInactive] = useState(false);
   const [filterCategory, setFilterCategory] = useState<ItemCategory | ''>('');
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+
+  // Use shared hook for data loading, auth, and error handling
+  const {
+    data,
+    isLoading,
+    isLoadingData,
+    error,
+    successMessage,
+    setError,
+    setSuccessMessage,
+    clearError,
+    clearSuccess,
+    refetch,
+    user,
+    token,
+    accessDenied,
+  } = usePageData({
+    fetchFn: async (token) => {
+      const result = await getCatalogItems(token, {
+        category: filterCategory || undefined,
+        includeInactive: showInactive,
+      });
+      return result.items;
+    },
+    requiredRoles: ['ADMIN'],
+    deps: [showInactive, filterCategory],
+  });
+
+  const items = data || [];
 
   // Form state
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [formData, setFormData] = useState<Partial<CreateCatalogItemRequest>>({});
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isLoading, router]);
-
-  const loadData = useCallback(async () => {
-    if (!token) return;
-    setIsLoadingData(true);
-    try {
-      const result = await getCatalogItems(token, {
-        category: filterCategory || undefined,
-        includeInactive: showInactive,
-      });
-      setItems(result.items);
-      setError('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load catalog items');
-    } finally {
-      setIsLoadingData(false);
-    }
-  }, [token, showInactive, filterCategory]);
-
-  useEffect(() => {
-    if (token && user?.role === 'ADMIN') {
-      loadData();
-    }
-  }, [token, user, loadData]);
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
 
-    try {
-      await createCatalogItem(token, formData as CreateCatalogItemRequest);
-      setSuccessMessage('Catalog item created successfully');
-      setShowCreateForm(false);
-      setFormData({});
-      loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create catalog item');
-    }
+    await withErrorHandling(
+      () => createCatalogItem(token, formData as CreateCatalogItemRequest),
+      setError,
+      () => {
+        setSuccessMessage('Catalog item created successfully');
+        setShowCreateForm(false);
+        setFormData({});
+        refetch();
+      }
+    );
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !editingItem) return;
 
-    try {
-      const updateData: UpdateCatalogItemRequest = {};
-      if (formData.name && formData.name !== editingItem.name) {
-        updateData.name = formData.name;
-      }
-      if (formData.description !== editingItem.description) {
-        updateData.description = formData.description || null;
-      }
-      if (formData.category && formData.category !== editingItem.category) {
-        updateData.category = formData.category;
-      }
-      if (formData.manufacturer !== editingItem.manufacturer) {
-        updateData.manufacturer = formData.manufacturer || null;
-      }
-      if (formData.catalogNumber !== editingItem.catalogNumber) {
-        updateData.catalogNumber = formData.catalogNumber || null;
-      }
-      if (formData.requiresSterility !== editingItem.requiresSterility) {
-        updateData.requiresSterility = formData.requiresSterility;
-      }
-      if (formData.isLoaner !== editingItem.isLoaner) {
-        updateData.isLoaner = formData.isLoaner;
-      }
-
-      await updateCatalogItem(token, editingItem.id, updateData);
-      setSuccessMessage('Catalog item updated successfully');
-      setEditingItem(null);
-      setFormData({});
-      loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update catalog item');
+    const updateData: UpdateCatalogItemRequest = {};
+    if (formData.name && formData.name !== editingItem.name) {
+      updateData.name = formData.name;
     }
+    if (formData.description !== editingItem.description) {
+      updateData.description = formData.description || null;
+    }
+    if (formData.category && formData.category !== editingItem.category) {
+      updateData.category = formData.category;
+    }
+    if (formData.manufacturer !== editingItem.manufacturer) {
+      updateData.manufacturer = formData.manufacturer || null;
+    }
+    if (formData.catalogNumber !== editingItem.catalogNumber) {
+      updateData.catalogNumber = formData.catalogNumber || null;
+    }
+    if (formData.requiresSterility !== editingItem.requiresSterility) {
+      updateData.requiresSterility = formData.requiresSterility;
+    }
+    if (formData.isLoaner !== editingItem.isLoaner) {
+      updateData.isLoaner = formData.isLoaner;
+    }
+
+    await withErrorHandling(
+      () => updateCatalogItem(token, editingItem.id, updateData),
+      setError,
+      () => {
+        setSuccessMessage('Catalog item updated successfully');
+        setEditingItem(null);
+        setFormData({});
+        refetch();
+      }
+    );
   };
 
   const handleDeactivate = async (itemId: string) => {
     if (!token) return;
     if (!confirm('Are you sure you want to deactivate this catalog item?')) return;
 
-    try {
-      await deactivateCatalogItem(token, itemId);
-      setSuccessMessage('Catalog item deactivated successfully');
-      loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to deactivate catalog item');
-    }
+    await withErrorHandling(
+      () => deactivateCatalogItem(token, itemId),
+      setError,
+      () => {
+        setSuccessMessage('Catalog item deactivated successfully');
+        refetch();
+      }
+    );
   };
 
   const handleActivate = async (itemId: string) => {
     if (!token) return;
 
-    try {
-      await activateCatalogItem(token, itemId);
-      setSuccessMessage('Catalog item activated successfully');
-      loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to activate catalog item');
-    }
+    await withErrorHandling(
+      () => activateCatalogItem(token, itemId),
+      setError,
+      () => {
+        setSuccessMessage('Catalog item activated successfully');
+        refetch();
+      }
+    );
   };
 
   const startEdit = (item: CatalogItem) => {
@@ -179,7 +178,7 @@ export default function AdminCatalogPage() {
     return <div className="loading">Loading...</div>;
   }
 
-  if (user.role !== 'ADMIN') {
+  if (accessDenied) {
     return (
       <>
         <Header title="Catalog Management" />
@@ -197,12 +196,12 @@ export default function AdminCatalogPage() {
       <Header title="Catalog Management" />
 
       <main className="container admin-catalog-page">
-        {error && <div className="alert alert-error">{error}</div>}
-        {successMessage && (
-          <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
-            {successMessage}
-          </div>
-        )}
+        <PageAlerts
+          error={error}
+          success={successMessage}
+          onDismissError={clearError}
+          onDismissSuccess={clearSuccess}
+        />
 
         <div className="summary-cards">
           {CATEGORIES.map(cat => (
@@ -405,9 +404,10 @@ export default function AdminCatalogPage() {
                       <td>{item.isLoaner ? 'Yes' : 'No'}</td>
                       <td>{item.inventoryCount}</td>
                       <td>
-                        <span className={`status-badge ${item.active ? 'active' : 'inactive'}`}>
-                          {item.active ? 'Active' : 'Inactive'}
-                        </span>
+                        <StatusBadge
+                          status={item.active ? 'ACTIVE' : 'INACTIVE'}
+                          size="sm"
+                        />
                       </td>
                       <td className="actions-cell">
                         <button
@@ -603,24 +603,6 @@ export default function AdminCatalogPage() {
           font-weight: 600;
         }
 
-        .status-badge {
-          display: inline-block;
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-
-        .status-badge.active {
-          background: #c6f6d5;
-          color: #276749;
-        }
-
-        .status-badge.inactive {
-          background: #fed7d7;
-          color: #c53030;
-        }
-
         .empty-state {
           text-align: center;
           color: #718096;
@@ -648,16 +630,6 @@ export default function AdminCatalogPage() {
 
         .btn-success:hover {
           background: #2f855a;
-        }
-
-        .alert-success {
-          background: #c6f6d5;
-          border: 1px solid #9ae6b4;
-          color: #276749;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1rem;
-          cursor: pointer;
         }
       `}</style>
     </>
