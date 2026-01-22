@@ -752,11 +752,11 @@ function CaseDashboardContent() {
                   placeholder="e.g., 27130, 27447"
                 />
               </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Patient-Specific Flags (Non-PHI)</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem' }}>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label>Patient-Specific Flags (Non-PHI) <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply)</span></label>
+                <div className="pill-toggle-group">
                   {patientFlagOptions.map(flag => (
-                    <label key={flag.itemKey} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <label key={flag.itemKey} className="pill-toggle">
                       <input
                         type="checkbox"
                         checked={(summaryForm.patientFlags as Record<string, boolean>)[flag.itemKey] || false}
