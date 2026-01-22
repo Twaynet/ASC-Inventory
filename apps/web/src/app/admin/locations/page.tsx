@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { useState } from 'react';
 import { Header } from '@/app/components/Header';
+import { PageAlerts } from '@/app/components/Alert';
+import { usePageData, withErrorHandling } from '@/lib/hooks/usePageData';
 import {
   getLocations,
   createLocation,
@@ -15,97 +15,91 @@ import {
 } from '@/lib/api';
 
 export default function AdminLocationsPage() {
-  const { user, token, isLoading, logout } = useAuth();
-  const router = useRouter();
+  // Use shared hook for data loading, auth, and error handling
+  const {
+    data,
+    isLoading,
+    isLoadingData,
+    error,
+    successMessage,
+    setError,
+    setSuccessMessage,
+    clearError,
+    clearSuccess,
+    refetch,
+    user,
+    token,
+    accessDenied,
+  } = usePageData({
+    fetchFn: async (token) => {
+      const result = await getLocations(token);
+      return result.locations;
+    },
+    requiredRoles: ['ADMIN'],
+  });
 
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const locations = data || [];
 
   // Form state
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [formData, setFormData] = useState<Partial<CreateLocationRequest>>({});
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isLoading, router]);
-
-  const loadData = useCallback(async () => {
-    if (!token) return;
-    setIsLoadingData(true);
-    try {
-      const result = await getLocations(token);
-      setLocations(result.locations);
-      setError('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load locations');
-    } finally {
-      setIsLoadingData(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (token && user?.role === 'ADMIN') {
-      loadData();
-    }
-  }, [token, user, loadData]);
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
 
-    try {
-      await createLocation(token, formData as CreateLocationRequest);
-      setSuccessMessage('Location created successfully');
-      setShowCreateForm(false);
-      setFormData({});
-      loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create location');
-    }
+    await withErrorHandling(
+      () => createLocation(token, formData as CreateLocationRequest),
+      setError,
+      () => {
+        setSuccessMessage('Location created successfully');
+        setShowCreateForm(false);
+        setFormData({});
+        refetch();
+      }
+    );
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !editingLocation) return;
 
-    try {
-      const updateData: UpdateLocationRequest = {};
-      if (formData.name && formData.name !== editingLocation.name) {
-        updateData.name = formData.name;
-      }
-      if (formData.description !== editingLocation.description) {
-        updateData.description = formData.description || null;
-      }
-      if (formData.parentLocationId !== editingLocation.parentLocationId) {
-        updateData.parentLocationId = formData.parentLocationId || null;
-      }
-
-      await updateLocation(token, editingLocation.id, updateData);
-      setSuccessMessage('Location updated successfully');
-      setEditingLocation(null);
-      setFormData({});
-      loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update location');
+    const updateData: UpdateLocationRequest = {};
+    if (formData.name && formData.name !== editingLocation.name) {
+      updateData.name = formData.name;
     }
+    if (formData.description !== editingLocation.description) {
+      updateData.description = formData.description || null;
+    }
+    if (formData.parentLocationId !== editingLocation.parentLocationId) {
+      updateData.parentLocationId = formData.parentLocationId || null;
+    }
+
+    await withErrorHandling(
+      () => updateLocation(token, editingLocation.id, updateData),
+      setError,
+      () => {
+        setSuccessMessage('Location updated successfully');
+        setEditingLocation(null);
+        setFormData({});
+        refetch();
+      }
+    );
   };
 
   const handleDelete = async (locationId: string) => {
     if (!token) return;
     if (!confirm('Are you sure you want to delete this location?')) return;
 
-    try {
-      await deleteLocation(token, locationId);
-      setSuccessMessage('Location deleted successfully');
-      loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete location');
-    }
+    await withErrorHandling(
+      () => deleteLocation(token, locationId),
+      setError,
+      () => {
+        setSuccessMessage('Location deleted successfully');
+        refetch();
+      }
+    );
   };
 
   const startEdit = (loc: Location) => {
@@ -118,7 +112,7 @@ export default function AdminLocationsPage() {
     setShowCreateForm(false);
   };
 
-  // Get available parent locations (exclude self and children for editing)
+  // Get available parent locations (exclude self for editing)
   const getAvailableParents = () => {
     if (!editingLocation) return locations;
     return locations.filter(loc => loc.id !== editingLocation.id);
@@ -128,7 +122,7 @@ export default function AdminLocationsPage() {
     return <div className="loading">Loading...</div>;
   }
 
-  if (user.role !== 'ADMIN') {
+  if (accessDenied) {
     return (
       <>
         <Header title="Location Management" />
@@ -146,12 +140,12 @@ export default function AdminLocationsPage() {
       <Header title="Location Management" />
 
       <main className="container admin-locations-page">
-        {error && <div className="alert alert-error">{error}</div>}
-        {successMessage && (
-          <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
-            {successMessage}
-          </div>
-        )}
+        <PageAlerts
+          error={error}
+          success={successMessage}
+          onDismissError={clearError}
+          onDismissSuccess={clearSuccess}
+        />
 
         <div className="summary-cards">
           <div className="summary-card">
@@ -445,16 +439,6 @@ export default function AdminLocationsPage() {
         .btn-danger:disabled {
           opacity: 0.5;
           cursor: not-allowed;
-        }
-
-        .alert-success {
-          background: #c6f6d5;
-          border: 1px solid #9ae6b4;
-          color: #276749;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1rem;
-          cursor: pointer;
         }
       `}</style>
     </>
