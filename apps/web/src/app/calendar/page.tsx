@@ -6,8 +6,6 @@ import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import {
   getCalendarSummary,
-  getFacilitySettings,
-  updateFacilitySettings,
   type CalendarDaySummary,
   type CalendarCaseSummary,
 } from '@/lib/api';
@@ -64,7 +62,7 @@ function parseDateParam(dateStr: string | null): Date {
 }
 
 function DayBeforeContent() {
-  const { user, token, isLoading, logout } = useAuth();
+  const { user, token, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -74,8 +72,6 @@ function DayBeforeContent() {
 
   const [viewMode, setViewMode] = useState<ViewMode>(viewParam || 'month');
   const [currentDate, setCurrentDate] = useState<Date>(() => parseDateParam(dateParam));
-  const [timeoutDebriefEnabled, setTimeoutDebriefEnabled] = useState(false);
-  const [isTogglingFeature, setIsTogglingFeature] = useState(false);
 
   // Calendar data
   const [daySummaries, setDaySummaries] = useState<CalendarDaySummary[]>([]);
@@ -147,20 +143,6 @@ function DayBeforeContent() {
   // Selected date string for Day View
   const selectedDateStr = useMemo(() => formatDateParam(currentDate), [currentDate]);
 
-  // Load facility settings
-  useEffect(() => {
-    const loadSettings = async () => {
-      if (!token) return;
-      try {
-        const settings = await getFacilitySettings(token);
-        setTimeoutDebriefEnabled(settings.enableTimeoutDebrief);
-      } catch {
-        // Ignore errors - feature will just be hidden
-      }
-    };
-    loadSettings();
-  }, [token]);
-
   // Load calendar data based on view mode
   useEffect(() => {
     const loadCalendarData = async () => {
@@ -212,21 +194,6 @@ function DayBeforeContent() {
     loadCalendarData();
   }, [token, viewMode, currentDate]);
 
-  const handleToggleTimeoutDebrief = async () => {
-    if (!token) return;
-    setIsTogglingFeature(true);
-    try {
-      const settings = await updateFacilitySettings(token, {
-        enableTimeoutDebrief: !timeoutDebriefEnabled,
-      });
-      setTimeoutDebriefEnabled(settings.enableTimeoutDebrief);
-    } catch (err) {
-      // Handle error
-    } finally {
-      setIsTogglingFeature(false);
-    }
-  };
-
   // Redirect if not logged in
   useEffect(() => {
     if (!isLoading && !user) {
@@ -243,32 +210,6 @@ function DayBeforeContent() {
       <Header title="Case Calendar" />
 
       <main className="container">
-        {/* Admin: Time Out/Debrief Feature Toggle */}
-        {user.role === 'ADMIN' && (
-          <div className="feature-toggle-panel">
-            <label className="feature-toggle">
-              <input
-                type="checkbox"
-                checked={timeoutDebriefEnabled}
-                onChange={handleToggleTimeoutDebrief}
-                disabled={isTogglingFeature}
-              />
-              <span className="feature-toggle-label">
-                {isTogglingFeature ? 'Updating...' : 'Enable Time Out / Debrief Checklists'}
-              </span>
-            </label>
-            {timeoutDebriefEnabled && (
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => router.push('/admin/pending-reviews')}
-                style={{ marginLeft: '1rem' }}
-              >
-                View Pending Reviews
-              </button>
-            )}
-          </div>
-        )}
-
         {/* Calendar Navigation */}
         <CalendarNav
           viewMode={viewMode}
