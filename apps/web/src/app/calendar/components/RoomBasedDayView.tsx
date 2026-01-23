@@ -18,6 +18,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { RoomColumn, RoomSchedule } from './RoomColumn';
 import { ScheduleCard, ScheduleItem, scheduleCardStyles } from './ScheduleCard';
 import { CreateCaseModal } from '@/components/CreateCaseModal';
+import { ScheduleCaseModal } from '@/components/ScheduleCaseModal';
 import { BlockTimeModal } from './BlockTimeModal';
 import {
   getDaySchedule,
@@ -68,6 +69,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
@@ -309,11 +311,19 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
           >
             {isLoading ? 'Loading...' : 'Refresh'}
           </button>
+          {canEdit && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setShowScheduleModal(true)}
+            >
+              + Add to Schedule
+            </button>
+          )}
           <button
-            className="btn btn-primary btn-sm"
+            className="btn btn-secondary btn-sm"
             onClick={() => setShowCreateModal(true)}
           >
-            + Create Case
+            Request Case
           </button>
         </div>
       </div>
@@ -409,6 +419,14 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
       <CreateCaseModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+        onSuccess={loadData}
+        token={token}
+        defaultDate={selectedDate}
+      />
+
+      <ScheduleCaseModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
         onSuccess={loadData}
         token={token}
         defaultDate={selectedDate}

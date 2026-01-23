@@ -169,12 +169,15 @@ export class PostgresCaseRepository implements ICaseRepository {
   }
 
   async create(data: CreateCaseData): Promise<SurgicalCase> {
+    const status = data.status || 'REQUESTED';
+    // Cases created directly as SCHEDULED should be active by default
+    const isActive = status === 'SCHEDULED';
     const result = await query<CaseRow>(`
       INSERT INTO surgical_case (
         facility_id, case_number, scheduled_date, scheduled_time, requested_date, requested_time,
         surgeon_id, procedure_name, preference_card_version_id, status, notes,
         is_active, is_cancelled
-      ) VALUES ($1, generate_case_number($1), $2, $3, $4, $5, $6, $7, $8, 'REQUESTED', $9, false, false)
+      ) VALUES ($1, generate_case_number($1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false)
       RETURNING *, (SELECT name FROM app_user WHERE id = $6) as surgeon_name
     `, [
       data.facilityId,
@@ -185,7 +188,9 @@ export class PostgresCaseRepository implements ICaseRepository {
       data.surgeonId,
       data.procedureName,
       data.preferenceCardVersionId ?? null,
+      status,
       data.notes ?? null,
+      isActive,
     ]);
 
     return mapCaseRow(result.rows[0]);

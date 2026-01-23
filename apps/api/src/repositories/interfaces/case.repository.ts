@@ -55,6 +55,8 @@ export interface CreateCaseData {
   procedureName: string;
   preferenceCardVersionId?: string | null;
   notes?: string | null;
+  /** Optional status override - defaults to REQUESTED. Admin/Scheduler can use SCHEDULED for direct scheduling */
+  status?: 'REQUESTED' | 'SCHEDULED';
 }
 
 export interface UpdateCaseData {

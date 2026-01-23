@@ -111,6 +111,8 @@ export const CreateCaseRequestSchema = z.object({
   procedureName: z.string().min(1).max(255),
   preferenceCardId: z.string().uuid().optional(),
   notes: z.string().optional(),
+  /** Optional status - SCHEDULED allows direct scheduling (Admin/Scheduler only) */
+  status: z.enum(['REQUESTED', 'SCHEDULED']).optional(),
 });
 export type CreateCaseRequest = z.infer<typeof CreateCaseRequestSchema>;
 

@@ -126,6 +126,18 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       preferenceCardVersionId = pcResult.rows[0].current_version_id;
     }
 
+    // Check if user is trying to create directly in SCHEDULED status
+    let status: 'REQUESTED' | 'SCHEDULED' = 'REQUESTED';
+    if (data.status === 'SCHEDULED') {
+      // Only Admin or Scheduler can create directly scheduled cases
+      const userRoles = request.user.roles || [request.user.role];
+      const canDirectSchedule = userRoles.includes('ADMIN') || userRoles.includes('SCHEDULER');
+      if (!canDirectSchedule) {
+        return reply.status(403).send({ error: 'Only Admin or Scheduler can create directly scheduled cases' });
+      }
+      status = 'SCHEDULED';
+    }
+
     // Create the case
     const newCase = await caseRepo.create({
       facilityId,
@@ -137,6 +149,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       procedureName: data.procedureName,
       preferenceCardVersionId,
       notes: data.notes,
+      status,
     });
 
     // If preference card version set, copy its items to case requirements
