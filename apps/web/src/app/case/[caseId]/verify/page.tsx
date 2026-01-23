@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { AdminNav } from '@/app/components/AdminNav';
 import { useScannerService, type ScanProcessResult } from '@/lib/useScannerService';
@@ -17,7 +17,12 @@ function CaseVerificationContent() {
   const { user, token, isLoading, logout } = useAuth();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const caseId = params.caseId as string;
+
+  // Get return parameters for navigation back to calendar with modal open
+  const returnTo = searchParams.get('returnTo');
+  const shouldOpenModal = searchParams.get('openModal') === 'true';
 
   // Verification data state
   const [verification, setVerification] = useState<CaseVerificationResponse | null>(null);
@@ -378,7 +383,19 @@ function CaseVerificationContent() {
         </section>
 
         {/* Back to Case Dashboard */}
-        <button onClick={() => router.push(`/case/${caseId}`)} className="btn-secondary">
+        <button
+          onClick={() => {
+            if (returnTo && shouldOpenModal) {
+              // Navigate back to calendar with openCase param to re-open modal
+              router.push(`${returnTo}${returnTo.includes('?') ? '&' : '?'}openCase=${caseId}`);
+            } else if (returnTo) {
+              router.push(returnTo);
+            } else {
+              router.push(`/case/${caseId}`);
+            }
+          }}
+          className="btn-secondary"
+        >
           Back to Case Dashboard
         </button>
       </main>

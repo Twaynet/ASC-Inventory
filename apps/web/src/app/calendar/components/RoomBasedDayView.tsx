@@ -20,6 +20,7 @@ import { ScheduleCard, ScheduleItem, scheduleCardStyles } from './ScheduleCard';
 import { CreateCaseModal } from '@/components/CreateCaseModal';
 import { ScheduleCaseModal } from '@/components/ScheduleCaseModal';
 import { BlockTimeModal } from './BlockTimeModal';
+import { CaseDashboardModal } from '@/components/CaseDashboardModal';
 import {
   getDaySchedule,
   setRoomDayConfig,
@@ -80,6 +81,10 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
   const [blockTimeRoomName, setBlockTimeRoomName] = useState<string>('');
   const [editingBlockTime, setEditingBlockTime] = useState<ScheduleItem | null>(null);
 
+  // Case Dashboard modal state
+  const [caseDashboardOpen, setCaseDashboardOpen] = useState(false);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+
   // Check if user can edit (ADMIN or SCHEDULER)
   const userRoles = user.roles || [user.role];
   const canEdit = userRoles.includes('ADMIN') || userRoles.includes('SCHEDULER');
@@ -123,7 +128,8 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
 
   const handleItemClick = (item: ScheduleItem, roomId?: string, roomName?: string) => {
     if (item.type === 'case') {
-      router.push(`/case/${item.id}`);
+      setSelectedCaseId(item.id);
+      setCaseDashboardOpen(true);
     } else if (item.type === 'block' && canEdit && roomId && roomName) {
       // Open edit modal for block times
       setBlockTimeRoomId(roomId);
@@ -131,6 +137,11 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
       setEditingBlockTime(item);
       setShowBlockTimeModal(true);
     }
+  };
+
+  const handleCloseCaseDashboard = () => {
+    setCaseDashboardOpen(false);
+    setSelectedCaseId(null);
   };
 
   const handleAddBlockTime = (roomId: string, roomName: string) => {
@@ -468,6 +479,15 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
           durationMinutes: editingBlockTime.durationMinutes,
           notes: editingBlockTime.notes,
         } : null}
+      />
+
+      <CaseDashboardModal
+        isOpen={caseDashboardOpen}
+        caseId={selectedCaseId}
+        token={token}
+        user={user}
+        onClose={handleCloseCaseDashboard}
+        onSuccess={loadData}
       />
 
       <style jsx>{`

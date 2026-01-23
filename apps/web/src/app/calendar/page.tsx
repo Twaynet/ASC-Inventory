@@ -13,6 +13,7 @@ import { CalendarNav, type ViewMode } from './components/CalendarNav';
 import { MonthView } from './components/MonthView';
 import { WeekView } from './components/WeekView';
 import { RoomBasedDayView } from './components/RoomBasedDayView';
+import { CaseDashboardModal } from '@/components/CaseDashboardModal';
 
 function getStartOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -68,6 +69,7 @@ function DayBeforeContent() {
   // Parse URL params
   const viewParam = searchParams.get('view') as ViewMode | null;
   const dateParam = searchParams.get('date');
+  const openCaseParam = searchParams.get('openCase');
 
   const [viewMode, setViewMode] = useState<ViewMode>(viewParam || 'month');
   const [currentDate, setCurrentDate] = useState<Date>(() => parseDateParam(dateParam));
@@ -77,6 +79,10 @@ function DayBeforeContent() {
   const [weekCases, setWeekCases] = useState<CalendarCaseSummary[]>([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
   const [calendarError, setCalendarError] = useState('');
+
+  // Case Dashboard Modal state
+  const [caseDashboardOpen, setCaseDashboardOpen] = useState(false);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
 
   // Update URL when view mode or date changes
   const updateUrl = useCallback((mode: ViewMode, date: Date) => {
@@ -139,6 +145,32 @@ function DayBeforeContent() {
     updateUrl('day', date);
   }, [updateUrl]);
 
+  // Handle opening case dashboard modal
+  const handleOpenCaseDashboard = useCallback((caseId: string) => {
+    setSelectedCaseId(caseId);
+    setCaseDashboardOpen(true);
+  }, []);
+
+  // Handle case dashboard modal close
+  const handleCloseCaseDashboard = useCallback(() => {
+    setCaseDashboardOpen(false);
+    setSelectedCaseId(null);
+    // Clean up openCase URL parameter if present
+    if (openCaseParam) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('openCase');
+      const newUrl = `/calendar?${params.toString()}`;
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [openCaseParam, searchParams, router]);
+
+  // Reload calendar data after case changes
+  const reloadCalendarData = useCallback(async () => {
+    if (!token || viewMode === 'day') return;
+    // Trigger re-fetch by re-running the effect
+    setIsLoadingCalendar(true);
+  }, [token, viewMode]);
+
   // Selected date string for Day View
   const selectedDateStr = useMemo(() => formatDateParam(currentDate), [currentDate]);
 
@@ -200,6 +232,14 @@ function DayBeforeContent() {
     }
   }, [user, isLoading, router]);
 
+  // Auto-open modal when returning from verify page with openCase param
+  useEffect(() => {
+    if (openCaseParam && !caseDashboardOpen && !isLoading && user) {
+      setSelectedCaseId(openCaseParam);
+      setCaseDashboardOpen(true);
+    }
+  }, [openCaseParam, caseDashboardOpen, isLoading, user]);
+
   if (isLoading || !user) {
     return <div className="loading">Loading...</div>;
   }
@@ -237,6 +277,7 @@ function DayBeforeContent() {
             currentDate={currentDate}
             cases={monthCases}
             onDayClick={handleDayClickFromMonth}
+            onOpenCaseDashboard={handleOpenCaseDashboard}
             isLoading={isLoadingCalendar}
           />
         )}
@@ -246,6 +287,7 @@ function DayBeforeContent() {
             currentDate={currentDate}
             cases={weekCases}
             onDayClick={handleDayClickFromWeek}
+            onOpenCaseDashboard={handleOpenCaseDashboard}
             isLoading={isLoadingCalendar}
           />
         )}
@@ -264,6 +306,24 @@ function DayBeforeContent() {
           />
         )}
       </main>
+
+      {/* Case Dashboard Modal for Week/Month views */}
+      {token && user && (
+        <CaseDashboardModal
+          isOpen={caseDashboardOpen}
+          caseId={selectedCaseId}
+          token={token}
+          user={{
+            id: user.id,
+            name: user.name,
+            role: user.role,
+            roles: user.roles,
+            facilityName: user.facilityName,
+          }}
+          onClose={handleCloseCaseDashboard}
+          onSuccess={reloadCalendarData}
+        />
+      )}
     </>
   );
 }
