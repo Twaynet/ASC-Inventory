@@ -10,8 +10,10 @@ import {
   approveCase,
   rejectCase,
   getSurgeons,
+  getRooms,
   type Case,
   type User,
+  type Room,
 } from '@/lib/api';
 
 function formatDate(dateStr: string | null): string {
@@ -77,6 +79,8 @@ export default function CasesPage() {
   const [approvingCase, setApprovingCase] = useState<Case | null>(null);
   const [approvalDate, setApprovalDate] = useState('');
   const [approvalTime, setApprovalTime] = useState('');
+  const [approvalRoomId, setApprovalRoomId] = useState('');
+  const [rooms, setRooms] = useState<Room[]>([]);
 
   // Rejection form state (ADMIN/SCHEDULER only)
   const [rejectingCase, setRejectingCase] = useState<Case | null>(null);
@@ -204,11 +208,13 @@ export default function CasesPage() {
       await approveCase(token, approvingCase.id, {
         scheduledDate: approvalDate,
         scheduledTime: approvalTime || undefined,
+        roomId: approvalRoomId || undefined,
       });
       setSuccessMessage('Case approved and scheduled successfully');
       setApprovingCase(null);
       setApprovalDate('');
       setApprovalTime('');
+      setApprovalRoomId('');
       loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve case');
@@ -230,10 +236,21 @@ export default function CasesPage() {
     }
   };
 
-  const startApproval = (c: Case) => {
+  const startApproval = async (c: Case) => {
     setApprovingCase(c);
     setApprovalDate(c.requestedDate || '');
     setApprovalTime(c.requestedTime || '');
+    setApprovalRoomId('');
+
+    // Fetch rooms for the dropdown
+    if (token) {
+      try {
+        const result = await getRooms(token);
+        setRooms(result.rooms);
+      } catch (err) {
+        console.error('Failed to load rooms:', err);
+      }
+    }
   };
 
   const startRejection = (c: Case) => {
@@ -431,6 +448,20 @@ export default function CasesPage() {
                         onChange={(e) => setApprovalTime(e.target.value)}
                       />
                     </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="approvalRoom">Operating Room</label>
+                    <select
+                      id="approvalRoom"
+                      value={approvalRoomId}
+                      onChange={(e) => setApprovalRoomId(e.target.value)}
+                    >
+                      <option value="">Select room (optional)</option>
+                      {rooms.map((room) => (
+                        <option key={room.id} value={room.id}>{room.name}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="modal-actions">

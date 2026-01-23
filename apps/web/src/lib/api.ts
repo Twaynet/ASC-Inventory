@@ -1029,7 +1029,7 @@ export async function cancelCase(token: string, caseId: string, reason?: string)
   return api(`/cases/${caseId}/cancel`, { method: 'POST', body: { reason }, token });
 }
 
-export async function approveCase(token: string, caseId: string, data: { scheduledDate: string; scheduledTime?: string }): Promise<{ case: Case }> {
+export async function approveCase(token: string, caseId: string, data: { scheduledDate: string; scheduledTime?: string; roomId?: string }): Promise<{ case: Case }> {
   return api(`/cases/${caseId}/approve`, { method: 'POST', body: data, token });
 }
 
@@ -1735,4 +1735,135 @@ export async function reorderConfigItems(
   orderedIds: string[]
 ): Promise<{ success: boolean }> {
   return api('/general-settings/config-items/reorder', { method: 'PUT', body: { itemType, orderedIds }, token });
+}
+
+// ============================================================================
+// SCHEDULE / DAY VIEW
+// ============================================================================
+
+export interface ScheduleItem {
+  type: 'case' | 'block';
+  id: string;
+  sortOrder: number;
+  durationMinutes: number;
+  // Case-specific fields
+  caseNumber?: string;
+  procedureName?: string;
+  surgeonId?: string;
+  surgeonName?: string;
+  scheduledTime?: string | null;
+  status?: string;
+  // Block-specific fields
+  notes?: string | null;
+}
+
+export interface RoomSchedule {
+  roomId: string;
+  roomName: string;
+  startTime: string;
+  items: ScheduleItem[];
+}
+
+export interface DayScheduleResponse {
+  date: string;
+  facilityId: string;
+  rooms: RoomSchedule[];
+  unassignedCases: ScheduleItem[];
+}
+
+export interface BlockTime {
+  id: string;
+  facilityId: string;
+  roomId: string;
+  roomName: string;
+  blockDate: string;
+  durationMinutes: number;
+  notes: string | null;
+  sortOrder: number;
+  createdAt: string;
+  createdByUserId: string | null;
+}
+
+export interface RoomDayConfig {
+  id: string;
+  roomId: string;
+  configDate: string;
+  startTime: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getDaySchedule(
+  token: string,
+  date: string
+): Promise<DayScheduleResponse> {
+  return api(`/schedule/day?date=${date}`, { token });
+}
+
+export async function assignCaseRoom(
+  token: string,
+  caseId: string,
+  data: {
+    roomId: string | null;
+    sortOrder?: number;
+    estimatedDurationMinutes?: number;
+  }
+): Promise<{ case: Case }> {
+  return api(`/cases/${caseId}/assign-room`, { method: 'PATCH', body: data, token });
+}
+
+export async function createBlockTime(
+  token: string,
+  data: {
+    roomId: string;
+    blockDate: string;
+    durationMinutes?: number;
+    notes?: string;
+    sortOrder?: number;
+  }
+): Promise<{ blockTime: BlockTime }> {
+  return api('/schedule/block-times', { method: 'POST', body: data, token });
+}
+
+export async function updateBlockTime(
+  token: string,
+  blockTimeId: string,
+  data: {
+    durationMinutes?: number;
+    notes?: string | null;
+    sortOrder?: number;
+  }
+): Promise<{ blockTime: BlockTime }> {
+  return api(`/schedule/block-times/${blockTimeId}`, { method: 'PATCH', body: data, token });
+}
+
+export async function deleteBlockTime(
+  token: string,
+  blockTimeId: string
+): Promise<{ success: boolean }> {
+  return api(`/schedule/block-times/${blockTimeId}`, { method: 'DELETE', token });
+}
+
+export async function setRoomDayConfig(
+  token: string,
+  roomId: string,
+  date: string,
+  startTime: string
+): Promise<{ config: RoomDayConfig }> {
+  return api(`/schedule/rooms/${roomId}/day-config?date=${date}`, {
+    method: 'PUT',
+    body: { startTime },
+    token,
+  });
+}
+
+export async function reorderScheduleItems(
+  token: string,
+  data: {
+    roomId: string | null;
+    date: string;
+    orderedItems: Array<{ type: 'case' | 'block'; id: string }>;
+  }
+): Promise<{ success: boolean }> {
+  return api('/schedule/reorder', { method: 'PATCH', body: data, token });
 }

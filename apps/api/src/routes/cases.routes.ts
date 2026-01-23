@@ -14,6 +14,7 @@ import {
   ApproveCaseRequestSchema,
   RejectCaseRequestSchema,
   CancelCaseRequestSchema,
+  AssignRoomRequestSchema,
 } from '../schemas/index.js';
 import { requireScheduler, requireSurgeon, requireAdmin } from '../plugins/auth.js';
 import { canStartCase, canCompleteCase } from '../services/checklists.service.js';
@@ -46,6 +47,11 @@ function formatCase(c: SurgicalCase) {
     rejectionReason: c.rejectionReason,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
+    // Room scheduling fields
+    roomId: c.roomId,
+    roomName: c.roomName,
+    estimatedDurationMinutes: c.estimatedDurationMinutes,
+    sortOrder: c.sortOrder,
   };
 }
 
@@ -316,6 +322,8 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     const approved = await caseRepo.approve(id, facilityId, userId, {
       scheduledDate: data.scheduledDate,
       scheduledTime: data.scheduledTime,
+      roomId: data.roomId,
+      estimatedDurationMinutes: data.estimatedDurationMinutes,
     });
 
     if (!approved) {
@@ -323,6 +331,56 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     return reply.send({ case: formatCase(approved) });
+  });
+
+  /**
+   * PATCH /cases/:id/assign-room
+   * Assign or unassign a room to a case (ADMIN/SCHEDULER only)
+   */
+  fastify.patch<{ Params: { id: string } }>('/:id/assign-room', {
+    preHandler: [requireScheduler],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId } = request.user;
+
+    const parseResult = AssignRoomRequestSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        error: 'Validation error',
+        details: parseResult.error.flatten(),
+      });
+    }
+
+    const { roomId, sortOrder, estimatedDurationMinutes } = parseResult.data;
+
+    // Verify case exists
+    const caseStatus = await caseRepo.getStatus(id, facilityId);
+    if (!caseStatus) {
+      return reply.status(404).send({ error: 'Procedure not found' });
+    }
+
+    // Validate room belongs to facility if provided
+    if (roomId) {
+      const roomResult = await query<{ id: string }>(`
+        SELECT id FROM room WHERE id = $1 AND facility_id = $2 AND active = true
+      `, [roomId, facilityId]);
+
+      if (roomResult.rows.length === 0) {
+        return reply.status(400).send({ error: 'Invalid or inactive room' });
+      }
+    }
+
+    const updated = await caseRepo.update(id, facilityId, {
+      roomId,
+      sortOrder,
+      estimatedDurationMinutes,
+    });
+
+    if (!updated) {
+      return reply.status(404).send({ error: 'Procedure not found' });
+    }
+
+    return reply.send({ case: formatCase(updated) });
   });
 
   /**
