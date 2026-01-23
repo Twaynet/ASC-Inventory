@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createCase, getSurgeons, type User } from '@/lib/api';
+import { TimeSelect } from './TimeSelect';
 
 interface CreateCaseModalProps {
   isOpen: boolean;
@@ -193,23 +194,13 @@ export function CreateCaseModal({
 
             <div className="form-group">
               <label htmlFor="requestedTime">Requested Time (24h)</label>
-              <select
+              <TimeSelect
                 id="requestedTime"
                 value={formData.requestedTime}
-                onChange={(e) => setFormData({ ...formData, requestedTime: e.target.value })}
-              >
-                <option value="">Select time</option>
-                {Array.from({ length: 24 * 4 }, (_, i) => {
-                  const hour = Math.floor(i / 4);
-                  const minute = (i % 4) * 15;
-                  const value = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-                  return (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  );
-                })}
-              </select>
+                onChange={(value) => setFormData({ ...formData, requestedTime: value })}
+                startHour={6}
+                endHour={18}
+              />
             </div>
           </div>
 

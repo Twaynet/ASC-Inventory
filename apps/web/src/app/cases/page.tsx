@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
+import { TimeSelect } from '@/components/TimeSelect';
 import {
   getCases,
   createCase,
@@ -454,12 +455,13 @@ export default function CasesPage() {
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="approvalTime">Scheduled Time</label>
-                      <input
+                      <label htmlFor="approvalTime">Scheduled Time (24h)</label>
+                      <TimeSelect
                         id="approvalTime"
-                        type="time"
                         value={approvalTime}
-                        onChange={(e) => setApprovalTime(e.target.value)}
+                        onChange={setApprovalTime}
+                        startHour={6}
+                        endHour={18}
                       />
                     </div>
                   </div>
