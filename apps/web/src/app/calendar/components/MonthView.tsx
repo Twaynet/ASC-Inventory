@@ -1,11 +1,12 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { CalendarDaySummary } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import type { CalendarCaseSummary } from '@/lib/api';
 
 interface MonthViewProps {
   currentDate: Date;
-  daySummaries: CalendarDaySummary[];
+  cases: CalendarCaseSummary[];
   onDayClick: (date: Date) => void;
   isLoading?: boolean;
 }
@@ -62,24 +63,32 @@ function isSameMonth(date: Date, referenceDate: Date): boolean {
 
 export function MonthView({
   currentDate,
-  daySummaries,
+  cases,
   onDayClick,
   isLoading,
 }: MonthViewProps) {
+  const router = useRouter();
   const days = useMemo(
     () => getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth()),
     [currentDate]
   );
 
-  const summaryMap = useMemo(() => {
-    const map = new Map<string, CalendarDaySummary>();
-    for (const summary of daySummaries) {
-      map.set(summary.date, summary);
+  const casesByDay = useMemo(() => {
+    const map = new Map<string, CalendarCaseSummary[]>();
+    for (const c of cases) {
+      const existing = map.get(c.scheduledDate) || [];
+      existing.push(c);
+      map.set(c.scheduledDate, existing);
     }
     return map;
-  }, [daySummaries]);
+  }, [cases]);
 
   const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const handleCaseClick = (e: React.MouseEvent, caseId: string) => {
+    e.stopPropagation();
+    router.push(`/case/${caseId}`);
+  };
 
   return (
     <div className="month-view">
@@ -96,61 +105,49 @@ export function MonthView({
       <div className="month-grid">
         {days.map((date, index) => {
           const dateKey = formatDateKey(date);
-          const summary = summaryMap.get(dateKey);
+          const dayCases = casesByDay.get(dateKey) || [];
           const isCurrentMonth = isSameMonth(date, currentDate);
           const isTodayDate = isToday(date);
 
           return (
             <div
               key={index}
-              className={`day-cell ${!isCurrentMonth ? 'other-month' : ''} ${isTodayDate ? 'today' : ''} ${summary ? 'has-cases' : ''}`}
+              className={`day-cell ${!isCurrentMonth ? 'other-month' : ''} ${isTodayDate ? 'today' : ''} ${dayCases.length > 0 ? 'has-cases' : ''}`}
               onClick={() => onDayClick(date)}
             >
               <span className="day-number">{date.getDate()}</span>
 
               {isLoading ? (
                 <div className="day-loading" />
-              ) : summary && summary.caseCount > 0 ? (
-                <div className="day-indicators">
-                  <div className="case-count">{summary.caseCount} case{summary.caseCount !== 1 ? 's' : ''}</div>
-                  <div className="status-dots">
-                    {summary.greenCount > 0 && (
-                      <span className="status-dot green" title={`${summary.greenCount} ready`}>
-                        {summary.greenCount}
-                      </span>
-                    )}
-                    {summary.orangeCount > 0 && (
-                      <span className="status-dot orange" title={`${summary.orangeCount} pending`}>
-                        {summary.orangeCount}
-                      </span>
-                    )}
-                    {summary.redCount > 0 && (
-                      <span className="status-dot red" title={`${summary.redCount} missing`}>
-                        {summary.redCount}
-                      </span>
-                    )}
-                  </div>
+              ) : dayCases.length > 0 ? (
+                <div className="day-cases">
+                  {dayCases.slice(0, 4).map((c) => (
+                    <div
+                      key={c.caseId}
+                      className={`month-case-badge ${c.isActive ? '' : 'inactive'}`}
+                      style={c.surgeonColor ? { borderLeftColor: c.surgeonColor } : undefined}
+                      onClick={(e) => handleCaseClick(e, c.caseId)}
+                      title={`${c.procedureName} - Dr. ${c.surgeonName}`}
+                    >
+                      {c.surgeonColor && (
+                        <span
+                          className="surgeon-color-dot"
+                          style={{ backgroundColor: c.surgeonColor }}
+                        />
+                      )}
+                      <span className="month-case-name">{c.procedureName}</span>
+                    </div>
+                  ))}
+                  {dayCases.length > 4 && (
+                    <div className="month-more-cases">
+                      +{dayCases.length - 4} more
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
           );
         })}
-      </div>
-
-      {/* Legend */}
-      <div className="calendar-legend">
-        <span className="legend-item">
-          <span className="status-dot green" />
-          Ready
-        </span>
-        <span className="legend-item">
-          <span className="status-dot orange" />
-          Pending
-        </span>
-        <span className="legend-item">
-          <span className="status-dot red" />
-          Missing Items
-        </span>
       </div>
     </div>
   );

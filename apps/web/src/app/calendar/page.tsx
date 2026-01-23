@@ -6,7 +6,6 @@ import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import {
   getCalendarSummary,
-  type CalendarDaySummary,
   type CalendarCaseSummary,
 } from '@/lib/api';
 
@@ -74,7 +73,7 @@ function DayBeforeContent() {
   const [currentDate, setCurrentDate] = useState<Date>(() => parseDateParam(dateParam));
 
   // Calendar data
-  const [daySummaries, setDaySummaries] = useState<CalendarDaySummary[]>([]);
+  const [monthCases, setMonthCases] = useState<CalendarCaseSummary[]>([]);
   const [weekCases, setWeekCases] = useState<CalendarCaseSummary[]>([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
   const [calendarError, setCalendarError] = useState('');
@@ -154,7 +153,6 @@ function DayBeforeContent() {
       try {
         let startDate: string;
         let endDate: string;
-        let granularity: 'day' | 'case';
 
         if (viewMode === 'month') {
           // For month view, get the full month plus padding for calendar display
@@ -166,7 +164,6 @@ function DayBeforeContent() {
 
           startDate = formatDateParam(calendarStart);
           endDate = formatDateParam(calendarEnd);
-          granularity = 'day';
         } else {
           // Week view
           const weekStart = getStartOfWeek(currentDate);
@@ -174,15 +171,17 @@ function DayBeforeContent() {
 
           startDate = formatDateParam(weekStart);
           endDate = formatDateParam(weekEnd);
-          granularity = 'case';
         }
 
-        const result = await getCalendarSummary(token, startDate, endDate, granularity);
+        // Both month and week views use 'case' granularity for surgeon colors
+        const result = await getCalendarSummary(token, startDate, endDate, 'case');
 
-        if (viewMode === 'month' && result.days) {
-          setDaySummaries(result.days);
-        } else if (viewMode === 'week' && result.cases) {
-          setWeekCases(result.cases);
+        if (result.cases) {
+          if (viewMode === 'month') {
+            setMonthCases(result.cases);
+          } else {
+            setWeekCases(result.cases);
+          }
         }
       } catch (err) {
         setCalendarError(err instanceof Error ? err.message : 'Failed to load calendar data');
@@ -236,7 +235,7 @@ function DayBeforeContent() {
         {viewMode === 'month' && (
           <MonthView
             currentDate={currentDate}
-            daySummaries={daySummaries}
+            cases={monthCases}
             onDayClick={handleDayClickFromMonth}
             isLoading={isLoadingCalendar}
           />

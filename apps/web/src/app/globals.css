@@ -1952,6 +1952,58 @@ body {
   100% { background-position: 200% 0; }
 }
 
+/* Month View Case Badges */
+.day-cases {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: hidden;
+}
+
+.month-case-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  background: white;
+  border-left: 3px solid var(--color-gray-300);
+  border-radius: 2px;
+  font-size: 0.625rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  overflow: hidden;
+}
+
+.month-case-badge:hover {
+  background: var(--color-blue-50, #EBF8FF);
+}
+
+.month-case-badge.inactive {
+  opacity: 0.6;
+  background: var(--color-gray-100);
+}
+
+.month-case-badge .surgeon-color-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+}
+
+.month-case-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-gray-700);
+  font-weight: 500;
+}
+
+.month-more-cases {
+  font-size: 0.625rem;
+  color: var(--color-gray-500);
+  padding: 0.125rem 0.25rem;
+  text-align: center;
+}
+
 /* Calendar Legend */
 .calendar-legend {
   display: flex;
