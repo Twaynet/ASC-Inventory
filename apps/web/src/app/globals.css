@@ -1982,71 +1982,59 @@ body {
   100% { background-position: 200% 0; }
 }
 
-/* Month View Case Badges */
-.day-cases {
+/* Month View - Room Columns with Case Dots */
+.day-rooms {
+  display: flex;
+  gap: 0.25rem;
+  overflow: hidden;
+  flex: 1;
+  align-items: flex-start;
+}
+
+.room-column {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  overflow: hidden;
+  gap: 2px;
+  min-width: 0;
 }
 
-.month-case-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.25rem;
-  background: white;
-  border-left: 3px solid var(--color-gray-300);
-  border-radius: 2px;
-  font-size: 0.625rem;
+.room-column.unassigned {
+  border-left: 1px dashed var(--color-gray-300);
+  padding-left: 0.25rem;
+  margin-left: 0.125rem;
+}
+
+.case-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   cursor: pointer;
-  transition: background-color 0.15s;
-  overflow: hidden;
-}
-
-.month-case-badge:hover {
-  background: var(--color-blue-50, #EBF8FF);
-}
-
-.month-case-badge.inactive {
-  opacity: 0.6;
-  background: var(--color-gray-100);
-}
-
-.month-case-badge.status-green {
-  background: var(--color-green-bg);
-  border-left: 2px solid var(--color-green);
-}
-
-.month-case-badge.status-orange {
-  background: var(--color-orange-bg);
-  border-left: 2px solid var(--color-orange);
-}
-
-.month-case-badge.status-red {
-  background: var(--color-red-bg);
-  border-left: 2px solid var(--color-red);
-}
-
-.month-case-badge .surgeon-color-dot {
-  width: 6px;
-  height: 6px;
+  transition: transform 0.15s, box-shadow 0.15s;
   flex-shrink: 0;
+  background: var(--color-gray-400);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.month-case-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--color-gray-700);
-  font-weight: 500;
+.case-dot:hover {
+  transform: scale(1.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 1;
 }
 
-.month-more-cases {
-  font-size: 0.625rem;
-  color: var(--color-gray-500);
-  padding: 0.125rem 0.25rem;
-  text-align: center;
+.case-dot.inactive {
+  opacity: 0.4;
+}
+
+.case-dot.status-green {
+  border: 2px solid var(--color-green);
+}
+
+.case-dot.status-orange {
+  border: 2px solid var(--color-orange);
+}
+
+.case-dot.status-red {
+  border: 2px solid var(--color-red);
 }
 
 /* Calendar Legend */

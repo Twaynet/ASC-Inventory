@@ -138,6 +138,8 @@ export interface CalendarCaseSummary {
   surgeonColor: string | null;
   readinessState: 'GREEN' | 'ORANGE' | 'RED';
   isActive: boolean;
+  roomId: string | null;
+  roomName: string | null;
 }
 
 export interface CalendarSummaryResponse {

@@ -509,6 +509,8 @@ export interface CalendarCaseSummary {
   surgeonColor: string | null;
   readinessState: 'GREEN' | 'ORANGE' | 'RED';
   isActive: boolean;
+  roomId: string | null;
+  roomName: string | null;
 }
 
 /**
@@ -571,6 +573,8 @@ export async function getCalendarSummary(
       surgeon_color: string | null;
       readiness_state: string | null;
       is_active: boolean;
+      room_id: string | null;
+      room_name: string | null;
     }>(`
       SELECT
         sc.id,
@@ -580,15 +584,18 @@ export async function getCalendarSummary(
         u.name as surgeon_name,
         u.display_color as surgeon_color,
         crc.readiness_state,
-        sc.is_active
+        sc.is_active,
+        sc.room_id,
+        r.name as room_name
       FROM surgical_case sc
       JOIN app_user u ON sc.surgeon_id = u.id
       LEFT JOIN case_readiness_cache crc ON sc.id = crc.case_id
+      LEFT JOIN room r ON sc.room_id = r.id
       WHERE sc.facility_id = $1
         AND sc.scheduled_date >= $2
         AND sc.scheduled_date <= $3
         AND sc.status NOT IN ('CANCELLED', 'COMPLETED')
-      ORDER BY sc.scheduled_date, sc.scheduled_time NULLS LAST
+      ORDER BY sc.scheduled_date, r.name NULLS LAST, sc.scheduled_time NULLS LAST
     `, [facilityId, startStr, endStr]);
 
     const cases: CalendarCaseSummary[] = result.rows.map(row => ({
@@ -600,6 +607,8 @@ export async function getCalendarSummary(
       surgeonColor: row.surgeon_color,
       readinessState: (row.readiness_state || 'ORANGE') as 'GREEN' | 'ORANGE' | 'RED',
       isActive: row.is_active,
+      roomId: row.room_id,
+      roomName: row.room_name,
     }));
 
     return { cases };

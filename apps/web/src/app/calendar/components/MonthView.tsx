@@ -38,7 +38,6 @@ function getDaysInMonth(year: number, month: number): Date[] {
 }
 
 function formatDateKey(date: Date): string {
-  // Use local date to avoid timezone shifts
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -73,12 +72,33 @@ export function MonthView({
     [currentDate]
   );
 
-  const casesByDay = useMemo(() => {
-    const map = new Map<string, CalendarCaseSummary[]>();
+  // Get unique rooms from all cases
+  const rooms = useMemo(() => {
+    const roomMap = new Map<string, string>();
     for (const c of cases) {
-      const existing = map.get(c.scheduledDate) || [];
-      existing.push(c);
-      map.set(c.scheduledDate, existing);
+      if (c.roomId && c.roomName) {
+        roomMap.set(c.roomId, c.roomName);
+      }
+    }
+    // Sort rooms by name
+    return Array.from(roomMap.entries())
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([id, name]) => ({ id, name }));
+  }, [cases]);
+
+  // Group cases by day and room
+  const casesByDayAndRoom = useMemo(() => {
+    const map = new Map<string, Map<string, CalendarCaseSummary[]>>();
+    for (const c of cases) {
+      if (!map.has(c.scheduledDate)) {
+        map.set(c.scheduledDate, new Map());
+      }
+      const dayMap = map.get(c.scheduledDate)!;
+      const roomKey = c.roomId || 'unassigned';
+      if (!dayMap.has(roomKey)) {
+        dayMap.set(roomKey, []);
+      }
+      dayMap.get(roomKey)!.push(c);
     }
     return map;
   }, [cases]);
@@ -87,25 +107,6 @@ export function MonthView({
 
   return (
     <div className="month-view">
-      <div className="calendar-legend">
-        <div className="legend-item">
-          <span className="status-dot green"></span>
-          <span>Ready</span>
-        </div>
-        <div className="legend-item">
-          <span className="status-dot orange"></span>
-          <span>Pending</span>
-        </div>
-        <div className="legend-item">
-          <span className="status-dot red"></span>
-          <span>Missing Items</span>
-        </div>
-        <div className="legend-item">
-          <span className="status-dot gray"></span>
-          <span>Inactive</span>
-        </div>
-      </div>
-
       {/* Weekday headers */}
       <div className="month-grid-header">
         {weekdays.map((day) => (
@@ -119,45 +120,58 @@ export function MonthView({
       <div className="month-grid">
         {days.map((date, index) => {
           const dateKey = formatDateKey(date);
-          const dayCases = casesByDay.get(dateKey) || [];
+          const dayRooms = casesByDayAndRoom.get(dateKey);
           const isCurrentMonth = isSameMonth(date, currentDate);
           const isTodayDate = isToday(date);
+          const hasCases = dayRooms && dayRooms.size > 0;
 
           return (
             <div
               key={index}
-              className={`day-cell ${!isCurrentMonth ? 'other-month' : ''} ${isTodayDate ? 'today' : ''} ${dayCases.length > 0 ? 'has-cases' : ''}`}
+              className={`day-cell ${!isCurrentMonth ? 'other-month' : ''} ${isTodayDate ? 'today' : ''} ${hasCases ? 'has-cases' : ''}`}
               onClick={() => onDayClick(date)}
             >
               <span className="day-number">{date.getDate()}</span>
 
               {isLoading ? (
                 <div className="day-loading" />
-              ) : dayCases.length > 0 ? (
-                <div className="day-cases">
-                  {dayCases.slice(0, 4).map((c) => (
-                    <div
-                      key={c.caseId}
-                      className={`month-case-badge ${c.isActive ? `status-${c.readinessState.toLowerCase()}` : 'inactive'}`}
-                      style={c.surgeonColor ? { borderLeftColor: c.surgeonColor } : undefined}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenCaseDashboard(c.caseId);
-                      }}
-                      title={`${c.procedureName} - Dr. ${c.surgeonName}`}
-                    >
-                      {c.surgeonColor && (
-                        <span
-                          className="surgeon-color-dot"
-                          style={{ backgroundColor: c.surgeonColor }}
+              ) : hasCases ? (
+                <div className="day-rooms">
+                  {rooms.map((room) => {
+                    const roomCases = dayRooms.get(room.id) || [];
+                    if (roomCases.length === 0) return null;
+                    return (
+                      <div key={room.id} className="room-column">
+                        {roomCases.map((c) => (
+                          <div
+                            key={c.caseId}
+                            className={`case-dot ${c.isActive ? `status-${c.readinessState.toLowerCase()}` : 'inactive'}`}
+                            style={c.surgeonColor ? { backgroundColor: c.surgeonColor } : undefined}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenCaseDashboard(c.caseId);
+                            }}
+                            title={`${c.procedureName} - Dr. ${c.surgeonName} (${room.name})`}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })}
+                  {/* Unassigned cases */}
+                  {dayRooms.has('unassigned') && (
+                    <div className="room-column unassigned">
+                      {dayRooms.get('unassigned')!.map((c) => (
+                        <div
+                          key={c.caseId}
+                          className={`case-dot ${c.isActive ? `status-${c.readinessState.toLowerCase()}` : 'inactive'}`}
+                          style={c.surgeonColor ? { backgroundColor: c.surgeonColor } : undefined}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenCaseDashboard(c.caseId);
+                          }}
+                          title={`${c.procedureName} - Dr. ${c.surgeonName} (Unassigned)`}
                         />
-                      )}
-                      <span className="month-case-name">{c.procedureName}</span>
-                    </div>
-                  ))}
-                  {dayCases.length > 4 && (
-                    <div className="month-more-cases">
-                      +{dayCases.length - 4} more
+                      ))}
                     </div>
                   )}
                 </div>
