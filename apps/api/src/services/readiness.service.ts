@@ -506,6 +506,7 @@ export interface CalendarCaseSummary {
   scheduledTime: string | null;
   procedureName: string;
   surgeonName: string;
+  surgeonColor: string | null;
   readinessState: 'GREEN' | 'ORANGE' | 'RED';
   isActive: boolean;
 }
@@ -567,6 +568,7 @@ export async function getCalendarSummary(
       scheduled_time: string | null;
       procedure_name: string;
       surgeon_name: string;
+      surgeon_color: string | null;
       readiness_state: string | null;
       is_active: boolean;
     }>(`
@@ -576,6 +578,7 @@ export async function getCalendarSummary(
         sc.scheduled_time,
         sc.procedure_name,
         u.name as surgeon_name,
+        u.display_color as surgeon_color,
         crc.readiness_state,
         sc.is_active
       FROM surgical_case sc
@@ -594,6 +597,7 @@ export async function getCalendarSummary(
       scheduledTime: row.scheduled_time,
       procedureName: row.procedure_name,
       surgeonName: row.surgeon_name,
+      surgeonColor: row.surgeon_color,
       readinessState: (row.readiness_state || 'ORANGE') as 'GREEN' | 'ORANGE' | 'RED',
       isActive: row.is_active,
     }));

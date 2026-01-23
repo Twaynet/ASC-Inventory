@@ -18,6 +18,7 @@ interface CaseRow {
   procedure_name: string;
   surgeon_id: string;
   surgeon_name: string;
+  surgeon_color: string | null;
   scheduled_date: string;
   scheduled_time: string | null;
   status: string;
@@ -93,6 +94,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
         c.procedure_name,
         c.surgeon_id,
         u.name as surgeon_name,
+        u.display_color as surgeon_color,
         c.scheduled_time::text,
         c.status,
         c.room_id,
@@ -134,6 +136,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
       procedureName?: string;
       surgeonId?: string;
       surgeonName?: string;
+      surgeonColor?: string | null;
       scheduledTime?: string | null;
       status?: string;
       notes?: string | null;
@@ -156,6 +159,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
           procedureName: c.procedure_name,
           surgeonId: c.surgeon_id,
           surgeonName: c.surgeon_name,
+          surgeonColor: c.surgeon_color,
           scheduledTime: c.scheduled_time,
           status: c.status,
           isActive: c.is_active,
@@ -201,6 +205,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
         procedureName: c.procedure_name,
         surgeonId: c.surgeon_id,
         surgeonName: c.surgeon_name,
+        surgeonColor: c.surgeon_color,
         scheduledTime: c.scheduled_time,
         status: c.status,
         isActive: c.is_active,

@@ -22,6 +22,13 @@ const SETTINGS_CARDS: SettingsCard[] = [
     icon: '🚪',
   },
   {
+    id: 'surgeons',
+    title: 'Surgeon Settings',
+    description: 'Assign display colors and configure settings for surgeons',
+    path: '/admin/general-settings/surgeons',
+    icon: '👨‍⚕️',
+  },
+  {
     id: 'case-dashboard',
     title: 'Case Dashboard Settings',
     description: 'Configure Patient Flags, Anesthesia Modalities, Time Out & Debrief, and other case-specific options',

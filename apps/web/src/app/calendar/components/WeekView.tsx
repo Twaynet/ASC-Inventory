@@ -111,6 +111,7 @@ export function WeekView({
                     <div
                       key={c.caseId}
                       className={`case-badge ${c.isActive ? `status-${c.readinessState.toLowerCase()}` : 'inactive'}`}
+                      style={c.surgeonColor ? { borderLeftColor: c.surgeonColor } : undefined}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleCaseClick(c.caseId);
@@ -119,7 +120,15 @@ export function WeekView({
                       {!c.isActive && <div className="case-badge-inactive-label">INACTIVE</div>}
                       <div className="case-badge-time">{formatTime(c.scheduledTime)}</div>
                       <div className="case-badge-name">{c.procedureName}</div>
-                      <div className="case-badge-surgeon">Dr. {c.surgeonName}</div>
+                      <div className="case-badge-surgeon">
+                        {c.surgeonColor && (
+                          <span
+                            className="surgeon-color-dot"
+                            style={{ backgroundColor: c.surgeonColor }}
+                          />
+                        )}
+                        Dr. {c.surgeonName}
+                      </div>
                     </div>
                   ))
                 )}

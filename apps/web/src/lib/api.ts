@@ -135,6 +135,7 @@ export interface CalendarCaseSummary {
   scheduledTime: string | null;
   procedureName: string;
   surgeonName: string;
+  surgeonColor: string | null;
   readinessState: 'GREEN' | 'ORANGE' | 'RED';
   isActive: boolean;
 }
@@ -1397,6 +1398,29 @@ export async function activateRoom(token: string, roomId: string): Promise<{ suc
 
 export async function reorderRooms(token: string, orderedIds: string[]): Promise<{ success: boolean }> {
   return api('/settings/rooms/reorder', { method: 'POST', body: { orderedIds }, token });
+}
+
+// ============================================================================
+// SURGEON SETTINGS
+// ============================================================================
+
+export interface SurgeonSettings {
+  id: string;
+  name: string;
+  username: string;
+  displayColor: string | null;
+}
+
+export async function getSettingsSurgeons(token: string): Promise<{ surgeons: SurgeonSettings[] }> {
+  return api('/settings/surgeons', { token });
+}
+
+export async function updateSurgeonSettings(
+  token: string,
+  surgeonId: string,
+  data: { displayColor?: string | null }
+): Promise<{ success: boolean }> {
+  return api(`/settings/surgeons/${surgeonId}`, { method: 'PATCH', body: data, token });
 }
 
 // ============================================================================

@@ -277,4 +277,79 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.send({ success: true });
   });
+
+  // ============================================================================
+  // SURGEON SETTINGS
+  // ============================================================================
+
+  interface SurgeonRow {
+    id: string;
+    name: string;
+    username: string;
+    display_color: string | null;
+  }
+
+  /**
+   * GET /settings/surgeons
+   * List all surgeons with their display settings
+   */
+  fastify.get('/surgeons', {
+    preHandler: [requireAdmin],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+
+    const result = await query<SurgeonRow>(`
+      SELECT id, name, username, display_color
+      FROM app_user
+      WHERE facility_id = $1 AND 'SURGEON' = ANY(roles)
+      ORDER BY name ASC
+    `, [facilityId]);
+
+    return reply.send({
+      surgeons: result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        username: row.username,
+        displayColor: row.display_color,
+      })),
+    });
+  });
+
+  /**
+   * PATCH /settings/surgeons/:id
+   * Update surgeon settings (ADMIN only)
+   */
+  fastify.patch<{ Params: { id: string }; Body: { displayColor?: string | null } }>('/surgeons/:id', {
+    preHandler: [requireAdmin],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId } = request.user;
+    const { displayColor } = request.body;
+
+    // Validate color format if provided
+    if (displayColor !== undefined && displayColor !== null) {
+      if (!/^#[0-9A-Fa-f]{6}$/.test(displayColor)) {
+        return reply.status(400).send({ error: 'Invalid color format. Use hex format (e.g., #3B82F6)' });
+      }
+    }
+
+    // Verify user exists and is a surgeon in this facility
+    const userCheck = await query<{ id: string }>(`
+      SELECT id
+      FROM app_user
+      WHERE id = $1 AND facility_id = $2 AND 'SURGEON' = ANY(roles)
+    `, [id, facilityId]);
+
+    if (userCheck.rows.length === 0) {
+      return reply.status(404).send({ error: 'Surgeon not found' });
+    }
+
+    // Update the display color
+    await query(`
+      UPDATE app_user SET display_color = $1, updated_at = NOW()
+      WHERE id = $2 AND facility_id = $3
+    `, [displayColor ?? null, id, facilityId]);
+
+    return reply.send({ success: true });
+  });
 }

@@ -14,6 +14,7 @@ export interface ScheduleItem {
   procedureName?: string;
   surgeonId?: string;
   surgeonName?: string;
+  surgeonColor?: string | null;
   scheduledTime?: string | null;
   status?: string;
   isActive?: boolean;
@@ -121,12 +122,15 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
 
   const isInactive = item.isActive === false;
 
+  // Use surgeon color for border if available, otherwise fall back to status color
+  const borderColor = item.surgeonColor || getStatusColor(item.status);
+
   return (
     <div
       ref={setNodeRef}
       style={{
         ...style,
-        borderLeftColor: getStatusColor(item.status),
+        borderLeftColor: borderColor,
         cursor: isDraggable ? 'grab' : 'pointer',
       }}
       className={`schedule-card schedule-card-case ${isDragging ? 'dragging' : ''} ${isInactive ? 'inactive' : 'active'}`}
@@ -138,6 +142,12 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
       <div className="schedule-card-content">
         <div className="schedule-card-title">{item.procedureName}</div>
         <div className="schedule-card-subtitle">
+          {item.surgeonColor && (
+            <span
+              className="surgeon-color-dot"
+              style={{ backgroundColor: item.surgeonColor }}
+            />
+          )}
           Dr. {item.surgeonName}
         </div>
         <div className="schedule-card-meta">
@@ -149,6 +159,15 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
       </div>
 
       <style jsx>{`
+        .surgeon-color-dot {
+          display: inline-block;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          margin-right: 0.375rem;
+          flex-shrink: 0;
+          vertical-align: middle;
+        }
         .schedule-card-case {
           border-left: 4px solid var(--color-blue);
         }
