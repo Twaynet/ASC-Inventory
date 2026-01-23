@@ -52,7 +52,7 @@ export default function AdminPendingReviewsPage() {
     return (
       <>
         <Header title="Pending Reviews" />
-        <main className="container">
+        <main className="container-full">
           <div className="alert alert-error">
             Access denied. This page is only available to administrators.
           </div>

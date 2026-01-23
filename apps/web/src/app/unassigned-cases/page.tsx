@@ -120,7 +120,7 @@ export default function UnassignedCasesPage() {
     <>
       <Header title="Unassigned Cases" />
 
-      <main className="container unassigned-cases-page">
+      <main className="container-full unassigned-cases-page">
         <button className="back-link" onClick={() => router.push('/dashboard')}>
           ← Back to Dashboard
         </button>

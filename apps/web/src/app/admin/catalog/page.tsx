@@ -182,7 +182,7 @@ export default function AdminCatalogPage() {
     return (
       <>
         <Header title="Catalog Management" />
-        <main className="container">
+        <main className="container-full">
           <div className="alert alert-error">
             Access denied. This page is only available to administrators.
           </div>

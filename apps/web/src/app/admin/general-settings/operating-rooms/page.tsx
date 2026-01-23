@@ -176,7 +176,7 @@ export default function OperatingRoomsPage() {
     <>
       <Header title="Operating Rooms" />
 
-      <main className="container operating-rooms-page">
+      <main className="container-full operating-rooms-page">
         <button className="back-link" onClick={() => router.push('/admin/general-settings')}>
           ← Back to General Settings
         </button>

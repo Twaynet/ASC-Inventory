@@ -209,7 +209,7 @@ function DayBeforeContent() {
     <>
       <Header title="Case Calendar" />
 
-      <main className="container">
+      <main className="container-full">
         {/* Calendar Navigation */}
         <CalendarNav
           viewMode={viewMode}

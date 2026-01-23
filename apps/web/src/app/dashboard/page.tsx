@@ -69,7 +69,7 @@ export default function SystemDashboard() {
     <>
       <Header title="System Dashboard" />
 
-      <main className="container dashboard-page">
+      <main className="container-full dashboard-page">
         {/* Core Features */}
         <FeatureSection
           title="Core"

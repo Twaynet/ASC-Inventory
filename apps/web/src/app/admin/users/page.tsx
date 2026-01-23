@@ -184,7 +184,7 @@ export default function AdminUsersPage() {
     return (
       <>
         <Header title="User Management" />
-        <main className="container">
+        <main className="container-full">
           <div className="alert alert-error">
             Access denied. This page is only available to administrators.
           </div>
