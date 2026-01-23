@@ -23,6 +23,7 @@ interface CaseRow {
   room_id: string | null;
   estimated_duration_minutes: number;
   sort_order: number;
+  is_active: boolean;
 }
 
 interface BlockTimeRow {
@@ -95,7 +96,8 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
         c.status,
         c.room_id,
         COALESCE(c.estimated_duration_minutes, 60) as estimated_duration_minutes,
-        COALESCE(c.sort_order, 0) as sort_order
+        COALESCE(c.sort_order, 0) as sort_order,
+        c.is_active
       FROM surgical_case c
       JOIN app_user u ON c.surgeon_id = u.id
       WHERE c.facility_id = $1
@@ -155,6 +157,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
           surgeonName: c.surgeon_name,
           scheduledTime: c.scheduled_time,
           status: c.status,
+          isActive: c.is_active,
         });
       }
     }
@@ -199,6 +202,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
         surgeonName: c.surgeon_name,
         scheduledTime: c.scheduled_time,
         status: c.status,
+        isActive: c.is_active,
       }));
 
     return reply.send({

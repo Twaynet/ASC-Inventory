@@ -16,6 +16,7 @@ export interface ScheduleItem {
   surgeonName?: string;
   scheduledTime?: string | null;
   status?: string;
+  isActive?: boolean;
   // Block-specific fields
   notes?: string | null;
 }
@@ -118,6 +119,8 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
     }
   };
 
+  const isInactive = item.isActive === false;
+
   return (
     <div
       ref={setNodeRef}
@@ -126,7 +129,7 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
         borderLeftColor: getStatusColor(item.status),
         cursor: isDraggable ? 'grab' : 'pointer',
       }}
-      className={`schedule-card schedule-card-case ${isDragging ? 'dragging' : ''}`}
+      className={`schedule-card schedule-card-case ${isDragging ? 'dragging' : ''} ${isInactive ? 'inactive' : 'active'}`}
       onClick={handleClick}
       {...attributes}
       {...listeners}
@@ -147,11 +150,24 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
 
       <style jsx>{`
         .schedule-card-case {
-          background: white;
           border-left: 4px solid var(--color-blue);
         }
-        .schedule-card-case:hover {
+        .schedule-card-case.active {
+          background: white;
+        }
+        .schedule-card-case.active:hover {
           background: var(--color-blue-50, #EBF8FF);
+        }
+        .schedule-card-case.inactive {
+          background: var(--color-gray-100, #F3F4F6);
+          opacity: 0.7;
+        }
+        .schedule-card-case.inactive:hover {
+          background: var(--color-gray-200, #E5E7EB);
+        }
+        .schedule-card-case.inactive .schedule-card-title,
+        .schedule-card-case.inactive .schedule-card-subtitle {
+          color: var(--color-gray-500, #6B7280);
         }
         .schedule-card-case.dragging {
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);

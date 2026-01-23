@@ -12,6 +12,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { RoomColumn, RoomSchedule } from './RoomColumn';
@@ -43,6 +44,22 @@ interface RoomBasedDayViewProps {
 function parseItemId(sortableId: string): { type: 'case' | 'block'; id: string } {
   const [type, ...idParts] = sortableId.split('-');
   return { type: type as 'case' | 'block', id: idParts.join('-') };
+}
+
+// Droppable wrapper for the unassigned column
+function UnassignedDroppable({ children, isOver }: { children: React.ReactNode; isOver: boolean }) {
+  const { setNodeRef } = useDroppable({
+    id: 'unassigned',
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`unassigned-content ${isOver ? 'drop-target-active' : ''}`}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayViewProps) {
@@ -324,7 +341,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
                   <span className="unassigned-count">{data.unassignedCases.length}</span>
                 </div>
                 <SortableContext items={unassignedIds} strategy={verticalListSortingStrategy}>
-                  <div className="unassigned-content" data-droppable-id="unassigned">
+                  <UnassignedDroppable isOver={overId === 'unassigned'}>
                     {data.unassignedCases.length === 0 ? (
                       <div className="unassigned-empty">
                         {canEdit ? 'Drag cases here to unassign' : 'No unassigned cases'}
@@ -340,7 +357,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
                         />
                       ))
                     )}
-                  </div>
+                  </UnassignedDroppable>
                 </SortableContext>
               </div>
             )}
@@ -518,6 +535,12 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
           padding: 0.5rem;
           overflow-y: auto;
           min-height: 200px;
+        }
+
+        .unassigned-content.drop-target-active {
+          background-color: var(--color-blue-50, #EBF8FF);
+          border: 2px dashed var(--color-blue-300, #90CDF4);
+          border-radius: 6px;
         }
 
         .unassigned-empty {
