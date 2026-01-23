@@ -75,11 +75,11 @@ export default function PreferenceCardsPage() {
 
   // Collapsible sections
   const [sections, setSections] = useState<FormSection[]>([
+    { id: 'setupPositioning', label: 'Setup & Positioning', expanded: false },
     { id: 'instrumentation', label: 'Instrumentation', expanded: false },
     { id: 'equipment', label: 'Equipment', expanded: false },
     { id: 'supplies', label: 'Supplies', expanded: false },
     { id: 'medications', label: 'Medications & Solutions', expanded: false },
-    { id: 'setupPositioning', label: 'Setup & Positioning', expanded: false },
     { id: 'surgeonNotes', label: 'Surgeon Notes & Conditional Logic', expanded: false },
   ]);
 
@@ -567,7 +567,7 @@ export default function PreferenceCardsPage() {
                         <>
                           <div className="form-row">
                             <div className="form-group">
-                              <label>Gloves</label>
+                              <label>Gloves/Gown Sizes</label>
                               <textarea
                                 value={getNestedValue('supplies', 'gloves') as string || ''}
                                 onChange={(e) => updateNestedField('supplies', 'gloves', e.target.value)}
@@ -1182,7 +1182,7 @@ export default function PreferenceCardsPage() {
                       {supp && Object.values(supp).some(v => v) ? (
                         <>
                           {Boolean(supp.gloves) && (
-                            <div><strong>Gloves:</strong><pre>{String(supp.gloves)}</pre></div>
+                            <div><strong>Gloves/Gown Sizes:</strong><pre>{String(supp.gloves)}</pre></div>
                           )}
                           {Boolean(supp.drapes) && (
                             <div><strong>Drapes:</strong><pre>{String(supp.drapes)}</pre></div>
