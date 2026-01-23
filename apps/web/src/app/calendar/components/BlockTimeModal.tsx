@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createBlockTime, updateBlockTime, deleteBlockTime } from '@/lib/api';
 
 // Simplified type for editing - we only need these fields
@@ -43,12 +43,21 @@ export function BlockTimeModal({
   editingBlockTime,
 }: BlockTimeModalProps) {
   const isEditing = !!editingBlockTime;
-  const [durationMinutes, setDurationMinutes] = useState(
-    editingBlockTime?.durationMinutes || 60
-  );
-  const [notes, setNotes] = useState(editingBlockTime?.notes || '');
+  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Sync state when editingBlockTime changes
+  useEffect(() => {
+    if (editingBlockTime) {
+      setDurationMinutes(editingBlockTime.durationMinutes);
+      setNotes(editingBlockTime.notes || '');
+    } else {
+      setDurationMinutes(60);
+      setNotes('');
+    }
+  }, [editingBlockTime]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
