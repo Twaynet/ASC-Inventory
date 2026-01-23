@@ -34,6 +34,7 @@ export function CaseDashboardModal({
     surgeons,
     anesthesiaModalities,
     patientFlagOptions,
+    checklists,
     isLoading,
     error,
     setError,
@@ -114,6 +115,7 @@ export function CaseDashboardModal({
               surgeons={surgeons}
               anesthesiaModalities={anesthesiaModalities}
               patientFlagOptions={patientFlagOptions}
+              checklists={checklists}
               onClose={onClose}
               onDataChange={handleDataChange}
             />

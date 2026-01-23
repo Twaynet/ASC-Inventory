@@ -23,6 +23,7 @@ import {
   type CaseCardVersionData,
   type User,
   type ConfigItem,
+  type CaseChecklistsResponse,
 } from '@/lib/api';
 
 const CASE_TYPES: { value: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION'; label: string }[] = [
@@ -48,6 +49,7 @@ export interface CaseDashboardContentProps {
   surgeons: User[];
   anesthesiaModalities: ConfigItem[];
   patientFlagOptions: ConfigItem[];
+  checklists: CaseChecklistsResponse | null;
   onClose: () => void;
   onDataChange: () => void;
 }
@@ -62,6 +64,7 @@ export function CaseDashboardContent({
   surgeons,
   anesthesiaModalities,
   patientFlagOptions,
+  checklists,
   onClose,
   onDataChange,
 }: CaseDashboardContentProps) {
@@ -632,6 +635,108 @@ export function CaseDashboardContent({
           </div>
         )}
       </section>
+
+      {/* Section 2.5: OR Workflow (Timeout/Debrief) */}
+      {checklists?.featureEnabled && (
+        <section className="dashboard-section" style={{
+          background: 'var(--surface)',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem',
+          border: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('orWorkflow')}>
+            {collapsedSections.has('orWorkflow') ? '+ ' : '- '}OR Workflow
+          </h2>
+          {!collapsedSections.has('orWorkflow') && (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                {/* Timeout Card */}
+                <div style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  background: checklists.timeout?.status === 'COMPLETED' ? 'var(--color-green-bg)' :
+                             checklists.timeout?.status === 'IN_PROGRESS' ? 'var(--color-orange-bg)' : 'transparent',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>OR Timeout</h3>
+                    <span style={{
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold',
+                      background: checklists.timeout?.status === 'COMPLETED' ? 'var(--color-green)' :
+                                 checklists.timeout?.status === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
+                      color: checklists.timeout?.status ? 'white' : 'var(--text-muted)',
+                    }}>
+                      {checklists.timeout?.status || 'NOT STARTED'}
+                    </span>
+                  </div>
+                  <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    Pre-surgery safety checklist to verify patient, procedure, and site.
+                  </p>
+                  {checklists.timeout?.completedAt && (
+                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Completed: {new Date(checklists.timeout.completedAt).toLocaleString()}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => router.push(`/or/timeout/${caseId}`)}
+                    className={checklists.timeout?.status === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
+                    style={{ width: '100%' }}
+                  >
+                    {checklists.timeout?.status === 'COMPLETED' ? 'View Timeout' :
+                     checklists.timeout?.status === 'IN_PROGRESS' ? 'Continue Timeout' : 'Start Timeout'}
+                  </button>
+                </div>
+
+                {/* Debrief Card */}
+                <div style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  background: checklists.debrief?.status === 'COMPLETED' ? 'var(--color-green-bg)' :
+                             checklists.debrief?.status === 'IN_PROGRESS' ? 'var(--color-orange-bg)' : 'transparent',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>OR Debrief</h3>
+                    <span style={{
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold',
+                      background: checklists.debrief?.status === 'COMPLETED' ? 'var(--color-green)' :
+                                 checklists.debrief?.status === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
+                      color: checklists.debrief?.status ? 'white' : 'var(--text-muted)',
+                    }}>
+                      {checklists.debrief?.status || 'NOT STARTED'}
+                    </span>
+                  </div>
+                  <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    Post-surgery review of counts, specimens, and improvement notes.
+                  </p>
+                  {checklists.debrief?.completedAt && (
+                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Completed: {new Date(checklists.debrief.completedAt).toLocaleString()}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => router.push(`/or/debrief/${caseId}`)}
+                    className={checklists.debrief?.status === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
+                    style={{ width: '100%' }}
+                    disabled={!checklists.timeout || checklists.timeout.status !== 'COMPLETED'}
+                    title={!checklists.timeout || checklists.timeout.status !== 'COMPLETED' ? 'Complete Timeout first' : ''}
+                  >
+                    {checklists.debrief?.status === 'COMPLETED' ? 'View Debrief' :
+                     checklists.debrief?.status === 'IN_PROGRESS' ? 'Continue Debrief' : 'Start Debrief'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Section 3: Case Summary */}
       <section className="dashboard-section" style={{

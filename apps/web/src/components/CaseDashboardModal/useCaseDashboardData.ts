@@ -7,11 +7,13 @@ import {
   getCaseCards,
   getSurgeons,
   getConfigItems,
+  getCaseChecklists,
   type CaseDashboardData,
   type CaseDashboardEventLogEntry,
   type CaseCardSummary,
   type User,
   type ConfigItem,
+  type CaseChecklistsResponse,
 } from '@/lib/api';
 
 export interface UseCaseDashboardDataResult {
@@ -21,6 +23,7 @@ export interface UseCaseDashboardDataResult {
   surgeons: User[];
   anesthesiaModalities: ConfigItem[];
   patientFlagOptions: ConfigItem[];
+  checklists: CaseChecklistsResponse | null;
   isLoading: boolean;
   error: string;
   setError: (error: string) => void;
@@ -37,6 +40,7 @@ export function useCaseDashboardData(
   const [surgeons, setSurgeons] = useState<User[]>([]);
   const [anesthesiaModalities, setAnesthesiaModalities] = useState<ConfigItem[]>([]);
   const [patientFlagOptions, setPatientFlagOptions] = useState<ConfigItem[]>([]);
+  const [checklists, setChecklists] = useState<CaseChecklistsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -47,18 +51,20 @@ export function useCaseDashboardData(
     setError('');
 
     try {
-      const [dashboardResult, eventLogResult, caseCardsResult, surgeonsResult, configItemsResult] = await Promise.all([
+      const [dashboardResult, eventLogResult, caseCardsResult, surgeonsResult, configItemsResult, checklistsResult] = await Promise.all([
         getCaseDashboard(token, caseId),
         getCaseEventLog(token, caseId),
         getCaseCards(token, { status: 'ACTIVE' }),
         getSurgeons(token),
         getConfigItems(token),
+        getCaseChecklists(token, caseId).catch(() => null), // Don't fail if checklists feature is disabled
       ]);
 
       setDashboard(dashboardResult.dashboard);
       setEventLog(eventLogResult.eventLog);
       setAvailableCaseCards(caseCardsResult.cards);
       setSurgeons(surgeonsResult.users);
+      setChecklists(checklistsResult);
 
       // Set config items for dynamic lists
       const allItems = configItemsResult.items;
@@ -78,6 +84,7 @@ export function useCaseDashboardData(
     surgeons,
     anesthesiaModalities,
     patientFlagOptions,
+    checklists,
     isLoading,
     error,
     setError,

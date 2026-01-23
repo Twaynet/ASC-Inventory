@@ -906,6 +906,61 @@ export async function getMyPendingReviews(token: string): Promise<PendingReviews
 }
 
 // ============================================================================
+// CHECKLIST TEMPLATES (ADMIN only)
+// ============================================================================
+
+export interface ChecklistTemplateItem {
+  key: string;
+  label: string;
+  type: 'checkbox' | 'select' | 'text' | 'readonly';
+  required: boolean;
+  options?: string[];
+}
+
+export interface ChecklistTemplateSignature {
+  role: string;
+  required: boolean;
+  conditional?: boolean;
+  conditions?: string[];
+}
+
+export interface ChecklistTemplateData {
+  id: string;
+  facilityId: string;
+  type: 'TIMEOUT' | 'DEBRIEF';
+  name: string;
+  isActive: boolean;
+  currentVersionId: string | null;
+  versionNumber: number | null;
+  items: ChecklistTemplateItem[];
+  requiredSignatures: ChecklistTemplateSignature[];
+}
+
+export async function getChecklistTemplates(token: string): Promise<{ templates: ChecklistTemplateData[] }> {
+  return api('/checklists/templates', { token });
+}
+
+export async function getChecklistTemplate(
+  token: string,
+  type: 'TIMEOUT' | 'DEBRIEF'
+): Promise<ChecklistTemplateData> {
+  return api(`/checklists/templates/${type}`, { token });
+}
+
+export async function updateChecklistTemplate(
+  token: string,
+  type: 'TIMEOUT' | 'DEBRIEF',
+  items: ChecklistTemplateItem[],
+  requiredSignatures: ChecklistTemplateSignature[]
+): Promise<ChecklistTemplateData> {
+  return api(`/checklists/templates/${type}`, {
+    method: 'PUT',
+    body: { items, requiredSignatures },
+    token,
+  });
+}
+
+// ============================================================================
 // USER MANAGEMENT (ADMIN only)
 // ============================================================================
 
@@ -1780,8 +1835,13 @@ export interface ScheduleItem {
   procedureName?: string;
   surgeonId?: string;
   surgeonName?: string;
+  surgeonColor?: string | null;
   scheduledTime?: string | null;
   status?: string;
+  isActive?: boolean;
+  // Checklist status (from OR Timeout/Debrief)
+  timeoutStatus?: string;
+  debriefStatus?: string;
   // Block-specific fields
   notes?: string | null;
 }

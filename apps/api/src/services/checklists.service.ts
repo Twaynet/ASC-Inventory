@@ -233,6 +233,121 @@ async function getChecklistTemplate(
   return { template, version: versionResult.rows[0] };
 }
 
+// Public interface for template data
+export interface ChecklistTemplateData {
+  id: string;
+  facilityId: string;
+  type: 'TIMEOUT' | 'DEBRIEF';
+  name: string;
+  isActive: boolean;
+  currentVersionId: string | null;
+  versionNumber: number | null;
+  items: ChecklistItem[];
+  requiredSignatures: RequiredSignature[];
+}
+
+/**
+ * Get all checklist templates for a facility
+ */
+export async function getChecklistTemplates(facilityId: string): Promise<ChecklistTemplateData[]> {
+  const result = await query<ChecklistTemplateRow & {
+    version_number: number | null;
+    items: unknown | null;
+    required_signatures: unknown | null;
+  }>(`
+    SELECT
+      ct.*,
+      ctv.version_number,
+      ctv.items,
+      ctv.required_signatures
+    FROM checklist_template ct
+    LEFT JOIN checklist_template_version ctv ON ctv.id = ct.current_version_id
+    WHERE ct.facility_id = $1
+    ORDER BY ct.type
+  `, [facilityId]);
+
+  return result.rows.map(row => ({
+    id: row.id,
+    facilityId: row.facility_id,
+    type: row.type as 'TIMEOUT' | 'DEBRIEF',
+    name: row.name,
+    isActive: row.is_active,
+    currentVersionId: row.current_version_id,
+    versionNumber: row.version_number,
+    items: (row.items || []) as ChecklistItem[],
+    requiredSignatures: (row.required_signatures || []) as RequiredSignature[],
+  }));
+}
+
+/**
+ * Get a specific checklist template by type
+ */
+export async function getChecklistTemplateByType(
+  facilityId: string,
+  type: 'TIMEOUT' | 'DEBRIEF'
+): Promise<ChecklistTemplateData | null> {
+  const templates = await getChecklistTemplates(facilityId);
+  return templates.find(t => t.type === type) || null;
+}
+
+/**
+ * Update checklist template items (creates a new version)
+ */
+export async function updateChecklistTemplateItems(
+  facilityId: string,
+  type: 'TIMEOUT' | 'DEBRIEF',
+  items: ChecklistItem[],
+  requiredSignatures: RequiredSignature[],
+  userId: string
+): Promise<ChecklistTemplateData> {
+  // Get existing template
+  const templateResult = await query<ChecklistTemplateRow>(`
+    SELECT * FROM checklist_template
+    WHERE facility_id = $1 AND type = $2
+  `, [facilityId, type]);
+
+  if (templateResult.rows.length === 0) {
+    throw new Error(`No ${type} template found for facility`);
+  }
+
+  const template = templateResult.rows[0];
+
+  // Get current version number
+  const currentVersionResult = await query<{ version_number: number }>(`
+    SELECT version_number FROM checklist_template_version
+    WHERE template_id = $1
+    ORDER BY version_number DESC
+    LIMIT 1
+  `, [template.id]);
+
+  const nextVersionNumber = (currentVersionResult.rows[0]?.version_number || 0) + 1;
+
+  // Create new version
+  const newVersionResult = await query<{ id: string }>(`
+    INSERT INTO checklist_template_version (
+      template_id, version_number, items, required_signatures, created_by_user_id
+    ) VALUES ($1, $2, $3, $4, $5)
+    RETURNING id
+  `, [template.id, nextVersionNumber, JSON.stringify(items), JSON.stringify(requiredSignatures), userId]);
+
+  const newVersionId = newVersionResult.rows[0].id;
+
+  // Update template to point to new version
+  await query(`
+    UPDATE checklist_template
+    SET current_version_id = $1, updated_at = NOW()
+    WHERE id = $2
+  `, [newVersionId, template.id]);
+
+  // Return updated template
+  const updated = await getChecklistTemplateByType(facilityId, type);
+  if (!updated) {
+    throw new Error('Failed to retrieve updated template');
+  }
+
+  return updated;
+}
+
 // ============================================================================
 // CHECKLIST INSTANCES
 // ============================================================================
@@ -676,6 +791,12 @@ export async function completeChecklist(
         throw new Error(`Required signature from ${sig.role} is missing`);
       }
     }
+  }
+
+  // Require at least one signature from the available roles (if any signatures are defined)
+  const availableRoles = requiredSignatures.filter(s => !s.conditional).map(s => s.role);
+  if (availableRoles.length > 0 && signedRoles.size === 0) {
+    throw new Error(`At least one signature is required from: ${availableRoles.join(', ')}`);
   }
 
   // Mark as completed, set pending review flags for conditional signatures

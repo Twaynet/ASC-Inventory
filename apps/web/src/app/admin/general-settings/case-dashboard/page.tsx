@@ -13,10 +13,15 @@ import {
   reorderConfigItems,
   getFacilitySettings,
   updateFacilitySettings,
+  getChecklistTemplates,
+  updateChecklistTemplate,
   type ConfigItem,
   type ConfigItemType,
   type CreateConfigItemRequest,
   type FacilitySettings,
+  type ChecklistTemplateData,
+  type ChecklistTemplateItem,
+  type ChecklistTemplateSignature,
 } from '@/lib/api';
 
 interface SectionConfig {
@@ -50,11 +55,23 @@ export default function CaseDashboardSettingsPage() {
 
   const [items, setItems] = useState<ConfigItem[]>([]);
   const [settings, setSettings] = useState<FacilitySettings | null>(null);
+  const [templates, setTemplates] = useState<ChecklistTemplateData[]>([]);
   const [showInactive, setShowInactive] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Template editing state
+  const [editingTemplateType, setEditingTemplateType] = useState<'TIMEOUT' | 'DEBRIEF' | null>(null);
+  const [editingItems, setEditingItems] = useState<ChecklistTemplateItem[]>([]);
+  const [editingSignatures, setEditingSignatures] = useState<ChecklistTemplateSignature[]>([]);
+  const [showAddItemForm, setShowAddItemForm] = useState(false);
+  const [newItem, setNewItem] = useState<Partial<ChecklistTemplateItem>>({
+    type: 'checkbox',
+    required: true,
+  });
 
   // Expanded sections state (includes 'FEATURE_TOGGLES' as a special section)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
@@ -78,12 +95,14 @@ export default function CaseDashboardSettingsPage() {
     if (!token) return;
     setIsLoadingData(true);
     try {
-      const [configResult, settingsResult] = await Promise.all([
+      const [configResult, settingsResult, templatesResult] = await Promise.all([
         getConfigItems(token, undefined, showInactive),
         getFacilitySettings(token),
+        getChecklistTemplates(token).catch(() => ({ templates: [] })),
       ]);
       setItems(configResult.items);
       setSettings(settingsResult);
+      setTemplates(templatesResult.templates);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load settings');
@@ -131,6 +150,73 @@ export default function CaseDashboardSettingsPage() {
     } finally {
       setIsSavingSettings(false);
     }
+  };
+
+  // Template editing functions
+  const startEditingTemplate = (type: 'TIMEOUT' | 'DEBRIEF') => {
+    const template = templates.find(t => t.type === type);
+    if (template) {
+      setEditingTemplateType(type);
+      setEditingItems([...template.items]);
+      setEditingSignatures([...template.requiredSignatures]);
+      setShowAddItemForm(false);
+      setNewItem({ type: 'checkbox', required: true });
+    }
+  };
+
+  const cancelEditingTemplate = () => {
+    setEditingTemplateType(null);
+    setEditingItems([]);
+    setEditingSignatures([]);
+    setShowAddItemForm(false);
+    setNewItem({ type: 'checkbox', required: true });
+  };
+
+  const saveTemplate = async () => {
+    if (!token || !editingTemplateType) return;
+    setIsSavingTemplate(true);
+    try {
+      await updateChecklistTemplate(token, editingTemplateType, editingItems, editingSignatures);
+      setSuccessMessage(`${editingTemplateType} template updated successfully`);
+      cancelEditingTemplate();
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update template');
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const addNewItem = () => {
+    if (!newItem.key || !newItem.label) return;
+    const item: ChecklistTemplateItem = {
+      key: newItem.key,
+      label: newItem.label,
+      type: newItem.type || 'checkbox',
+      required: newItem.required ?? true,
+      options: newItem.type === 'select' ? (newItem.options || []) : undefined,
+    };
+    setEditingItems([...editingItems, item]);
+    setShowAddItemForm(false);
+    setNewItem({ type: 'checkbox', required: true });
+  };
+
+  const updateItem = (index: number, updates: Partial<ChecklistTemplateItem>) => {
+    const updated = [...editingItems];
+    updated[index] = { ...updated[index], ...updates };
+    setEditingItems(updated);
+  };
+
+  const removeItem = (index: number) => {
+    setEditingItems(editingItems.filter((_, i) => i !== index));
+  };
+
+  const moveItem = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= editingItems.length) return;
+    const updated = [...editingItems];
+    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    setEditingItems(updated);
   };
 
   const getItemsForType = (type: ConfigItemType): ConfigItem[] => {
@@ -360,6 +446,238 @@ export default function CaseDashboardSettingsPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Template Management */}
+                  {settings?.enableTimeoutDebrief && templates.length > 0 && (
+                    <div className="template-management">
+                      <h3 style={{ margin: '1.5rem 0 1rem 0', fontSize: '1rem', color: '#2d3748' }}>
+                        Checklist Templates
+                      </h3>
+
+                      {templates.map(template => (
+                        <div key={template.id} className="template-card">
+                          <div className="template-header">
+                            <div>
+                              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>{template.name}</h4>
+                              <span className="template-meta">
+                                {template.items.length} items · Version {template.versionNumber || 1}
+                              </span>
+                            </div>
+                            {editingTemplateType !== template.type && (
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => startEditingTemplate(template.type)}
+                              >
+                                Edit Items
+                              </button>
+                            )}
+                          </div>
+
+                          {editingTemplateType === template.type ? (
+                            <div className="template-editor">
+                              <div className="editor-items">
+                                {editingItems.map((item, index) => (
+                                  <div key={item.key} className="editor-item">
+                                    <div className="item-reorder">
+                                      <button
+                                        className="btn-icon"
+                                        onClick={() => moveItem(index, 'up')}
+                                        disabled={index === 0}
+                                        title="Move up"
+                                      >↑</button>
+                                      <button
+                                        className="btn-icon"
+                                        onClick={() => moveItem(index, 'down')}
+                                        disabled={index === editingItems.length - 1}
+                                        title="Move down"
+                                      >↓</button>
+                                    </div>
+                                    <div className="item-details">
+                                      <input
+                                        type="text"
+                                        value={item.label}
+                                        onChange={(e) => updateItem(index, { label: e.target.value })}
+                                        placeholder="Label"
+                                        className="item-label-input"
+                                      />
+                                      <div className="item-config">
+                                        <select
+                                          value={item.type}
+                                          onChange={(e) => updateItem(index, {
+                                            type: e.target.value as ChecklistTemplateItem['type'],
+                                            options: e.target.value === 'select' ? (item.options || ['option1', 'option2']) : undefined,
+                                          })}
+                                          className="item-type-select"
+                                        >
+                                          <option value="checkbox">Checkbox</option>
+                                          <option value="select">Dropdown</option>
+                                          <option value="text">Text</option>
+                                          <option value="readonly">Read-only</option>
+                                        </select>
+                                        <label className="checkbox-label-inline">
+                                          <input
+                                            type="checkbox"
+                                            checked={item.required}
+                                            onChange={(e) => updateItem(index, { required: e.target.checked })}
+                                          />
+                                          Required
+                                        </label>
+                                      </div>
+                                      {item.type === 'select' && (
+                                        <div className="item-options">
+                                          <label>Options (comma-separated):</label>
+                                          <input
+                                            type="text"
+                                            value={(item.options || []).join(', ')}
+                                            onChange={(e) => updateItem(index, {
+                                              options: e.target.value.split(',').map(o => o.trim()).filter(o => o),
+                                            })}
+                                            placeholder="option1, option2, option3"
+                                          />
+                                        </div>
+                                      )}
+                                      <span className="item-key-display">Key: {item.key}</span>
+                                    </div>
+                                    <button
+                                      className="btn-icon btn-danger-icon"
+                                      onClick={() => removeItem(index)}
+                                      title="Remove item"
+                                    >×</button>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {showAddItemForm ? (
+                                <div className="add-item-form">
+                                  <h5>Add New Item</h5>
+                                  <div className="form-row">
+                                    <div className="form-group">
+                                      <label>Key *</label>
+                                      <input
+                                        type="text"
+                                        value={newItem.key || ''}
+                                        onChange={(e) => setNewItem({ ...newItem, key: e.target.value.replace(/\s+/g, '_').toLowerCase() })}
+                                        placeholder="e.g., blood_type_confirmed"
+                                        pattern="^[a-z][a-z0-9_]*$"
+                                      />
+                                    </div>
+                                    <div className="form-group">
+                                      <label>Label *</label>
+                                      <input
+                                        type="text"
+                                        value={newItem.label || ''}
+                                        onChange={(e) => setNewItem({ ...newItem, label: e.target.value })}
+                                        placeholder="e.g., Blood type confirmed"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="form-row">
+                                    <div className="form-group">
+                                      <label>Type</label>
+                                      <select
+                                        value={newItem.type || 'checkbox'}
+                                        onChange={(e) => setNewItem({
+                                          ...newItem,
+                                          type: e.target.value as ChecklistTemplateItem['type'],
+                                          options: e.target.value === 'select' ? ['option1', 'option2'] : undefined,
+                                        })}
+                                      >
+                                        <option value="checkbox">Checkbox</option>
+                                        <option value="select">Dropdown</option>
+                                        <option value="text">Text</option>
+                                        <option value="readonly">Read-only</option>
+                                      </select>
+                                    </div>
+                                    <div className="form-group">
+                                      <label>&nbsp;</label>
+                                      <label className="checkbox-label">
+                                        <input
+                                          type="checkbox"
+                                          checked={newItem.required ?? true}
+                                          onChange={(e) => setNewItem({ ...newItem, required: e.target.checked })}
+                                        />
+                                        Required
+                                      </label>
+                                    </div>
+                                  </div>
+                                  {newItem.type === 'select' && (
+                                    <div className="form-group">
+                                      <label>Options (comma-separated)</label>
+                                      <input
+                                        type="text"
+                                        value={(newItem.options || []).join(', ')}
+                                        onChange={(e) => setNewItem({
+                                          ...newItem,
+                                          options: e.target.value.split(',').map(o => o.trim()).filter(o => o),
+                                        })}
+                                        placeholder="option1, option2, option3"
+                                      />
+                                    </div>
+                                  )}
+                                  <div className="form-actions">
+                                    <button
+                                      className="btn btn-primary btn-sm"
+                                      onClick={addNewItem}
+                                      disabled={!newItem.key || !newItem.label}
+                                    >
+                                      Add Item
+                                    </button>
+                                    <button
+                                      className="btn btn-secondary btn-sm"
+                                      onClick={() => {
+                                        setShowAddItemForm(false);
+                                        setNewItem({ type: 'checkbox', required: true });
+                                      }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  className="btn btn-create btn-sm"
+                                  onClick={() => setShowAddItemForm(true)}
+                                  style={{ marginTop: '0.5rem' }}
+                                >
+                                  + Add Item
+                                </button>
+                              )}
+
+                              <div className="editor-actions">
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={saveTemplate}
+                                  disabled={isSavingTemplate}
+                                >
+                                  {isSavingTemplate ? 'Saving...' : 'Save Changes'}
+                                </button>
+                                <button
+                                  className="btn btn-secondary"
+                                  onClick={cancelEditingTemplate}
+                                  disabled={isSavingTemplate}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="template-items-preview">
+                              {template.items.map(item => (
+                                <div key={item.key} className="preview-item">
+                                  <span className="preview-type">{item.type === 'checkbox' ? '☑' : item.type === 'select' ? '▼' : item.type === 'text' ? '✎' : '○'}</span>
+                                  <span className="preview-label">{item.label}</span>
+                                  {item.required && <span className="preview-required">*</span>}
+                                  {item.type === 'select' && item.options && (
+                                    <span className="preview-options">({item.options.join(', ')})</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -984,6 +1302,218 @@ export default function CaseDashboardSettingsPage() {
           border-radius: 8px;
           margin-bottom: 1rem;
           cursor: pointer;
+        }
+
+        /* Template Editor Styles */
+        .template-management {
+          margin-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 1rem;
+        }
+
+        .template-card {
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          margin-bottom: 1rem;
+          overflow: hidden;
+        }
+
+        .template-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1rem;
+          background: #f7fafc;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .template-meta {
+          font-size: 0.75rem;
+          color: #718096;
+        }
+
+        .template-editor {
+          padding: 1rem;
+        }
+
+        .editor-items {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .editor-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          padding: 0.75rem;
+          background: #f7fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+        }
+
+        .item-reorder {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .btn-icon {
+          width: 24px;
+          height: 24px;
+          padding: 0;
+          border: 1px solid #e2e8f0;
+          background: white;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 0.75rem;
+        }
+
+        .btn-icon:hover:not(:disabled) {
+          background: #edf2f7;
+        }
+
+        .btn-icon:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+
+        .btn-danger-icon {
+          color: #e53e3e;
+          font-size: 1.25rem;
+          font-weight: bold;
+        }
+
+        .btn-danger-icon:hover {
+          background: #fed7d7;
+        }
+
+        .item-details {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .item-label-input {
+          font-size: 0.9rem;
+          font-weight: 500;
+          padding: 0.4rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+        }
+
+        .item-config {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+        }
+
+        .item-type-select {
+          padding: 0.25rem 0.5rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          font-size: 0.8rem;
+        }
+
+        .checkbox-label-inline {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          font-size: 0.8rem;
+          cursor: pointer;
+        }
+
+        .item-options {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .item-options label {
+          font-size: 0.75rem;
+          color: #718096;
+        }
+
+        .item-options input {
+          padding: 0.3rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          font-size: 0.8rem;
+        }
+
+        .item-key-display {
+          font-size: 0.7rem;
+          color: #a0aec0;
+          font-family: monospace;
+        }
+
+        .add-item-form {
+          margin-top: 1rem;
+          padding: 1rem;
+          background: #fffbeb;
+          border: 1px solid #fcd34d;
+          border-radius: 6px;
+        }
+
+        .add-item-form h5 {
+          margin: 0 0 0.75rem 0;
+          font-size: 0.9rem;
+        }
+
+        .editor-actions {
+          display: flex;
+          gap: 0.75rem;
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+        }
+
+        .template-items-preview {
+          padding: 1rem;
+        }
+
+        .preview-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.4rem 0;
+          border-bottom: 1px solid #f0f0f0;
+        }
+
+        .preview-item:last-child {
+          border-bottom: none;
+        }
+
+        .preview-type {
+          font-size: 0.85rem;
+          color: #718096;
+          width: 1.2rem;
+        }
+
+        .preview-label {
+          flex: 1;
+          font-size: 0.875rem;
+        }
+
+        .preview-required {
+          color: #e53e3e;
+          font-weight: bold;
+        }
+
+        .preview-options {
+          font-size: 0.75rem;
+          color: #a0aec0;
+        }
+
+        .form-group select {
+          width: 100%;
+          padding: 0.5rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          font-size: 1rem;
+          background: white;
         }
       `}</style>
     </>

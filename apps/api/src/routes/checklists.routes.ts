@@ -21,6 +21,9 @@ import {
   getRooms,
   recordAsyncReview,
   getPendingReviews,
+  getChecklistTemplates,
+  getChecklistTemplateByType,
+  updateChecklistTemplateItems,
 } from '../services/checklists.service.js';
 
 export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> {
@@ -97,6 +100,154 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     const rooms = await getRooms(facilityId);
 
     return reply.send({ rooms });
+  });
+
+  // ============================================================================
+  // CHECKLIST TEMPLATES
+  // ============================================================================
+
+  /**
+   * GET /checklists/templates
+   * Get all checklist templates for facility
+   */
+  fastify.get('/checklists/templates', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { facilityId, role } = request.user;
+
+    // Admin only
+    if (role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: 'Only administrators can view checklist templates',
+      });
+    }
+
+    const templates = await getChecklistTemplates(facilityId);
+
+    return reply.send({ templates });
+  });
+
+  /**
+   * GET /checklists/templates/:type
+   * Get a specific checklist template
+   */
+  fastify.get('/checklists/templates/:type', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{
+    Params: { type: string };
+  }>, reply: FastifyReply) => {
+    const { type } = request.params;
+    const { facilityId, role } = request.user;
+
+    // Admin only
+    if (role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: 'Only administrators can view checklist templates',
+      });
+    }
+
+    const upperType = type.toUpperCase() as 'TIMEOUT' | 'DEBRIEF';
+    if (upperType !== 'TIMEOUT' && upperType !== 'DEBRIEF') {
+      return reply.status(400).send({
+        error: 'Invalid template type. Must be TIMEOUT or DEBRIEF',
+      });
+    }
+
+    const template = await getChecklistTemplateByType(facilityId, upperType);
+
+    if (!template) {
+      return reply.status(404).send({
+        error: `No ${upperType} template found`,
+      });
+    }
+
+    return reply.send(template);
+  });
+
+  /**
+   * PUT /checklists/templates/:type
+   * Update checklist template items (creates a new version)
+   */
+  fastify.put('/checklists/templates/:type', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{
+    Params: { type: string };
+    Body: {
+      items: Array<{
+        key: string;
+        label: string;
+        type: 'checkbox' | 'select' | 'text' | 'readonly';
+        required: boolean;
+        options?: string[];
+      }>;
+      requiredSignatures: Array<{
+        role: string;
+        required: boolean;
+        conditional?: boolean;
+        conditions?: string[];
+      }>;
+    };
+  }>, reply: FastifyReply) => {
+    const { type } = request.params;
+    const { facilityId, userId, role } = request.user;
+
+    // Admin only
+    if (role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: 'Only administrators can update checklist templates',
+      });
+    }
+
+    const upperType = type.toUpperCase() as 'TIMEOUT' | 'DEBRIEF';
+    if (upperType !== 'TIMEOUT' && upperType !== 'DEBRIEF') {
+      return reply.status(400).send({
+        error: 'Invalid template type. Must be TIMEOUT or DEBRIEF',
+      });
+    }
+
+    const body = request.body as {
+      items: Array<{
+        key: string;
+        label: string;
+        type: 'checkbox' | 'select' | 'text' | 'readonly';
+        required: boolean;
+        options?: string[];
+      }>;
+      requiredSignatures: Array<{
+        role: string;
+        required: boolean;
+        conditional?: boolean;
+        conditions?: string[];
+      }>;
+    };
+
+    if (!body.items || !Array.isArray(body.items)) {
+      return reply.status(400).send({
+        error: 'Items array is required',
+      });
+    }
+
+    if (!body.requiredSignatures || !Array.isArray(body.requiredSignatures)) {
+      return reply.status(400).send({
+        error: 'Required signatures array is required',
+      });
+    }
+
+    try {
+      const updated = await updateChecklistTemplateItems(
+        facilityId,
+        upperType,
+        body.items,
+        body.requiredSignatures,
+        userId
+      );
+
+      return reply.send(updated);
+    } catch (err) {
+      return reply.status(500).send({
+        error: err instanceof Error ? err.message : 'Failed to update template',
+      });
+    }
   });
 
   // ============================================================================

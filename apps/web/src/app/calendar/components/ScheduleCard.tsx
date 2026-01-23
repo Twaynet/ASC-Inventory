@@ -18,6 +18,9 @@ export interface ScheduleItem {
   scheduledTime?: string | null;
   status?: string;
   isActive?: boolean;
+  // Checklist status (from OR Timeout/Debrief)
+  timeoutStatus?: string;
+  debriefStatus?: string;
   // Block-specific fields
   notes?: string | null;
 }
@@ -125,6 +128,22 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
   // Use surgeon color for border if available, otherwise fall back to status color
   const borderColor = item.surgeonColor || getStatusColor(item.status);
 
+  // Determine checklist status for display
+  const getChecklistStatus = (status?: string) => {
+    if (!status) return { className: 'pending', title: 'Not started' };
+    switch (status) {
+      case 'COMPLETED':
+        return { className: 'completed', title: 'Completed' };
+      case 'IN_PROGRESS':
+        return { className: 'in-progress', title: 'In progress' };
+      default:
+        return { className: 'pending', title: 'Pending' };
+    }
+  };
+
+  const timeoutStatus = getChecklistStatus(item.timeoutStatus);
+  const debriefStatus = getChecklistStatus(item.debriefStatus);
+
   return (
     <div
       ref={setNodeRef}
@@ -138,7 +157,23 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
       {...attributes}
       {...listeners}
     >
-      <div className="schedule-card-time">{formatTime(startTime)}</div>
+      <div className="schedule-card-time-column">
+        <div className="schedule-card-time">{formatTime(startTime)}</div>
+        <div className="schedule-card-checklists">
+          <span
+            className={`checklist-badge ${timeoutStatus.className}`}
+            title={`Timeout: ${timeoutStatus.title}`}
+          >
+            T
+          </span>
+          <span
+            className={`checklist-badge ${debriefStatus.className}`}
+            title={`Debrief: ${debriefStatus.title}`}
+          >
+            D
+          </span>
+        </div>
+      </div>
       <div className="schedule-card-content">
         <div className="schedule-card-title">{item.procedureName}</div>
         <div className="schedule-card-subtitle">
@@ -218,11 +253,18 @@ export const scheduleCardStyles = `
     z-index: 100;
   }
 
+  .schedule-card-time-column {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    min-width: 60px;
+  }
+
   .schedule-card-time {
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--color-gray-600);
-    min-width: 60px;
     white-space: nowrap;
   }
 
@@ -274,5 +316,37 @@ export const scheduleCardStyles = `
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .schedule-card-checklists {
+    display: flex;
+    gap: 0.125rem;
+  }
+
+  .checklist-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    font-size: 0.5rem;
+    font-weight: 700;
+    cursor: help;
+  }
+
+  .checklist-badge.pending {
+    background: var(--color-gray-200, #E5E7EB);
+    color: var(--color-gray-500, #6B7280);
+  }
+
+  .checklist-badge.in-progress {
+    background: var(--color-orange, #F59E0B);
+    color: white;
+  }
+
+  .checklist-badge.completed {
+    background: var(--color-green, #10B981);
+    color: white;
   }
 `;

@@ -28,6 +28,13 @@ interface CaseRow {
   is_active: boolean;
 }
 
+interface ChecklistInstanceRow {
+  case_id: string;
+  type: string;
+  status: string;
+  completed_at: Date | null;
+}
+
 interface BlockTimeRow {
   id: string;
   room_id: string;
@@ -126,6 +133,41 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
       ORDER BY bt.sort_order
     `, [facilityId, date]);
 
+    // Get checklist instances for cases on this date
+    const caseIds = casesResult.rows.map(c => c.id);
+    let checklistMap = new Map<string, { timeout?: string; debrief?: string }>();
+
+    if (caseIds.length > 0) {
+      try {
+        const checklistsResult = await query<ChecklistInstanceRow>(`
+          SELECT
+            ci.case_id,
+            ct.type::text as type,
+            ci.status::text as status,
+            ci.completed_at
+          FROM case_checklist_instance ci
+          JOIN checklist_template_version ctv ON ci.template_version_id = ctv.id
+          JOIN checklist_template ct ON ctv.template_id = ct.id
+          WHERE ci.case_id = ANY($1)
+        `, [caseIds]);
+
+        for (const row of checklistsResult.rows) {
+          if (!checklistMap.has(row.case_id)) {
+            checklistMap.set(row.case_id, {});
+          }
+          const entry = checklistMap.get(row.case_id)!;
+          if (row.type === 'TIMEOUT') {
+            entry.timeout = row.status;
+          } else if (row.type === 'DEBRIEF') {
+            entry.debrief = row.status;
+          }
+        }
+      } catch (err) {
+        // Checklist tables may not exist yet - gracefully skip
+        // This allows the schedule to work even if checklists aren't set up
+      }
+    }
+
     // Group cases and blocks by room
     const roomItems = new Map<string, Array<{
       type: 'case' | 'block';
@@ -140,6 +182,9 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
       scheduledTime?: string | null;
       status?: string;
       notes?: string | null;
+      isActive?: boolean;
+      timeoutStatus?: string;
+      debriefStatus?: string;
     }>>();
 
     // Initialize empty arrays for all rooms
@@ -150,6 +195,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
     // Add cases to their rooms
     for (const c of casesResult.rows) {
       if (c.room_id && roomItems.has(c.room_id)) {
+        const checklists = checklistMap.get(c.id);
         roomItems.get(c.room_id)!.push({
           type: 'case',
           id: c.id,
@@ -163,6 +209,8 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
           scheduledTime: c.scheduled_time,
           status: c.status,
           isActive: c.is_active,
+          timeoutStatus: checklists?.timeout,
+          debriefStatus: checklists?.debrief,
         });
       }
     }
@@ -196,20 +244,25 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
     // Build unassigned cases array
     const unassignedCases = casesResult.rows
       .filter(c => !c.room_id)
-      .map(c => ({
-        type: 'case' as const,
-        id: c.id,
-        sortOrder: c.sort_order,
-        durationMinutes: c.estimated_duration_minutes,
-        caseNumber: c.case_number,
-        procedureName: c.procedure_name,
-        surgeonId: c.surgeon_id,
-        surgeonName: c.surgeon_name,
-        surgeonColor: c.surgeon_color,
-        scheduledTime: c.scheduled_time,
-        status: c.status,
-        isActive: c.is_active,
-      }));
+      .map(c => {
+        const checklists = checklistMap.get(c.id);
+        return {
+          type: 'case' as const,
+          id: c.id,
+          sortOrder: c.sort_order,
+          durationMinutes: c.estimated_duration_minutes,
+          caseNumber: c.case_number,
+          procedureName: c.procedure_name,
+          surgeonId: c.surgeon_id,
+          surgeonName: c.surgeon_name,
+          surgeonColor: c.surgeon_color,
+          scheduledTime: c.scheduled_time,
+          status: c.status,
+          isActive: c.is_active,
+          timeoutStatus: checklists?.timeout,
+          debriefStatus: checklists?.debrief,
+        };
+      });
 
     return reply.send({
       date,
