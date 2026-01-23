@@ -1,13 +1,13 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import type { CalendarCaseSummary } from '@/lib/api';
 
 interface MonthViewProps {
   currentDate: Date;
   cases: CalendarCaseSummary[];
   onDayClick: (date: Date) => void;
+  onOpenCaseDashboard: (caseId: string) => void;
   isLoading?: boolean;
 }
 
@@ -65,9 +65,9 @@ export function MonthView({
   currentDate,
   cases,
   onDayClick,
+  onOpenCaseDashboard,
   isLoading,
 }: MonthViewProps) {
-  const router = useRouter();
   const days = useMemo(
     () => getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth()),
     [currentDate]
@@ -85,13 +85,27 @@ export function MonthView({
 
   const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const handleCaseClick = (e: React.MouseEvent, caseId: string) => {
-    e.stopPropagation();
-    router.push(`/case/${caseId}`);
-  };
-
   return (
     <div className="month-view">
+      <div className="calendar-legend">
+        <div className="legend-item">
+          <span className="status-dot green"></span>
+          <span>Ready</span>
+        </div>
+        <div className="legend-item">
+          <span className="status-dot orange"></span>
+          <span>Pending</span>
+        </div>
+        <div className="legend-item">
+          <span className="status-dot red"></span>
+          <span>Missing Items</span>
+        </div>
+        <div className="legend-item">
+          <span className="status-dot gray"></span>
+          <span>Inactive</span>
+        </div>
+      </div>
+
       {/* Weekday headers */}
       <div className="month-grid-header">
         {weekdays.map((day) => (
@@ -124,9 +138,12 @@ export function MonthView({
                   {dayCases.slice(0, 4).map((c) => (
                     <div
                       key={c.caseId}
-                      className={`month-case-badge ${c.isActive ? '' : 'inactive'}`}
+                      className={`month-case-badge ${c.isActive ? `status-${c.readinessState.toLowerCase()}` : 'inactive'}`}
                       style={c.surgeonColor ? { borderLeftColor: c.surgeonColor } : undefined}
-                      onClick={(e) => handleCaseClick(e, c.caseId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenCaseDashboard(c.caseId);
+                      }}
                       title={`${c.procedureName} - Dr. ${c.surgeonName}`}
                     >
                       {c.surgeonColor && (

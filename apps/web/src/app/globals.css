@@ -1965,6 +1965,10 @@ body {
   background: var(--color-red);
 }
 
+.status-dot.gray {
+  background: var(--color-gray-500);
+}
+
 .day-loading {
   height: 2rem;
   background: linear-gradient(90deg, var(--color-gray-100) 25%, var(--color-gray-200) 50%, var(--color-gray-100) 75%);
@@ -2007,6 +2011,21 @@ body {
 .month-case-badge.inactive {
   opacity: 0.6;
   background: var(--color-gray-100);
+}
+
+.month-case-badge.status-green {
+  background: var(--color-green-bg);
+  border-left: 2px solid var(--color-green);
+}
+
+.month-case-badge.status-orange {
+  background: var(--color-orange-bg);
+  border-left: 2px solid var(--color-orange);
+}
+
+.month-case-badge.status-red {
+  background: var(--color-red-bg);
+  border-left: 2px solid var(--color-red);
 }
 
 .month-case-badge .surgeon-color-dot {

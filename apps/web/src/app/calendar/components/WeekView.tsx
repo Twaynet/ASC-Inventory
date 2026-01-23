@@ -1,13 +1,13 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import type { CalendarCaseSummary } from '@/lib/api';
 
 interface WeekViewProps {
   currentDate: Date;
   cases: CalendarCaseSummary[];
   onDayClick: (date: Date) => void;
+  onOpenCaseDashboard: (caseId: string) => void;
   isLoading?: boolean;
 }
 
@@ -56,9 +56,9 @@ export function WeekView({
   currentDate,
   cases,
   onDayClick,
+  onOpenCaseDashboard,
   isLoading,
 }: WeekViewProps) {
-  const router = useRouter();
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
 
   const casesByDay = useMemo(() => {
@@ -74,12 +74,26 @@ export function WeekView({
   const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  const handleCaseClick = (caseId: string) => {
-    router.push(`/case/${caseId}`);
-  };
-
   return (
     <div className="week-view">
+      <div className="calendar-legend">
+        <div className="legend-item">
+          <span className="status-dot green"></span>
+          <span>Ready</span>
+        </div>
+        <div className="legend-item">
+          <span className="status-dot orange"></span>
+          <span>Pending</span>
+        </div>
+        <div className="legend-item">
+          <span className="status-dot red"></span>
+          <span>Missing Items</span>
+        </div>
+        <div className="legend-item">
+          <span className="status-dot gray"></span>
+          <span>Inactive</span>
+        </div>
+      </div>
       <div className="week-container">
         {weekDays.map((date, index) => {
           const dateKey = formatDateKey(date);
@@ -114,7 +128,7 @@ export function WeekView({
                       style={c.surgeonColor ? { borderLeftColor: c.surgeonColor } : undefined}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleCaseClick(c.caseId);
+                        onOpenCaseDashboard(c.caseId);
                       }}
                     >
                       {!c.isActive && <div className="case-badge-inactive-label">INACTIVE</div>}
