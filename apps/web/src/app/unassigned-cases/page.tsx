@@ -201,7 +201,7 @@ export default function UnassignedCasesPage() {
 
       <style jsx>{`
         .unassigned-cases-page {
-          padding: 2rem 0;
+          padding: 2rem 1.5rem;
         }
 
         .back-link {

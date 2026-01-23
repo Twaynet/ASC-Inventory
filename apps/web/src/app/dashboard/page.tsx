@@ -158,7 +158,7 @@ export default function SystemDashboard() {
 
       <style jsx>{`
         .dashboard-page {
-          padding: 2rem 0;
+          padding: 2rem 1.5rem;
         }
 
         .debug-panel {

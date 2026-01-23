@@ -285,7 +285,7 @@ export default function CasesPage() {
     <div className="page-container">
       <Header title="My Case Requests" />
 
-      <main className="main-content">
+      <main className="container-full" style={{ padding: '2rem 1.5rem' }}>
         <div className="content-wrapper">
           <div className="page-header">
             <h1>My Case Requests</h1>
