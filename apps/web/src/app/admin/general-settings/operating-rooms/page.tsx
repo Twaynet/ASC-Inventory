@@ -10,6 +10,7 @@ import {
   updateRoom,
   deactivateRoom,
   activateRoom,
+  reorderRooms,
   type RoomDetail,
   type CreateRoomRequest,
   type UpdateRoomRequest,
@@ -116,6 +117,31 @@ export default function OperatingRoomsPage() {
       loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to activate room');
+    }
+  };
+
+  const handleMoveRoom = async (roomId: string, direction: 'up' | 'down') => {
+    if (!token) return;
+
+    const currentIndex = rooms.findIndex(r => r.id === roomId);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= rooms.length) return;
+
+    // Create new order by swapping
+    const newOrder = [...rooms];
+    [newOrder[currentIndex], newOrder[newIndex]] = [newOrder[newIndex], newOrder[currentIndex]];
+
+    // Optimistically update UI
+    setRooms(newOrder);
+
+    try {
+      await reorderRooms(token, newOrder.map(r => r.id));
+    } catch (err) {
+      // Revert on error
+      loadData();
+      setError(err instanceof Error ? err.message : 'Failed to reorder rooms');
     }
   };
 
@@ -235,6 +261,7 @@ export default function OperatingRoomsPage() {
               <table className="data-table">
                 <thead>
                   <tr>
+                    <th className="order-column">Order</th>
                     <th>Room Name</th>
                     <th>Status</th>
                     <th>Created</th>
@@ -244,13 +271,33 @@ export default function OperatingRoomsPage() {
                 <tbody>
                   {rooms.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="empty-state">
+                      <td colSpan={5} className="empty-state">
                         No rooms found. Create your first room to get started.
                       </td>
                     </tr>
                   ) : (
-                    rooms.map((room) => (
+                    rooms.map((room, index) => (
                       <tr key={room.id} className={!room.active ? 'inactive-row' : ''}>
+                        <td className="order-cell">
+                          <div className="order-buttons">
+                            <button
+                              className="order-btn"
+                              onClick={() => handleMoveRoom(room.id, 'up')}
+                              disabled={index === 0}
+                              title="Move up"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              className="order-btn"
+                              onClick={() => handleMoveRoom(room.id, 'down')}
+                              disabled={index === rooms.length - 1}
+                              title="Move down"
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        </td>
                         <td className="name-cell">{room.name}</td>
                         <td>
                           <span className={`status-badge ${room.active ? 'active' : 'inactive'}`}>
@@ -417,6 +464,48 @@ export default function OperatingRoomsPage() {
 
         .data-table tr.inactive-row {
           opacity: 0.6;
+        }
+
+        .order-column {
+          width: 70px;
+          text-align: center;
+        }
+
+        .order-cell {
+          text-align: center;
+        }
+
+        .order-buttons {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .order-btn {
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          border-radius: 4px;
+          width: 24px;
+          height: 20px;
+          font-size: 0.625rem;
+          cursor: pointer;
+          color: #6b7280;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          line-height: 1;
+        }
+
+        .order-btn:hover:not(:disabled) {
+          background: #e5e7eb;
+          color: #374151;
+        }
+
+        .order-btn:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
         }
 
         .name-cell {

@@ -16,6 +16,7 @@ interface RoomRow {
   facility_id: string;
   name: string;
   active: boolean;
+  sort_order: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -32,7 +33,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     const includeInactive = request.query.includeInactive === 'true';
 
     let sql = `
-      SELECT id, facility_id, name, active, created_at, updated_at
+      SELECT id, facility_id, name, active, sort_order, created_at, updated_at
       FROM room
       WHERE facility_id = $1
     `;
@@ -41,7 +42,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
       sql += ` AND active = true`;
     }
 
-    sql += ` ORDER BY name ASC`;
+    sql += ` ORDER BY sort_order ASC, name ASC`;
 
     const result = await query<RoomRow>(sql, [facilityId]);
 
@@ -50,6 +51,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
         id: row.id,
         name: row.name,
         active: row.active,
+        sortOrder: row.sort_order,
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
       })),
@@ -83,11 +85,17 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Room name already exists' });
     }
 
+    // Get the next sort_order value
+    const maxOrderResult = await query<{ max_order: number | null }>(`
+      SELECT MAX(sort_order) as max_order FROM room WHERE facility_id = $1
+    `, [facilityId]);
+    const nextSortOrder = (maxOrderResult.rows[0]?.max_order ?? -1) + 1;
+
     const result = await query<RoomRow>(`
-      INSERT INTO room (facility_id, name, active)
-      VALUES ($1, $2, true)
+      INSERT INTO room (facility_id, name, active, sort_order)
+      VALUES ($1, $2, true, $3)
       RETURNING *
-    `, [facilityId, data.name]);
+    `, [facilityId, data.name, nextSortOrder]);
 
     const row = result.rows[0];
     return reply.status(201).send({
@@ -95,6 +103,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
         id: row.id,
         name: row.name,
         active: row.active,
+        sortOrder: row.sort_order,
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
       },
@@ -157,6 +166,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
         id: row.id,
         name: row.name,
         active: row.active,
+        sortOrder: row.sort_order,
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
       },
@@ -219,6 +229,51 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
       UPDATE room SET active = true, updated_at = NOW()
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
+
+    return reply.send({ success: true });
+  });
+
+  /**
+   * POST /settings/rooms/reorder
+   * Reorder rooms (ADMIN only)
+   * Body: { orderedIds: string[] } - array of room IDs in desired order
+   */
+  fastify.post<{ Body: { orderedIds: string[] } }>('/rooms/reorder', {
+    preHandler: [requireAdmin],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { orderedIds } = request.body;
+
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+      return reply.status(400).send({ error: 'orderedIds must be a non-empty array' });
+    }
+
+    // Verify all rooms belong to this facility
+    const roomCheck = await query<{ id: string }>(`
+      SELECT id FROM room WHERE facility_id = $1
+    `, [facilityId]);
+
+    const facilityRoomIds = new Set(roomCheck.rows.map(r => r.id));
+    const invalidIds = orderedIds.filter(id => !facilityRoomIds.has(id));
+
+    if (invalidIds.length > 0) {
+      return reply.status(400).send({ error: 'Invalid room IDs provided' });
+    }
+
+    // Update sort_order for each room in a transaction
+    await query('BEGIN');
+    try {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await query(`
+          UPDATE room SET sort_order = $1, updated_at = NOW()
+          WHERE id = $2 AND facility_id = $3
+        `, [i, orderedIds[i], facilityId]);
+      }
+      await query('COMMIT');
+    } catch (err) {
+      await query('ROLLBACK');
+      throw err;
+    }
 
     return reply.send({ success: true });
   });

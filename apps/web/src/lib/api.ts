@@ -1358,6 +1358,7 @@ export interface RoomDetail {
   id: string;
   name: string;
   active: boolean;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1392,6 +1393,10 @@ export async function deactivateRoom(token: string, roomId: string): Promise<{ s
 
 export async function activateRoom(token: string, roomId: string): Promise<{ success: boolean }> {
   return api(`/settings/rooms/${roomId}/activate`, { method: 'POST', body: {}, token });
+}
+
+export async function reorderRooms(token: string, orderedIds: string[]): Promise<{ success: boolean }> {
+  return api('/settings/rooms/reorder', { method: 'POST', body: { orderedIds }, token });
 }
 
 // ============================================================================

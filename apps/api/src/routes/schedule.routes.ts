@@ -67,7 +67,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
     const roomsResult = await query<RoomRow>(`
       SELECT id, name FROM room
       WHERE facility_id = $1 AND active = true
-      ORDER BY name
+      ORDER BY sort_order ASC, name ASC
     `, [facilityId]);
 
     // Get room day configs for this date
