@@ -104,9 +104,9 @@ export type UserResponse = z.infer<typeof UserResponseSchema>;
 
 export const CreateCaseRequestSchema = z.object({
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // YYYY-MM-DD, optional until activation
-  scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), // HH:MM
+  scheduledTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(), // HH:MM or HH:MM:SS
   requestedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // User's preferred date
-  requestedTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), // User's preferred time
+  requestedTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(), // HH:MM or HH:MM:SS
   surgeonId: z.string().uuid(),
   procedureName: z.string().min(1).max(255),
   preferenceCardId: z.string().uuid().optional(),
@@ -116,7 +116,7 @@ export type CreateCaseRequest = z.infer<typeof CreateCaseRequestSchema>;
 
 export const UpdateCaseRequestSchema = z.object({
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  scheduledTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).nullable().optional(), // HH:MM or HH:MM:SS
   surgeonId: z.string().uuid().optional(),
   procedureName: z.string().min(1).max(255).optional(),
   preferenceCardVersionId: z.string().uuid().nullable().optional(),
@@ -158,7 +158,7 @@ export type CaseResponse = z.infer<typeof CaseResponseSchema>;
 // Case Activation Schema (ADMIN only)
 export const ActivateCaseRequestSchema = z.object({
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD required
-  scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), // HH:MM
+  scheduledTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(), // HH:MM or HH:MM:SS
 });
 export type ActivateCaseRequest = z.infer<typeof ActivateCaseRequestSchema>;
 
@@ -171,9 +171,19 @@ export type CancelCaseRequest = z.infer<typeof CancelCaseRequestSchema>;
 // Approve Case Request Schema (ADMIN/SCHEDULER only)
 export const ApproveCaseRequestSchema = z.object({
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD required
-  scheduledTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), // HH:MM optional
+  scheduledTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(), // HH:MM or HH:MM:SS
+  roomId: z.string().uuid().nullable().optional(), // Optional room assignment
+  estimatedDurationMinutes: z.number().int().min(15).max(720).optional(), // 15 min to 12 hours
 });
 export type ApproveCaseRequest = z.infer<typeof ApproveCaseRequestSchema>;
+
+// Assign Room Request Schema (ADMIN/SCHEDULER only)
+export const AssignRoomRequestSchema = z.object({
+  roomId: z.string().uuid().nullable(), // null to unassign
+  sortOrder: z.number().int().min(0).optional(),
+  estimatedDurationMinutes: z.number().int().min(15).max(720).optional(),
+});
+export type AssignRoomRequest = z.infer<typeof AssignRoomRequestSchema>;
 
 // Reject Case Request Schema (ADMIN/SCHEDULER only)
 export const RejectCaseRequestSchema = z.object({
@@ -571,3 +581,93 @@ export const ConfigItemResponseSchema = z.object({
   updatedAt: z.string(),
 });
 export type ConfigItemResponse = z.infer<typeof ConfigItemResponseSchema>;
+
+// ============================================================================
+// BLOCK TIME SCHEMAS (Room Scheduling)
+// ============================================================================
+
+export const CreateBlockTimeRequestSchema = z.object({
+  roomId: z.string().uuid(),
+  blockDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+  durationMinutes: z.number().int().min(15).max(480).default(60), // 15 min to 8 hours
+  notes: z.string().max(500).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+export type CreateBlockTimeRequest = z.infer<typeof CreateBlockTimeRequestSchema>;
+
+export const UpdateBlockTimeRequestSchema = z.object({
+  durationMinutes: z.number().int().min(15).max(480).optional(),
+  notes: z.string().max(500).nullable().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+export type UpdateBlockTimeRequest = z.infer<typeof UpdateBlockTimeRequestSchema>;
+
+export const BlockTimeResponseSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  roomId: z.string().uuid(),
+  roomName: z.string(),
+  blockDate: z.string(),
+  durationMinutes: z.number().int(),
+  notes: z.string().nullable(),
+  sortOrder: z.number().int(),
+  createdAt: z.string(),
+  createdByUserId: z.string().uuid().nullable(),
+});
+export type BlockTimeResponse = z.infer<typeof BlockTimeResponseSchema>;
+
+// ============================================================================
+// ROOM DAY CONFIG SCHEMAS (Room Start Times)
+// ============================================================================
+
+export const SetRoomDayConfigRequestSchema = z.object({
+  startTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/), // HH:MM or HH:MM:SS
+});
+export type SetRoomDayConfigRequest = z.infer<typeof SetRoomDayConfigRequestSchema>;
+
+export const RoomDayConfigResponseSchema = z.object({
+  id: z.string().uuid(),
+  roomId: z.string().uuid(),
+  configDate: z.string(),
+  startTime: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type RoomDayConfigResponse = z.infer<typeof RoomDayConfigResponseSchema>;
+
+// ============================================================================
+// DAY SCHEDULE SCHEMAS (Calendar Day View)
+// ============================================================================
+
+export const ScheduleItemSchema = z.object({
+  type: z.enum(['case', 'block']),
+  id: z.string().uuid(),
+  sortOrder: z.number().int(),
+  durationMinutes: z.number().int(),
+  // Case-specific fields
+  caseNumber: z.string().optional(),
+  procedureName: z.string().optional(),
+  surgeonId: z.string().uuid().optional(),
+  surgeonName: z.string().optional(),
+  scheduledTime: z.string().nullable().optional(),
+  status: CaseStatus.optional(),
+  // Block-specific fields
+  notes: z.string().nullable().optional(),
+});
+export type ScheduleItem = z.infer<typeof ScheduleItemSchema>;
+
+export const RoomScheduleSchema = z.object({
+  roomId: z.string().uuid(),
+  roomName: z.string(),
+  startTime: z.string(), // Default or configured start time
+  items: z.array(ScheduleItemSchema),
+});
+export type RoomSchedule = z.infer<typeof RoomScheduleSchema>;
+
+export const DayScheduleResponseSchema = z.object({
+  date: z.string(),
+  facilityId: z.string().uuid(),
+  rooms: z.array(RoomScheduleSchema),
+  unassignedCases: z.array(ScheduleItemSchema),
+});
+export type DayScheduleResponse = z.infer<typeof DayScheduleResponseSchema>;

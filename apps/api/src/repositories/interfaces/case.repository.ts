@@ -28,6 +28,11 @@ export interface SurgicalCase {
   rejectionReason: string | null;
   createdAt: Date;
   updatedAt: Date;
+  // Room scheduling fields
+  roomId: string | null;
+  roomName?: string | null;
+  estimatedDurationMinutes: number;
+  sortOrder: number;
 }
 
 export interface CaseRequirement {
@@ -60,6 +65,10 @@ export interface UpdateCaseData {
   preferenceCardVersionId?: string | null;
   status?: SurgicalCase['status'];
   notes?: string | null;
+  // Room scheduling fields
+  roomId?: string | null;
+  estimatedDurationMinutes?: number;
+  sortOrder?: number;
 }
 
 export interface ActivateCaseData {
@@ -70,6 +79,8 @@ export interface ActivateCaseData {
 export interface ApproveCaseData {
   scheduledDate: string;
   scheduledTime?: string | null;
+  roomId?: string | null;
+  estimatedDurationMinutes?: number;
 }
 
 export interface RejectCaseData {

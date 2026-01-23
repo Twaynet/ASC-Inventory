@@ -15,7 +15,7 @@ import {
 import { CalendarNav, type ViewMode } from './components/CalendarNav';
 import { MonthView } from './components/MonthView';
 import { WeekView } from './components/WeekView';
-import { DayView } from './components/DayView';
+import { RoomBasedDayView } from './components/RoomBasedDayView';
 
 function getStartOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -311,16 +311,16 @@ function DayBeforeContent() {
         )}
 
         {viewMode === 'day' && (
-          <DayView
+          <RoomBasedDayView
             selectedDate={selectedDateStr}
             token={token!}
             user={{
               id: user.id,
               name: user.name,
               role: user.role,
+              roles: user.roles,
               facilityName: user.facilityName,
             }}
-            timeoutDebriefEnabled={timeoutDebriefEnabled}
           />
         )}
       </main>

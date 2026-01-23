@@ -41,6 +41,11 @@ interface CaseRow {
   rejection_reason: string | null;
   created_at: Date;
   updated_at: Date;
+  // Room scheduling fields
+  room_id: string | null;
+  room_name?: string | null;
+  estimated_duration_minutes: number;
+  sort_order: number;
 }
 
 interface RequirementRow {
@@ -79,6 +84,11 @@ function mapCaseRow(row: CaseRow): SurgicalCase {
     rejectionReason: row.rejection_reason,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    // Room scheduling fields
+    roomId: row.room_id,
+    roomName: row.room_name,
+    estimatedDurationMinutes: row.estimated_duration_minutes ?? 60,
+    sortOrder: row.sort_order ?? 0,
   };
 }
 
@@ -97,9 +107,10 @@ function mapRequirementRow(row: RequirementRow): CaseRequirement {
 export class PostgresCaseRepository implements ICaseRepository {
   async findById(id: string, facilityId: string): Promise<SurgicalCase | null> {
     const result = await query<CaseRow>(`
-      SELECT c.*, u.name as surgeon_name
+      SELECT c.*, u.name as surgeon_name, r.name as room_name
       FROM surgical_case c
       JOIN app_user u ON c.surgeon_id = u.id
+      LEFT JOIN room r ON c.room_id = r.id
       WHERE c.id = $1 AND c.facility_id = $2
     `, [id, facilityId]);
 
@@ -109,9 +120,10 @@ export class PostgresCaseRepository implements ICaseRepository {
 
   async findByCaseNumber(caseNumber: string, facilityId: string): Promise<SurgicalCase | null> {
     const result = await query<CaseRow>(`
-      SELECT c.*, u.name as surgeon_name
+      SELECT c.*, u.name as surgeon_name, r.name as room_name
       FROM surgical_case c
       JOIN app_user u ON c.surgeon_id = u.id
+      LEFT JOIN room r ON c.room_id = r.id
       WHERE c.case_number = $1 AND c.facility_id = $2
     `, [caseNumber, facilityId]);
 
@@ -121,9 +133,10 @@ export class PostgresCaseRepository implements ICaseRepository {
 
   async findMany(facilityId: string, filters?: CaseFilters): Promise<SurgicalCase[]> {
     let sql = `
-      SELECT c.*, u.name as surgeon_name
+      SELECT c.*, u.name as surgeon_name, r.name as room_name
       FROM surgical_case c
       JOIN app_user u ON c.surgeon_id = u.id
+      LEFT JOIN room r ON c.room_id = r.id
       WHERE c.facility_id = $1
     `;
     const params: unknown[] = [facilityId];
@@ -211,6 +224,18 @@ export class PostgresCaseRepository implements ICaseRepository {
       updates.push(`notes = $${paramIndex++}`);
       values.push(data.notes);
     }
+    if (data.roomId !== undefined) {
+      updates.push(`room_id = $${paramIndex++}`);
+      values.push(data.roomId);
+    }
+    if (data.estimatedDurationMinutes !== undefined) {
+      updates.push(`estimated_duration_minutes = $${paramIndex++}`);
+      values.push(data.estimatedDurationMinutes);
+    }
+    if (data.sortOrder !== undefined) {
+      updates.push(`sort_order = $${paramIndex++}`);
+      values.push(data.sortOrder);
+    }
 
     if (updates.length === 0) return this.findById(id, facilityId);
 
@@ -220,7 +245,9 @@ export class PostgresCaseRepository implements ICaseRepository {
       UPDATE surgical_case
       SET ${updates.join(', ')}, updated_at = NOW()
       WHERE id = $${paramIndex++} AND facility_id = $${paramIndex}
-      RETURNING *, (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name
+      RETURNING *,
+        (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name,
+        (SELECT name FROM room WHERE id = room_id) as room_name
     `, values);
 
     if (result.rows.length === 0) return null;
@@ -243,7 +270,9 @@ export class PostgresCaseRepository implements ICaseRepository {
           status = 'SCHEDULED',
           updated_at = NOW()
       WHERE id = $1 AND facility_id = $2
-      RETURNING *, (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name
+      RETURNING *,
+        (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name,
+        (SELECT name FROM room WHERE id = room_id) as room_name
     `, [id, facilityId, userId, data.scheduledDate, data.scheduledTime ?? null]);
 
     if (result.rows.length === 0) return null;
@@ -264,10 +293,14 @@ export class PostgresCaseRepository implements ICaseRepository {
           is_active = true,
           activated_at = NOW(),
           activated_by_user_id = $5,
+          room_id = $6,
+          estimated_duration_minutes = COALESCE($7, estimated_duration_minutes, 60),
           updated_at = NOW()
       WHERE id = $1 AND facility_id = $2 AND status = 'REQUESTED'
-      RETURNING *, (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name
-    `, [id, facilityId, data.scheduledDate, data.scheduledTime ?? null, userId]);
+      RETURNING *,
+        (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name,
+        (SELECT name FROM room WHERE id = room_id) as room_name
+    `, [id, facilityId, data.scheduledDate, data.scheduledTime ?? null, userId, data.roomId ?? null, data.estimatedDurationMinutes ?? null]);
 
     if (result.rows.length === 0) return null;
     return mapCaseRow(result.rows[0]);
@@ -287,7 +320,9 @@ export class PostgresCaseRepository implements ICaseRepository {
           rejection_reason = $4,
           updated_at = NOW()
       WHERE id = $1 AND facility_id = $2 AND status = 'REQUESTED'
-      RETURNING *, (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name
+      RETURNING *,
+        (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name,
+        (SELECT name FROM room WHERE id = room_id) as room_name
     `, [id, facilityId, userId, data.reason]);
 
     if (result.rows.length === 0) return null;
@@ -301,7 +336,9 @@ export class PostgresCaseRepository implements ICaseRepository {
           status = 'DRAFT',
           updated_at = NOW()
       WHERE id = $1 AND facility_id = $2
-      RETURNING *, (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name
+      RETURNING *,
+        (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name,
+        (SELECT name FROM room WHERE id = room_id) as room_name
     `, [id, facilityId]);
 
     if (result.rows.length === 0) return null;
@@ -323,7 +360,9 @@ export class PostgresCaseRepository implements ICaseRepository {
           notes = CASE WHEN $4 IS NOT NULL THEN COALESCE(notes || E'\\n', '') || 'Cancelled: ' || $4 ELSE notes END,
           updated_at = NOW()
       WHERE id = $1 AND facility_id = $2
-      RETURNING *, (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name
+      RETURNING *,
+        (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name,
+        (SELECT name FROM room WHERE id = room_id) as room_name
     `, [id, facilityId, userId, reason ?? null]);
 
     if (result.rows.length === 0) return null;

@@ -205,6 +205,33 @@ cd apps/api && npm run dev &
 → Clear Next cache: `rm -rf apps/web/.next`
 → Restart web server
 
+### "Cannot find module './XXX.js'" or app stuck on "Loading..."
+→ Stale webpack chunks in `.next` folder
+→ Clear Next cache and restart:
+```bash
+rm -rf apps/web/.next   # Git Bash/WSL
+# OR
+Remove-Item -Recurse -Force apps\web\.next   # PowerShell
+```
+→ Then restart web server
+
+### "missing required error components, refreshing..."
+→ Next.js App Router requires `error.tsx` and `global-error.tsx` in `apps/web/src/app/`
+→ If missing, create them:
+```tsx
+// apps/web/src/app/error.tsx
+'use client';
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  return (
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <h2>Something went wrong</h2>
+      <button onClick={reset}>Try again</button>
+    </div>
+  );
+}
+```
+→ Also create `global-error.tsx` with same pattern (must include `<html>` and `<body>` tags)
+
 ### "ECONNREFUSED on localhost:3001"
 → API is not running or crashed
 → Check API logs, restart API server

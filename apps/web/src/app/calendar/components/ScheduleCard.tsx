@@ -1,0 +1,242 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+export interface ScheduleItem {
+  type: 'case' | 'block';
+  id: string;
+  sortOrder: number;
+  durationMinutes: number;
+  // Case-specific fields
+  caseNumber?: string;
+  procedureName?: string;
+  surgeonId?: string;
+  surgeonName?: string;
+  scheduledTime?: string | null;
+  status?: string;
+  // Block-specific fields
+  notes?: string | null;
+}
+
+interface ScheduleCardProps {
+  item: ScheduleItem;
+  startTime: string;
+  isDraggable?: boolean;
+  onClick?: () => void;
+}
+
+function formatTime(timeStr: string): string {
+  if (!timeStr) return '';
+  const [hours, minutes] = timeStr.split(':');
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+}
+
+function getStatusColor(status?: string): string {
+  switch (status) {
+    case 'SCHEDULED':
+    case 'READY':
+      return 'var(--color-green)';
+    case 'IN_PROGRESS':
+      return 'var(--color-orange)';
+    case 'COMPLETED':
+      return 'var(--color-gray-500)';
+    case 'CANCELLED':
+    case 'REJECTED':
+      return 'var(--color-red)';
+    default:
+      return 'var(--color-blue)';
+  }
+}
+
+export function ScheduleCard({ item, startTime, isDraggable, onClick }: ScheduleCardProps) {
+  const router = useRouter();
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: `${item.type}-${item.id}`,
+    disabled: !isDraggable,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  if (item.type === 'block') {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`schedule-card schedule-card-block ${isDragging ? 'dragging' : ''}`}
+        onClick={onClick}
+        {...attributes}
+        {...listeners}
+      >
+        <div className="schedule-card-time">{formatTime(startTime)}</div>
+        <div className="schedule-card-content">
+          <div className="schedule-card-title">Block Time</div>
+          <div className="schedule-card-subtitle">{item.durationMinutes} min</div>
+          {item.notes && (
+            <div className="schedule-card-notes">{item.notes}</div>
+          )}
+        </div>
+
+        <style jsx>{`
+          .schedule-card-block {
+            background: var(--color-gray-100);
+            border-left: 4px solid var(--color-gray-400);
+          }
+          .schedule-card-block:hover {
+            background: var(--color-gray-200);
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Case card
+  const handleClick = (e: React.MouseEvent) => {
+    // Don't navigate if we're dragging
+    if (isDragging) return;
+
+    if (onClick) {
+      onClick();
+    } else {
+      router.push(`/case/${item.id}`);
+    }
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        borderLeftColor: getStatusColor(item.status),
+        cursor: isDraggable ? 'grab' : 'pointer',
+      }}
+      className={`schedule-card schedule-card-case ${isDragging ? 'dragging' : ''}`}
+      onClick={handleClick}
+      {...attributes}
+      {...listeners}
+    >
+      <div className="schedule-card-time">{formatTime(startTime)}</div>
+      <div className="schedule-card-content">
+        <div className="schedule-card-title">{item.procedureName}</div>
+        <div className="schedule-card-subtitle">
+          Dr. {item.surgeonName}
+        </div>
+        <div className="schedule-card-meta">
+          <span className="schedule-card-duration">{item.durationMinutes} min</span>
+          {item.caseNumber && (
+            <span className="schedule-card-case-number">{item.caseNumber}</span>
+          )}
+        </div>
+      </div>
+
+      <style jsx>{`
+        .schedule-card-case {
+          background: white;
+          border-left: 4px solid var(--color-blue);
+        }
+        .schedule-card-case:hover {
+          background: var(--color-blue-50, #EBF8FF);
+        }
+        .schedule-card-case.dragging {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// Shared styles - exported for use in parent components
+export const scheduleCardStyles = `
+  .schedule-card {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    transition: background 0.15s, box-shadow 0.15s, opacity 0.15s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    touch-action: none;
+  }
+
+  .schedule-card:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+
+  .schedule-card.dragging {
+    z-index: 100;
+  }
+
+  .schedule-card-time {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-gray-600);
+    min-width: 60px;
+    white-space: nowrap;
+  }
+
+  .schedule-card-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .schedule-card-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-gray-900);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .schedule-card-subtitle {
+    font-size: 0.75rem;
+    color: var(--color-gray-600);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .schedule-card-meta {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    font-size: 0.625rem;
+    color: var(--color-gray-500);
+  }
+
+  .schedule-card-duration {
+    background: var(--color-gray-100);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+  }
+
+  .schedule-card-case-number {
+    color: var(--color-gray-400);
+  }
+
+  .schedule-card-notes {
+    font-size: 0.75rem;
+    color: var(--color-gray-500);
+    font-style: italic;
+    margin-top: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+`;
