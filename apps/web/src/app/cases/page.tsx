@@ -34,6 +34,20 @@ function formatTime(timeStr: string | null): string {
   return timeStr;
 }
 
+function formatDateTime(isoStr: string | null): string {
+  if (!isoStr) return 'Unknown';
+  const date = new Date(isoStr);
+  if (isNaN(date.getTime())) return 'Unknown';
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 function getStatusBadgeClass(status: string): string {
   switch (status) {
     case 'REQUESTED':
@@ -540,9 +554,12 @@ export default function CasesPage() {
                         <div className="pending-card-body">
                           <div className="pending-procedure">{c.procedureName}</div>
                           <div className="pending-surgeon">Dr. {c.surgeonName}</div>
+                          <div className="pending-submitted">
+                            Submitted: {formatDateTime(c.createdAt)}
+                          </div>
                           {(c.requestedDate || c.requestedTime) && (
                             <div className="pending-datetime">
-                              Requested: {c.requestedDate ? formatDate(c.requestedDate) : ''} {c.requestedTime ? formatTime(c.requestedTime) : ''}
+                              Preferred: {c.requestedDate ? formatDate(c.requestedDate) : ''} {c.requestedTime ? formatTime(c.requestedTime) : ''}
                             </div>
                           )}
                           {c.notes && <div className="pending-notes">{c.notes}</div>}
@@ -794,6 +811,12 @@ export default function CasesPage() {
         .pending-surgeon {
           color: #4b5563;
           margin-bottom: 0.5rem;
+        }
+
+        .pending-submitted {
+          font-size: 0.8125rem;
+          color: #9ca3af;
+          margin-bottom: 0.25rem;
         }
 
         .pending-datetime {
