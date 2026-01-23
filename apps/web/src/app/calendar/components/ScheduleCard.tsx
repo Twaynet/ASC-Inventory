@@ -169,7 +169,8 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
           vertical-align: middle;
         }
         .schedule-card-case {
-          border-left: 4px solid var(--color-blue);
+          border-left-width: 4px;
+          border-left-style: solid;
         }
         .schedule-card-case.active {
           background: white;
