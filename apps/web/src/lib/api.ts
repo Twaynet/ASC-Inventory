@@ -1805,6 +1805,29 @@ export async function getDaySchedule(
   return api(`/schedule/day?date=${date}`, { token });
 }
 
+export interface UnassignedCase {
+  id: string;
+  type: 'case';
+  caseNumber: string;
+  procedureName: string;
+  surgeonId: string;
+  surgeonName: string;
+  scheduledDate: string;
+  scheduledTime: string | null;
+  status: string;
+  durationMinutes: number;
+  isActive: boolean;
+}
+
+export interface UnassignedCasesResponse {
+  unassignedCases: UnassignedCase[];
+  count: number;
+}
+
+export async function getUnassignedCases(token: string): Promise<UnassignedCasesResponse> {
+  return api('/schedule/unassigned', { token });
+}
+
 export async function assignCaseRoom(
   token: string,
   caseId: string,

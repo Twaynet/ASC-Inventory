@@ -93,6 +93,14 @@ export const FEATURES: FeatureDefinition[] = [
     path: '/pending-reviews',
     group: 'core',
   },
+  {
+    id: 'unassigned-cases',
+    title: 'Unassigned Cases',
+    description: 'View scheduled cases not yet assigned to a room',
+    path: '/unassigned-cases',
+    group: 'core',
+    requiredRoles: ['ADMIN', 'SCHEDULER'],
+  },
 
   // --- Case Workflows (contextual) ---
   {

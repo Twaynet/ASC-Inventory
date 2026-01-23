@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
-import { getCases } from '@/lib/api';
+import { getCases, getUnassignedCases } from '@/lib/api';
 import type { FeatureDefinition, AccessDecision } from '@/lib/access-control';
 
 export default function SystemDashboard() {
@@ -13,6 +13,7 @@ export default function SystemDashboard() {
   const router = useRouter();
   const [debugExpanded, setDebugExpanded] = useState(false);
   const [pendingCaseCount, setPendingCaseCount] = useState<number>(0);
+  const [unassignedCaseCount, setUnassignedCaseCount] = useState<number>(0);
 
   // Fetch pending case requests count
   useEffect(() => {
@@ -26,6 +27,22 @@ export default function SystemDashboard() {
         });
     }
   }, [token]);
+
+  // Fetch unassigned cases count (for ADMIN/SCHEDULER)
+  useEffect(() => {
+    if (token && user) {
+      const userRoles = user.roles || [user.role];
+      if (userRoles.includes('ADMIN') || userRoles.includes('SCHEDULER')) {
+        getUnassignedCases(token)
+          .then((result) => {
+            setUnassignedCaseCount(result.count);
+          })
+          .catch(() => {
+            // Ignore errors for badge count
+          });
+      }
+    }
+  }, [token, user]);
 
   // Redirect to login if not authenticated
   if (!isLoading && !user) {
@@ -58,7 +75,10 @@ export default function SystemDashboard() {
           title="Core"
           features={coreFeatures}
           onNavigate={(path) => router.push(path)}
-          badgeCounts={{ 'case-requests': pendingCaseCount }}
+          badgeCounts={{
+            'case-requests': pendingCaseCount,
+            'unassigned-cases': unassignedCaseCount,
+          }}
         />
 
         {/* Case Workflow Features */}

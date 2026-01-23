@@ -18,6 +18,7 @@ interface CaseRow {
   procedure_name: string;
   surgeon_id: string;
   surgeon_name: string;
+  scheduled_date: string;
   scheduled_time: string | null;
   status: string;
   room_id: string | null;
@@ -210,6 +211,58 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
       facilityId,
       rooms,
       unassignedCases,
+    });
+  });
+
+  /**
+   * GET /schedule/unassigned
+   * Get all unassigned cases (scheduled but no room assigned)
+   */
+  fastify.get('/unassigned', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { facilityId } = request.user;
+
+    const casesResult = await query<CaseRow>(`
+      SELECT
+        c.id,
+        c.case_number,
+        c.procedure_name,
+        c.surgeon_id,
+        u.name as surgeon_name,
+        c.scheduled_date,
+        c.scheduled_time::text,
+        c.status,
+        c.room_id,
+        COALESCE(c.estimated_duration_minutes, 60) as estimated_duration_minutes,
+        COALESCE(c.sort_order, 0) as sort_order,
+        c.is_active
+      FROM surgical_case c
+      JOIN app_user u ON c.surgeon_id = u.id
+      WHERE c.facility_id = $1
+        AND c.room_id IS NULL
+        AND c.status = 'SCHEDULED'
+        AND c.is_cancelled = false
+      ORDER BY c.scheduled_date ASC, c.scheduled_time ASC NULLS LAST
+    `, [facilityId]);
+
+    const unassignedCases = casesResult.rows.map(c => ({
+      id: c.id,
+      type: 'case' as const,
+      caseNumber: c.case_number,
+      procedureName: c.procedure_name,
+      surgeonId: c.surgeon_id,
+      surgeonName: c.surgeon_name,
+      scheduledDate: c.scheduled_date,
+      scheduledTime: c.scheduled_time,
+      status: c.status,
+      durationMinutes: c.estimated_duration_minutes,
+      isActive: c.is_active,
+    }));
+
+    return reply.send({
+      unassignedCases,
+      count: unassignedCases.length,
     });
   });
 
