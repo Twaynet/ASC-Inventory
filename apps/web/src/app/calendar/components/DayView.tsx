@@ -695,7 +695,7 @@ export function DayView({ selectedDate, token, user, timeoutDebriefEnabled }: Da
           {isRefreshing ? 'Refreshing...' : 'Refresh'}
         </button>
         <button
-          className="btn btn-primary btn-sm"
+          className="btn btn-create btn-sm"
           onClick={() => setShowCreateModal(true)}
         >
           + Create Case

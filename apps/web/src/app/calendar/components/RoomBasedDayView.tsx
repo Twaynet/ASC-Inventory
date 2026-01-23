@@ -336,7 +336,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
           </button>
           {canEdit && (
             <button
-              className="btn btn-primary btn-sm"
+              className="btn btn-create btn-sm"
               onClick={() => setShowScheduleModal(true)}
             >
               + Add to Schedule

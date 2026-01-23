@@ -164,7 +164,7 @@ export default function AdminLocationsPage() {
 
         <div className="actions-bar">
           <button
-            className="btn btn-primary"
+            className="btn btn-create"
             onClick={() => {
               setShowCreateForm(true);
               setEditingLocation(null);

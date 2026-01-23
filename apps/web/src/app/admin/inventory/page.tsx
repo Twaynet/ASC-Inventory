@@ -236,7 +236,7 @@ export default function AdminInventoryPage() {
         <div className="actions-bar">
           <div className="actions-left">
             <button
-              className="btn btn-primary"
+              className="btn btn-create"
               onClick={() => {
                 setShowCreateForm(true);
                 setEditingItem(null);

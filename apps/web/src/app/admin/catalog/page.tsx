@@ -227,7 +227,7 @@ export default function AdminCatalogPage() {
 
         <div className="actions-bar">
           <button
-            className="btn btn-primary"
+            className="btn btn-create"
             onClick={() => {
               setShowCreateForm(true);
               setEditingItem(null);

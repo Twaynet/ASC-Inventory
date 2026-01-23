@@ -289,7 +289,7 @@ export default function CasesPage() {
         <div className="content-wrapper">
           <div className="page-header">
             <h1>My Case Requests</h1>
-            <button className="btn btn-primary" onClick={() => setShowCreateForm(true)}>
+            <button className="btn btn-create" onClick={() => setShowCreateForm(true)}>
               + New Case Request
             </button>
           </div>

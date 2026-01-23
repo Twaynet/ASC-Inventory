@@ -207,7 +207,7 @@ export default function AdminUsersPage() {
 
         <div className="actions-bar">
           <button
-            className="btn btn-primary"
+            className="btn btn-create"
             onClick={() => {
               setShowCreateForm(true);
               setEditingUser(null);

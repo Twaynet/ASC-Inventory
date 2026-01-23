@@ -365,7 +365,7 @@ export default function PreferenceCardsPage() {
 
         <div className="actions-bar">
           <button
-            className="btn btn-primary"
+            className="btn btn-create"
             onClick={() => {
               resetForm();
               setShowForm(true);

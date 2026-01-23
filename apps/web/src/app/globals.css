@@ -70,6 +70,21 @@ body {
   padding: 0 1.5rem;
 }
 
+/* Page Header - title with action button aligned right */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-gray-900);
+  margin: 0;
+}
+
 .header {
   background: white;
   border-bottom: 1px solid var(--color-gray-200);
@@ -127,6 +142,17 @@ body {
 
 .btn-primary:hover:not(:disabled) {
   background-color: var(--color-blue-500);
+}
+
+/* Create/Add button - orange with white text */
+.btn-create {
+  background-color: #F59E0B;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.btn-create:hover:not(:disabled) {
+  background-color: #D97706;
 }
 
 .btn-secondary {

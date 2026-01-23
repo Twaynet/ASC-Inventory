@@ -277,7 +277,7 @@ export default function AdminCasesPage() {
 
         <div className="actions-bar">
           <button
-            className="btn btn-primary"
+            className="btn btn-create"
             onClick={() => {
               setShowCreateForm(true);
               setActivatingCase(null);

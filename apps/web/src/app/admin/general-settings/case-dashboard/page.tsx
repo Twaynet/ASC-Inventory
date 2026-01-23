@@ -392,7 +392,7 @@ export default function CaseDashboardSettingsPage() {
 
                       <div className="section-actions">
                         <button
-                          className="btn btn-primary"
+                          className="btn btn-create"
                           onClick={(e) => {
                             e.stopPropagation();
                             setShowCreateForm(section.type);

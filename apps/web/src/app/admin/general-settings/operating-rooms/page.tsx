@@ -201,7 +201,7 @@ export default function OperatingRoomsPage() {
               </div>
               <div className="section-actions">
                 <button
-                  className="btn btn-primary"
+                  className="btn btn-create"
                   onClick={() => {
                     setShowCreateForm(true);
                     setEditingRoom(null);
