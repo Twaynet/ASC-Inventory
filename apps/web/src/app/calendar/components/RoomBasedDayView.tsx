@@ -70,6 +70,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
@@ -287,7 +288,21 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
   const remainingMinutes = totalMinutes % 60;
 
   const activeItem = getActiveItem();
-  const unassignedIds = data?.unassignedCases.map(item => `${item.type}-${item.id}`) || [];
+
+  // Filter function to exclude inactive cases when toggle is off
+  const filterItems = (items: ScheduleItem[]) => {
+    if (showInactive) return items;
+    return items.filter(item => item.type === 'block' || item.isActive !== false);
+  };
+
+  // Filter unassigned cases and room items
+  const filteredUnassignedCases = data ? filterItems(data.unassignedCases) : [];
+  const filteredRooms = data?.rooms.map(room => ({
+    ...room,
+    items: filterItems(room.items),
+  })) || [];
+
+  const unassignedIds = filteredUnassignedCases.map(item => `${item.type}-${item.id}`);
 
   return (
     <div className="room-based-day-view">
@@ -304,6 +319,14 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
           </span>
         </div>
         <div className="day-view-actions">
+          <label className="toggle-label">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+            />
+            Show Inactive
+          </label>
           <button
             className="btn btn-secondary btn-sm"
             onClick={loadData}
@@ -344,20 +367,20 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
         >
           <div className="schedule-container">
             {/* Unassigned Cases Column */}
-            {(data.unassignedCases.length > 0 || canEdit) && (
+            {(filteredUnassignedCases.length > 0 || canEdit) && (
               <div className={`unassigned-column ${overId === 'unassigned' ? 'drop-target' : ''}`}>
                 <div className="unassigned-header">
                   <h3>Unassigned</h3>
-                  <span className="unassigned-count">{data.unassignedCases.length}</span>
+                  <span className="unassigned-count">{filteredUnassignedCases.length}</span>
                 </div>
                 <SortableContext items={unassignedIds} strategy={verticalListSortingStrategy}>
                   <UnassignedDroppable isOver={overId === 'unassigned'}>
-                    {data.unassignedCases.length === 0 ? (
+                    {filteredUnassignedCases.length === 0 ? (
                       <div className="unassigned-empty">
                         {canEdit ? 'Drag cases here to unassign' : 'No unassigned cases'}
                       </div>
                     ) : (
-                      data.unassignedCases.map((item) => (
+                      filteredUnassignedCases.map((item) => (
                         <ScheduleCard
                           key={item.id}
                           item={item}
@@ -374,7 +397,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
 
             {/* Room Columns */}
             <div className="rooms-container">
-              {data.rooms.length === 0 ? (
+              {filteredRooms.length === 0 ? (
                 <div className="no-rooms">
                   No operating rooms configured.
                   {canEdit && (
@@ -387,7 +410,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
                   )}
                 </div>
               ) : (
-                data.rooms.map((room) => (
+                filteredRooms.map((room) => (
                   <RoomColumn
                     key={room.roomId}
                     room={room}
@@ -481,7 +504,28 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
 
         .day-view-actions {
           display: flex;
-          gap: 0.5rem;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .toggle-label {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          font-size: 0.875rem;
+          color: var(--color-gray-600);
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .toggle-label input[type="checkbox"] {
+          width: 1rem;
+          height: 1rem;
+          cursor: pointer;
+        }
+
+        .toggle-label:hover {
+          color: var(--color-gray-800);
         }
 
         .error-banner {
