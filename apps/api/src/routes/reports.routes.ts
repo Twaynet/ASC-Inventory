@@ -239,7 +239,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const { facilityId } = request.user;
-    const { startDate, endDate, eventType, userId, groupBy: _groupBy = 'day', format = 'json' } = request.query;
+    const { startDate, endDate, eventType, userId, format = 'json' } = request.query;
 
     const end = endDate || new Date().toISOString().split('T')[0];
     const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];

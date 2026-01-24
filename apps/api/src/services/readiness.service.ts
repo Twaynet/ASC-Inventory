@@ -372,7 +372,7 @@ export async function updateReadinessCache(
   facilityId: string,
   targetDate: Date | string
 ): Promise<void> {
-  const { dateStr, dateObj } = normalizeDateInput(targetDate);
+  const { dateStr } = normalizeDateInput(targetDate);
 
   const { cases: readinessResults, surgeonNames } = await computeDayBeforeReadiness(
     facilityId,

@@ -5,12 +5,7 @@
  * Feature-flagged workflow gates for surgical cases.
  */
 
-import { query, transaction } from '../db/index.js';
-import type {
-  ChecklistType as ChecklistTypeEnum,
-  ChecklistStatus as ChecklistStatusEnum,
-  SignatureMethod as SignatureMethodEnum,
-} from '@asc/domain';
+import { query } from '../db/index.js';
 
 // ============================================================================
 // TYPES
@@ -357,13 +352,6 @@ export async function updateChecklistTemplateItems(
 // ============================================================================
 // CHECKLIST INSTANCES
 // ============================================================================
-
-async function getUserName(userId: string): Promise<string> {
-  const result = await query<{ name: string }>(`
-    SELECT name FROM app_user WHERE id = $1
-  `, [userId]);
-  return result.rows[0]?.name || 'Unknown';
-}
 
 async function getRoomName(roomId: string | null): Promise<string | null> {
   if (!roomId) return null;

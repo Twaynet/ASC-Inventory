@@ -137,7 +137,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Get checklist instances for cases on this date
     const caseIds = casesResult.rows.map(c => c.id);
-    let checklistMap = new Map<string, { timeout?: string; debrief?: string }>();
+    const checklistMap = new Map<string, { timeout?: string; debrief?: string }>();
 
     if (caseIds.length > 0) {
       try {

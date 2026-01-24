@@ -3,7 +3,7 @@
  * Fastify + Zod backend service
  */
 
-import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
+import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
 import fastifyJwt from '@fastify/jwt';
@@ -53,7 +53,8 @@ async function main() {
   });
 
   // Decorate fastify with authenticate method for route preHandlers
-  fastify.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fastify.decorate('authenticate', async (request: any, reply: any) => {
     try {
       await request.jwtVerify();
     } catch (err) {
@@ -96,6 +97,7 @@ main();
 // Type augmentation for Fastify
 declare module 'fastify' {
   interface FastifyInstance {
-    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    authenticate: (request: any, reply: any) => Promise<void>;
   }
 }

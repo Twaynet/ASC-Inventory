@@ -85,17 +85,6 @@ interface CaseDashboardData {
   missingItems: any[];
 }
 
-// EventLogEntry type - used by the event log query
-interface _EventLogEntry {
-  id: string;
-  eventType: string;
-  userId: string;
-  userRole: string;
-  userName: string;
-  description: string;
-  createdAt: string;
-}
-
 // ============================================================================
 // Routes
 // ============================================================================
