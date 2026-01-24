@@ -9,11 +9,10 @@ import {
   getPendingReviews,
   getFlaggedReviews,
   resolveFlaggedReview,
-  getSurgeonFlaggedReviews,
+  resolveSurgeonFlag,
   type PendingReview,
   type FlaggedReview,
   type DebriefItemForReview,
-  type SurgeonFlaggedReview,
 } from '@/lib/api';
 
 export default function AdminPendingReviewsPage() {
@@ -24,7 +23,6 @@ export default function AdminPendingReviewsPage() {
   const [flaggedReviews, setFlaggedReviews] = useState<FlaggedReview[]>([]);
   const [resolvedReviews, setResolvedReviews] = useState<FlaggedReview[]>([]);
   const [debriefItemsForReview, setDebriefItemsForReview] = useState<DebriefItemForReview[]>([]);
-  const [surgeonFlaggedReviews, setSurgeonFlaggedReviews] = useState<SurgeonFlaggedReview[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
   const [resolveNotes, setResolveNotes] = useState<Record<string, string>>({});
@@ -60,16 +58,14 @@ export default function AdminPendingReviewsPage() {
     if (!token) return;
     setIsLoadingData(true);
     try {
-      const [pendingResult, flaggedResult, surgeonFlaggedResult] = await Promise.all([
+      const [pendingResult, flaggedResult] = await Promise.all([
         getPendingReviews(token),
         getFlaggedReviews(token),
-        getSurgeonFlaggedReviews(token),
       ]);
       setPendingReviews(pendingResult.pendingReviews);
       setFlaggedReviews(flaggedResult.flaggedReviews);
       setResolvedReviews(flaggedResult.resolvedReviews);
       setDebriefItemsForReview(flaggedResult.debriefItemsForReview || []);
-      setSurgeonFlaggedReviews(surgeonFlaggedResult.surgeonFlaggedReviews);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load pending reviews');
@@ -91,6 +87,24 @@ export default function AdminPendingReviewsPage() {
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to resolve flag');
+    } finally {
+      setIsResolving(null);
+    }
+  };
+
+  const handleResolveSurgeonFlag = async (instanceId: string) => {
+    if (!token) return;
+    setIsResolving(`surgeon-${instanceId}`);
+    try {
+      await resolveSurgeonFlag(token, instanceId, resolveNotes[`surgeon-${instanceId}`]);
+      await loadData();
+      setResolveNotes((prev) => {
+        const updated = { ...prev };
+        delete updated[`surgeon-${instanceId}`];
+        return updated;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to resolve surgeon flag');
     } finally {
       setIsResolving(null);
     }
@@ -124,6 +138,10 @@ export default function AdminPendingReviewsPage() {
   const totalPending = pendingReviews.length;
   const pendingScrubCount = pendingReviews.filter(r => r.pendingScrub).length;
   const pendingSurgeonCount = pendingReviews.filter(r => r.pendingSurgeon).length;
+
+  // Count flags by source
+  const staffFlaggedCount = flaggedReviews.filter(r => r.flagSource === 'staff' || r.flagSource === 'both').length;
+  const surgeonFlaggedCount = flaggedReviews.filter(r => r.flagSource === 'surgeon' || r.flagSource === 'both').length;
   const unresolvedFlagsCount = flaggedReviews.length;
 
   // Group by how old the review is
@@ -148,11 +166,11 @@ export default function AdminPendingReviewsPage() {
           </div>
           <div className={`summary-card ${unresolvedFlagsCount === 0 ? 'green' : 'orange'}`}>
             <div className="summary-value">{unresolvedFlagsCount}</div>
-            <div className="summary-label">Staff Flagged</div>
+            <div className="summary-label">All Flagged</div>
           </div>
-          <div className={`summary-card ${surgeonFlaggedReviews.length === 0 ? 'green' : 'purple'}`}>
-            <div className="summary-value">{surgeonFlaggedReviews.length}</div>
-            <div className="summary-label">Surgeon Flagged</div>
+          <div className={`summary-card ${surgeonFlaggedCount === 0 ? 'green' : 'purple'}`}>
+            <div className="summary-value">{surgeonFlaggedCount}</div>
+            <div className="summary-label">Surgeon Flags</div>
           </div>
           <div className={`summary-card ${olderThan24h.length > 0 ? 'red' : 'green'}`}>
             <div className="summary-value">{olderThan24h.length}</div>
@@ -177,82 +195,149 @@ export default function AdminPendingReviewsPage() {
               <div className="flagged-reviews-section">
                 <h2>⚑ Flagged for Review ({flaggedReviews.length})</h2>
                 <p className="section-description">
-                  These signatures were flagged by staff for admin review. Review and resolve each flag.
+                  These items were flagged by staff or surgeons for admin review. Review and resolve each flag.
                 </p>
                 <div className="flagged-reviews-list">
-                  {flaggedReviews.map((review) => (
-                    <div key={review.signatureId} className="flagged-review-card">
-                      <div className="flagged-review-header">
-                        <button
-                          className={`checklist-type-badge clickable ${review.checklistType.toLowerCase()}`}
-                          onClick={() => review.checklistType === 'TIMEOUT'
-                            ? handleViewTimeout(review.caseId)
-                            : handleViewDebrief(review.caseId)
-                          }
-                          title={`View ${review.checklistType === 'TIMEOUT' ? 'Timeout' : 'Debrief'}`}
-                        >
-                          {review.checklistType}
-                        </button>
-                        <span className="flagged-review-procedure">{review.caseName}</span>
-                      </div>
-                      <div className="flagged-review-details">
-                        <div className="detail-row">
-                          <span className="detail-label">Surgeon:</span>
-                          <span>{review.surgeonName}</span>
+                  {flaggedReviews.map((review) => {
+                    const cardKey = review.signatureId || `surgeon-${review.instanceId}`;
+                    const resolveKey = review.flagSource === 'surgeon' ? `surgeon-${review.instanceId}` : review.signatureId!;
+                    const isSurgeonOnly = review.flagSource === 'surgeon';
+
+                    return (
+                      <div key={cardKey} className={`flagged-review-card ${isSurgeonOnly ? 'surgeon-flag' : ''}`}>
+                        <div className="flagged-review-header">
+                          <button
+                            className={`checklist-type-badge clickable ${review.checklistType.toLowerCase()}`}
+                            onClick={() => review.checklistType === 'TIMEOUT'
+                              ? handleViewTimeout(review.caseId)
+                              : handleViewDebrief(review.caseId)
+                            }
+                            title={`View ${review.checklistType === 'TIMEOUT' ? 'Timeout' : 'Debrief'}`}
+                          >
+                            {review.checklistType}
+                          </button>
+                          <span className="flagged-review-procedure">{review.caseName}</span>
+                          <span className={`flag-source-badge ${review.flagSource}`}>
+                            {review.flagSource === 'both' ? 'Staff + Surgeon' : review.flagSource === 'surgeon' ? 'Surgeon' : 'Staff'}
+                          </span>
                         </div>
-                        <div className="detail-row">
-                          <span className="detail-label">Signed by:</span>
-                          <span>{review.signedByName} ({review.signatureRole})</span>
-                        </div>
-                        <div className="detail-row">
-                          <span className="detail-label">Signed at:</span>
-                          <span>{new Date(review.signedAt).toLocaleString()}</span>
-                        </div>
-                        {review.flagComment && (
-                          <div className="flag-comment-box">
-                            <span className="detail-label">Staff Comment:</span>
-                            <span className="flag-comment-text">{review.flagComment}</span>
+                        <div className="flagged-review-details">
+                          <div className="detail-row">
+                            <span className="detail-label">Surgeon:</span>
+                            <span>{review.surgeonName}</span>
                           </div>
-                        )}
-                        {(review.equipmentNotes || review.improvementNotes) && (
-                          <div className="context-notes">
-                            {review.equipmentNotes && (
-                              <div className="context-note">
-                                <span className="context-label">Equipment Issues:</span>
-                                <span>{review.equipmentNotes}</span>
-                              </div>
-                            )}
-                            {review.improvementNotes && (
-                              <div className="context-note">
-                                <span className="context-label">Improvement Opportunity:</span>
-                                <span>{review.improvementNotes}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                          {review.signedByName && (
+                            <div className="detail-row">
+                              <span className="detail-label">Signed by:</span>
+                              <span>{review.signedByName} ({review.signatureRole})</span>
+                            </div>
+                          )}
+                          {review.signedAt && (
+                            <div className="detail-row">
+                              <span className="detail-label">Signed at:</span>
+                              <span>{new Date(review.signedAt).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {review.flagComment && (
+                            <div className="flag-comment-box">
+                              <span className="detail-label">Staff Comment:</span>
+                              <span className="flag-comment-text">{review.flagComment}</span>
+                            </div>
+                          )}
+                          {(review.equipmentNotes || review.improvementNotes) && (
+                            <div className="context-notes">
+                              {review.equipmentNotes && (
+                                <div className="context-note">
+                                  <span className="context-label">Equipment Issues:</span>
+                                  <span>{review.equipmentNotes}</span>
+                                </div>
+                              )}
+                              {review.improvementNotes && (
+                                <div className="context-note">
+                                  <span className="context-label">Improvement Opportunity:</span>
+                                  <span>{review.improvementNotes}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {/* Surgeon Feedback Addendum */}
+                          {(review.surgeonFlagged || review.surgeonNotes) && (
+                            <div className="surgeon-addendum">
+                              <div className="surgeon-addendum-header">Surgeon Feedback</div>
+                              {review.surgeonFlaggedAt && (
+                                <div className="detail-row">
+                                  <span className="detail-label">Flagged:</span>
+                                  <span>{new Date(review.surgeonFlaggedAt).toLocaleString()}</span>
+                                </div>
+                              )}
+                              {review.surgeonFlaggedComment && (
+                                <div className="surgeon-comment-box">
+                                  <span className="detail-label">Surgeon Comment:</span>
+                                  <span className="surgeon-comment-text">{review.surgeonFlaggedComment}</span>
+                                </div>
+                              )}
+                              {review.surgeonNotes && (
+                                <div className="surgeon-notes-box">
+                                  <span className="detail-label">Surgeon Notes:</span>
+                                  <span className="surgeon-notes-text">{review.surgeonNotes}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flagged-review-actions">
+                          <input
+                            type="text"
+                            className="resolve-notes-input"
+                            placeholder="Resolution notes (optional)"
+                            value={resolveNotes[resolveKey] || ''}
+                            onChange={(e) => setResolveNotes((prev) => ({
+                              ...prev,
+                              [resolveKey]: e.target.value
+                            }))}
+                            disabled={isResolving === resolveKey}
+                          />
+                          {/* Show appropriate resolve buttons based on flag source */}
+                          {review.flagSource === 'staff' && review.signatureId && (
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleResolveFlag(review.signatureId!)}
+                              disabled={isResolving === review.signatureId}
+                            >
+                              {isResolving === review.signatureId ? 'Resolving...' : 'Mark Resolved'}
+                            </button>
+                          )}
+                          {review.flagSource === 'surgeon' && (
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleResolveSurgeonFlag(review.instanceId)}
+                              disabled={isResolving === `surgeon-${review.instanceId}`}
+                            >
+                              {isResolving === `surgeon-${review.instanceId}` ? 'Resolving...' : 'Mark Resolved'}
+                            </button>
+                          )}
+                          {review.flagSource === 'both' && review.signatureId && (
+                            <div className="resolve-buttons-group">
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => handleResolveFlag(review.signatureId!)}
+                                disabled={isResolving === review.signatureId}
+                              >
+                                {isResolving === review.signatureId ? 'Resolving...' : 'Resolve Staff Flag'}
+                              </button>
+                              <button
+                                className="btn btn-primary btn-sm"
+                                onClick={() => handleResolveSurgeonFlag(review.instanceId)}
+                                disabled={isResolving === `surgeon-${review.instanceId}`}
+                              >
+                                {isResolving === `surgeon-${review.instanceId}` ? 'Resolving...' : 'Resolve Surgeon Flag'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="flagged-review-actions">
-                        <input
-                          type="text"
-                          className="resolve-notes-input"
-                          placeholder="Resolution notes (optional)"
-                          value={resolveNotes[review.signatureId] || ''}
-                          onChange={(e) => setResolveNotes((prev) => ({
-                            ...prev,
-                            [review.signatureId]: e.target.value
-                          }))}
-                          disabled={isResolving === review.signatureId}
-                        />
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => handleResolveFlag(review.signatureId)}
-                          disabled={isResolving === review.signatureId}
-                        >
-                          {isResolving === review.signatureId ? 'Resolving...' : 'Mark Resolved'}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -296,67 +381,8 @@ export default function AdminPendingReviewsPage() {
               </div>
             )}
 
-            {/* Surgeon Flagged Reviews Section */}
-            {surgeonFlaggedReviews.length > 0 && (
-              <div className="surgeon-flagged-section">
-                <h2>Surgeon Flagged ({surgeonFlaggedReviews.length})</h2>
-                <p className="section-description">
-                  These checklists were flagged by surgeons for admin review.
-                </p>
-                <div className="surgeon-flagged-list">
-                  {surgeonFlaggedReviews.map((review) => (
-                    <div key={review.instanceId} className="surgeon-flagged-card">
-                      <div className="surgeon-flagged-header">
-                        <button
-                          className={`checklist-type-badge clickable ${review.checklistType.toLowerCase()}`}
-                          onClick={() => review.checklistType === 'TIMEOUT'
-                            ? handleViewTimeout(review.caseId)
-                            : handleViewDebrief(review.caseId)
-                          }
-                          title={`View ${review.checklistType === 'TIMEOUT' ? 'Timeout' : 'Debrief'}`}
-                        >
-                          {review.checklistType}
-                        </button>
-                        <span className="surgeon-flagged-procedure">{review.procedureName}</span>
-                      </div>
-                      <div className="surgeon-flagged-details">
-                        <div className="detail-row">
-                          <span className="detail-label">Case #:</span>
-                          <span>{review.caseNumber}</span>
-                        </div>
-                        <div className="detail-row">
-                          <span className="detail-label">Surgeon:</span>
-                          <span>{review.surgeonName}</span>
-                        </div>
-                        <div className="detail-row">
-                          <span className="detail-label">Date:</span>
-                          <span>{new Date(review.scheduledDate + 'T00:00:00').toLocaleDateString()}</span>
-                        </div>
-                        <div className="detail-row">
-                          <span className="detail-label">Flagged:</span>
-                          <span>{new Date(review.surgeonFlaggedAt).toLocaleString()}</span>
-                        </div>
-                        {review.surgeonFlaggedComment && (
-                          <div className="surgeon-comment-box">
-                            <span className="detail-label">Surgeon Comment:</span>
-                            <span className="surgeon-comment-text">{review.surgeonFlaggedComment}</span>
-                          </div>
-                        )}
-                        {review.surgeonNotes && (
-                          <div className="surgeon-notes-box">
-                            <span className="detail-label">Surgeon Notes:</span>
-                            <span className="surgeon-notes-text">{review.surgeonNotes}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* All Clear Message */}
-            {pendingReviews.length === 0 && flaggedReviews.length === 0 && debriefItemsForReview.length === 0 && surgeonFlaggedReviews.length === 0 && (
+            {pendingReviews.length === 0 && flaggedReviews.length === 0 && debriefItemsForReview.length === 0 && (
               <div className="no-pending-reviews">
                 <span className="status-icon">✓</span>
                 <h2>All Clear!</h2>
@@ -830,11 +856,77 @@ export default function AdminPendingReviewsPage() {
         .flagged-review-procedure {
           font-weight: 600;
           font-size: 1rem;
+          flex: 1;
+        }
+
+        .flag-source-badge {
+          display: inline-block;
+          padding: 0.2rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.65rem;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .flag-source-badge.staff {
+          background: #feebc8;
+          color: #c05621;
+        }
+
+        .flag-source-badge.surgeon {
+          background: #e9d8fd;
+          color: #6b46c1;
+        }
+
+        .flag-source-badge.both {
+          background: #fef3c7;
+          color: #92400e;
+        }
+
+        .flagged-review-card.surgeon-flag {
+          background: #faf5ff;
+          border-color: #d6bcfa;
         }
 
         .flagged-review-details {
           margin-bottom: 0.75rem;
           font-size: 0.9rem;
+        }
+
+        .surgeon-addendum {
+          margin-top: 1rem;
+          padding: 0.75rem;
+          background: #f3e8ff;
+          border-radius: 6px;
+          border-left: 3px solid #9333ea;
+        }
+
+        .surgeon-addendum-header {
+          font-weight: 600;
+          color: #6b46c1;
+          margin-bottom: 0.5rem;
+          font-size: 0.85rem;
+          text-transform: uppercase;
+        }
+
+        .surgeon-comment-box,
+        .surgeon-notes-box {
+          margin-top: 0.5rem;
+          padding: 0.5rem;
+          background: rgba(255, 255, 255, 0.5);
+          border-radius: 4px;
+        }
+
+        .surgeon-comment-text,
+        .surgeon-notes-text {
+          font-style: italic;
+          color: #553c9a;
+        }
+
+        .resolve-buttons-group {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
         }
 
         .detail-row {
@@ -992,76 +1084,6 @@ export default function AdminPendingReviewsPage() {
 
         .note-text {
           font-size: 0.9rem;
-        }
-
-        .surgeon-flagged-section {
-          background: white;
-          border-radius: 8px;
-          padding: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          margin-bottom: 1.5rem;
-          border-left: 4px solid #805ad5;
-        }
-
-        .surgeon-flagged-section h2 {
-          margin-top: 0;
-          margin-bottom: 0.5rem;
-          color: #805ad5;
-        }
-
-        .surgeon-flagged-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .surgeon-flagged-card {
-          background: #faf5ff;
-          border: 1px solid #d6bcfa;
-          border-radius: 8px;
-          padding: 1rem;
-        }
-
-        .surgeon-flagged-header {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          margin-bottom: 0.75rem;
-        }
-
-        .surgeon-flagged-procedure {
-          font-weight: 600;
-          font-size: 1rem;
-        }
-
-        .surgeon-flagged-details {
-          font-size: 0.9rem;
-        }
-
-        .surgeon-comment-box {
-          margin-top: 0.5rem;
-          padding: 0.75rem;
-          background: #fff5f5;
-          border-radius: 6px;
-          border-left: 3px solid #805ad5;
-        }
-
-        .surgeon-comment-text {
-          display: block;
-          margin-top: 0.25rem;
-          font-style: italic;
-        }
-
-        .surgeon-notes-box {
-          margin-top: 0.5rem;
-          padding: 0.75rem;
-          background: #f8f9fa;
-          border-radius: 6px;
-        }
-
-        .surgeon-notes-text {
-          display: block;
-          margin-top: 0.25rem;
         }
 
         .resolved-reviews-section {

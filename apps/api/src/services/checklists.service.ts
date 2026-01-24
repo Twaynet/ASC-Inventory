@@ -996,15 +996,15 @@ export async function getPendingReviews(facilityId: string): Promise<PendingRevi
 // ============================================================================
 
 export interface FlaggedReview {
-  signatureId: string;
+  signatureId: string | null;  // null for surgeon-only flags
   instanceId: string;
   caseId: string;
   checklistType: string;
   caseName: string;
   surgeonName: string;
-  signatureRole: string;
-  signedByName: string;
-  signedAt: string;
+  signatureRole: string | null;  // null for surgeon-only flags
+  signedByName: string | null;   // null for surgeon-only flags
+  signedAt: string | null;       // null for surgeon-only flags
   flaggedForReview: boolean;
   flagComment: string | null;
   resolved: boolean;
@@ -1014,14 +1014,23 @@ export interface FlaggedReview {
   // Additional context from debrief checklist
   equipmentNotes: string | null;
   improvementNotes: string | null;
+  // Surgeon feedback (addendum)
+  surgeonNotes: string | null;
+  surgeonFlagged: boolean;
+  surgeonFlaggedAt: string | null;
+  surgeonFlaggedComment: string | null;
+  // Flag source indicator
+  flagSource: 'staff' | 'surgeon' | 'both';
 }
 
 /**
- * Get all flagged signatures that need admin review.
- * Returns signatures that were flagged and have not been resolved.
+ * Get all flagged items that need admin review.
+ * Returns both staff-flagged signatures AND surgeon-flagged instances.
+ * Includes surgeon feedback as an addendum on all items.
  */
 export async function getFlaggedReviews(facilityId: string): Promise<FlaggedReview[]> {
-  const result = await query<{
+  // Query for staff-flagged items (includes surgeon feedback if present)
+  const staffFlagged = await query<{
     signature_id: string;
     instance_id: string;
     case_id: string;
@@ -1038,6 +1047,10 @@ export async function getFlaggedReviews(facilityId: string): Promise<FlaggedRevi
     resolution_notes: string | null;
     equipment_notes: string | null;
     improvement_notes: string | null;
+    surgeon_notes: string | null;
+    surgeon_flagged: boolean;
+    surgeon_flagged_at: Date | null;
+    surgeon_flagged_comment: string | null;
   }>(`
     SELECT
       s.id as signature_id,
@@ -1055,7 +1068,11 @@ export async function getFlaggedReviews(facilityId: string): Promise<FlaggedRevi
       resolver.name as resolved_by_name,
       fr.resolution_notes,
       (SELECT value FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'equipment_notes') as equipment_notes,
-      (SELECT value FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'improvement_notes') as improvement_notes
+      (SELECT value FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'improvement_notes') as improvement_notes,
+      cci.surgeon_notes,
+      cci.surgeon_flagged,
+      cci.surgeon_flagged_at,
+      cci.surgeon_flagged_comment
     FROM case_checklist_signature s
     JOIN case_checklist_instance cci ON cci.id = s.instance_id
     JOIN surgical_case c ON c.id = cci.case_id
@@ -1068,7 +1085,46 @@ export async function getFlaggedReviews(facilityId: string): Promise<FlaggedRevi
     ORDER BY s.signed_at DESC
   `, [facilityId]);
 
-  return result.rows.map(row => ({
+  // Query for surgeon-only flagged items (no staff flag, but surgeon has flagged)
+  const surgeonOnlyFlagged = await query<{
+    instance_id: string;
+    case_id: string;
+    checklist_type: string;
+    case_name: string;
+    surgeon_name: string;
+    equipment_notes: string | null;
+    improvement_notes: string | null;
+    surgeon_notes: string | null;
+    surgeon_flagged: boolean;
+    surgeon_flagged_at: Date;
+    surgeon_flagged_comment: string | null;
+  }>(`
+    SELECT
+      cci.id as instance_id,
+      cci.case_id,
+      cci.type as checklist_type,
+      c.procedure_name as case_name,
+      surgeon.name as surgeon_name,
+      (SELECT value FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'equipment_notes') as equipment_notes,
+      (SELECT value FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'improvement_notes') as improvement_notes,
+      cci.surgeon_notes,
+      cci.surgeon_flagged,
+      cci.surgeon_flagged_at,
+      cci.surgeon_flagged_comment
+    FROM case_checklist_instance cci
+    JOIN surgical_case c ON c.id = cci.case_id
+    LEFT JOIN app_user surgeon ON surgeon.id = c.surgeon_id
+    WHERE cci.facility_id = $1
+      AND cci.surgeon_flagged = true
+      AND NOT EXISTS (
+        SELECT 1 FROM case_checklist_signature s
+        WHERE s.instance_id = cci.id AND s.flagged_for_review = true
+      )
+    ORDER BY cci.surgeon_flagged_at DESC
+  `, [facilityId]);
+
+  // Map staff-flagged items
+  const staffFlaggedResults: FlaggedReview[] = staffFlagged.rows.map(row => ({
     signatureId: row.signature_id,
     instanceId: row.instance_id,
     caseId: row.case_id,
@@ -1086,7 +1142,41 @@ export async function getFlaggedReviews(facilityId: string): Promise<FlaggedRevi
     resolutionNotes: row.resolution_notes || null,
     equipmentNotes: row.equipment_notes || null,
     improvementNotes: row.improvement_notes || null,
+    surgeonNotes: row.surgeon_notes || null,
+    surgeonFlagged: row.surgeon_flagged || false,
+    surgeonFlaggedAt: row.surgeon_flagged_at?.toISOString() || null,
+    surgeonFlaggedComment: row.surgeon_flagged_comment || null,
+    flagSource: row.surgeon_flagged ? 'both' : 'staff',
   }));
+
+  // Map surgeon-only flagged items
+  const surgeonOnlyResults: FlaggedReview[] = surgeonOnlyFlagged.rows.map(row => ({
+    signatureId: null,
+    instanceId: row.instance_id,
+    caseId: row.case_id,
+    checklistType: row.checklist_type,
+    caseName: row.case_name,
+    surgeonName: row.surgeon_name || 'Unknown',
+    signatureRole: null,
+    signedByName: null,
+    signedAt: null,
+    flaggedForReview: false,
+    flagComment: null,
+    resolved: false,
+    resolvedAt: null,
+    resolvedByName: null,
+    resolutionNotes: null,
+    equipmentNotes: row.equipment_notes || null,
+    improvementNotes: row.improvement_notes || null,
+    surgeonNotes: row.surgeon_notes || null,
+    surgeonFlagged: true,
+    surgeonFlaggedAt: row.surgeon_flagged_at.toISOString(),
+    surgeonFlaggedComment: row.surgeon_flagged_comment || null,
+    flagSource: 'surgeon',
+  }));
+
+  // Combine and return
+  return [...staffFlaggedResults, ...surgeonOnlyResults];
 }
 
 /**
@@ -1188,6 +1278,54 @@ export async function resolveFlaggedSignature(
       signature_id, resolved_by_user_id, resolution_notes
     ) VALUES ($1, $2, $3)
   `, [signatureId, resolvedByUserId, notes]);
+}
+
+/**
+ * Resolve a surgeon-flagged checklist instance (ADMIN only).
+ * Clears the surgeon flag and records who resolved it.
+ */
+export async function resolveSurgeonFlag(
+  instanceId: string,
+  resolvedByUserId: string,
+  notes: string | null,
+  facilityId: string
+): Promise<void> {
+  // Verify the instance exists, belongs to this facility, and is surgeon-flagged
+  const instanceResult = await query<{ facility_id: string; surgeon_flagged: boolean }>(`
+    SELECT facility_id, surgeon_flagged
+    FROM case_checklist_instance
+    WHERE id = $1
+  `, [instanceId]);
+
+  if (instanceResult.rows.length === 0) {
+    throw new Error('Checklist instance not found');
+  }
+
+  if (instanceResult.rows[0].facility_id !== facilityId) {
+    throw new Error('Access denied');
+  }
+
+  if (!instanceResult.rows[0].surgeon_flagged) {
+    throw new Error('Checklist is not flagged by surgeon');
+  }
+
+  // Clear the surgeon flag (we keep the notes/comment for history but mark as resolved)
+  // We'll add resolution info to the surgeon_flagged_comment to preserve history
+  const resolverResult = await query<{ name: string }>(`
+    SELECT name FROM app_user WHERE id = $1
+  `, [resolvedByUserId]);
+  const resolverName = resolverResult.rows[0]?.name || 'Unknown';
+  const resolutionTimestamp = new Date().toISOString();
+  const resolutionNote = notes
+    ? `[Resolved by ${resolverName} on ${resolutionTimestamp}]: ${notes}`
+    : `[Resolved by ${resolverName} on ${resolutionTimestamp}]`;
+
+  await query(`
+    UPDATE case_checklist_instance
+    SET surgeon_flagged = false,
+        surgeon_flagged_comment = COALESCE(surgeon_flagged_comment, '') || E'\n---\n' || $2
+    WHERE id = $1
+  `, [instanceId, resolutionNote]);
 }
 
 // ============================================================================
@@ -1389,72 +1527,4 @@ export async function updateSurgeonFeedback(
   `, values);
 
   return { success: true };
-}
-
-export interface SurgeonFlaggedReview {
-  instanceId: string;
-  caseId: string;
-  caseNumber: string;
-  procedureName: string;
-  surgeonName: string;
-  surgeonId: string;
-  scheduledDate: string;
-  checklistType: 'TIMEOUT' | 'DEBRIEF';
-  surgeonNotes: string | null;
-  surgeonFlaggedAt: string;
-  surgeonFlaggedComment: string | null;
-}
-
-/**
- * Get all surgeon-flagged checklists for admin review.
- */
-export async function getSurgeonFlaggedReviews(facilityId: string): Promise<SurgeonFlaggedReview[]> {
-  const result = await query<{
-    instance_id: string;
-    case_id: string;
-    case_number: string;
-    procedure_name: string;
-    surgeon_name: string;
-    surgeon_id: string;
-    scheduled_date: Date;
-    checklist_type: string;
-    surgeon_notes: string | null;
-    surgeon_flagged_at: Date;
-    surgeon_flagged_comment: string | null;
-  }>(`
-    SELECT
-      cci.id as instance_id,
-      cci.case_id,
-      sc.case_number,
-      sc.procedure_name,
-      u.name as surgeon_name,
-      sc.surgeon_id,
-      sc.scheduled_date,
-      ct.type::text as checklist_type,
-      cci.surgeon_notes,
-      cci.surgeon_flagged_at,
-      cci.surgeon_flagged_comment
-    FROM case_checklist_instance cci
-    JOIN surgical_case sc ON cci.case_id = sc.id
-    JOIN app_user u ON sc.surgeon_id = u.id
-    JOIN checklist_template_version ctv ON cci.template_version_id = ctv.id
-    JOIN checklist_template ct ON ctv.template_id = ct.id
-    WHERE cci.facility_id = $1
-      AND cci.surgeon_flagged = true
-    ORDER BY cci.surgeon_flagged_at DESC
-  `, [facilityId]);
-
-  return result.rows.map(row => ({
-    instanceId: row.instance_id,
-    caseId: row.case_id,
-    caseNumber: row.case_number,
-    procedureName: row.procedure_name,
-    surgeonName: row.surgeon_name,
-    surgeonId: row.surgeon_id,
-    scheduledDate: row.scheduled_date.toISOString().split('T')[0],
-    checklistType: row.checklist_type as 'TIMEOUT' | 'DEBRIEF',
-    surgeonNotes: row.surgeon_notes,
-    surgeonFlaggedAt: row.surgeon_flagged_at.toISOString(),
-    surgeonFlaggedComment: row.surgeon_flagged_comment,
-  }));
 }

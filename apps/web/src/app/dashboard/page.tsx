@@ -55,8 +55,9 @@ export default function SystemDashboard() {
           getFlaggedReviews(token),
         ])
           .then(([pendingResult, flaggedResult]) => {
-            // Total = debrief pending + flagged reviews
-            const total = pendingResult.pendingReviews.length + flaggedResult.totalUnresolved;
+            // Total = debrief pending + all flagged (staff + surgeon combined)
+            const total = pendingResult.pendingReviews.length +
+                          flaggedResult.totalUnresolved;
             setAdminPendingReviewsCount(total);
           })
           .catch(() => {

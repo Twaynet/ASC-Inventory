@@ -27,9 +27,9 @@ import {
   getFlaggedReviews,
   getDebriefItemsForReview,
   resolveFlaggedSignature,
+  resolveSurgeonFlag,
   getSurgeonChecklists,
   updateSurgeonFeedback,
-  getSurgeonFlaggedReviews,
 } from '../services/checklists.service.js';
 
 export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> {
@@ -639,10 +639,10 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     Body: { notes?: string };
   }>, reply: FastifyReply) => {
     const { signatureId } = request.params;
-    const { facilityId, userId, role } = request.user;
+    const { facilityId, userId, roles } = request.user;
 
-    // Admin only
-    if (role !== 'ADMIN') {
+    // Admin only (check roles array for multi-role support)
+    if (!roles || !roles.includes('ADMIN')) {
       return reply.status(403).send({
         error: 'Only administrators can resolve flagged reviews',
       });
@@ -653,6 +653,38 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     try {
       await resolveFlaggedSignature(signatureId, userId, notes, facilityId);
+      return reply.send({ success: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return reply.status(400).send({ error: message });
+    }
+  });
+
+  /**
+   * POST /flagged-reviews/:instanceId/resolve-surgeon-flag
+   * Resolve a surgeon-flagged checklist instance (Admin only)
+   */
+  fastify.post('/flagged-reviews/:instanceId/resolve-surgeon-flag', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{
+    Params: { instanceId: string };
+    Body: { notes?: string };
+  }>, reply: FastifyReply) => {
+    const { instanceId } = request.params;
+    const { facilityId, userId, roles } = request.user;
+
+    // Admin only (check roles array for multi-role support)
+    if (!roles || !roles.includes('ADMIN')) {
+      return reply.status(403).send({
+        error: 'Only administrators can resolve surgeon-flagged reviews',
+      });
+    }
+
+    const body = request.body as { notes?: string } | undefined;
+    const notes = body?.notes || null;
+
+    try {
+      await resolveSurgeonFlag(instanceId, userId, notes, facilityId);
       return reply.send({ success: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -671,10 +703,10 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
   fastify.get('/surgeon/my-checklists', {
     preHandler: [fastify.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { facilityId, userId, role } = request.user;
+    const { facilityId, userId, roles } = request.user;
 
-    // Only surgeons can access this
-    if (role !== 'SURGEON') {
+    // Only surgeons can access this (check roles array for multi-role support)
+    if (!roles || !roles.includes('SURGEON')) {
       return reply.status(403).send({
         error: 'Only surgeons can access this endpoint',
       });
@@ -699,10 +731,10 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     Body: { notes?: string; flagged?: boolean; flaggedComment?: string };
   }>, reply: FastifyReply) => {
     const { instanceId } = request.params;
-    const { facilityId, userId, role } = request.user;
+    const { facilityId, userId, roles } = request.user;
 
-    // Only surgeons can update surgeon feedback
-    if (role !== 'SURGEON') {
+    // Only surgeons can update surgeon feedback (check roles array for multi-role support)
+    if (!roles || !roles.includes('SURGEON')) {
       return reply.status(403).send({
         error: 'Only surgeons can update surgeon feedback',
       });
@@ -721,29 +753,5 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     }
 
     return reply.send({ success: true });
-  });
-
-  /**
-   * GET /surgeon-flagged-reviews
-   * Get all surgeon-flagged checklists (Admin only)
-   */
-  fastify.get('/surgeon-flagged-reviews', {
-    preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { facilityId, role } = request.user;
-
-    // Admin only
-    if (role !== 'ADMIN') {
-      return reply.status(403).send({
-        error: 'Only administrators can view surgeon-flagged reviews',
-      });
-    }
-
-    const reviews = await getSurgeonFlaggedReviews(facilityId);
-
-    return reply.send({
-      surgeonFlaggedReviews: reviews,
-      total: reviews.length,
-    });
   });
 }

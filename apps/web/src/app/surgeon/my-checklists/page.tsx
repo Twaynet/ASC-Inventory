@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import { TimeoutModal, DebriefModal } from '@/components/Checklists';
 import {
@@ -13,6 +13,7 @@ import {
 
 export default function SurgeonMyChecklistsPage() {
   const { user, token, isLoading } = useAuth();
+  const { hasRole } = useAccessControl();
   const router = useRouter();
 
   const [checklists, setChecklists] = useState<SurgeonChecklist[]>([]);
@@ -56,10 +57,10 @@ export default function SurgeonMyChecklistsPage() {
   }, [token]);
 
   useEffect(() => {
-    if (token && user?.role === 'SURGEON') {
+    if (token && hasRole('SURGEON')) {
       loadData();
     }
-  }, [token, user, loadData]);
+  }, [token, hasRole, loadData]);
 
   const handleViewChecklist = (checklist: SurgeonChecklist) => {
     setSelectedCaseId(checklist.caseId);
@@ -108,7 +109,7 @@ export default function SurgeonMyChecklistsPage() {
   }
 
   // Only SURGEON can view this page
-  if (user.role !== 'SURGEON') {
+  if (!hasRole('SURGEON')) {
     return (
       <>
         <Header title="My Checklists" />
@@ -242,6 +243,37 @@ export default function SurgeonMyChecklistsPage() {
                           <p className="notes-text">{checklist.surgeonNotes}</p>
                         </div>
                       )}
+
+                      {/* Show flag status and admin resolution */}
+                      {checklist.surgeonFlaggedComment && editingInstanceId !== checklist.instanceId && (() => {
+                        // Parse the comment to separate original comment from resolution
+                        const parts = checklist.surgeonFlaggedComment.split('\n---\n');
+                        const originalComment = parts[0] || '';
+                        const resolutionNote = parts.length > 1 ? parts[parts.length - 1] : null;
+                        const wasResolved = !checklist.surgeonFlagged && resolutionNote;
+
+                        return (
+                          <div className={`flag-status-box ${wasResolved ? 'resolved' : 'pending'}`}>
+                            {originalComment && (
+                              <div className="flag-comment">
+                                <span className="flag-label">Your Flag Comment:</span>
+                                <p className="flag-text">{originalComment}</p>
+                              </div>
+                            )}
+                            {wasResolved && resolutionNote && (
+                              <div className="resolution-info">
+                                <span className="resolution-label">✓ Admin Resolution:</span>
+                                <p className="resolution-text">{resolutionNote}</p>
+                              </div>
+                            )}
+                            {checklist.surgeonFlagged && (
+                              <div className="pending-notice">
+                                <span className="pending-text">⏳ Awaiting admin review</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Edit form or button */}
                       {editingInstanceId === checklist.instanceId ? (
@@ -556,6 +588,71 @@ export default function SurgeonMyChecklistsPage() {
           margin: 0;
           font-size: 0.9rem;
           color: #333;
+        }
+
+        .flag-status-box {
+          border-radius: 6px;
+          padding: 0.75rem;
+          margin-bottom: 0.75rem;
+        }
+
+        .flag-status-box.pending {
+          background: #fef3c7;
+          border: 1px solid #f59e0b;
+        }
+
+        .flag-status-box.resolved {
+          background: #d1fae5;
+          border: 1px solid #10b981;
+        }
+
+        .flag-comment {
+          margin-bottom: 0.5rem;
+        }
+
+        .flag-label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #92400e;
+          display: block;
+          margin-bottom: 0.25rem;
+        }
+
+        .flag-text {
+          margin: 0;
+          font-size: 0.9rem;
+          color: #78350f;
+          font-style: italic;
+        }
+
+        .resolution-info {
+          margin-top: 0.5rem;
+          padding-top: 0.5rem;
+          border-top: 1px dashed #10b981;
+        }
+
+        .resolution-label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #047857;
+          display: block;
+          margin-bottom: 0.25rem;
+        }
+
+        .resolution-text {
+          margin: 0;
+          font-size: 0.9rem;
+          color: #065f46;
+        }
+
+        .pending-notice {
+          margin-top: 0.5rem;
+        }
+
+        .pending-text {
+          font-size: 0.85rem;
+          color: #92400e;
+          font-weight: 500;
         }
 
         .feedback-form {

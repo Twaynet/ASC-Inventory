@@ -921,15 +921,15 @@ export async function getMyPendingReviews(token: string): Promise<PendingReviews
 // ============================================================================
 
 export interface FlaggedReview {
-  signatureId: string;
+  signatureId: string | null;  // null for surgeon-only flags
   instanceId: string;
   caseId: string;
   checklistType: 'TIMEOUT' | 'DEBRIEF';
   caseName: string;
   surgeonName: string;
-  signatureRole: string;
-  signedByName: string;
-  signedAt: string;
+  signatureRole: string | null;  // null for surgeon-only flags
+  signedByName: string | null;   // null for surgeon-only flags
+  signedAt: string | null;       // null for surgeon-only flags
   flaggedForReview: boolean;
   flagComment: string | null;
   resolved: boolean;
@@ -939,6 +939,13 @@ export interface FlaggedReview {
   // Additional context from debrief checklist
   equipmentNotes: string | null;
   improvementNotes: string | null;
+  // Surgeon feedback (addendum)
+  surgeonNotes: string | null;
+  surgeonFlagged: boolean;
+  surgeonFlaggedAt: string | null;
+  surgeonFlaggedComment: string | null;
+  // Flag source indicator
+  flagSource: 'staff' | 'surgeon' | 'both';
 }
 
 export interface DebriefItemForReview {
@@ -969,6 +976,18 @@ export async function resolveFlaggedReview(
   notes?: string
 ): Promise<{ success: boolean }> {
   return api(`/flagged-reviews/${signatureId}/resolve`, {
+    method: 'POST',
+    body: { notes },
+    token,
+  });
+}
+
+export async function resolveSurgeonFlag(
+  token: string,
+  instanceId: string,
+  notes?: string
+): Promise<{ success: boolean }> {
+  return api(`/flagged-reviews/${instanceId}/resolve-surgeon-flag`, {
     method: 'POST',
     body: { notes },
     token,
@@ -1018,27 +1037,6 @@ export async function updateSurgeonFeedback(
     body: feedback,
     token,
   });
-}
-
-export interface SurgeonFlaggedReview {
-  instanceId: string;
-  caseId: string;
-  caseNumber: string;
-  procedureName: string;
-  surgeonName: string;
-  surgeonId: string;
-  scheduledDate: string;
-  checklistType: 'TIMEOUT' | 'DEBRIEF';
-  surgeonNotes: string | null;
-  surgeonFlaggedAt: string;
-  surgeonFlaggedComment: string | null;
-}
-
-export async function getSurgeonFlaggedReviews(token: string): Promise<{
-  surgeonFlaggedReviews: SurgeonFlaggedReview[];
-  total: number;
-}> {
-  return api('/surgeon-flagged-reviews', { token });
 }
 
 // ============================================================================

@@ -94,6 +94,14 @@ export const FEATURES: FeatureDefinition[] = [
     group: 'core',
   },
   {
+    id: 'surgeon-checklists',
+    title: 'My Checklists',
+    description: 'View your completed checklists and add feedback',
+    path: '/surgeon/my-checklists',
+    group: 'core',
+    requiredRoles: ['SURGEON'],
+  },
+  {
     id: 'unassigned-cases',
     title: 'Unassigned Cases',
     description: 'View scheduled cases not yet assigned to a room',
