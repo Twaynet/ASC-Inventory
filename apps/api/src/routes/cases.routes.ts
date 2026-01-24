@@ -624,9 +624,46 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Cannot delete a case that is in progress or completed' });
     }
 
+    // Check if case has any completed checklists (Timeout/Debrief)
+    // Completed checklists are part of the medical record and must be preserved
+    const completedChecklists = await query<{ count: string }>(`
+      SELECT COUNT(*) as count
+      FROM case_checklist_instance
+      WHERE case_id = $1 AND status = 'COMPLETED'
+    `, [id]);
+
+    if (parseInt(completedChecklists.rows[0]?.count || '0') > 0) {
+      return reply.status(400).send({
+        error: 'Cannot delete a case with completed Timeout or Debrief checklists. These are part of the medical record.'
+      });
+    }
+
     // Delete related records first (foreign key constraints)
     await query(`DELETE FROM case_readiness_cache WHERE case_id = $1`, [id]);
+
+    // Delete checklist-related records in correct order (respecting FK constraints)
+    // 1. Delete flag resolutions (FK to signatures)
+    await query(`
+      DELETE FROM case_checklist_flag_resolution
+      WHERE signature_id IN (
+        SELECT s.id FROM case_checklist_signature s
+        JOIN case_checklist_instance i ON s.instance_id = i.id
+        WHERE i.case_id = $1
+      )
+    `, [id]);
+    // 2. Delete signatures (FK to instance)
+    await query(`
+      DELETE FROM case_checklist_signature
+      WHERE instance_id IN (SELECT id FROM case_checklist_instance WHERE case_id = $1)
+    `, [id]);
+    // 3. Delete responses (FK to instance)
+    await query(`
+      DELETE FROM case_checklist_response
+      WHERE instance_id IN (SELECT id FROM case_checklist_instance WHERE case_id = $1)
+    `, [id]);
+    // 4. Delete instances (FK to case)
     await query(`DELETE FROM case_checklist_instance WHERE case_id = $1`, [id]);
+
     await query(`DELETE FROM case_override WHERE case_id = $1`, [id]);
     await query(`DELETE FROM case_requirement WHERE case_id = $1`, [id]);
     await query(`DELETE FROM case_anesthesia_plan WHERE case_id = $1`, [id]);
