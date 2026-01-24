@@ -27,6 +27,9 @@ import {
   getFlaggedReviews,
   getDebriefItemsForReview,
   resolveFlaggedSignature,
+  getSurgeonChecklists,
+  updateSurgeonFeedback,
+  getSurgeonFlaggedReviews,
 } from '../services/checklists.service.js';
 
 export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> {
@@ -655,5 +658,92 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
       const message = error instanceof Error ? error.message : 'Unknown error';
       return reply.status(400).send({ error: message });
     }
+  });
+
+  // ============================================================================
+  // SURGEON CHECKLIST ACCESS
+  // ============================================================================
+
+  /**
+   * GET /surgeon/my-checklists
+   * Get all checklists for cases where the current user is the surgeon
+   */
+  fastify.get('/surgeon/my-checklists', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { facilityId, userId, role } = request.user;
+
+    // Only surgeons can access this
+    if (role !== 'SURGEON') {
+      return reply.status(403).send({
+        error: 'Only surgeons can access this endpoint',
+      });
+    }
+
+    const checklists = await getSurgeonChecklists(facilityId, userId);
+
+    return reply.send({
+      checklists,
+      total: checklists.length,
+    });
+  });
+
+  /**
+   * PUT /surgeon/checklists/:instanceId/feedback
+   * Update surgeon feedback on a checklist (notes and/or flag for review)
+   */
+  fastify.put('/surgeon/checklists/:instanceId/feedback', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{
+    Params: { instanceId: string };
+    Body: { notes?: string; flagged?: boolean; flaggedComment?: string };
+  }>, reply: FastifyReply) => {
+    const { instanceId } = request.params;
+    const { facilityId, userId, role } = request.user;
+
+    // Only surgeons can update surgeon feedback
+    if (role !== 'SURGEON') {
+      return reply.status(403).send({
+        error: 'Only surgeons can update surgeon feedback',
+      });
+    }
+
+    const body = request.body as { notes?: string; flagged?: boolean; flaggedComment?: string };
+
+    const result = await updateSurgeonFeedback(instanceId, facilityId, userId, {
+      notes: body.notes,
+      flagged: body.flagged,
+      flaggedComment: body.flaggedComment,
+    });
+
+    if (!result.success) {
+      return reply.status(400).send({ error: result.error });
+    }
+
+    return reply.send({ success: true });
+  });
+
+  /**
+   * GET /surgeon-flagged-reviews
+   * Get all surgeon-flagged checklists (Admin only)
+   */
+  fastify.get('/surgeon-flagged-reviews', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { facilityId, role } = request.user;
+
+    // Admin only
+    if (role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: 'Only administrators can view surgeon-flagged reviews',
+      });
+    }
+
+    const reviews = await getSurgeonFlaggedReviews(facilityId);
+
+    return reply.send({
+      surgeonFlaggedReviews: reviews,
+      total: reviews.length,
+    });
   });
 }

@@ -976,6 +976,72 @@ export async function resolveFlaggedReview(
 }
 
 // ============================================================================
+// SURGEON CHECKLISTS
+// ============================================================================
+
+export interface SurgeonChecklist {
+  instanceId: string;
+  caseId: string;
+  caseNumber: string;
+  procedureName: string;
+  scheduledDate: string;
+  checklistType: 'TIMEOUT' | 'DEBRIEF';
+  status: string;
+  completedAt: string | null;
+  surgeonNotes: string | null;
+  surgeonFlagged: boolean;
+  surgeonFlaggedAt: string | null;
+  surgeonFlaggedComment: string | null;
+  roomName: string | null;
+}
+
+export interface SurgeonChecklistsResponse {
+  checklists: SurgeonChecklist[];
+  total: number;
+}
+
+export async function getSurgeonChecklists(token: string): Promise<SurgeonChecklistsResponse> {
+  return api('/surgeon/my-checklists', { token });
+}
+
+export async function updateSurgeonFeedback(
+  token: string,
+  instanceId: string,
+  feedback: {
+    notes?: string;
+    flagged?: boolean;
+    flaggedComment?: string;
+  }
+): Promise<{ success: boolean }> {
+  return api(`/surgeon/checklists/${instanceId}/feedback`, {
+    method: 'PUT',
+    body: feedback,
+    token,
+  });
+}
+
+export interface SurgeonFlaggedReview {
+  instanceId: string;
+  caseId: string;
+  caseNumber: string;
+  procedureName: string;
+  surgeonName: string;
+  surgeonId: string;
+  scheduledDate: string;
+  checklistType: 'TIMEOUT' | 'DEBRIEF';
+  surgeonNotes: string | null;
+  surgeonFlaggedAt: string;
+  surgeonFlaggedComment: string | null;
+}
+
+export async function getSurgeonFlaggedReviews(token: string): Promise<{
+  surgeonFlaggedReviews: SurgeonFlaggedReview[];
+  total: number;
+}> {
+  return api('/surgeon-flagged-reviews', { token });
+}
+
+// ============================================================================
 // CHECKLIST TEMPLATES (ADMIN only)
 // ============================================================================
 

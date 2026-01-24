@@ -9,9 +9,11 @@ import {
   getPendingReviews,
   getFlaggedReviews,
   resolveFlaggedReview,
+  getSurgeonFlaggedReviews,
   type PendingReview,
   type FlaggedReview,
   type DebriefItemForReview,
+  type SurgeonFlaggedReview,
 } from '@/lib/api';
 
 export default function AdminPendingReviewsPage() {
@@ -22,6 +24,7 @@ export default function AdminPendingReviewsPage() {
   const [flaggedReviews, setFlaggedReviews] = useState<FlaggedReview[]>([]);
   const [resolvedReviews, setResolvedReviews] = useState<FlaggedReview[]>([]);
   const [debriefItemsForReview, setDebriefItemsForReview] = useState<DebriefItemForReview[]>([]);
+  const [surgeonFlaggedReviews, setSurgeonFlaggedReviews] = useState<SurgeonFlaggedReview[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
   const [resolveNotes, setResolveNotes] = useState<Record<string, string>>({});
@@ -57,14 +60,16 @@ export default function AdminPendingReviewsPage() {
     if (!token) return;
     setIsLoadingData(true);
     try {
-      const [pendingResult, flaggedResult] = await Promise.all([
+      const [pendingResult, flaggedResult, surgeonFlaggedResult] = await Promise.all([
         getPendingReviews(token),
         getFlaggedReviews(token),
+        getSurgeonFlaggedReviews(token),
       ]);
       setPendingReviews(pendingResult.pendingReviews);
       setFlaggedReviews(flaggedResult.flaggedReviews);
       setResolvedReviews(flaggedResult.resolvedReviews);
       setDebriefItemsForReview(flaggedResult.debriefItemsForReview || []);
+      setSurgeonFlaggedReviews(surgeonFlaggedResult.surgeonFlaggedReviews);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load pending reviews');
@@ -143,11 +148,11 @@ export default function AdminPendingReviewsPage() {
           </div>
           <div className={`summary-card ${unresolvedFlagsCount === 0 ? 'green' : 'orange'}`}>
             <div className="summary-value">{unresolvedFlagsCount}</div>
-            <div className="summary-label">Flagged for Review</div>
+            <div className="summary-label">Staff Flagged</div>
           </div>
-          <div className="summary-card">
-            <div className="summary-value">{pendingScrubCount}</div>
-            <div className="summary-label">Awaiting Scrub</div>
+          <div className={`summary-card ${surgeonFlaggedReviews.length === 0 ? 'green' : 'purple'}`}>
+            <div className="summary-value">{surgeonFlaggedReviews.length}</div>
+            <div className="summary-label">Surgeon Flagged</div>
           </div>
           <div className={`summary-card ${olderThan24h.length > 0 ? 'red' : 'green'}`}>
             <div className="summary-value">{olderThan24h.length}</div>
@@ -291,8 +296,67 @@ export default function AdminPendingReviewsPage() {
               </div>
             )}
 
+            {/* Surgeon Flagged Reviews Section */}
+            {surgeonFlaggedReviews.length > 0 && (
+              <div className="surgeon-flagged-section">
+                <h2>Surgeon Flagged ({surgeonFlaggedReviews.length})</h2>
+                <p className="section-description">
+                  These checklists were flagged by surgeons for admin review.
+                </p>
+                <div className="surgeon-flagged-list">
+                  {surgeonFlaggedReviews.map((review) => (
+                    <div key={review.instanceId} className="surgeon-flagged-card">
+                      <div className="surgeon-flagged-header">
+                        <button
+                          className={`checklist-type-badge clickable ${review.checklistType.toLowerCase()}`}
+                          onClick={() => review.checklistType === 'TIMEOUT'
+                            ? handleViewTimeout(review.caseId)
+                            : handleViewDebrief(review.caseId)
+                          }
+                          title={`View ${review.checklistType === 'TIMEOUT' ? 'Timeout' : 'Debrief'}`}
+                        >
+                          {review.checklistType}
+                        </button>
+                        <span className="surgeon-flagged-procedure">{review.procedureName}</span>
+                      </div>
+                      <div className="surgeon-flagged-details">
+                        <div className="detail-row">
+                          <span className="detail-label">Case #:</span>
+                          <span>{review.caseNumber}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Surgeon:</span>
+                          <span>{review.surgeonName}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Date:</span>
+                          <span>{new Date(review.scheduledDate + 'T00:00:00').toLocaleDateString()}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Flagged:</span>
+                          <span>{new Date(review.surgeonFlaggedAt).toLocaleString()}</span>
+                        </div>
+                        {review.surgeonFlaggedComment && (
+                          <div className="surgeon-comment-box">
+                            <span className="detail-label">Surgeon Comment:</span>
+                            <span className="surgeon-comment-text">{review.surgeonFlaggedComment}</span>
+                          </div>
+                        )}
+                        {review.surgeonNotes && (
+                          <div className="surgeon-notes-box">
+                            <span className="detail-label">Surgeon Notes:</span>
+                            <span className="surgeon-notes-text">{review.surgeonNotes}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* All Clear Message */}
-            {pendingReviews.length === 0 && flaggedReviews.length === 0 && debriefItemsForReview.length === 0 && (
+            {pendingReviews.length === 0 && flaggedReviews.length === 0 && debriefItemsForReview.length === 0 && surgeonFlaggedReviews.length === 0 && (
               <div className="no-pending-reviews">
                 <span className="status-icon">✓</span>
                 <h2>All Clear!</h2>
@@ -556,6 +620,11 @@ export default function AdminPendingReviewsPage() {
         .summary-card.red {
           border-left-color: #e53e3e;
           background: #fff5f5;
+        }
+
+        .summary-card.purple {
+          border-left-color: #805ad5;
+          background: #faf5ff;
         }
 
         .summary-value {
@@ -923,6 +992,76 @@ export default function AdminPendingReviewsPage() {
 
         .note-text {
           font-size: 0.9rem;
+        }
+
+        .surgeon-flagged-section {
+          background: white;
+          border-radius: 8px;
+          padding: 1.5rem;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          margin-bottom: 1.5rem;
+          border-left: 4px solid #805ad5;
+        }
+
+        .surgeon-flagged-section h2 {
+          margin-top: 0;
+          margin-bottom: 0.5rem;
+          color: #805ad5;
+        }
+
+        .surgeon-flagged-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .surgeon-flagged-card {
+          background: #faf5ff;
+          border: 1px solid #d6bcfa;
+          border-radius: 8px;
+          padding: 1rem;
+        }
+
+        .surgeon-flagged-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 0.75rem;
+        }
+
+        .surgeon-flagged-procedure {
+          font-weight: 600;
+          font-size: 1rem;
+        }
+
+        .surgeon-flagged-details {
+          font-size: 0.9rem;
+        }
+
+        .surgeon-comment-box {
+          margin-top: 0.5rem;
+          padding: 0.75rem;
+          background: #fff5f5;
+          border-radius: 6px;
+          border-left: 3px solid #805ad5;
+        }
+
+        .surgeon-comment-text {
+          display: block;
+          margin-top: 0.25rem;
+          font-style: italic;
+        }
+
+        .surgeon-notes-box {
+          margin-top: 0.5rem;
+          padding: 0.75rem;
+          background: #f8f9fa;
+          border-radius: 6px;
+        }
+
+        .surgeon-notes-text {
+          display: block;
+          margin-top: 0.25rem;
         }
 
         .resolved-reviews-section {

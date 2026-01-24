@@ -1233,3 +1233,228 @@ export async function getRooms(facilityId: string): Promise<Array<{ id: string; 
 
   return result.rows.map(r => ({ id: r.id, name: r.name }));
 }
+
+// ============================================================================
+// SURGEON CHECKLIST ACCESS
+// ============================================================================
+
+export interface SurgeonChecklist {
+  instanceId: string;
+  caseId: string;
+  caseNumber: string;
+  procedureName: string;
+  scheduledDate: string;
+  checklistType: 'TIMEOUT' | 'DEBRIEF';
+  status: string;
+  completedAt: string | null;
+  surgeonNotes: string | null;
+  surgeonFlagged: boolean;
+  surgeonFlaggedAt: string | null;
+  surgeonFlaggedComment: string | null;
+  roomName: string | null;
+}
+
+/**
+ * Get all checklists for cases where the given user is the surgeon.
+ */
+export async function getSurgeonChecklists(
+  facilityId: string,
+  surgeonUserId: string
+): Promise<SurgeonChecklist[]> {
+  const result = await query<{
+    instance_id: string;
+    case_id: string;
+    case_number: string;
+    procedure_name: string;
+    scheduled_date: Date;
+    checklist_type: string;
+    status: string;
+    completed_at: Date | null;
+    surgeon_notes: string | null;
+    surgeon_flagged: boolean;
+    surgeon_flagged_at: Date | null;
+    surgeon_flagged_comment: string | null;
+    room_name: string | null;
+  }>(`
+    SELECT
+      cci.id as instance_id,
+      cci.case_id,
+      sc.case_number,
+      sc.procedure_name,
+      sc.scheduled_date,
+      ct.type::text as checklist_type,
+      cci.status::text as status,
+      cci.completed_at,
+      cci.surgeon_notes,
+      COALESCE(cci.surgeon_flagged, false) as surgeon_flagged,
+      cci.surgeon_flagged_at,
+      cci.surgeon_flagged_comment,
+      r.name as room_name
+    FROM case_checklist_instance cci
+    JOIN surgical_case sc ON cci.case_id = sc.id
+    JOIN checklist_template_version ctv ON cci.template_version_id = ctv.id
+    JOIN checklist_template ct ON ctv.template_id = ct.id
+    LEFT JOIN room r ON cci.room_id = r.id
+    WHERE cci.facility_id = $1
+      AND sc.surgeon_id = $2
+      AND cci.status = 'COMPLETED'
+    ORDER BY sc.scheduled_date DESC, cci.completed_at DESC
+  `, [facilityId, surgeonUserId]);
+
+  return result.rows.map(row => ({
+    instanceId: row.instance_id,
+    caseId: row.case_id,
+    caseNumber: row.case_number,
+    procedureName: row.procedure_name,
+    scheduledDate: row.scheduled_date.toISOString().split('T')[0],
+    checklistType: row.checklist_type as 'TIMEOUT' | 'DEBRIEF',
+    status: row.status,
+    completedAt: row.completed_at?.toISOString() || null,
+    surgeonNotes: row.surgeon_notes,
+    surgeonFlagged: row.surgeon_flagged,
+    surgeonFlaggedAt: row.surgeon_flagged_at?.toISOString() || null,
+    surgeonFlaggedComment: row.surgeon_flagged_comment,
+    roomName: row.room_name,
+  }));
+}
+
+/**
+ * Update surgeon feedback on a checklist instance.
+ * Surgeons can add notes and flag for admin review.
+ */
+export async function updateSurgeonFeedback(
+  instanceId: string,
+  facilityId: string,
+  surgeonUserId: string,
+  feedback: {
+    notes?: string;
+    flagged?: boolean;
+    flaggedComment?: string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  // Verify the surgeon owns this case
+  const verifyResult = await query<{ surgeon_id: string }>(`
+    SELECT sc.surgeon_id
+    FROM case_checklist_instance cci
+    JOIN surgical_case sc ON cci.case_id = sc.id
+    WHERE cci.id = $1 AND cci.facility_id = $2
+  `, [instanceId, facilityId]);
+
+  if (verifyResult.rows.length === 0) {
+    return { success: false, error: 'Checklist not found' };
+  }
+
+  if (verifyResult.rows[0].surgeon_id !== surgeonUserId) {
+    return { success: false, error: 'Not authorized - you are not the surgeon for this case' };
+  }
+
+  // Build update query
+  const updates: string[] = [];
+  const values: (string | boolean | null)[] = [];
+  let paramIndex = 1;
+
+  if (feedback.notes !== undefined) {
+    updates.push(`surgeon_notes = $${paramIndex++}`);
+    values.push(feedback.notes || null);
+  }
+
+  if (feedback.flagged !== undefined) {
+    updates.push(`surgeon_flagged = $${paramIndex++}`);
+    values.push(feedback.flagged);
+
+    if (feedback.flagged) {
+      updates.push(`surgeon_flagged_at = NOW()`);
+      if (feedback.flaggedComment !== undefined) {
+        updates.push(`surgeon_flagged_comment = $${paramIndex++}`);
+        values.push(feedback.flaggedComment || null);
+      }
+    } else {
+      // If unflagging, clear the timestamp and comment
+      updates.push(`surgeon_flagged_at = NULL`);
+      updates.push(`surgeon_flagged_comment = NULL`);
+    }
+  }
+
+  if (updates.length === 0) {
+    return { success: true }; // Nothing to update
+  }
+
+  values.push(instanceId);
+  values.push(facilityId);
+
+  await query(`
+    UPDATE case_checklist_instance
+    SET ${updates.join(', ')}, updated_at = NOW()
+    WHERE id = $${paramIndex++} AND facility_id = $${paramIndex}
+  `, values);
+
+  return { success: true };
+}
+
+export interface SurgeonFlaggedReview {
+  instanceId: string;
+  caseId: string;
+  caseNumber: string;
+  procedureName: string;
+  surgeonName: string;
+  surgeonId: string;
+  scheduledDate: string;
+  checklistType: 'TIMEOUT' | 'DEBRIEF';
+  surgeonNotes: string | null;
+  surgeonFlaggedAt: string;
+  surgeonFlaggedComment: string | null;
+}
+
+/**
+ * Get all surgeon-flagged checklists for admin review.
+ */
+export async function getSurgeonFlaggedReviews(facilityId: string): Promise<SurgeonFlaggedReview[]> {
+  const result = await query<{
+    instance_id: string;
+    case_id: string;
+    case_number: string;
+    procedure_name: string;
+    surgeon_name: string;
+    surgeon_id: string;
+    scheduled_date: Date;
+    checklist_type: string;
+    surgeon_notes: string | null;
+    surgeon_flagged_at: Date;
+    surgeon_flagged_comment: string | null;
+  }>(`
+    SELECT
+      cci.id as instance_id,
+      cci.case_id,
+      sc.case_number,
+      sc.procedure_name,
+      u.name as surgeon_name,
+      sc.surgeon_id,
+      sc.scheduled_date,
+      ct.type::text as checklist_type,
+      cci.surgeon_notes,
+      cci.surgeon_flagged_at,
+      cci.surgeon_flagged_comment
+    FROM case_checklist_instance cci
+    JOIN surgical_case sc ON cci.case_id = sc.id
+    JOIN app_user u ON sc.surgeon_id = u.id
+    JOIN checklist_template_version ctv ON cci.template_version_id = ctv.id
+    JOIN checklist_template ct ON ctv.template_id = ct.id
+    WHERE cci.facility_id = $1
+      AND cci.surgeon_flagged = true
+    ORDER BY cci.surgeon_flagged_at DESC
+  `, [facilityId]);
+
+  return result.rows.map(row => ({
+    instanceId: row.instance_id,
+    caseId: row.case_id,
+    caseNumber: row.case_number,
+    procedureName: row.procedure_name,
+    surgeonName: row.surgeon_name,
+    surgeonId: row.surgeon_id,
+    scheduledDate: row.scheduled_date.toISOString().split('T')[0],
+    checklistType: row.checklist_type as 'TIMEOUT' | 'DEBRIEF',
+    surgeonNotes: row.surgeon_notes,
+    surgeonFlaggedAt: row.surgeon_flagged_at.toISOString(),
+    surgeonFlaggedComment: row.surgeon_flagged_comment,
+  }));
+}
