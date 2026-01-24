@@ -608,7 +608,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     preHandler: [requireScheduler],
   }, async (request, reply) => {
     const { id } = request.params;
-    const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const { facilityId } = request.user;
 
     // Check current case state
     const caseStatus = await caseRepo.getStatus(id, facilityId);

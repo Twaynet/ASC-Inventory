@@ -97,8 +97,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       username: user.username,
       email: user.email,
       name: user.name,
-      role: userRoles[0] as any, // Primary role (first in array)
-      roles: userRoles as any[],
+      role: userRoles[0] as JwtPayload['role'], // Primary role (first in array)
+      roles: userRoles as JwtPayload['roles'],
     };
 
     const token = fastify.jwt.sign(payload);

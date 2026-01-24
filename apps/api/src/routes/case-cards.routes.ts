@@ -19,7 +19,7 @@
  */
 
 
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
 
 // ============================================================================
@@ -70,14 +70,14 @@ interface CaseCardVersionRow {
   id: string;
   case_card_id: string;
   version_number: string;
-  header_info: any;
-  patient_flags: any;
-  instrumentation: any;
-  equipment: any;
-  supplies: any;
-  medications: any;
-  setup_positioning: any;
-  surgeon_notes: any;
+  header_info: Record<string, unknown>;
+  patient_flags: Record<string, unknown>;
+  instrumentation: Record<string, unknown>;
+  equipment: Record<string, unknown>;
+  supplies: Record<string, unknown>;
+  medications: Record<string, unknown>;
+  setup_positioning: Record<string, unknown>;
+  surgeon_notes: Record<string, unknown>;
   created_at: Date;
   created_by_user_id: string;
   created_by_name: string;

@@ -247,7 +247,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
 
     values.push(id, facilityId);
 
-    const result = await query<LocationRow>(`
+    await query<LocationRow>(`
       UPDATE location
       SET ${updates.join(', ')}, updated_at = NOW()
       WHERE id = $${paramIndex++} AND facility_id = $${paramIndex}

@@ -10,7 +10,7 @@
  * - Event log is append-only
  */
 
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
 
 /**
@@ -85,7 +85,8 @@ interface CaseDashboardData {
   missingItems: any[];
 }
 
-interface EventLogEntry {
+// EventLogEntry type - used by the event log query
+interface _EventLogEntry {
   id: string;
   eventType: string;
   userId: string;
