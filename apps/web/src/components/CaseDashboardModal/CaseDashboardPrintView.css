@@ -1,0 +1,386 @@
+/* ============================================================================
+   CASE DASHBOARD PRINT VIEW
+   Optimized for Letter size (8.5" x 11") printing
+   ============================================================================ */
+
+/* Screen styles for preview */
+.print-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.print-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  max-width: 8.5in;
+  max-height: 90vh;
+  overflow: auto;
+  width: 100%;
+}
+
+.print-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.print-controls h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  color: #1a202c;
+}
+
+.print-controls-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Printable page content */
+.print-page {
+  padding: 0.75in;
+  background: white;
+}
+
+/* Header */
+.print-header {
+  border-bottom: 4px solid #718096;
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.print-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.print-header-title h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a202c;
+  line-height: 1.2;
+}
+
+.print-header-surgeon {
+  font-size: 1.125rem;
+  color: #4a5568;
+  margin-top: 0.25rem;
+}
+
+.print-header-case-number {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.print-header-case-number .case-number {
+  font-family: 'Courier New', monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.print-header-case-number .case-number-label {
+  font-size: 0.75rem;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.print-header-details {
+  margin-top: 0.75rem;
+}
+
+.print-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  font-size: 0.875rem;
+  color: #4a5568;
+  margin-bottom: 0.25rem;
+}
+
+.print-header-row strong {
+  color: #1a202c;
+}
+
+.print-status-badge {
+  display: inline-block;
+  padding: 0.375rem 1rem;
+  border-radius: 4px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-top: 0.75rem;
+  letter-spacing: 0.025em;
+}
+
+/* Two-column layout */
+.print-two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Sections */
+.print-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.875rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.print-section-full {
+  margin-bottom: 1rem;
+}
+
+.print-section-alert {
+  border: 2px solid #e53e3e;
+  background: #fff5f5;
+}
+
+.print-section-alert h2 {
+  color: #c53030;
+}
+
+.print-section h2 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #2d3748;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.5rem;
+}
+
+.print-section-alert h2 {
+  border-bottom-color: #feb2b2;
+}
+
+/* Fields */
+.print-field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.print-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.print-field {
+  font-size: 0.875rem;
+}
+
+.print-field.full-width {
+  margin-top: 0.5rem;
+}
+
+.print-field label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin-bottom: 0.125rem;
+}
+
+.print-field span {
+  color: #1a202c;
+}
+
+.print-none {
+  font-size: 0.875rem;
+  color: #a0aec0;
+  font-style: italic;
+}
+
+.print-warning {
+  color: #c53030;
+}
+
+/* Patient Flags */
+.print-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.print-flag-badge {
+  display: inline-block;
+  background: #fed7d7;
+  color: #c53030;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* Tables */
+.print-table {
+  width: 100%;
+  font-size: 0.8125rem;
+  border-collapse: collapse;
+}
+
+.print-table th,
+.print-table td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.print-table th {
+  font-weight: 600;
+  color: #4a5568;
+  background: #f7fafc;
+}
+
+.print-table td {
+  color: #1a202c;
+}
+
+/* Attestation state colors */
+.print-attestation-state {
+  font-weight: 600;
+}
+
+.print-attestation-attested {
+  color: #38a169;
+}
+
+.print-attestation-voided {
+  color: #e53e3e;
+}
+
+.print-attestation-not_attested {
+  color: #718096;
+}
+
+/* Footer */
+.print-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #718096;
+}
+
+/* ============================================================================
+   PRINT MEDIA STYLES
+   ============================================================================ */
+
+@media print {
+  /* Hide everything except print content */
+  body * {
+    visibility: hidden;
+  }
+
+  .print-overlay,
+  .print-overlay * {
+    visibility: visible;
+  }
+
+  .print-overlay {
+    position: absolute;
+    inset: 0;
+    background: white;
+    padding: 0;
+  }
+
+  .print-container {
+    box-shadow: none;
+    border-radius: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: letter;
+    margin: 0.5in;
+  }
+
+  .print-page {
+    padding: 0;
+  }
+
+  /* Typography adjustments for print */
+  .print-header-title h1 {
+    font-size: 14pt;
+  }
+
+  .print-header-surgeon {
+    font-size: 11pt;
+  }
+
+  .print-header-case-number .case-number {
+    font-size: 12pt;
+  }
+
+  .print-section h2 {
+    font-size: 10pt;
+  }
+
+  .print-field,
+  .print-none,
+  .print-table {
+    font-size: 9pt;
+  }
+
+  .print-field label {
+    font-size: 7pt;
+  }
+
+  .print-flag-badge {
+    font-size: 8pt;
+  }
+
+  .print-footer {
+    font-size: 8pt;
+  }
+
+  /* Ensure colors print */
+  .print-status-badge,
+  .print-flag-badge,
+  .print-section-alert {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Page break control */
+  .print-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+}

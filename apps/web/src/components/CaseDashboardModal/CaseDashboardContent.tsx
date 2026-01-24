@@ -26,6 +26,7 @@ import {
   type CaseChecklistsResponse,
 } from '@/lib/api';
 import { TimeoutModal, DebriefModal } from '@/components/Checklists';
+import { CaseDashboardPrintView } from './CaseDashboardPrintView';
 
 const CASE_TYPES: { value: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION'; label: string }[] = [
   { value: 'ELECTIVE', label: 'Elective' },
@@ -1249,195 +1250,13 @@ export function CaseDashboardContent({
 
       {/* Print Case Dashboard Modal */}
       {showPrintModal && (
-        <div className="modal-overlay print-modal-overlay" onClick={() => setShowPrintModal(false)}>
-          <div className="modal-content print-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh', overflow: 'auto' }}>
-            <div className="modal-header no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0 }}>Print Case Dashboard</h3>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn-primary" onClick={executePrint}>Print</button>
-                <button className="btn-secondary" onClick={() => setShowPrintModal(false)}>Close</button>
-              </div>
-            </div>
-            <div className="print-content">
-              {/* Case Identity Banner */}
-              <div className="print-header" style={{
-                borderBottom: '3px solid ' + getPrintStatusColor(),
-                paddingBottom: '1rem',
-                marginBottom: '1.5rem'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                  <h1 style={{ margin: 0, fontSize: '1.75rem' }}>{dashboard.procedureName}</h1>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: '1.25rem', fontWeight: 'bold' }}>{dashboard.caseNumber}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#718096' }}>Case #</div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-                  <span><strong>Surgeon:</strong> {dashboard.surgeon}</span>
-                  <span><strong>Facility:</strong> {dashboard.facility}</span>
-                  <span><strong>Case Type:</strong> {(dashboard as any).caseType ? (dashboard as any).caseType.replace('_', ' ') : 'Elective'}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-                  <span><strong>Scheduled:</strong> {new Date(dashboard.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                  {dashboard.scheduledTime && ` at ${dashboard.scheduledTime}`}
-                  {dashboard.orRoom && ` | OR: ${dashboard.orRoom}`}</span>
-                </div>
-                <div style={{
-                  display: 'inline-block',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '4px',
-                  background: getPrintStatusColor(),
-                  color: 'white',
-                  fontWeight: 'bold',
-                  marginTop: '0.5rem'
-                }}>
-                  {getStatusLabel()}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {/* Case Summary */}
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                  <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Case Summary</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
-                    <div><strong>Estimated Duration:</strong> {dashboard.estimatedDurationMinutes ? `${dashboard.estimatedDurationMinutes} minutes` : '\u2014'}</div>
-                    <div><strong>Laterality:</strong> {dashboard.laterality || '\u2014'}</div>
-                  </div>
-                  <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
-                    <strong>Procedure Codes (CPT):</strong> {(dashboard as any).procedureCodes?.length > 0 ? (dashboard as any).procedureCodes.join(', ') : '\u2014'}
-                  </div>
-                  <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
-                    <strong>Scheduler Notes:</strong> {dashboard.schedulerNotes || '\u2014'}
-                  </div>
-                </div>
-
-                {/* Patient Flags */}
-                {(() => {
-                  const activeFlags = Object.entries((dashboard as any).patientFlags || {}).filter(([_, v]) => v);
-                  const hasFlags = activeFlags.length > 0;
-                  return (
-                    <div style={{
-                      border: hasFlags ? '2px solid #f56565' : '1px solid #e2e8f0',
-                      borderRadius: '4px',
-                      padding: '1rem',
-                      background: hasFlags ? '#fff5f5' : 'transparent'
-                    }}>
-                      <h4 style={{
-                        margin: '0 0 0.75rem 0',
-                        fontSize: '1rem',
-                        borderBottom: hasFlags ? '1px solid #feb2b2' : '1px solid #e2e8f0',
-                        paddingBottom: '0.5rem',
-                        color: hasFlags ? '#c53030' : 'inherit'
-                      }}>
-                        Patient-Specific Flags
-                      </h4>
-                      {hasFlags ? (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.875rem' }}>
-                          {activeFlags.map(([key]) => {
-                            const flagOption = patientFlagOptions.find(f => f.itemKey === key);
-                            return (
-                              <span key={key} style={{
-                                background: '#fed7d7',
-                                color: '#c53030',
-                                padding: '0.25rem 0.75rem',
-                                borderRadius: '9999px',
-                                fontWeight: 500
-                              }}>
-                                {flagOption?.displayLabel || key}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: '0.875rem', color: '#718096' }}>None</div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Anesthesia Plan */}
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                  <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Anesthesia Plan</h4>
-                  <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                    <strong>Modalities:</strong> {dashboard.anesthesiaPlan?.modalities?.length ? dashboard.anesthesiaPlan.modalities.map(m => {
-                      const modalityOption = anesthesiaModalities.find(opt => opt.itemKey === m);
-                      return modalityOption?.displayLabel || m;
-                    }).join(', ') : '\u2014'}
-                  </div>
-                  <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                    <strong>Airway Notes:</strong> {dashboard.anesthesiaPlan?.airwayNotes || '\u2014'}
-                  </div>
-                  <div style={{ fontSize: '0.875rem' }}>
-                    <strong>Anticoagulation:</strong> {dashboard.anesthesiaPlan?.anticoagulationConsiderations || '\u2014'}
-                  </div>
-                </div>
-
-                {/* Linked Case Card */}
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                  <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Linked Preference Card</h4>
-                  {dashboard.caseCard ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
-                      <div><strong>Name:</strong> {dashboard.caseCard.name}</div>
-                      <div><strong>Version:</strong> {dashboard.caseCard.version}</div>
-                      <div><strong>Status:</strong> {dashboard.caseCard.status}</div>
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: '0.875rem', color: '#c53030' }}>No preference card linked</div>
-                  )}
-                </div>
-
-                {/* Case-Specific Overrides */}
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                  <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Case-Specific Overrides ({dashboard.overrides.length})</h4>
-                  {dashboard.overrides.length > 0 ? (
-                    <table style={{ width: '100%', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Target</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Original</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Override</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Reason</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dashboard.overrides.map(o => (
-                          <tr key={o.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                            <td style={{ padding: '0.5rem' }}>{o.target}</td>
-                            <td style={{ padding: '0.5rem' }}>{o.originalValue || '\u2014'}</td>
-                            <td style={{ padding: '0.5rem' }}>{o.overrideValue}</td>
-                            <td style={{ padding: '0.5rem' }}>{o.reason}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div style={{ fontSize: '0.875rem', color: '#718096' }}>None</div>
-                  )}
-                </div>
-
-                {/* Readiness Attestation */}
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                  <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Readiness Attestation</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
-                    <div><strong>State:</strong> {dashboard.attestationState.replace('_', ' ')}</div>
-                    {dashboard.attestedBy && <div><strong>Attested By:</strong> {dashboard.attestedBy}</div>}
-                    {dashboard.attestedAt && <div><strong>Attested:</strong> {new Date(dashboard.attestedAt).toLocaleString()}</div>}
-                  </div>
-                  {dashboard.voidReason && (
-                    <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
-                      <strong>Void Reason:</strong> {dashboard.voidReason}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#718096' }}>
-                <span>Printed: {new Date().toLocaleString()}</span>
-                <span>Facility: {user?.facilityName}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <CaseDashboardPrintView
+          dashboard={dashboard}
+          patientFlagOptions={patientFlagOptions}
+          anesthesiaModalities={anesthesiaModalities}
+          facilityName={user?.facilityName}
+          onClose={() => setShowPrintModal(false)}
+        />
       )}
 
       {/* Print Preference Card Modal */}
