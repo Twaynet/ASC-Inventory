@@ -142,6 +142,7 @@ export function TimeoutModal({
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [flagForReview, setFlagForReview] = useState(false);
+  const [flagComment, setFlagComment] = useState('');
 
   const loadData = useCallback(async () => {
     if (!token || !caseId) return;
@@ -179,6 +180,7 @@ export function TimeoutModal({
       setError('');
       setSuccessMessage('');
       setFlagForReview(false);
+      setFlagComment('');
     }
   }, [isOpen]);
 
@@ -231,7 +233,7 @@ export function TimeoutModal({
     setError('');
     try {
       // Sign the checklist
-      await signChecklist(token, caseId, 'TIMEOUT', 'LOGIN', flagForReview);
+      await signChecklist(token, caseId, 'TIMEOUT', 'LOGIN', flagForReview, flagForReview ? flagComment : undefined);
 
       // Attempt to complete - this will succeed if all required signatures are present
       try {
@@ -240,6 +242,7 @@ export function TimeoutModal({
         // If completion fails (missing signatures), that's okay - just reload
         await loadData();
         setFlagForReview(false);
+        setFlagComment('');
         return;
       }
 
@@ -410,6 +413,18 @@ export function TimeoutModal({
                                 <span className="toggle-slider"></span>
                               </div>
                             </label>
+                            {flagForReview && (
+                              <div className="flag-comment-section">
+                                <textarea
+                                  className="flag-comment-input"
+                                  placeholder="Any further comments for admin review..."
+                                  value={flagComment}
+                                  onChange={(e) => setFlagComment(e.target.value)}
+                                  disabled={isSubmitting}
+                                  rows={2}
+                                />
+                              </div>
+                            )}
                             <button
                               className="btn btn-primary btn-lg sign-btn"
                               onClick={handleSignAndComplete}
@@ -642,6 +657,31 @@ export function TimeoutModal({
         .flag-badge.resolved {
           background: var(--color-green);
           color: white;
+        }
+
+        .flag-comment-section {
+          width: 100%;
+          max-width: 400px;
+        }
+
+        .flag-comment-input {
+          width: 100%;
+          padding: 0.75rem;
+          border: 1px solid var(--color-gray-300);
+          border-radius: 6px;
+          font-size: 0.9rem;
+          resize: vertical;
+          font-family: inherit;
+        }
+
+        .flag-comment-input:focus {
+          outline: none;
+          border-color: var(--color-orange);
+          box-shadow: 0 0 0 2px rgba(237, 137, 54, 0.2);
+        }
+
+        .flag-comment-input:disabled {
+          background: var(--color-gray-100);
         }
       `}</style>
     </div>

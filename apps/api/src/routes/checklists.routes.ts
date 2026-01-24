@@ -25,6 +25,7 @@ import {
   getChecklistTemplateByType,
   updateChecklistTemplateItems,
   getFlaggedReviews,
+  getDebriefItemsForReview,
   resolveFlaggedSignature,
 } from '../services/checklists.service.js';
 
@@ -384,7 +385,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
       });
     }
 
-    const { method, flaggedForReview } = parseResult.data;
+    const { method, flaggedForReview, flagComment } = parseResult.data;
 
     // Get checklist instance ID
     const checklistsResult = await getChecklistsForCase(id, facilityId);
@@ -418,7 +419,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     }
 
     try {
-      const updated = await addSignature(instance.id, signatureRole, userId, method, facilityId, flaggedForReview);
+      const updated = await addSignature(instance.id, signatureRole, userId, method, facilityId, flaggedForReview, flagComment || null);
       return reply.send(updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -592,6 +593,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
   /**
    * GET /flagged-reviews
    * Get all flagged signatures for the facility (Admin only)
+   * Also includes debrief items with equipment/improvement notes
    */
   fastify.get('/flagged-reviews', {
     preHandler: [fastify.authenticate],
@@ -605,7 +607,10 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
       });
     }
 
-    const flaggedReviews = await getFlaggedReviews(facilityId);
+    const [flaggedReviews, debriefItemsForReview] = await Promise.all([
+      getFlaggedReviews(facilityId),
+      getDebriefItemsForReview(facilityId),
+    ]);
 
     // Separate into unresolved and resolved
     const unresolved = flaggedReviews.filter(r => !r.resolved);
@@ -614,6 +619,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     return reply.send({
       flaggedReviews: unresolved,
       resolvedReviews: resolved,
+      debriefItemsForReview,
       totalUnresolved: unresolved.length,
       totalResolved: resolved.length,
     });

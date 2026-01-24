@@ -631,7 +631,8 @@ export async function addSignature(
   userId: string,
   method: string,
   facilityId: string,
-  flaggedForReview: boolean = false
+  flaggedForReview: boolean = false,
+  flagComment: string | null = null
 ): Promise<ChecklistInstance> {
   // Get instance
   const instanceResult = await query<ChecklistInstanceRow>(`
@@ -677,9 +678,9 @@ export async function addSignature(
   // Insert signature
   await query(`
     INSERT INTO case_checklist_signature (
-      instance_id, role, signed_by_user_id, signed_at, method, flagged_for_review
-    ) VALUES ($1, $2, $3, NOW(), $4, $5)
-  `, [instanceId, role, userId, method, flaggedForReview]);
+      instance_id, role, signed_by_user_id, signed_at, method, flagged_for_review, flag_comment
+    ) VALUES ($1, $2, $3, NOW(), $4, $5, $6)
+  `, [instanceId, role, userId, method, flaggedForReview, flagComment]);
 
   // Return updated instance
   const templateData = await getChecklistTemplate(facilityId, instance.type);
@@ -1017,10 +1018,14 @@ export interface FlaggedReview {
   signedByName: string;
   signedAt: string;
   flaggedForReview: boolean;
+  flagComment: string | null;
   resolved: boolean;
   resolvedAt: string | null;
   resolvedByName: string | null;
   resolutionNotes: string | null;
+  // Additional context from debrief checklist
+  equipmentNotes: string | null;
+  improvementNotes: string | null;
 }
 
 /**
@@ -1039,9 +1044,12 @@ export async function getFlaggedReviews(facilityId: string): Promise<FlaggedRevi
     signed_by_name: string;
     signed_at: Date;
     flagged_for_review: boolean;
+    flag_comment: string | null;
     resolved_at: Date | null;
     resolved_by_name: string | null;
     resolution_notes: string | null;
+    equipment_notes: string | null;
+    improvement_notes: string | null;
   }>(`
     SELECT
       s.id as signature_id,
@@ -1054,9 +1062,12 @@ export async function getFlaggedReviews(facilityId: string): Promise<FlaggedRevi
       signer.name as signed_by_name,
       s.signed_at,
       s.flagged_for_review,
+      s.flag_comment,
       fr.resolved_at,
       resolver.name as resolved_by_name,
-      fr.resolution_notes
+      fr.resolution_notes,
+      (SELECT value FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'equipment_notes') as equipment_notes,
+      (SELECT value FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'improvement_notes') as improvement_notes
     FROM case_checklist_signature s
     JOIN case_checklist_instance cci ON cci.id = s.instance_id
     JOIN surgical_case c ON c.id = cci.case_id
@@ -1080,10 +1091,70 @@ export async function getFlaggedReviews(facilityId: string): Promise<FlaggedRevi
     signedByName: row.signed_by_name,
     signedAt: row.signed_at.toISOString(),
     flaggedForReview: row.flagged_for_review,
+    flagComment: row.flag_comment || null,
     resolved: row.resolved_at !== null,
     resolvedAt: row.resolved_at?.toISOString() || null,
     resolvedByName: row.resolved_by_name || null,
     resolutionNotes: row.resolution_notes || null,
+    equipmentNotes: row.equipment_notes || null,
+    improvementNotes: row.improvement_notes || null,
+  }));
+}
+
+/**
+ * Get debrief instances with equipment/improvement notes that require admin attention.
+ * These are independent of signature flags - they're based on checklist responses.
+ */
+export interface DebriefItemsForReview {
+  instanceId: string;
+  caseId: string;
+  caseName: string;
+  surgeonName: string;
+  completedAt: string | null;
+  equipmentNotes: string | null;
+  improvementNotes: string | null;
+}
+
+export async function getDebriefItemsForReview(facilityId: string): Promise<DebriefItemsForReview[]> {
+  const result = await query<{
+    instance_id: string;
+    case_id: string;
+    case_name: string;
+    surgeon_name: string;
+    completed_at: Date | null;
+    equipment_notes: string | null;
+    improvement_notes: string | null;
+  }>(`
+    SELECT
+      cci.id as instance_id,
+      cci.case_id,
+      c.procedure_name as case_name,
+      surgeon.name as surgeon_name,
+      cci.completed_at,
+      (SELECT value FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'equipment_notes' AND value != '') as equipment_notes,
+      (SELECT value FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'improvement_notes' AND value != '') as improvement_notes
+    FROM case_checklist_instance cci
+    JOIN surgical_case c ON c.id = cci.case_id
+    LEFT JOIN app_user surgeon ON surgeon.id = c.surgeon_id
+    WHERE cci.facility_id = $1
+      AND cci.type = 'DEBRIEF'
+      AND cci.status = 'COMPLETED'
+      AND (
+        EXISTS (SELECT 1 FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'equipment_notes' AND value != '')
+        OR EXISTS (SELECT 1 FROM case_checklist_response WHERE instance_id = cci.id AND item_key = 'improvement_notes' AND value != '')
+      )
+    ORDER BY cci.completed_at DESC
+    LIMIT 50
+  `, [facilityId]);
+
+  return result.rows.map(row => ({
+    instanceId: row.instance_id,
+    caseId: row.case_id,
+    caseName: row.case_name,
+    surgeonName: row.surgeon_name || 'Unknown',
+    completedAt: row.completed_at?.toISOString() || null,
+    equipmentNotes: row.equipment_notes || null,
+    improvementNotes: row.improvement_notes || null,
   }));
 }
 

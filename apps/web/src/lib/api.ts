@@ -852,11 +852,12 @@ export async function signChecklist(
   caseId: string,
   type: 'TIMEOUT' | 'DEBRIEF',
   method: 'LOGIN' | 'PIN' | 'BADGE' | 'KIOSK_TAP' = 'LOGIN',
-  flaggedForReview: boolean = false
+  flaggedForReview: boolean = false,
+  flagComment?: string
 ): Promise<ChecklistInstance> {
   return api(`/cases/${caseId}/checklists/${type}/sign`, {
     method: 'POST',
-    body: { method, flaggedForReview },
+    body: { method, flaggedForReview, flagComment },
     token,
   });
 }
@@ -930,15 +931,30 @@ export interface FlaggedReview {
   signedByName: string;
   signedAt: string;
   flaggedForReview: boolean;
+  flagComment: string | null;
   resolved: boolean;
   resolvedAt: string | null;
   resolvedByName: string | null;
   resolutionNotes: string | null;
+  // Additional context from debrief checklist
+  equipmentNotes: string | null;
+  improvementNotes: string | null;
+}
+
+export interface DebriefItemForReview {
+  instanceId: string;
+  caseId: string;
+  caseName: string;
+  surgeonName: string;
+  completedAt: string | null;
+  equipmentNotes: string | null;
+  improvementNotes: string | null;
 }
 
 export interface FlaggedReviewsResponse {
   flaggedReviews: FlaggedReview[];
   resolvedReviews: FlaggedReview[];
+  debriefItemsForReview: DebriefItemForReview[];
   totalUnresolved: number;
   totalResolved: number;
 }

@@ -10,6 +10,7 @@ import {
   resolveFlaggedReview,
   type PendingReview,
   type FlaggedReview,
+  type DebriefItemForReview,
 } from '@/lib/api';
 
 export default function AdminPendingReviewsPage() {
@@ -19,10 +20,16 @@ export default function AdminPendingReviewsPage() {
   const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
   const [flaggedReviews, setFlaggedReviews] = useState<FlaggedReview[]>([]);
   const [resolvedReviews, setResolvedReviews] = useState<FlaggedReview[]>([]);
+  const [debriefItemsForReview, setDebriefItemsForReview] = useState<DebriefItemForReview[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
   const [resolveNotes, setResolveNotes] = useState<Record<string, string>>({});
   const [isResolving, setIsResolving] = useState<string | null>(null);
+
+  // Resolved reviews search/filter state
+  const [resolvedSearchTerm, setResolvedSearchTerm] = useState('');
+  const [resolvedTypeFilter, setResolvedTypeFilter] = useState<'all' | 'TIMEOUT' | 'DEBRIEF'>('all');
+  const [showResolvedSection, setShowResolvedSection] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -41,6 +48,7 @@ export default function AdminPendingReviewsPage() {
       setPendingReviews(pendingResult.pendingReviews);
       setFlaggedReviews(flaggedResult.flaggedReviews);
       setResolvedReviews(flaggedResult.resolvedReviews);
+      setDebriefItemsForReview(flaggedResult.debriefItemsForReview || []);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load pending reviews');
@@ -172,6 +180,28 @@ export default function AdminPendingReviewsPage() {
                           <span className="detail-label">Signed at:</span>
                           <span>{new Date(review.signedAt).toLocaleString()}</span>
                         </div>
+                        {review.flagComment && (
+                          <div className="flag-comment-box">
+                            <span className="detail-label">Staff Comment:</span>
+                            <span className="flag-comment-text">{review.flagComment}</span>
+                          </div>
+                        )}
+                        {(review.equipmentNotes || review.improvementNotes) && (
+                          <div className="context-notes">
+                            {review.equipmentNotes && (
+                              <div className="context-note">
+                                <span className="context-label">Equipment Issues:</span>
+                                <span>{review.equipmentNotes}</span>
+                              </div>
+                            )}
+                            {review.improvementNotes && (
+                              <div className="context-note">
+                                <span className="context-label">Improvement Opportunity:</span>
+                                <span>{review.improvementNotes}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flagged-review-actions">
                         <input
@@ -199,8 +229,47 @@ export default function AdminPendingReviewsPage() {
               </div>
             )}
 
+            {/* Debrief Items with Equipment/Improvement Notes */}
+            {debriefItemsForReview.length > 0 && (
+              <div className="debrief-items-section">
+                <h2>Equipment & Improvement Notes ({debriefItemsForReview.length})</h2>
+                <p className="section-description">
+                  Debrief checklists with equipment issues or improvement opportunities logged.
+                </p>
+                <div className="debrief-items-list">
+                  {debriefItemsForReview.map((item) => (
+                    <div key={item.instanceId} className="debrief-item-card">
+                      <div className="debrief-item-header">
+                        <span className="debrief-item-procedure">{item.caseName}</span>
+                        <span className="debrief-item-surgeon">{item.surgeonName}</span>
+                      </div>
+                      {item.completedAt && (
+                        <div className="debrief-item-date">
+                          Completed: {new Date(item.completedAt).toLocaleString()}
+                        </div>
+                      )}
+                      <div className="debrief-item-notes">
+                        {item.equipmentNotes && (
+                          <div className="note-item equipment">
+                            <span className="note-label">Equipment Issues:</span>
+                            <span className="note-text">{item.equipmentNotes}</span>
+                          </div>
+                        )}
+                        {item.improvementNotes && (
+                          <div className="note-item improvement">
+                            <span className="note-label">Improvement Opportunity:</span>
+                            <span className="note-text">{item.improvementNotes}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* All Clear Message */}
-            {pendingReviews.length === 0 && flaggedReviews.length === 0 && (
+            {pendingReviews.length === 0 && flaggedReviews.length === 0 && debriefItemsForReview.length === 0 && (
               <div className="no-pending-reviews">
                 <span className="status-icon">✓</span>
                 <h2>All Clear!</h2>
@@ -261,6 +330,118 @@ export default function AdminPendingReviewsPage() {
                 })}
               </tbody>
             </table>
+              </div>
+            )}
+
+            {/* Resolved Reviews Section (Collapsible) */}
+            {resolvedReviews.length > 0 && (
+              <div className="resolved-reviews-section">
+                <button
+                  className="resolved-toggle"
+                  onClick={() => setShowResolvedSection(!showResolvedSection)}
+                >
+                  {showResolvedSection ? '▼' : '▶'} Resolved Reviews ({resolvedReviews.length})
+                </button>
+
+                {showResolvedSection && (
+                  <div className="resolved-content">
+                    <div className="resolved-filters">
+                      <input
+                        type="text"
+                        className="search-input"
+                        placeholder="Search by procedure, surgeon, or staff..."
+                        value={resolvedSearchTerm}
+                        onChange={(e) => setResolvedSearchTerm(e.target.value)}
+                      />
+                      <select
+                        className="type-filter"
+                        value={resolvedTypeFilter}
+                        onChange={(e) => setResolvedTypeFilter(e.target.value as 'all' | 'TIMEOUT' | 'DEBRIEF')}
+                      >
+                        <option value="all">All Types</option>
+                        <option value="TIMEOUT">Time Out</option>
+                        <option value="DEBRIEF">Debrief</option>
+                      </select>
+                    </div>
+
+                    <div className="resolved-list">
+                      {resolvedReviews
+                        .filter((review) => {
+                          const searchLower = resolvedSearchTerm.toLowerCase();
+                          const matchesSearch =
+                            !resolvedSearchTerm ||
+                            review.caseName.toLowerCase().includes(searchLower) ||
+                            review.surgeonName.toLowerCase().includes(searchLower) ||
+                            review.signedByName.toLowerCase().includes(searchLower) ||
+                            (review.flagComment?.toLowerCase().includes(searchLower)) ||
+                            (review.resolutionNotes?.toLowerCase().includes(searchLower));
+                          const matchesType =
+                            resolvedTypeFilter === 'all' || review.checklistType === resolvedTypeFilter;
+                          return matchesSearch && matchesType;
+                        })
+                        .map((review) => (
+                          <div key={review.signatureId} className="resolved-card">
+                            <div className="resolved-header">
+                              <span className={`checklist-type-badge ${review.checklistType.toLowerCase()}`}>
+                                {review.checklistType}
+                              </span>
+                              <span className="resolved-procedure">{review.caseName}</span>
+                              <span className="resolved-date">
+                                Resolved: {review.resolvedAt ? new Date(review.resolvedAt).toLocaleDateString() : 'N/A'}
+                              </span>
+                            </div>
+                            <div className="resolved-details">
+                              <div className="resolved-row">
+                                <span className="resolved-label">Surgeon:</span>
+                                <span>{review.surgeonName}</span>
+                              </div>
+                              <div className="resolved-row">
+                                <span className="resolved-label">Flagged by:</span>
+                                <span>{review.signedByName} ({review.signatureRole})</span>
+                              </div>
+                              <div className="resolved-row">
+                                <span className="resolved-label">Flagged at:</span>
+                                <span>{new Date(review.signedAt).toLocaleString()}</span>
+                              </div>
+                              {review.flagComment && (
+                                <div className="resolved-row">
+                                  <span className="resolved-label">Staff comment:</span>
+                                  <span className="resolved-comment">{review.flagComment}</span>
+                                </div>
+                              )}
+                              {review.resolvedByName && (
+                                <div className="resolved-row">
+                                  <span className="resolved-label">Resolved by:</span>
+                                  <span>{review.resolvedByName}</span>
+                                </div>
+                              )}
+                              {review.resolutionNotes && (
+                                <div className="resolved-row">
+                                  <span className="resolved-label">Resolution:</span>
+                                  <span className="resolution-notes">{review.resolutionNotes}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      {resolvedReviews.filter((review) => {
+                        const searchLower = resolvedSearchTerm.toLowerCase();
+                        const matchesSearch =
+                          !resolvedSearchTerm ||
+                          review.caseName.toLowerCase().includes(searchLower) ||
+                          review.surgeonName.toLowerCase().includes(searchLower) ||
+                          review.signedByName.toLowerCase().includes(searchLower) ||
+                          (review.flagComment?.toLowerCase().includes(searchLower)) ||
+                          (review.resolutionNotes?.toLowerCase().includes(searchLower));
+                        const matchesType =
+                          resolvedTypeFilter === 'all' || review.checklistType === resolvedTypeFilter;
+                        return matchesSearch && matchesType;
+                      }).length === 0 && (
+                        <p className="no-results">No resolved reviews match your search criteria.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -530,6 +711,274 @@ export default function AdminPendingReviewsPage() {
 
         .resolve-notes-input:disabled {
           background: #f7fafc;
+        }
+
+        .flag-comment-box {
+          margin-top: 0.5rem;
+          padding: 0.75rem;
+          background: #fff5f5;
+          border-radius: 6px;
+          border-left: 3px solid #e53e3e;
+        }
+
+        .flag-comment-text {
+          display: block;
+          margin-top: 0.25rem;
+          font-style: italic;
+        }
+
+        .context-notes {
+          margin-top: 0.75rem;
+          padding: 0.75rem;
+          background: #f8f9fa;
+          border-radius: 6px;
+        }
+
+        .context-note {
+          margin-bottom: 0.5rem;
+        }
+
+        .context-note:last-child {
+          margin-bottom: 0;
+        }
+
+        .context-label {
+          font-weight: 600;
+          color: #4a5568;
+          display: block;
+          margin-bottom: 0.25rem;
+        }
+
+        .debrief-items-section {
+          background: white;
+          border-radius: 8px;
+          padding: 1.5rem;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          margin-bottom: 1.5rem;
+          border-left: 4px solid #3182ce;
+        }
+
+        .debrief-items-section h2 {
+          margin-top: 0;
+          margin-bottom: 0.5rem;
+          color: #3182ce;
+        }
+
+        .debrief-items-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .debrief-item-card {
+          background: #ebf8ff;
+          border: 1px solid #90cdf4;
+          border-radius: 8px;
+          padding: 1rem;
+        }
+
+        .debrief-item-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.5rem;
+        }
+
+        .debrief-item-procedure {
+          font-weight: 600;
+          font-size: 1rem;
+        }
+
+        .debrief-item-surgeon {
+          color: #666;
+          font-size: 0.9rem;
+        }
+
+        .debrief-item-date {
+          font-size: 0.8rem;
+          color: #666;
+          margin-bottom: 0.75rem;
+        }
+
+        .debrief-item-notes {
+          background: white;
+          border-radius: 6px;
+          padding: 0.75rem;
+        }
+
+        .note-item {
+          margin-bottom: 0.75rem;
+          padding-bottom: 0.75rem;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .note-item:last-child {
+          margin-bottom: 0;
+          padding-bottom: 0;
+          border-bottom: none;
+        }
+
+        .note-label {
+          font-weight: 600;
+          color: #4a5568;
+          display: block;
+          margin-bottom: 0.25rem;
+          font-size: 0.85rem;
+        }
+
+        .note-item.equipment .note-label {
+          color: #c53030;
+        }
+
+        .note-item.improvement .note-label {
+          color: #2b6cb0;
+        }
+
+        .note-text {
+          font-size: 0.9rem;
+        }
+
+        .resolved-reviews-section {
+          margin-top: 2rem;
+          background: white;
+          border-radius: 8px;
+          padding: 1rem 1.5rem;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .resolved-toggle {
+          background: none;
+          border: none;
+          font-size: 1rem;
+          font-weight: 600;
+          color: #4a5568;
+          cursor: pointer;
+          padding: 0.5rem 0;
+          width: 100%;
+          text-align: left;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .resolved-toggle:hover {
+          color: #2d3748;
+        }
+
+        .resolved-content {
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+        }
+
+        .resolved-filters {
+          display: flex;
+          gap: 1rem;
+          margin-bottom: 1rem;
+        }
+
+        .search-input {
+          flex: 1;
+          padding: 0.5rem 0.75rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          font-size: 0.9rem;
+        }
+
+        .search-input:focus {
+          outline: none;
+          border-color: #3182ce;
+          box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2);
+        }
+
+        .type-filter {
+          padding: 0.5rem 0.75rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          font-size: 0.9rem;
+          background: white;
+          min-width: 140px;
+        }
+
+        .type-filter:focus {
+          outline: none;
+          border-color: #3182ce;
+        }
+
+        .resolved-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          max-height: 500px;
+          overflow-y: auto;
+        }
+
+        .resolved-card {
+          background: #f7fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 1rem;
+        }
+
+        .resolved-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 0.75rem;
+          flex-wrap: wrap;
+        }
+
+        .resolved-procedure {
+          font-weight: 600;
+          flex: 1;
+        }
+
+        .resolved-date {
+          font-size: 0.8rem;
+          color: #718096;
+        }
+
+        .resolved-details {
+          font-size: 0.9rem;
+        }
+
+        .resolved-row {
+          display: flex;
+          gap: 0.5rem;
+          margin-bottom: 0.25rem;
+          flex-wrap: wrap;
+        }
+
+        .resolved-label {
+          color: #718096;
+          min-width: 100px;
+        }
+
+        .resolved-comment {
+          font-style: italic;
+          color: #c53030;
+        }
+
+        .resolution-notes {
+          color: #2b6cb0;
+          font-weight: 500;
+        }
+
+        .no-results {
+          text-align: center;
+          color: #718096;
+          padding: 2rem;
+          margin: 0;
+        }
+
+        @media (max-width: 640px) {
+          .resolved-filters {
+            flex-direction: column;
+          }
+
+          .type-filter {
+            width: 100%;
+          }
         }
       `}</style>
     </>

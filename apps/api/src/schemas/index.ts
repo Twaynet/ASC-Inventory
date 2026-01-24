@@ -347,6 +347,7 @@ export type RespondChecklistRequest = z.infer<typeof RespondChecklistRequestSche
 export const SignChecklistRequestSchema = z.object({
   method: SignatureMethod.default('LOGIN'),
   flaggedForReview: z.boolean().default(false),
+  flagComment: z.string().max(1000).optional(),
 });
 export type SignChecklistRequest = z.infer<typeof SignChecklistRequestSchema>;
 
