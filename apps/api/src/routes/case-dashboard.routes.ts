@@ -59,6 +59,11 @@ interface CaseDashboardData {
     infectionRisk: boolean;
     neuromonitoringRequired: boolean;
   };
+  admissionTypes: {
+    outpatient: boolean;
+    twentyThreeHrObs: boolean;
+    admin: boolean;
+  };
   caseCard: {
     id: string;
     name: string;
@@ -122,6 +127,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       case_type: string;
       procedure_codes: string[];
       patient_flags: any;
+      admission_types: any;
       case_card_version_id: string | null;
     }>(`
       SELECT
@@ -132,7 +138,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
         sc.attestation_state, sc.attestation_void_reason,
         sc.estimated_duration_minutes, sc.laterality,
         sc.or_room, sc.scheduler_notes,
-        sc.case_type, sc.procedure_codes, sc.patient_flags,
+        sc.case_type, sc.procedure_codes, sc.patient_flags, sc.admission_types,
         sc.case_card_version_id
       FROM surgical_case sc
       JOIN facility f ON sc.facility_id = f.id
@@ -279,6 +285,11 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
         anticoagulation: false,
         infectionRisk: false,
         neuromonitoringRequired: false,
+      },
+      admissionTypes: caseData.admission_types || {
+        outpatient: false,
+        twentyThreeHrObs: false,
+        admin: false,
       },
       caseCard,
       anesthesiaPlan,
@@ -732,6 +743,11 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
         infectionRisk: boolean;
         neuromonitoringRequired: boolean;
       };
+      admissionTypes?: {
+        outpatient: boolean;
+        twentyThreeHrObs: boolean;
+        admin: boolean;
+      };
     };
 
     // Verify case exists
@@ -752,8 +768,9 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
         scheduler_notes = COALESCE($4, scheduler_notes),
         case_type = COALESCE($5, case_type),
         procedure_codes = COALESCE($6, procedure_codes),
-        patient_flags = COALESCE($7, patient_flags)
-      WHERE id = $8
+        patient_flags = COALESCE($7, patient_flags),
+        admission_types = COALESCE($8, admission_types)
+      WHERE id = $9
     `, [
       body.estimatedDurationMinutes,
       body.laterality,
@@ -762,6 +779,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       body.caseType,
       body.procedureCodes,
       body.patientFlags ? JSON.stringify(body.patientFlags) : null,
+      body.admissionTypes ? JSON.stringify(body.admissionTypes) : null,
       caseId,
     ]);
 

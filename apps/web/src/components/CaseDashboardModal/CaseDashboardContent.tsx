@@ -121,6 +121,7 @@ export function CaseDashboardContent({
     caseType: ((dashboard as any).caseType || 'ELECTIVE') as 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION',
     procedureCodes: (dashboard as any).procedureCodes || [] as string[],
     patientFlags: (dashboard as any).patientFlags || {} as Record<string, boolean>,
+    admissionTypes: (dashboard as any).admissionTypes || {} as Record<string, boolean>,
   });
 
   // Scheduling form state
@@ -147,6 +148,7 @@ export function CaseDashboardContent({
       caseType: (dashboard as any).caseType || 'ELECTIVE',
       procedureCodes: (dashboard as any).procedureCodes || [],
       patientFlags: (dashboard as any).patientFlags || {},
+      admissionTypes: (dashboard as any).admissionTypes || {},
     });
     setSchedulingForm({
       scheduledDate: dashboard.scheduledDate || '',
@@ -224,6 +226,7 @@ export function CaseDashboardContent({
         caseType: summaryForm.caseType,
         procedureCodes: summaryForm.procedureCodes.length > 0 ? summaryForm.procedureCodes : undefined,
         patientFlags: summaryForm.patientFlags,
+        admissionTypes: summaryForm.admissionTypes,
       });
       setSuccessMessage('Case summary updated');
       onDataChange();
@@ -797,6 +800,25 @@ export function CaseDashboardContent({
                 onChange={e => setSummaryForm(f => ({ ...f, procedureCodes: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
                 placeholder="e.g., 27130, 27447"
               />
+            </div>
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label>Admission Type <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply)</span></label>
+              <div className="pill-toggle-group">
+                {[
+                  { key: 'outpatient', label: 'Outpatient' },
+                  { key: 'twentyThreeHrObs', label: '23 HR Obs' },
+                  { key: 'admin', label: 'Admin' },
+                ].map(type => (
+                  <label key={type.key} className="pill-toggle">
+                    <input
+                      type="checkbox"
+                      checked={(summaryForm.admissionTypes as Record<string, boolean>)[type.key] || false}
+                      onChange={e => setSummaryForm(f => ({ ...f, admissionTypes: { ...f.admissionTypes, [type.key]: e.target.checked } }))}
+                    />
+                    {type.label}
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label>Patient-Specific Flags (Non-PHI) <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply)</span></label>

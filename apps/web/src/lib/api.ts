@@ -1687,6 +1687,7 @@ export interface CaseDashboardData {
   caseType: string;
   procedureCodes: string[];
   patientFlags: Record<string, boolean>;
+  admissionTypes: Record<string, boolean>;
   caseCard: CaseDashboardCaseCard | null;
   anesthesiaPlan: CaseDashboardAnesthesiaPlan | null;
   overrides: CaseDashboardOverride[];
@@ -1802,6 +1803,7 @@ export async function updateCaseSummary(
     caseType?: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION';
     procedureCodes?: string[];
     patientFlags?: Record<string, boolean>;
+    admissionTypes?: Record<string, boolean>;
   }
 ): Promise<{ success: boolean }> {
   return api(`/case-dashboard/${caseId}/case-summary`, { method: 'PUT', body: data, token });
