@@ -58,6 +58,14 @@ Resets are tiered below.
 
 ---
 
+## Tier -1 — Sanity Check (Do This First)
+
+- Confirm shell: **PowerShell (PS>)**
+- If not PowerShell, STOP and switch shells
+- Many failures (hot reload, crashes, port hopping) are shell-related
+
+---
+
 ## Tier 0 — Normal Dev Loop (No Reset)
 - Postgres container stays running
 - Hot reload is expected
