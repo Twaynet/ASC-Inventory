@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import {
   getCalendarSummary,
+  deleteCase,
   type CalendarCaseSummary,
 } from '@/lib/api';
 
@@ -79,6 +80,7 @@ function DayBeforeContent() {
   const [weekCases, setWeekCases] = useState<CalendarCaseSummary[]>([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
   const [calendarError, setCalendarError] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Case Dashboard Modal state
   const [caseDashboardOpen, setCaseDashboardOpen] = useState(false);
@@ -165,11 +167,37 @@ function DayBeforeContent() {
   }, [openCaseParam, searchParams, router]);
 
   // Reload calendar data after case changes
-  const reloadCalendarData = useCallback(async () => {
-    if (!token || viewMode === 'day') return;
-    // Trigger re-fetch by re-running the effect
-    setIsLoadingCalendar(true);
+  const reloadCalendarData = useCallback(() => {
+    if (viewMode === 'day') return;
+    // Trigger re-fetch by incrementing refresh trigger
+    setRefreshTrigger(prev => prev + 1);
+  }, [viewMode]);
+
+  // Handle delete case (for inactive cases only)
+  const handleDeleteCase = useCallback(async (caseId: string, procedureName: string) => {
+    if (!token) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${procedureName}"?\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await deleteCase(token, caseId);
+      // Remove from local state to update UI immediately
+      if (viewMode === 'month') {
+        setMonthCases(prev => prev.filter(c => c.caseId !== caseId));
+      } else if (viewMode === 'week') {
+        setWeekCases(prev => prev.filter(c => c.caseId !== caseId));
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete case');
+    }
   }, [token, viewMode]);
+
+  // Check if user can delete (Admin or Scheduler)
+  const canDeleteCases = user?.role === 'ADMIN' || user?.role === 'SCHEDULER';
 
   // Selected date string for Day View
   const selectedDateStr = useMemo(() => formatDateParam(currentDate), [currentDate]);
@@ -223,7 +251,7 @@ function DayBeforeContent() {
     };
 
     loadCalendarData();
-  }, [token, viewMode, currentDate]);
+  }, [token, viewMode, currentDate, refreshTrigger]);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -288,6 +316,8 @@ function DayBeforeContent() {
             cases={weekCases}
             onDayClick={handleDayClickFromWeek}
             onOpenCaseDashboard={handleOpenCaseDashboard}
+            onDeleteCase={handleDeleteCase}
+            canDelete={canDeleteCases}
             isLoading={isLoadingCalendar}
           />
         )}

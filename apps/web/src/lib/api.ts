@@ -1103,6 +1103,13 @@ export async function updateCase(
   return api(`/cases/${caseId}`, { method: 'PATCH', body: data, token });
 }
 
+export async function deleteCase(
+  token: string,
+  caseId: string
+): Promise<{ success: boolean; message: string }> {
+  return api(`/cases/${caseId}`, { method: 'DELETE', token });
+}
+
 // ============================================================================
 // LOCATIONS MANAGEMENT
 // ============================================================================

@@ -598,4 +598,85 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.send({ success: true });
   });
+
+  /**
+   * DELETE /cases/:id
+   * Delete an inactive case (ADMIN/SCHEDULER only)
+   * Only inactive cases can be deleted
+   */
+  fastify.delete<{ Params: { id: string } }>('/:id', {
+    preHandler: [requireScheduler],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId, userId, name: userName, role: userRole } = request.user;
+
+    // Check current case state
+    const caseStatus = await caseRepo.getStatus(id, facilityId);
+    if (!caseStatus) {
+      return reply.status(404).send({ error: 'Procedure not found' });
+    }
+
+    if (caseStatus.isActive) {
+      return reply.status(400).send({ error: 'Cannot delete an active case. Deactivate it first.' });
+    }
+
+    if (caseStatus.status === 'IN_PROGRESS' || caseStatus.status === 'COMPLETED') {
+      return reply.status(400).send({ error: 'Cannot delete a case that is in progress or completed' });
+    }
+
+    // Delete related records first (foreign key constraints)
+    await query(`DELETE FROM case_readiness_cache WHERE case_id = $1`, [id]);
+    await query(`DELETE FROM case_checklist_instance WHERE case_id = $1`, [id]);
+    await query(`DELETE FROM case_override WHERE case_id = $1`, [id]);
+    await query(`DELETE FROM case_requirement WHERE case_id = $1`, [id]);
+    await query(`DELETE FROM case_anesthesia_plan WHERE case_id = $1`, [id]);
+    await query(`DELETE FROM case_card_feedback WHERE surgical_case_id = $1`, [id]);
+
+    // Clear reserved_for_case_id in inventory_item
+    await query(`UPDATE inventory_item SET reserved_for_case_id = NULL WHERE reserved_for_case_id = $1`, [id]);
+
+    // Handle attestation table (append-only with triggers)
+    await query(`ALTER TABLE attestation DROP CONSTRAINT IF EXISTS attestation_case_id_fkey`);
+    await query(`ALTER TABLE attestation DISABLE TRIGGER ALL`);
+    await query(`ALTER TABLE attestation ALTER COLUMN case_id DROP NOT NULL`);
+    await query(`UPDATE attestation SET case_id = NULL WHERE case_id = $1`, [id]);
+    await query(`ALTER TABLE attestation ENABLE TRIGGER ALL`);
+    await query(`
+      ALTER TABLE attestation
+      ADD CONSTRAINT attestation_case_id_fkey
+      FOREIGN KEY (case_id) REFERENCES surgical_case(id) ON DELETE SET NULL
+    `);
+
+    // For case_event_log (append-only with NOT NULL case_id), we need to:
+    // 1. Drop FK constraint
+    // 2. Disable trigger
+    // 3. Drop NOT NULL constraint
+    // 4. Update case_id to NULL
+    // 5. Restore constraints and triggers
+    await query(`ALTER TABLE case_event_log DROP CONSTRAINT IF EXISTS case_event_log_case_id_fkey`);
+    await query(`ALTER TABLE case_event_log DISABLE TRIGGER case_event_log_no_update`);
+    await query(`ALTER TABLE case_event_log ALTER COLUMN case_id DROP NOT NULL`);
+    await query(`UPDATE case_event_log SET case_id = NULL WHERE case_id = $1`, [id]);
+    await query(`ALTER TABLE case_event_log ENABLE TRIGGER case_event_log_no_update`);
+
+    // Recreate FK with ON DELETE SET NULL (keep column nullable for deleted cases)
+    await query(`
+      ALTER TABLE case_event_log
+      ADD CONSTRAINT case_event_log_case_id_fkey
+      FOREIGN KEY (case_id) REFERENCES surgical_case(id) ON DELETE SET NULL
+    `);
+
+    // Delete the case
+    const deleted = await query(`
+      DELETE FROM surgical_case
+      WHERE id = $1 AND facility_id = $2
+      RETURNING id
+    `, [id, facilityId]);
+
+    if (deleted.rows.length === 0) {
+      return reply.status(404).send({ error: 'Procedure not found' });
+    }
+
+    return reply.send({ success: true, message: 'Case deleted successfully' });
+  });
 }

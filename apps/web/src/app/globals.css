@@ -2188,6 +2188,13 @@ body {
   color: var(--color-gray-600);
 }
 
+.case-badge-inactive-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
 .case-badge-inactive-label {
   font-size: 0.5rem;
   font-weight: 700;
@@ -2195,8 +2202,30 @@ body {
   background: var(--color-gray-400);
   padding: 0.125rem 0.25rem;
   border-radius: 2px;
-  margin-bottom: 0.25rem;
   display: inline-block;
+}
+
+.case-badge-delete-btn {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: var(--color-red);
+  color: white;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.case-badge-delete-btn:hover {
+  background: var(--color-red-dark, #DC2626);
+  transform: scale(1.1);
 }
 
 .case-badge-time {
