@@ -625,7 +625,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     // Check if case has any completed checklists (Timeout/Debrief)
-    // Completed checklists are part of the medical record and must be preserved
+    // Completed checklists are part of the audit record and must be preserved
     const completedChecklists = await query<{ count: string }>(`
       SELECT COUNT(*) as count
       FROM case_checklist_instance
@@ -634,7 +634,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
     if (parseInt(completedChecklists.rows[0]?.count || '0') > 0) {
       return reply.status(400).send({
-        error: 'Cannot delete a case with completed Timeout or Debrief checklists. These are part of the medical record.'
+        error: 'Cannot delete a case with completed Timeout or Debrief checklists. These are part of the audit record.'
       });
     }
 
