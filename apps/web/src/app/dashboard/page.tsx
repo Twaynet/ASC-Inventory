@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
-import { getCases, getUnassignedCases } from '@/lib/api';
+import { getCases, getUnassignedCases, getPendingReviews, getFlaggedReviews } from '@/lib/api';
 import type { FeatureDefinition, AccessDecision } from '@/lib/access-control';
 
 export default function SystemDashboard() {
@@ -14,6 +14,7 @@ export default function SystemDashboard() {
   const [debugExpanded, setDebugExpanded] = useState(false);
   const [pendingCaseCount, setPendingCaseCount] = useState<number>(0);
   const [unassignedCaseCount, setUnassignedCaseCount] = useState<number>(0);
+  const [adminPendingReviewsCount, setAdminPendingReviewsCount] = useState<number>(0);
 
   // Fetch pending case requests count
   useEffect(() => {
@@ -36,6 +37,27 @@ export default function SystemDashboard() {
         getUnassignedCases(token)
           .then((result) => {
             setUnassignedCaseCount(result.count);
+          })
+          .catch(() => {
+            // Ignore errors for badge count
+          });
+      }
+    }
+  }, [token, user]);
+
+  // Fetch admin pending reviews count (for ADMIN only)
+  useEffect(() => {
+    if (token && user) {
+      const userRoles = user.roles || [user.role];
+      if (userRoles.includes('ADMIN')) {
+        Promise.all([
+          getPendingReviews(token),
+          getFlaggedReviews(token),
+        ])
+          .then(([pendingResult, flaggedResult]) => {
+            // Total = debrief pending + flagged reviews
+            const total = pendingResult.pendingReviews.length + flaggedResult.totalUnresolved;
+            setAdminPendingReviewsCount(total);
           })
           .catch(() => {
             // Ignore errors for badge count
@@ -94,6 +116,9 @@ export default function SystemDashboard() {
             title="Admin"
             features={adminFeatures}
             onNavigate={(path) => router.push(path)}
+            badgeCounts={{
+              'admin-pending-reviews': adminPendingReviewsCount,
+            }}
           />
         )}
 
