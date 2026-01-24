@@ -152,8 +152,11 @@ export function WeekView({
                           )}
                         </div>
                       )}
-                      <div className="case-badge-time">{formatTime(c.scheduledTime)}</div>
-                      <div className="case-badge-name">{c.procedureName}</div>
+                      <div className="case-badge-case-number">{c.caseNumber}</div>
+                      <div className="case-badge-name">
+                        {c.laterality && <span className="case-badge-laterality">{c.laterality} </span>}
+                        {c.procedureName}
+                      </div>
                       <div className="case-badge-surgeon">
                         {c.surgeonColor && (
                           <span

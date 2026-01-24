@@ -12,6 +12,7 @@ export interface ScheduleItem {
   // Case-specific fields
   caseNumber?: string;
   procedureName?: string;
+  laterality?: string | null;
   surgeonId?: string;
   surgeonName?: string;
   surgeonColor?: string | null;
@@ -175,7 +176,10 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
         </div>
       </div>
       <div className="schedule-card-content">
-        <div className="schedule-card-title">{item.procedureName}</div>
+        <div className="schedule-card-title">
+          {item.laterality && <span className="schedule-card-laterality">{item.laterality} </span>}
+          {item.procedureName}
+        </div>
         <div className="schedule-card-subtitle">
           {item.surgeonColor && (
             <span
@@ -280,6 +284,11 @@ export const scheduleCardStyles = `
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .schedule-card-laterality {
+    color: var(--color-gray-500);
+    font-weight: 500;
   }
 
   .schedule-card-subtitle {

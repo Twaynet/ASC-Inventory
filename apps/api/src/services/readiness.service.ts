@@ -502,9 +502,11 @@ export interface CalendarDaySummary {
 
 export interface CalendarCaseSummary {
   caseId: string;
+  caseNumber: string;
   scheduledDate: string;
   scheduledTime: string | null;
   procedureName: string;
+  laterality: string | null;
   surgeonName: string;
   surgeonColor: string | null;
   readinessState: 'GREEN' | 'ORANGE' | 'RED';
@@ -566,9 +568,11 @@ export async function getCalendarSummary(
     // Get individual cases for the date range
     const result = await query<{
       id: string;
+      case_number: string;
       scheduled_date: Date;
       scheduled_time: string | null;
       procedure_name: string;
+      laterality: string | null;
       surgeon_name: string;
       surgeon_color: string | null;
       readiness_state: string | null;
@@ -578,9 +582,11 @@ export async function getCalendarSummary(
     }>(`
       SELECT
         sc.id,
+        sc.case_number,
         sc.scheduled_date,
         sc.scheduled_time,
         sc.procedure_name,
+        sc.laterality,
         u.name as surgeon_name,
         u.display_color as surgeon_color,
         crc.readiness_state,
@@ -600,9 +606,11 @@ export async function getCalendarSummary(
 
     const cases: CalendarCaseSummary[] = result.rows.map(row => ({
       caseId: row.id,
+      caseNumber: row.case_number,
       scheduledDate: formatDateLocal(row.scheduled_date),
       scheduledTime: row.scheduled_time,
       procedureName: row.procedure_name,
+      laterality: row.laterality,
       surgeonName: row.surgeon_name,
       surgeonColor: row.surgeon_color,
       readinessState: (row.readiness_state || 'ORANGE') as 'GREEN' | 'ORANGE' | 'RED',

@@ -131,9 +131,11 @@ export interface CalendarDaySummary {
 
 export interface CalendarCaseSummary {
   caseId: string;
+  caseNumber: string;
   scheduledDate: string;
   scheduledTime: string | null;
   procedureName: string;
+  laterality: string | null;
   surgeonName: string;
   surgeonColor: string | null;
   readinessState: 'GREEN' | 'ORANGE' | 'RED';
@@ -1842,6 +1844,7 @@ export interface ScheduleItem {
   // Case-specific fields
   caseNumber?: string;
   procedureName?: string;
+  laterality?: string | null;
   surgeonId?: string;
   surgeonName?: string;
   surgeonColor?: string | null;
