@@ -741,11 +741,16 @@ export interface ChecklistResponse {
 }
 
 export interface ChecklistSignature {
+  id: string;
   role: string;
   signedByUserId: string;
   signedByName: string;
   signedAt: string;
   method: string;
+  flaggedForReview: boolean;
+  resolved: boolean;
+  resolvedAt: string | null;
+  resolvedByName: string | null;
 }
 
 export interface ChecklistInstance {
@@ -846,11 +851,12 @@ export async function signChecklist(
   token: string,
   caseId: string,
   type: 'TIMEOUT' | 'DEBRIEF',
-  method: 'LOGIN' | 'PIN' | 'BADGE' | 'KIOSK_TAP' = 'LOGIN'
+  method: 'LOGIN' | 'PIN' | 'BADGE' | 'KIOSK_TAP' = 'LOGIN',
+  flaggedForReview: boolean = false
 ): Promise<ChecklistInstance> {
   return api(`/cases/${caseId}/checklists/${type}/sign`, {
     method: 'POST',
-    body: { method },
+    body: { method, flaggedForReview },
     token,
   });
 }
@@ -907,6 +913,50 @@ export async function getPendingReviews(token: string): Promise<PendingReviewsRe
 
 export async function getMyPendingReviews(token: string): Promise<PendingReviewsResponse> {
   return api('/my-pending-reviews', { token });
+}
+
+// ============================================================================
+// FLAGGED REVIEWS (ADMIN accountability)
+// ============================================================================
+
+export interface FlaggedReview {
+  signatureId: string;
+  instanceId: string;
+  caseId: string;
+  checklistType: 'TIMEOUT' | 'DEBRIEF';
+  caseName: string;
+  surgeonName: string;
+  signatureRole: string;
+  signedByName: string;
+  signedAt: string;
+  flaggedForReview: boolean;
+  resolved: boolean;
+  resolvedAt: string | null;
+  resolvedByName: string | null;
+  resolutionNotes: string | null;
+}
+
+export interface FlaggedReviewsResponse {
+  flaggedReviews: FlaggedReview[];
+  resolvedReviews: FlaggedReview[];
+  totalUnresolved: number;
+  totalResolved: number;
+}
+
+export async function getFlaggedReviews(token: string): Promise<FlaggedReviewsResponse> {
+  return api('/flagged-reviews', { token });
+}
+
+export async function resolveFlaggedReview(
+  token: string,
+  signatureId: string,
+  notes?: string
+): Promise<{ success: boolean }> {
+  return api(`/flagged-reviews/${signatureId}/resolve`, {
+    method: 'POST',
+    body: { notes },
+    token,
+  });
 }
 
 // ============================================================================

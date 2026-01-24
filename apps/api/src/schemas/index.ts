@@ -346,6 +346,7 @@ export type RespondChecklistRequest = z.infer<typeof RespondChecklistRequestSche
 
 export const SignChecklistRequestSchema = z.object({
   method: SignatureMethod.default('LOGIN'),
+  flaggedForReview: z.boolean().default(false),
 });
 export type SignChecklistRequest = z.infer<typeof SignChecklistRequestSchema>;
 
@@ -388,11 +389,16 @@ export const ChecklistInstanceResponseSchema = z.object({
     completedAt: z.string(),
   })),
   signatures: z.array(z.object({
+    id: z.string().uuid(),
     role: z.string(),
     signedByUserId: z.string().uuid(),
     signedByName: z.string(),
     signedAt: z.string(),
     method: SignatureMethod,
+    flaggedForReview: z.boolean(),
+    resolved: z.boolean(),
+    resolvedAt: z.string().nullable(),
+    resolvedByName: z.string().nullable(),
   })),
   roomId: z.string().uuid().nullable(),
   roomName: z.string().nullable(),

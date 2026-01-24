@@ -24,6 +24,8 @@ import {
   getChecklistTemplates,
   getChecklistTemplateByType,
   updateChecklistTemplateItems,
+  getFlaggedReviews,
+  resolveFlaggedSignature,
 } from '../services/checklists.service.js';
 
 export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> {
@@ -382,7 +384,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
       });
     }
 
-    const { method } = parseResult.data;
+    const { method, flaggedForReview } = parseResult.data;
 
     // Get checklist instance ID
     const checklistsResult = await getChecklistsForCase(id, facilityId);
@@ -416,7 +418,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     }
 
     try {
-      const updated = await addSignature(instance.id, signatureRole, userId, method, facilityId);
+      const updated = await addSignature(instance.id, signatureRole, userId, method, facilityId, flaggedForReview);
       return reply.send(updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -581,5 +583,71 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
       pendingReviews: myPending,
       total: myPending.length,
     });
+  });
+
+  // ============================================================================
+  // FLAGGED REVIEWS (Admin accountability view)
+  // ============================================================================
+
+  /**
+   * GET /flagged-reviews
+   * Get all flagged signatures for the facility (Admin only)
+   */
+  fastify.get('/flagged-reviews', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { facilityId, role } = request.user;
+
+    // Admin only
+    if (role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: 'Only administrators can view flagged reviews',
+      });
+    }
+
+    const flaggedReviews = await getFlaggedReviews(facilityId);
+
+    // Separate into unresolved and resolved
+    const unresolved = flaggedReviews.filter(r => !r.resolved);
+    const resolved = flaggedReviews.filter(r => r.resolved);
+
+    return reply.send({
+      flaggedReviews: unresolved,
+      resolvedReviews: resolved,
+      totalUnresolved: unresolved.length,
+      totalResolved: resolved.length,
+    });
+  });
+
+  /**
+   * POST /flagged-reviews/:signatureId/resolve
+   * Resolve a flagged signature (Admin only)
+   */
+  fastify.post('/flagged-reviews/:signatureId/resolve', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{
+    Params: { signatureId: string };
+    Body: { notes?: string };
+  }>, reply: FastifyReply) => {
+    const { signatureId } = request.params;
+    const { facilityId, userId, role } = request.user;
+
+    // Admin only
+    if (role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: 'Only administrators can resolve flagged reviews',
+      });
+    }
+
+    const body = request.body as { notes?: string } | undefined;
+    const notes = body?.notes || null;
+
+    try {
+      await resolveFlaggedSignature(signatureId, userId, notes, facilityId);
+      return reply.send({ success: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return reply.status(400).send({ error: message });
+    }
   });
 }

@@ -84,6 +84,7 @@ interface ChecklistSignatureRow {
   signed_at: Date;
   method: string;
   created_at: Date;
+  flagged_for_review: boolean;
 }
 
 interface RoomRow {
@@ -120,11 +121,16 @@ export interface ChecklistResponse {
 }
 
 export interface ChecklistSignature {
+  id: string;
   role: string;
   signedByUserId: string;
   signedByName: string;
   signedAt: string;
   method: string;
+  flaggedForReview: boolean;
+  resolved: boolean;
+  resolvedAt: string | null;
+  resolvedByName: string | null;
 }
 
 export interface ChecklistInstance {
@@ -381,11 +387,18 @@ async function buildChecklistInstance(
     ORDER BY r.completed_at DESC
   `, [row.id]);
 
-  // Get signatures
-  const signaturesResult = await query<ChecklistSignatureRow & { user_name: string }>(`
-    SELECT s.*, u.name as user_name
+  // Get signatures with resolution info
+  const signaturesResult = await query<ChecklistSignatureRow & {
+    user_name: string;
+    resolved_at: Date | null;
+    resolved_by_name: string | null;
+  }>(`
+    SELECT s.*, u.name as user_name,
+           fr.resolved_at, ru.name as resolved_by_name
     FROM case_checklist_signature s
     JOIN app_user u ON u.id = s.signed_by_user_id
+    LEFT JOIN case_checklist_flag_resolution fr ON fr.signature_id = s.id
+    LEFT JOIN app_user ru ON ru.id = fr.resolved_by_user_id
     WHERE s.instance_id = $1
     ORDER BY s.signed_at
   `, [row.id]);
@@ -418,11 +431,16 @@ async function buildChecklistInstance(
     requiredSignatures: version.required_signatures,
     responses: Array.from(responseMap.values()),
     signatures: signaturesResult.rows.map(s => ({
+      id: s.id,
       role: s.role,
       signedByUserId: s.signed_by_user_id,
       signedByName: s.user_name,
       signedAt: s.signed_at.toISOString(),
       method: s.method,
+      flaggedForReview: s.flagged_for_review,
+      resolved: s.resolved_at !== null,
+      resolvedAt: s.resolved_at?.toISOString() || null,
+      resolvedByName: s.resolved_by_name || null,
     })),
     roomId: row.room_id,
     roomName,
@@ -612,7 +630,8 @@ export async function addSignature(
   role: string,
   userId: string,
   method: string,
-  facilityId: string
+  facilityId: string,
+  flaggedForReview: boolean = false
 ): Promise<ChecklistInstance> {
   // Get instance
   const instanceResult = await query<ChecklistInstanceRow>(`
@@ -658,9 +677,9 @@ export async function addSignature(
   // Insert signature
   await query(`
     INSERT INTO case_checklist_signature (
-      instance_id, role, signed_by_user_id, signed_at, method
-    ) VALUES ($1, $2, $3, NOW(), $4)
-  `, [instanceId, role, userId, method]);
+      instance_id, role, signed_by_user_id, signed_at, method, flagged_for_review
+    ) VALUES ($1, $2, $3, NOW(), $4, $5)
+  `, [instanceId, role, userId, method, flaggedForReview]);
 
   // Return updated instance
   const templateData = await getChecklistTemplate(facilityId, instance.type);
@@ -981,6 +1000,135 @@ export async function getPendingReviews(facilityId: string): Promise<PendingRevi
     scrubReviewCompletedAt: row.scrub_review_completed_at?.toISOString() || null,
     surgeonReviewCompletedAt: row.surgeon_review_completed_at?.toISOString() || null,
   }));
+}
+
+// ============================================================================
+// FLAGGED REVIEWS (Admin accountability)
+// ============================================================================
+
+export interface FlaggedReview {
+  signatureId: string;
+  instanceId: string;
+  caseId: string;
+  checklistType: string;
+  caseName: string;
+  surgeonName: string;
+  signatureRole: string;
+  signedByName: string;
+  signedAt: string;
+  flaggedForReview: boolean;
+  resolved: boolean;
+  resolvedAt: string | null;
+  resolvedByName: string | null;
+  resolutionNotes: string | null;
+}
+
+/**
+ * Get all flagged signatures that need admin review.
+ * Returns signatures that were flagged and have not been resolved.
+ */
+export async function getFlaggedReviews(facilityId: string): Promise<FlaggedReview[]> {
+  const result = await query<{
+    signature_id: string;
+    instance_id: string;
+    case_id: string;
+    checklist_type: string;
+    case_name: string;
+    surgeon_name: string;
+    signature_role: string;
+    signed_by_name: string;
+    signed_at: Date;
+    flagged_for_review: boolean;
+    resolved_at: Date | null;
+    resolved_by_name: string | null;
+    resolution_notes: string | null;
+  }>(`
+    SELECT
+      s.id as signature_id,
+      cci.id as instance_id,
+      cci.case_id,
+      cci.type as checklist_type,
+      c.procedure_name as case_name,
+      surgeon.name as surgeon_name,
+      s.role as signature_role,
+      signer.name as signed_by_name,
+      s.signed_at,
+      s.flagged_for_review,
+      fr.resolved_at,
+      resolver.name as resolved_by_name,
+      fr.resolution_notes
+    FROM case_checklist_signature s
+    JOIN case_checklist_instance cci ON cci.id = s.instance_id
+    JOIN surgical_case c ON c.id = cci.case_id
+    LEFT JOIN app_user surgeon ON surgeon.id = c.surgeon_id
+    JOIN app_user signer ON signer.id = s.signed_by_user_id
+    LEFT JOIN case_checklist_flag_resolution fr ON fr.signature_id = s.id
+    LEFT JOIN app_user resolver ON resolver.id = fr.resolved_by_user_id
+    WHERE cci.facility_id = $1
+      AND s.flagged_for_review = true
+    ORDER BY s.signed_at DESC
+  `, [facilityId]);
+
+  return result.rows.map(row => ({
+    signatureId: row.signature_id,
+    instanceId: row.instance_id,
+    caseId: row.case_id,
+    checklistType: row.checklist_type,
+    caseName: row.case_name,
+    surgeonName: row.surgeon_name || 'Unknown',
+    signatureRole: row.signature_role,
+    signedByName: row.signed_by_name,
+    signedAt: row.signed_at.toISOString(),
+    flaggedForReview: row.flagged_for_review,
+    resolved: row.resolved_at !== null,
+    resolvedAt: row.resolved_at?.toISOString() || null,
+    resolvedByName: row.resolved_by_name || null,
+    resolutionNotes: row.resolution_notes || null,
+  }));
+}
+
+/**
+ * Resolve a flagged signature (ADMIN only).
+ * Creates a resolution record that marks the flag as addressed.
+ */
+export async function resolveFlaggedSignature(
+  signatureId: string,
+  resolvedByUserId: string,
+  notes: string | null,
+  facilityId: string
+): Promise<void> {
+  // Verify the signature exists and belongs to this facility
+  const signatureResult = await query<{ facility_id: string }>(`
+    SELECT cci.facility_id
+    FROM case_checklist_signature s
+    JOIN case_checklist_instance cci ON cci.id = s.instance_id
+    WHERE s.id = $1
+  `, [signatureId]);
+
+  if (signatureResult.rows.length === 0) {
+    throw new Error('Signature not found');
+  }
+
+  if (signatureResult.rows[0].facility_id !== facilityId) {
+    throw new Error('Access denied');
+  }
+
+  // Check if already resolved
+  const existingResolution = await query(`
+    SELECT id FROM case_checklist_flag_resolution
+    WHERE signature_id = $1
+  `, [signatureId]);
+
+  if (existingResolution.rows.length > 0) {
+    throw new Error('Flag has already been resolved');
+  }
+
+  // Create resolution record
+  await query(`
+    INSERT INTO case_checklist_flag_resolution (
+      signature_id, resolved_by_user_id, resolution_notes
+    ) VALUES ($1, $2, $3)
+  `, [signatureId, resolvedByUserId, notes]);
 }
 
 // ============================================================================

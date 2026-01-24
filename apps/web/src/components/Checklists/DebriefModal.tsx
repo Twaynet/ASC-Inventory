@@ -175,6 +175,7 @@ export function DebriefModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [flagForReview, setFlagForReview] = useState(false);
 
   // Feedback form state
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
@@ -229,6 +230,7 @@ export function DebriefModal({
       setLocalResponses({});
       setError('');
       setSuccessMessage('');
+      setFlagForReview(false);
       setShowFeedbackForm(false);
       setFeedbackSubmitted(false);
       setFeedbackForm({
@@ -289,9 +291,10 @@ export function DebriefModal({
     setIsSubmitting(true);
     setError('');
     try {
-      await signChecklist(token, caseId, 'DEBRIEF', 'LOGIN');
+      await signChecklist(token, caseId, 'DEBRIEF', 'LOGIN', flagForReview);
       await loadData();
-      setSuccessMessage('Signature added');
+      setSuccessMessage(flagForReview ? 'Signature added with flag for review' : 'Signature added');
+      setFlagForReview(false); // Reset after signing
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add signature');
@@ -540,10 +543,17 @@ export function DebriefModal({
                                   )}
                                 </span>
                                 {existingSig ? (
-                                  <span className="signature-info">
-                                    Signed by {existingSig.signedByName} at{' '}
-                                    {new Date(existingSig.signedAt).toLocaleTimeString()}
-                                  </span>
+                                  <div className="signature-details">
+                                    <span className="signature-info">
+                                      Signed by {existingSig.signedByName} at{' '}
+                                      {new Date(existingSig.signedAt).toLocaleTimeString()}
+                                    </span>
+                                    {existingSig.flaggedForReview && (
+                                      <span className={`flag-badge ${existingSig.resolved ? 'resolved' : 'pending'}`}>
+                                        {existingSig.resolved ? '✓ Reviewed' : '⚑ Flagged for Review'}
+                                      </span>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span className="signature-pending">
                                     {isConditional ? 'Can sign after completion' : 'Awaiting signature'}
@@ -555,13 +565,24 @@ export function DebriefModal({
                         </div>
 
                         {canSign && (
-                          <button
-                            className="btn btn-sign-action btn-md sign-btn"
-                            onClick={handleSign}
-                            disabled={isSubmitting}
-                          >
-                            {isSubmitting ? 'Signing...' : `Sign as ${signatureRole}`}
-                          </button>
+                          <div className="sign-section">
+                            <label className="flag-toggle">
+                              <input
+                                type="checkbox"
+                                checked={flagForReview}
+                                onChange={(e) => setFlagForReview(e.target.checked)}
+                                disabled={isSubmitting}
+                              />
+                              <span>Flag for Admin Review</span>
+                            </label>
+                            <button
+                              className="btn btn-sign-action btn-md sign-btn"
+                              onClick={handleSign}
+                              disabled={isSubmitting}
+                            >
+                              {isSubmitting ? 'Signing...' : `Sign as ${signatureRole}`}
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -816,7 +837,54 @@ export function DebriefModal({
         }
 
         .sign-btn {
+          margin-top: 0.5rem;
+        }
+
+        .sign-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
           margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid var(--color-gray-200);
+        }
+
+        .flag-toggle {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          color: var(--color-gray-700);
+          font-size: 0.875rem;
+        }
+
+        .flag-toggle input {
+          width: 1rem;
+          height: 1rem;
+          accent-color: var(--color-orange);
+        }
+
+        .signature-details {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .flag-badge {
+          font-size: 0.75rem;
+          padding: 0.125rem 0.5rem;
+          border-radius: 4px;
+          font-weight: 500;
+        }
+
+        .flag-badge.pending {
+          background: var(--color-orange);
+          color: white;
+        }
+
+        .flag-badge.resolved {
+          background: var(--color-green);
+          color: white;
         }
 
         .optional-marker {
