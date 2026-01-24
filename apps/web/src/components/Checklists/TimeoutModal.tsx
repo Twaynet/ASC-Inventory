@@ -409,13 +409,16 @@ export function TimeoutModal({
                         {canSign && (
                           <div className="sign-section">
                             <label className="flag-toggle">
-                              <input
-                                type="checkbox"
-                                checked={flagForReview}
-                                onChange={(e) => setFlagForReview(e.target.checked)}
-                                disabled={isSubmitting}
-                              />
-                              <span>Flag for Admin Review</span>
+                              <span className="flag-toggle-label">Flag for Admin Review</span>
+                              <div className={`toggle-switch ${flagForReview ? 'active' : ''}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={flagForReview}
+                                  onChange={(e) => setFlagForReview(e.target.checked)}
+                                  disabled={isSubmitting}
+                                />
+                                <span className="toggle-slider"></span>
+                              </div>
                             </label>
                             <button
                               className="btn btn-sign-action btn-md sign-btn"
@@ -582,6 +585,7 @@ export function TimeoutModal({
         .sign-section {
           display: flex;
           flex-direction: column;
+          align-items: center;
           gap: 0.75rem;
           margin-top: 1rem;
           padding-top: 1rem;
@@ -590,17 +594,61 @@ export function TimeoutModal({
 
         .flag-toggle {
           display: flex;
+          flex-direction: column;
           align-items: center;
           gap: 0.5rem;
           cursor: pointer;
-          color: var(--color-gray-700);
-          font-size: 0.875rem;
         }
 
-        .flag-toggle input {
-          width: 1rem;
-          height: 1rem;
-          accent-color: var(--color-orange);
+        .flag-toggle-label {
+          font-weight: 700;
+          font-size: 0.9rem;
+          color: var(--color-gray-800);
+        }
+
+        .toggle-switch {
+          position: relative;
+          width: 50px;
+          height: 26px;
+        }
+
+        .toggle-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .toggle-slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: var(--color-gray-300);
+          transition: 0.3s;
+          border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+          position: absolute;
+          content: "";
+          height: 20px;
+          width: 20px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: 0.3s;
+          border-radius: 50%;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-switch.active .toggle-slider {
+          background-color: var(--color-orange);
+        }
+
+        .toggle-switch.active .toggle-slider:before {
+          transform: translateX(24px);
         }
 
         .signature-details {
