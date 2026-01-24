@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
+import { TimeoutModal, DebriefModal } from '@/components/Checklists';
 import {
   getPendingReviews,
   getFlaggedReviews,
@@ -30,6 +31,21 @@ export default function AdminPendingReviewsPage() {
   const [resolvedSearchTerm, setResolvedSearchTerm] = useState('');
   const [resolvedTypeFilter, setResolvedTypeFilter] = useState<'all' | 'TIMEOUT' | 'DEBRIEF'>('all');
   const [showResolvedSection, setShowResolvedSection] = useState(false);
+
+  // Modal state for viewing checklists
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+  const [showDebriefModal, setShowDebriefModal] = useState(false);
+  const [modalCaseId, setModalCaseId] = useState<string | null>(null);
+
+  const handleViewTimeout = (caseId: string) => {
+    setModalCaseId(caseId);
+    setShowTimeoutModal(true);
+  };
+
+  const handleViewDebrief = (caseId: string) => {
+    setModalCaseId(caseId);
+    setShowDebriefModal(true);
+  };
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -162,9 +178,16 @@ export default function AdminPendingReviewsPage() {
                   {flaggedReviews.map((review) => (
                     <div key={review.signatureId} className="flagged-review-card">
                       <div className="flagged-review-header">
-                        <span className={`checklist-type-badge ${review.checklistType.toLowerCase()}`}>
+                        <button
+                          className={`checklist-type-badge clickable ${review.checklistType.toLowerCase()}`}
+                          onClick={() => review.checklistType === 'TIMEOUT'
+                            ? handleViewTimeout(review.caseId)
+                            : handleViewDebrief(review.caseId)
+                          }
+                          title={`View ${review.checklistType === 'TIMEOUT' ? 'Timeout' : 'Debrief'}`}
+                        >
                           {review.checklistType}
-                        </span>
+                        </button>
                         <span className="flagged-review-procedure">{review.caseName}</span>
                       </div>
                       <div className="flagged-review-details">
@@ -382,9 +405,16 @@ export default function AdminPendingReviewsPage() {
                         .map((review) => (
                           <div key={review.signatureId} className="resolved-card">
                             <div className="resolved-header">
-                              <span className={`checklist-type-badge ${review.checklistType.toLowerCase()}`}>
+                              <button
+                                className={`checklist-type-badge clickable ${review.checklistType.toLowerCase()}`}
+                                onClick={() => review.checklistType === 'TIMEOUT'
+                                  ? handleViewTimeout(review.caseId)
+                                  : handleViewDebrief(review.caseId)
+                                }
+                                title={`View ${review.checklistType === 'TIMEOUT' ? 'Timeout' : 'Debrief'}`}
+                              >
                                 {review.checklistType}
-                              </span>
+                              </button>
                               <span className="resolved-procedure">{review.caseName}</span>
                               <span className="resolved-date">
                                 Resolved: {review.resolvedAt ? new Date(review.resolvedAt).toLocaleDateString() : 'N/A'}
@@ -444,6 +474,44 @@ export default function AdminPendingReviewsPage() {
                 )}
               </div>
             )}
+          </>
+        )}
+
+        {/* Checklist Modals */}
+        {modalCaseId && token && user && (
+          <>
+            <TimeoutModal
+              isOpen={showTimeoutModal}
+              caseId={modalCaseId}
+              token={token}
+              user={user}
+              onClose={() => {
+                setShowTimeoutModal(false);
+                setModalCaseId(null);
+              }}
+              onComplete={() => {
+                setShowTimeoutModal(false);
+                setModalCaseId(null);
+                loadData();
+              }}
+              zIndex={1100}
+            />
+            <DebriefModal
+              isOpen={showDebriefModal}
+              caseId={modalCaseId}
+              token={token}
+              user={user}
+              onClose={() => {
+                setShowDebriefModal(false);
+                setModalCaseId(null);
+              }}
+              onComplete={() => {
+                setShowDebriefModal(false);
+                setModalCaseId(null);
+                loadData();
+              }}
+              zIndex={1100}
+            />
           </>
         )}
       </main>
@@ -669,6 +737,25 @@ export default function AdminPendingReviewsPage() {
         .checklist-type-badge.debrief {
           background: #e9d8fd;
           color: #6b46c1;
+        }
+
+        .checklist-type-badge.clickable {
+          border: none;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .checklist-type-badge.clickable:hover {
+          transform: scale(1.05);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+
+        .checklist-type-badge.clickable.timeout:hover {
+          background: #90cdf4;
+        }
+
+        .checklist-type-badge.clickable.debrief:hover {
+          background: #d6bcfa;
         }
 
         .flagged-review-procedure {
