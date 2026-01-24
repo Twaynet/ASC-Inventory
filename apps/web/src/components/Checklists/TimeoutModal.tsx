@@ -225,40 +225,30 @@ export function TimeoutModal({
     }
   };
 
-  const handleSign = async () => {
+  const handleSignAndComplete = async () => {
     if (!token || !caseId) return;
     setIsSubmitting(true);
     setError('');
     try {
+      // Sign the checklist
       await signChecklist(token, caseId, 'TIMEOUT', 'LOGIN', flagForReview);
-      await loadData();
-      setSuccessMessage(flagForReview ? 'Signature added with flag for review' : 'Signature added');
-      setFlagForReview(false); // Reset after signing
-      setTimeout(() => setSuccessMessage(''), 3000);
+
+      // Attempt to complete - this will succeed if all required signatures are present
+      try {
+        await completeChecklist(token, caseId, 'TIMEOUT');
+      } catch {
+        // If completion fails (missing signatures), that's okay - just reload
+        await loadData();
+        setFlagForReview(false);
+        return;
+      }
+
+      // Successfully signed and completed - close the modal
+      onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add signature');
-    } finally {
+      setError(err instanceof Error ? err.message : 'Failed to sign checklist');
       setIsSubmitting(false);
     }
-  };
-
-  const handleComplete = async () => {
-    if (!token || !caseId) return;
-    setIsSubmitting(true);
-    setError('');
-    try {
-      await completeChecklist(token, caseId, 'TIMEOUT');
-      await loadData();
-      setSuccessMessage('Time Out checklist completed!');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to complete checklist');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDone = () => {
-    onComplete();
   };
 
   if (!isOpen || !caseId) return null;
@@ -421,41 +411,21 @@ export function TimeoutModal({
                               </div>
                             </label>
                             <button
-                              className="btn btn-sign-action btn-md sign-btn"
-                              onClick={handleSign}
+                              className="btn btn-primary btn-lg sign-btn"
+                              onClick={handleSignAndComplete}
                               disabled={isSubmitting}
                             >
-                              {isSubmitting ? 'Signing...' : `Sign as ${signatureRole}`}
+                              {isSubmitting ? 'Completing...' : `Sign & Complete Time Out`}
                             </button>
                           </div>
                         )}
-                      </div>
 
-                      {!isCompleted && (
-                        <div className="checklist-actions">
-                          <button
-                            className="btn btn-primary btn-lg"
-                            onClick={handleComplete}
-                            disabled={isSubmitting}
-                          >
-                            {isSubmitting ? 'Completing...' : 'Complete Time Out'}
-                          </button>
-                        </div>
-                      )}
-
-                      {isCompleted && (
-                        <div className="checklist-completed-actions">
+                        {isCompleted && (
                           <p className="completion-message">
                             Time Out completed. The procedure may now be started.
                           </p>
-                          <button
-                            className="btn btn-primary btn-md"
-                            onClick={handleDone}
-                          >
-                            Done
-                          </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </>
                   )}
                 </>

@@ -286,34 +286,28 @@ export function DebriefModal({
     }
   };
 
-  const handleSign = async () => {
+  const handleSignAndComplete = async () => {
     if (!token || !caseId) return;
     setIsSubmitting(true);
     setError('');
     try {
+      // Sign the checklist
       await signChecklist(token, caseId, 'DEBRIEF', 'LOGIN', flagForReview);
-      await loadData();
-      setSuccessMessage(flagForReview ? 'Signature added with flag for review' : 'Signature added');
-      setFlagForReview(false); // Reset after signing
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add signature');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
-  const handleComplete = async () => {
-    if (!token || !caseId) return;
-    setIsSubmitting(true);
-    setError('');
-    try {
-      await completeChecklist(token, caseId, 'DEBRIEF');
-      await loadData();
-      setSuccessMessage('Post-Op Debrief completed!');
+      // Attempt to complete - this will succeed if all required signatures are present
+      try {
+        await completeChecklist(token, caseId, 'DEBRIEF');
+      } catch {
+        // If completion fails (missing signatures), that's okay - just reload
+        await loadData();
+        setFlagForReview(false);
+        return;
+      }
+
+      // Successfully signed and completed - close the modal
+      onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to complete checklist');
-    } finally {
+      setError(err instanceof Error ? err.message : 'Failed to sign checklist');
       setIsSubmitting(false);
     }
   };
@@ -350,10 +344,6 @@ export function DebriefModal({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleDone = () => {
-    onComplete();
   };
 
   if (!isOpen || !caseId) return null;
@@ -579,138 +569,21 @@ export function DebriefModal({
                               </div>
                             </label>
                             <button
-                              className="btn btn-sign-action btn-md sign-btn"
-                              onClick={handleSign}
+                              className="btn btn-primary btn-lg sign-btn"
+                              onClick={handleSignAndComplete}
                               disabled={isSubmitting}
                             >
-                              {isSubmitting ? 'Signing...' : `Sign as ${signatureRole}`}
+                              {isSubmitting ? 'Completing...' : `Sign & Complete Debrief`}
                             </button>
                           </div>
                         )}
-                      </div>
 
-                      {!isCompleted && (
-                        <div className="checklist-actions">
-                          <button
-                            className="btn btn-primary btn-lg"
-                            onClick={handleComplete}
-                            disabled={isSubmitting}
-                          >
-                            {isSubmitting ? 'Completing...' : 'Complete Debrief'}
-                          </button>
-                          <p className="checklist-hint">
-                            Only CIRCULATOR signature is required to complete. SCRUB/SURGEON can sign after completion if needed.
-                          </p>
-                        </div>
-                      )}
-
-                      {isCompleted && (
-                        <div className="checklist-completed-actions">
+                        {isCompleted && (
                           <p className="completion-message">
                             Debrief completed. The procedure may now be marked as complete.
                           </p>
-
-                          {/* Case Card Feedback Section */}
-                          {caseDashboard?.caseCard && !feedbackSubmitted && (
-                            <div className="feedback-section">
-                              {!showFeedbackForm ? (
-                                <div className="feedback-prompt">
-                                  <p><strong>Case Card Feedback</strong></p>
-                                  <p className="feedback-description">
-                                    Help improve the case card for &quot;{caseDashboard.caseCard.name}&quot; by providing feedback on what worked and what could be better.
-                                  </p>
-                                  <button
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => setShowFeedbackForm(true)}
-                                  >
-                                    Provide Feedback
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="feedback-form">
-                                  <h4>Case Card Feedback: {caseDashboard.caseCard.name}</h4>
-                                  <div className="feedback-fields">
-                                    <div className="feedback-field">
-                                      <label>Items Not Used (comma-separated)</label>
-                                      <input
-                                        type="text"
-                                        value={feedbackForm.itemsUnused}
-                                        onChange={(e) => setFeedbackForm(f => ({ ...f, itemsUnused: e.target.value }))}
-                                        placeholder="e.g., Bovie tip, Extra sutures"
-                                      />
-                                    </div>
-                                    <div className="feedback-field">
-                                      <label>Items Missing/Needed (comma-separated)</label>
-                                      <input
-                                        type="text"
-                                        value={feedbackForm.itemsMissing}
-                                        onChange={(e) => setFeedbackForm(f => ({ ...f, itemsMissing: e.target.value }))}
-                                        placeholder="e.g., Larger retractor, Extra sponges"
-                                      />
-                                    </div>
-                                    <div className="feedback-field">
-                                      <label>Setup/Positioning Issues</label>
-                                      <textarea
-                                        value={feedbackForm.setupIssues}
-                                        onChange={(e) => setFeedbackForm(f => ({ ...f, setupIssues: e.target.value }))}
-                                        placeholder="Any issues with room setup, patient positioning, equipment placement..."
-                                        rows={2}
-                                      />
-                                    </div>
-                                    <div className="feedback-field">
-                                      <label>Staff Comments</label>
-                                      <textarea
-                                        value={feedbackForm.staffComments}
-                                        onChange={(e) => setFeedbackForm(f => ({ ...f, staffComments: e.target.value }))}
-                                        placeholder="General comments from the team..."
-                                        rows={2}
-                                      />
-                                    </div>
-                                    <div className="feedback-field">
-                                      <label>Suggested Edits to Case Card</label>
-                                      <textarea
-                                        value={feedbackForm.suggestedEdits}
-                                        onChange={(e) => setFeedbackForm(f => ({ ...f, suggestedEdits: e.target.value }))}
-                                        placeholder="Specific changes you'd recommend for the case card..."
-                                        rows={2}
-                                      />
-                                    </div>
-                                    <div className="feedback-buttons">
-                                      <button
-                                        className="btn btn-primary btn-sm"
-                                        onClick={handleSubmitFeedback}
-                                        disabled={isSubmitting}
-                                      >
-                                        {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
-                                      </button>
-                                      <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={() => setShowFeedbackForm(false)}
-                                        disabled={isSubmitting}
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {feedbackSubmitted && (
-                            <div className="feedback-success">
-                              <p>Thank you! Your feedback has been submitted for review.</p>
-                            </div>
-                          )}
-
-                          <button
-                            className="btn btn-primary btn-md"
-                            onClick={handleDone}
-                          >
-                            Done
-                          </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </>
                   )}
                 </>
