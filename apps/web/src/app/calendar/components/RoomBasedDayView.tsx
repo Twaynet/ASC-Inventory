@@ -21,6 +21,7 @@ import { CreateCaseModal } from '@/components/CreateCaseModal';
 import { ScheduleCaseModal } from '@/components/ScheduleCaseModal';
 import { BlockTimeModal } from './BlockTimeModal';
 import { CaseDashboardModal } from '@/components/CaseDashboardModal';
+import { TimeoutModal, DebriefModal } from '@/components/Checklists';
 import {
   getDaySchedule,
   setRoomDayConfig,
@@ -85,6 +86,11 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
   const [caseDashboardOpen, setCaseDashboardOpen] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
 
+  // Checklist modal state
+  const [timeoutModalOpen, setTimeoutModalOpen] = useState(false);
+  const [debriefModalOpen, setDebriefModalOpen] = useState(false);
+  const [checklistCaseId, setChecklistCaseId] = useState<string | null>(null);
+
   // Check if user can edit (ADMIN or SCHEDULER)
   const userRoles = user.roles || [user.role];
   const canEdit = userRoles.includes('ADMIN') || userRoles.includes('SCHEDULER');
@@ -142,6 +148,16 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
   const handleCloseCaseDashboard = () => {
     setCaseDashboardOpen(false);
     setSelectedCaseId(null);
+  };
+
+  const handleTimeoutClick = (caseId: string) => {
+    setChecklistCaseId(caseId);
+    setTimeoutModalOpen(true);
+  };
+
+  const handleDebriefClick = (caseId: string) => {
+    setChecklistCaseId(caseId);
+    setDebriefModalOpen(true);
   };
 
   const handleAddBlockTime = (roomId: string, roomName: string) => {
@@ -429,6 +445,8 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
                     onStartTimeChange={handleStartTimeChange}
                     onItemClick={handleItemClick}
                     onAddBlockTime={handleAddBlockTime}
+                    onTimeoutClick={handleTimeoutClick}
+                    onDebriefClick={handleDebriefClick}
                     isOver={overId === room.roomId}
                   />
                 ))
@@ -488,6 +506,40 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
         user={user}
         onClose={handleCloseCaseDashboard}
         onSuccess={loadData}
+      />
+
+      <TimeoutModal
+        isOpen={timeoutModalOpen}
+        caseId={checklistCaseId}
+        token={token}
+        user={user}
+        onClose={() => {
+          setTimeoutModalOpen(false);
+          setChecklistCaseId(null);
+        }}
+        onComplete={() => {
+          setTimeoutModalOpen(false);
+          setChecklistCaseId(null);
+          loadData();
+        }}
+        zIndex={1000}
+      />
+
+      <DebriefModal
+        isOpen={debriefModalOpen}
+        caseId={checklistCaseId}
+        token={token}
+        user={user}
+        onClose={() => {
+          setDebriefModalOpen(false);
+          setChecklistCaseId(null);
+        }}
+        onComplete={() => {
+          setDebriefModalOpen(false);
+          setChecklistCaseId(null);
+          loadData();
+        }}
+        zIndex={1000}
       />
 
       <style jsx>{`

@@ -25,6 +25,7 @@ import {
   type ConfigItem,
   type CaseChecklistsResponse,
 } from '@/lib/api';
+import { TimeoutModal, DebriefModal } from '@/components/Checklists';
 
 const CASE_TYPES: { value: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION'; label: string }[] = [
   { value: 'ELECTIVE', label: 'Elective' },
@@ -86,6 +87,8 @@ export function CaseDashboardContent({
   const [showLinkCaseCardModal, setShowLinkCaseCardModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printingCard, setPrintingCard] = useState<{ card: CaseCardDetail; currentVersion: CaseCardVersionData | null } | null>(null);
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+  const [showDebriefModal, setShowDebriefModal] = useState(false);
 
   // Inline editing states
   const [isEditingScheduling, setIsEditingScheduling] = useState(false);
@@ -682,7 +685,7 @@ export function CaseDashboardContent({
                     </p>
                   )}
                   <button
-                    onClick={() => router.push(`/or/timeout/${caseId}`)}
+                    onClick={() => setShowTimeoutModal(true)}
                     className={checklists.timeout?.status === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
                     style={{ width: '100%' }}
                   >
@@ -722,7 +725,7 @@ export function CaseDashboardContent({
                     </p>
                   )}
                   <button
-                    onClick={() => router.push(`/or/debrief/${caseId}`)}
+                    onClick={() => setShowDebriefModal(true)}
                     className={checklists.debrief?.status === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
                     style={{ width: '100%' }}
                     disabled={!checklists.timeout || checklists.timeout.status !== 'COMPLETED'}
@@ -1193,6 +1196,34 @@ export function CaseDashboardContent({
           </div>
         </div>
       )}
+
+      {/* Timeout Modal */}
+      <TimeoutModal
+        isOpen={showTimeoutModal}
+        caseId={caseId}
+        token={token}
+        user={user}
+        onClose={() => setShowTimeoutModal(false)}
+        onComplete={() => {
+          setShowTimeoutModal(false);
+          onDataChange();
+        }}
+        zIndex={1200}
+      />
+
+      {/* Debrief Modal */}
+      <DebriefModal
+        isOpen={showDebriefModal}
+        caseId={caseId}
+        token={token}
+        user={user}
+        onClose={() => setShowDebriefModal(false)}
+        onComplete={() => {
+          setShowDebriefModal(false);
+          onDataChange();
+        }}
+        zIndex={1200}
+      />
 
       {/* Print Case Dashboard Modal */}
       {showPrintModal && (

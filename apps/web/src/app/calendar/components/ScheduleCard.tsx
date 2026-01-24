@@ -31,6 +31,8 @@ interface ScheduleCardProps {
   startTime: string;
   isDraggable?: boolean;
   onClick?: () => void;
+  onTimeoutClick?: () => void;
+  onDebriefClick?: () => void;
 }
 
 function formatTime(timeStr: string): string {
@@ -59,7 +61,7 @@ function getStatusColor(status?: string): string {
   }
 }
 
-export function ScheduleCard({ item, startTime, isDraggable, onClick }: ScheduleCardProps) {
+export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutClick, onDebriefClick }: ScheduleCardProps) {
   const router = useRouter();
 
   const {
@@ -162,14 +164,28 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick }: Schedule
         <div className="schedule-card-time">{formatTime(startTime)}</div>
         <div className="schedule-card-checklists">
           <span
-            className={`checklist-badge ${timeoutStatus.className}`}
+            className={`checklist-badge ${timeoutStatus.className}${onTimeoutClick ? ' clickable' : ''}`}
             title={`Timeout: ${timeoutStatus.title}`}
+            onClick={(e) => {
+              if (onTimeoutClick) {
+                e.stopPropagation();
+                onTimeoutClick();
+              }
+            }}
+            style={{ cursor: onTimeoutClick ? 'pointer' : 'help' }}
           >
             T
           </span>
           <span
-            className={`checklist-badge ${debriefStatus.className}`}
+            className={`checklist-badge ${debriefStatus.className}${onDebriefClick ? ' clickable' : ''}`}
             title={`Debrief: ${debriefStatus.title}`}
+            onClick={(e) => {
+              if (onDebriefClick) {
+                e.stopPropagation();
+                onDebriefClick();
+              }
+            }}
+            style={{ cursor: onDebriefClick ? 'pointer' : 'help' }}
           >
             D
           </span>
@@ -357,5 +373,10 @@ export const scheduleCardStyles = `
   .checklist-badge.completed {
     background: var(--color-green, #10B981);
     color: white;
+  }
+
+  .checklist-badge.clickable:hover {
+    transform: scale(1.15);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
 `;

@@ -18,6 +18,8 @@ interface RoomColumnProps {
   onStartTimeChange?: (roomId: string, newStartTime: string) => void;
   onItemClick?: (item: ScheduleItem, roomId: string, roomName: string) => void;
   onAddBlockTime?: (roomId: string, roomName: string) => void;
+  onTimeoutClick?: (caseId: string) => void;
+  onDebriefClick?: (caseId: string) => void;
   isOver?: boolean;
 }
 
@@ -64,6 +66,8 @@ export function RoomColumn({
   onStartTimeChange,
   onItemClick,
   onAddBlockTime,
+  onTimeoutClick,
+  onDebriefClick,
   isOver,
 }: RoomColumnProps) {
   const [isEditingStartTime, setIsEditingStartTime] = useState(false);
@@ -147,6 +151,8 @@ export function RoomColumn({
                 startTime={itemTimes.get(item.id) || room.startTime}
                 isDraggable={canEdit}
                 onClick={() => onItemClick?.(item, room.roomId, room.roomName)}
+                onTimeoutClick={item.type === 'case' && onTimeoutClick ? () => onTimeoutClick(item.id) : undefined}
+                onDebriefClick={item.type === 'case' && onDebriefClick ? () => onDebriefClick(item.id) : undefined}
               />
             ))
           )}
