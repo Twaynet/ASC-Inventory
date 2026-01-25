@@ -1,10 +1,12 @@
-# LAW: Catalog System  
+# LAW: Catalog System (v2.0)
 **ASC Inventory Truth**
 
 **Status:** NON-NEGOTIABLE  
 **Authority Level:** SYSTEM LAW  
 **Applies To:** All humans, all AI agents (including Claude CLI), all code paths  
-**Last Updated:** 2026-01-25
+**Effective:** 2026-01-25  
+**Supersedes:** Catalog LAW v1.x  
+**Change Type:** Structural clarification + additive constraints (no relaxation)
 
 ---
 
@@ -26,47 +28,128 @@ The **Catalog** defines the **universe of allowable item types** recognized by t
 
 A **Catalog Item** represents:
 
-> A *type* of item the system recognizes — not a physical instance.
+> A *type* of physical thing the system recognizes — **not** a physical instance.
 
 Catalog Items are:
 - Abstract
 - Non-physical
-- Non-consumable
 - Time-invariant identifiers
 - Semantic anchors for downstream systems
 
+Catalog Items exist to make downstream reasoning **deterministic, auditable, and safe**.
+
 ---
 
-## 3. What the Catalog Is NOT (Explicit Prohibitions)
+## 3. What the Catalog Is NOT (Hard Prohibitions)
 
 The Catalog **MUST NOT**:
 
-- Track quantity
-- Track stock levels
-- Track physical location
-- Track sterility state
-- Track expiration
-- Track availability
-- Track case assignment
-- Track usage
-- Track lifecycle events
-- Track ownership of physical objects
+- Track quantity or stock levels  
+- Track physical location  
+- Track sterility *state*  
+- Track expiration *state* (actual dates)  
+- Track availability  
+- Track ownership of physical instances  
+- Track case assignment  
+- Track usage or lifecycle events  
+- Track device or scanner events  
 
-Any appearance of these concepts within the Catalog constitutes a **LAW violation**.
+Any appearance of these concepts within the Catalog is a **SYSTEM LAW violation**.
 
 ---
 
-## 4. Canonical Responsibilities (Allowed)
+## 4. Orthogonal Classification Axes (FOUNDATIONAL)
 
-The Catalog **MAY ONLY**:
+The Catalog uses **multiple orthogonal axes**.  
+These axes **MUST NOT** be collapsed, inferred from one another, or repurposed.
 
-- Define allowable item types
-- Classify items into a fixed category set
-- Provide stable identifiers referenced by other systems
-- Store descriptive metadata
-- Enable or disable future use via soft activation
+---
 
-No other responsibilities are permitted.
+### 4A. Engine Category (Fixed, Non-Editable)
+
+**Purpose:**  
+Defines rule-bearing semantics for alarms, readiness, and safety logic.
+
+**Allowed values ONLY:**
+- `IMPLANT`
+- `INSTRUMENT`
+- `EQUIPMENT`
+- `MEDICATION`
+- `CONSUMABLE`
+- `PPE`
+
+**Rules:**
+- Engine Categories are **NOT admin-editable**
+- Engine Categories MUST remain **small and stable**
+- Engine Categories MUST NOT encode supply, ownership, workflow, or organization
+- Adding or changing a category requires an explicit SYSTEM LAW amendment
+
+**Engine Category answers:**  
+> “What kind of physical thing is this, in a way the engine can reason about safely?”
+
+---
+
+### 4B. Supply Mode (Separate Axis — NOT a Category)
+
+**Purpose:**  
+Defines how an item is supplied, owned, and reconciled.
+
+**Allowed values:**
+- `STOCKED`
+- `CONSIGNMENT`
+- `LOANER`
+- `DIRECT_SHIP`
+- `PATIENT_SPECIFIC`
+
+**Rules:**
+- Supply Mode MUST NOT be encoded as a category
+- “Loaner” and “Consignment” are **explicitly forbidden** as categories
+- Supply Mode may affect reconciliation workflows
+- Supply Mode MUST NOT create readiness requirements
+
+**Supply Mode answers:**  
+> “How does this item enter, exist in, and leave the facility?”
+
+---
+
+### 4C. Risk / Intent Flags (Policy-Driven)
+
+**Purpose:**  
+Tune system behavior without redefining what an item is.
+
+Examples:
+- `requires_lot_tracking`
+- `requires_serial_tracking`
+- `requires_expiration_tracking`
+- `criticality`
+- `readiness_required`
+- `expiration_warning_days`
+- `substitutable`
+
+**Rules:**
+- Intent flags declare expectations only
+- Intent flags MUST NOT create physical state
+- Intent flags MUST NOT create global readiness requirements
+- Intent flags MUST NOT bypass case-scoped requirements
+
+**Intent answers:**  
+> “What does the system need to care about for this item?”
+
+---
+
+### 4D. Facility Groups (Human Organization Only)
+
+**Purpose:**  
+Allow ASC-specific organization, reporting, and mental models.
+
+**Rules:**
+- Groups are facility-defined and admin-editable
+- Items may belong to multiple groups
+- Groups MUST NOT drive alarms, readiness, or enforcement logic
+- Groups exist for UI, reporting, and purchasing only
+
+**Groups answer:**  
+> “How do humans want to organize and talk about this item?”
 
 ---
 
@@ -74,34 +157,50 @@ No other responsibilities are permitted.
 
 Every Catalog Item **MUST** include the following fields:
 
-- `id` — immutable UUID
-- `facility_id` — tenant boundary
-- `name` — human-readable item name
-- `description` — optional
-- `category` — ENUM (closed set):
-  - `IMPLANT`
-  - `INSTRUMENT`
-  - `HIGH_VALUE_SUPPLY`
-  - `LOANER`
-- `manufacturer`
-- `catalog_number`
-- `requires_sterility` — boolean
-- `is_loaner` — boolean
-- `active` — boolean (soft enable/disable)
-- `created_at`
+### Identity & Metadata
+- `id` — immutable UUID  
+- `facility_id` — tenant boundary  
+- `name` — human-readable name  
+- `description` — optional  
+- `manufacturer`  
+- `catalog_number`  
+- `active` — boolean (soft enable/disable)  
+- `created_at`  
 - `updated_at`
 
-No additional fields may be added without formally amending this LAW.
+### Engine Classification
+- `category` — ENUM (Section 4A)
+
+### Risk / Intent
+- `requires_lot_tracking` — boolean  
+- `requires_serial_tracking` — boolean  
+- `requires_expiration_tracking` — boolean  
+- `criticality` — ENUM (`CRITICAL` | `IMPORTANT` | `ROUTINE`)  
+- `readiness_required` — boolean  
+- `expiration_warning_days` — integer | null  
+- `substitutable` — boolean  
+
+---
+
+### Explicit Deprecations
+
+The following concepts are **no longer lawful** in the Catalog:
+
+- `HIGH_VALUE_SUPPLY` category  
+- `LOANER` category  
+- `is_loaner` boolean  
+
+These concerns are handled exclusively by **Supply Mode** or downstream systems.
 
 ---
 
 ## 6. Immutability & Identity Law
 
-1. A Catalog Item’s `id` is immutable and permanent
-2. Catalog Items **MUST NOT** be hard-deleted
-3. Deactivation **MUST NOT** invalidate historical references
-4. All historical references **MUST remain resolvable**
-5. Catalog Items serve as **semantic anchors across time**
+1. A Catalog Item’s `id` is immutable and permanent  
+2. Catalog Items MUST NOT be hard-deleted  
+3. Deactivation MUST NOT invalidate historical references  
+4. All historical references MUST remain resolvable  
+5. Catalog Items serve as semantic anchors across time  
 
 Breaking referential integrity is a **critical system violation**.
 
@@ -113,234 +212,95 @@ Breaking referential integrity is a **critical system violation**.
 - Inventory defines **what physically exists**
 
 Rules:
-- Inventory Items **MUST reference exactly one Catalog Item**
-- Catalog **MUST NOT reference Inventory**
-- Catalog **MUST NOT infer physical state**
-- Inventory **MUST NOT redefine item meaning**
+- Inventory Items MUST reference exactly one Catalog Item
+- Catalog MUST NOT reference Inventory
+- Catalog MUST NOT infer physical state
+- Inventory MUST NOT redefine item meaning
 
-This is a **one-way dependency**: Inventory depends on Catalog, never the reverse.
+This is a **one-way dependency**.
 
 ---
 
-## 8. Relationship to Preference Cards & Case Cards
+## 8. Relationship to Preference Cards & Cases
 
-- Preference Cards reference **Catalog Items**
-- Case Cards derive requirements from **Catalog Items**
-- Catalog **MUST NOT reference cases**
-- Catalog **MUST NOT encode surgical or procedural context**
-
-Catalog meaning must remain **procedure-agnostic**.
+- Preference Cards reference Catalog Items
+- Case requirements derive from Catalog Items
+- Catalog MUST NOT reference cases
+- Catalog MUST remain procedure-agnostic
 
 ---
 
 ## 9. Allowed Operations
 
-Only the following operations are lawful:
+The following operations are lawful:
 
-- Create Catalog Item
-- Update descriptive metadata
-- Activate Catalog Item
-- Deactivate Catalog Item
-- Read Catalog Items
+- Create Catalog Item  
+- Update descriptive metadata  
+- Activate Catalog Item  
+- Deactivate Catalog Item  
+- Read Catalog Items  
 
-Any operation not explicitly listed here is forbidden.
+All other operations are forbidden.
 
 ---
 
 ## 10. Forbidden Operations (Hard Stop)
 
-The following actions are **illegal** under this LAW:
+It is illegal to:
 
-- Deleting Catalog Items
-- Auto-creating Inventory Items from Catalog Items
-- Encoding quantities or stock levels
-- Encoding usage statistics
-- Encoding per-case logic
-- Encoding time-based lifecycle behavior
-- Encoding scanner or device logic
-- Encoding audit or event behavior
+- Delete Catalog Items  
+- Encode quantities or stock levels  
+- Encode usage statistics  
+- Encode per-case logic  
+- Encode lifecycle or event history  
+- Encode scanner or device behavior  
 
-Any request proposing these actions **MUST be rejected**.
+Any such request **MUST be rejected**.
 
 ---
 
 ## 11. Audit & Historical Integrity
 
-Catalog Items:
-- MUST remain resolvable for all historical Inventory Events
-- MUST remain resolvable for all past Cases
-- MUST remain resolvable for all past Readiness calculations
+Catalog Items MUST remain resolvable for:
+- Inventory events
+- Past cases
+- Past readiness evaluations
 
 Loss of resolution constitutes **audit failure**.
 
 ---
 
-## 12. Claude CLI Enforcement Rules
+## 12. Enforcement (Claude CLI & Humans)
 
-When operating under this LAW, Claude CLI:
+Any actor operating under this LAW MUST:
 
-### MUST:
 - Treat Catalog IDs as immutable
-- Reject any attempt to introduce physical state
-- Reject any attempt to infer quantity or availability
+- Reject physical-state leakage
+- Reject axis collapse (category ≠ supply ≠ groups)
 - Explicitly flag LAW violations
-- Refuse to implement conflicting requests
 
-### MUST NOT:
-- Merge Catalog and Inventory concepts
-- Introduce convenience shortcuts
-- Assume small-scale systems justify relaxation of constraints
+Silence or partial compliance is prohibited.
 
 ---
 
-## 13. Violation Handling
-
-If a request conflicts with this LAW:
-
-1. The request **MUST NOT** be implemented
-2. The violation **MUST** be explicitly identified
-3. A compliant alternative **MAY** be proposed
-4. Silent or partial compliance is **not allowed**
-
----
-
-## 14. Amendment Procedure
+## 13. Amendment Procedure
 
 This LAW may only be amended by:
 
-1. Creating a new version of this document
-2. Explicitly enumerating all changes
-3. Justifying why constraints are being tightened or expanded
-4. Updating all dependent specifications
+1. Issuing a new version  
+2. Explicitly enumerating changes  
+3. Justifying tightened or expanded constraints  
+4. Updating dependent specifications  
 
 Implicit drift is strictly prohibited.
 
 ---
 
-## 15. Summary (Non-Negotiable)
+## 14. Final Statement (Non-Negotiable)
 
-The Catalog is:
-- The semantic foundation of ASC Inventory Truth
-- The anchor for audit integrity
-- The first system that must be correct
+The Catalog is the **semantic foundation** of ASC Inventory Truth.
 
-If the Catalog is wrong, **every downstream system is untrustworthy**.
+If the Catalog is ambiguous,  
+every downstream system becomes untrustworthy.
 
-
----
-
-# Amendment: Catalog v1.1 — Risk Intent Extensions  
-**Effective:** 2026-01-25  
-**Change Type:** Additive (No removals, no behavioral relaxations)
-
-This amendment extends the Catalog system with a minimal set of **risk-intent** properties required to support alarms and readiness reasoning in an ASC environment where inventory management is frequently a secondary duty.
-
-This amendment is **strictly additive**:
-- No existing prohibitions are relaxed
-- No existing fields are removed or redefined
-- The Catalog/Inventory boundary remains intact per Sections 3 and 7
-
-If any downstream implementation uses these fields to track physical state (quantity/location/sterility/expiration state), that is a LAW violation.
-
----
-
-## A. New Fields (v1.1)
-
-The following fields are hereby added to the **Canonical Data Model** (Section 5).  
-All new fields are Catalog-level *intent* only.
-
-### A1. Tracking Requirement Flags (Catalog declares what must be captured)
-- `requires_lot_tracking` — boolean  
-  **Meaning:** Physical instances of this item must capture a lot number at the Inventory layer.
-- `requires_serial_tracking` — boolean  
-  **Meaning:** Physical instances of this item must capture a serial number at the Inventory layer.
-- `requires_expiration_tracking` — boolean  
-  **Meaning:** Physical instances of this item must capture an expiration date at the Inventory layer.
-
-**LAW Boundary:** These flags declare requirements; the Catalog does not store lot/serial/expiration values.
-
----
-
-### A2. Criticality Classification (Alarm priority semantics)
-- `criticality` — ENUM (closed set):
-  - `CRITICAL`
-  - `IMPORTANT`
-  - `ROUTINE`
-
-**Meaning:** Determines alarm severity and prioritization.  
-**LAW Boundary:** Classification only; no inventory state is stored.
-
----
-
-### A3. Readiness Requirement Flag (Readiness expectation semantics)
-- `readiness_required` — boolean
-
-**Meaning:** Indicates whether the item is expected to be satisfied for case readiness evaluation.  
-**LAW Boundary:** Readiness remains computed in the Readiness system; Catalog only declares expectation.
-
----
-
-### A4. Expiration Warning Horizon (Alarm timing semantics)
-- `expiration_warning_days` — integer or null
-
-**Meaning:** Number of days before expiration when warnings may begin.  
-`null` indicates no early-warning horizon is required.
-
-**LAW Boundary:** Catalog does not store actual expiration state; Inventory stores expiration values.
-
----
-
-### A5. Substitution Allowance (Minimal substitution intent)
-- `substitutable` — boolean
-
-**Meaning:** Indicates whether a lawful substitution may satisfy readiness requirements downstream.  
-**LAW Boundary:** Substitution logic and matching are not implemented or stored in Catalog; this field only expresses permission intent.
-
----
-
-## B. Updated Canonical Data Model (Section 5 Addendum)
-
-Every Catalog Item MUST include all fields listed in Section 5, plus the following v1.1 fields:
-
-- `requires_lot_tracking` — boolean
-- `requires_serial_tracking` — boolean
-- `requires_expiration_tracking` — boolean
-- `criticality` — ENUM (`CRITICAL` | `IMPORTANT` | `ROUTINE`)
-- `readiness_required` — boolean
-- `expiration_warning_days` — integer | null
-- `substitutable` — boolean
-
-No additional fields may be added without formally amending this LAW.
-
----
-
-## C. Non-Negotiable Boundary Reaffirmation (Catalog vs Inventory)
-
-The addition of v1.1 fields does NOT change the Catalog boundary.
-
-Catalog MUST NOT:
-- Track quantity or stock levels
-- Track physical location
-- Track sterility state
-- Track expiration state (actual dates for specific items)
-- Track availability
-- Track case assignment
-- Track event history
-- Track usage
-
-Inventory MUST:
-- Continue to store and govern all physical-instance values and event history per `docs/LAW/inventory.md`.
-
----
-
-## D. Compliance Requirement (Derived Behavior)
-
-Any implementation that uses these v1.1 fields MUST ensure:
-
-1. Inventory check-in workflows can enforce required capture of lot/serial/expiration when the corresponding flags are true.
-2. Alarming and readiness reasoning treat `criticality`, `readiness_required`, and `expiration_warning_days` as intent signals only.
-3. No Catalog record may be modified to represent physical state.
-
-Violation of any item above is a SYSTEM LAW violation.
-
----
+**Correctness here is not optional.**
