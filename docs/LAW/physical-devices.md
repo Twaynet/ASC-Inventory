@@ -31,6 +31,20 @@ Truth is decided only by:
 
 ---
 
+### Non-Guarantee
+
+A DeviceEvent is **not evidence** of:
+- Item identity
+- Item availability
+- Item sterility
+- Item ownership
+- Case readiness
+
+DeviceEvents are **inputs** only and must be validated through
+inventory resolution and attestation workflows.
+
+---
+
 ## Supported Device Integration Modes
 
 ### 1. Keyboard Wedge (Baseline)
@@ -55,6 +69,21 @@ A lightweight local agent that:
 - Talks to hardware drivers
 - Emits normalized device events to SaaS API
 - Runs independently of browser
+
+---
+
+### Inventory Boundary Rule
+
+DeviceEvents may:
+- Trigger lookup
+- Initiate workflows
+- Populate candidate inputs
+
+DeviceEvents may **never**:
+- Directly create inventory
+- Directly decrement inventory
+- Directly satisfy a case requirement
+- Directly mark readiness
 
 ---
 

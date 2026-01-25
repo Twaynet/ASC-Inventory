@@ -6,6 +6,30 @@
 
 ---
 
+## Step 0 — LAW Acknowledgment (MANDATORY)
+
+Before proposing, editing, refactoring, or implementing **any behavior**, Claude CLI MUST:
+
+1. Identify which LAW documents apply to the request
+2. Load them mentally and treat them as binding
+3. Explicitly halt if the request conflicts with any LAW
+4. Explain the conflict and propose a compliant alternative
+
+At minimum, the following LAW documents MUST be considered for this repository:
+
+- `docs/LAW/catalog.md`
+- `docs/LAW/inventory.md`
+- `docs/LAW/physical-devices.md`
+- `docs/LAW/device-events.md`
+- `docs/LAW/readiness.md`
+
+If the task involves cases, inventory, scanning, verification, readiness, overrides, or workflow gating,  
+**failure to account for these LAW documents is a violation.**
+
+If there is uncertainty about which LAW applies → STOP and ask the user.
+
+---
+
 ## Absolute Rule
 **NO FILE EDITS, RESTARTS, OR RESETS ARE PERMITTED  
 UNTIL THIS CHECKLIST IS COMPLETED.**
