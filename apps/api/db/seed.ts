@@ -96,8 +96,8 @@ async function seed() {
       { name: 'Arthroscopy Scope 30deg', category: 'INSTRUMENT', manufacturer: 'ScopeTech', catalogNumber: 'AS-30' },
       { name: 'Arthroscopy Shaver Set', category: 'INSTRUMENT', manufacturer: 'ScopeTech', catalogNumber: 'ASS-01' },
       { name: 'Power Drill System', category: 'INSTRUMENT', manufacturer: 'PowerOrtho', catalogNumber: 'PDS-100', isLoaner: false },
-      { name: 'Vendor Specialty Tray - Spine', category: 'LOANER', manufacturer: 'SpineVendor', catalogNumber: 'VST-SP', isLoaner: true },
-      { name: 'Surgical Mesh 10x15cm', category: 'HIGH_VALUE_SUPPLY', manufacturer: 'MeshCorp', catalogNumber: 'SM-1015' },
+      { name: 'Vendor Specialty Tray - Spine', category: 'INSTRUMENT', manufacturer: 'SpineVendor', catalogNumber: 'VST-SP', isLoaner: true },
+      { name: 'Surgical Mesh 10x15cm', category: 'CONSUMABLE', manufacturer: 'MeshCorp', catalogNumber: 'SM-1015' },
     ];
 
     const catalog: Record<string, string> = {};

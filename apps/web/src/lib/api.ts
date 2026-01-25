@@ -1300,7 +1300,8 @@ export async function deleteLocation(token: string, locationId: string): Promise
 // CATALOG MANAGEMENT
 // ============================================================================
 
-export type ItemCategory = 'IMPLANT' | 'INSTRUMENT' | 'HIGH_VALUE_SUPPLY' | 'LOANER';
+// LAW catalog.md v2.0 §4A: Engine Category
+export type ItemCategory = 'IMPLANT' | 'INSTRUMENT' | 'EQUIPMENT' | 'MEDICATION' | 'CONSUMABLE' | 'PPE';
 
 // v1.1: Criticality classification for alarm priority
 export type Criticality = 'CRITICAL' | 'IMPORTANT' | 'ROUTINE';

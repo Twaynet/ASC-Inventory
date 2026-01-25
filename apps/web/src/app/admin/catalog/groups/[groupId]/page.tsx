@@ -18,18 +18,23 @@ import {
   type CatalogItem,
 } from '@/lib/api';
 
+// LAW catalog.md v2.0 §4A: Engine Category
 const CATEGORY_COLORS: Record<string, { bg: string; color: string }> = {
-  IMPLANT: { bg: '#feebc8', color: '#c05621' },
-  INSTRUMENT: { bg: '#bee3f8', color: '#2b6cb0' },
-  HIGH_VALUE_SUPPLY: { bg: '#e9d8fd', color: '#6b46c1' },
-  LOANER: { bg: '#fed7e2', color: '#c53030' },
+  IMPLANT: { bg: '#feebc8', color: '#c05621' },      // Orange
+  INSTRUMENT: { bg: '#bee3f8', color: '#2b6cb0' },   // Blue
+  EQUIPMENT: { bg: '#c6f6d5', color: '#276749' },    // Green
+  MEDICATION: { bg: '#fed7e2', color: '#c53030' },   // Red
+  CONSUMABLE: { bg: '#e9d8fd', color: '#6b46c1' },   // Purple
+  PPE: { bg: '#faf089', color: '#975a16' },          // Yellow
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
   IMPLANT: 'Implant',
   INSTRUMENT: 'Instrument',
-  HIGH_VALUE_SUPPLY: 'High-Value Supply',
-  LOANER: 'Loaner',
+  EQUIPMENT: 'Equipment',
+  MEDICATION: 'Medication',
+  CONSUMABLE: 'Consumable',
+  PPE: 'PPE',
 };
 
 export default function CatalogGroupDetailPage() {

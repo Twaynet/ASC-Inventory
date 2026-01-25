@@ -52,11 +52,14 @@ export const ReadinessState = z.enum([
 ]);
 export type ReadinessState = z.infer<typeof ReadinessState>;
 
+// LAW catalog.md v2.0 §4A: Engine Category (immutable without LAW amendment)
 export const ItemCategory = z.enum([
   'IMPLANT',
   'INSTRUMENT',
-  'LOANER',
-  'HIGH_VALUE_SUPPLY',
+  'EQUIPMENT',
+  'MEDICATION',
+  'CONSUMABLE',
+  'PPE',
 ]);
 export type ItemCategory = z.infer<typeof ItemCategory>;
 
