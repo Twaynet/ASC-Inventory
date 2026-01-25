@@ -1396,6 +1396,89 @@ export async function activateCatalogItem(token: string, catalogId: string): Pro
 }
 
 // ============================================================================
+// CATALOG GROUPS (LAW 4D: Human Organization Only)
+// ============================================================================
+
+export interface CatalogGroup {
+  id: string;
+  facilityId: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  itemCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CatalogGroupItem {
+  id: string;
+  name: string;
+  category: string;
+  manufacturer: string | null;
+  catalogNumber: string | null;
+  active: boolean;
+}
+
+export interface CreateCatalogGroupRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateCatalogGroupRequest {
+  name?: string;
+  description?: string | null;
+  active?: boolean;
+}
+
+export async function getCatalogGroups(
+  token: string,
+  includeInactive = false
+): Promise<{ groups: CatalogGroup[] }> {
+  const query = includeInactive ? '?includeInactive=true' : '';
+  return api(`/catalog/groups${query}`, { token });
+}
+
+export async function createCatalogGroup(
+  token: string,
+  data: CreateCatalogGroupRequest
+): Promise<{ group: CatalogGroup }> {
+  return api('/catalog/groups', { method: 'POST', body: data, token });
+}
+
+export async function updateCatalogGroup(
+  token: string,
+  groupId: string,
+  data: UpdateCatalogGroupRequest
+): Promise<{ group: CatalogGroup }> {
+  return api(`/catalog/groups/${groupId}`, { method: 'PATCH', body: data, token });
+}
+
+export async function getCatalogGroupItems(
+  token: string,
+  groupId: string,
+  includeInactive = false
+): Promise<{ items: CatalogGroupItem[] }> {
+  const query = includeInactive ? '?includeInactive=true' : '';
+  return api(`/catalog/groups/${groupId}/items${query}`, { token });
+}
+
+export async function addCatalogGroupItems(
+  token: string,
+  groupId: string,
+  catalogIds: string[]
+): Promise<{ success: boolean; addedCount: number }> {
+  return api(`/catalog/groups/${groupId}/items`, { method: 'POST', body: { catalogIds }, token });
+}
+
+export async function removeCatalogGroupItem(
+  token: string,
+  groupId: string,
+  catalogId: string
+): Promise<{ success: boolean }> {
+  return api(`/catalog/groups/${groupId}/items/${catalogId}`, { method: 'DELETE', token });
+}
+
+// ============================================================================
 // PREFERENCE CARDS MANAGEMENT
 // ============================================================================
 

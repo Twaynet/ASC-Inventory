@@ -497,6 +497,40 @@ export const UpdateCatalogItemRequestSchema = z.object({
 export type UpdateCatalogItemRequest = z.infer<typeof UpdateCatalogItemRequestSchema>;
 
 // ============================================================================
+// CATALOG GROUP SCHEMAS (LAW 4D: Human Organization Only)
+// ============================================================================
+
+export const CreateCatalogGroupRequestSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().max(500).optional(),
+});
+export type CreateCatalogGroupRequest = z.infer<typeof CreateCatalogGroupRequestSchema>;
+
+export const UpdateCatalogGroupRequestSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(500).nullable().optional(),
+  active: z.boolean().optional(),
+});
+export type UpdateCatalogGroupRequest = z.infer<typeof UpdateCatalogGroupRequestSchema>;
+
+export const AddGroupItemsRequestSchema = z.object({
+  catalogIds: z.array(z.string().uuid()).min(1).max(100),
+});
+export type AddGroupItemsRequest = z.infer<typeof AddGroupItemsRequestSchema>;
+
+export const CatalogGroupResponseSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  active: z.boolean(),
+  itemCount: z.number().int().nonnegative(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type CatalogGroupResponse = z.infer<typeof CatalogGroupResponseSchema>;
+
+// ============================================================================
 // PREFERENCE CARD SCHEMAS
 // ============================================================================
 

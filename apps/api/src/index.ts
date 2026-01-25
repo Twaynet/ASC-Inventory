@@ -15,6 +15,7 @@ import { readinessRoutes } from './routes/readiness.routes.js';
 import { checklistsRoutes } from './routes/checklists.routes.js';
 import { locationsRoutes } from './routes/locations.routes.js';
 import { catalogRoutes } from './routes/catalog.routes.js';
+import { catalogGroupsRoutes } from './routes/catalog-groups.routes.js';
 import { preferenceCardsRoutes } from './routes/preference-cards.routes.js';
 import { settingsRoutes } from './routes/settings.routes.js';
 import { caseCardsRoutes } from './routes/case-cards.routes.js';
@@ -74,6 +75,7 @@ async function main() {
   await fastify.register(checklistsRoutes, { prefix: '/api' });
   await fastify.register(locationsRoutes, { prefix: '/api/locations' });
   await fastify.register(catalogRoutes, { prefix: '/api/catalog' });
+  await fastify.register(catalogGroupsRoutes, { prefix: '/api/catalog/groups' });
   await fastify.register(preferenceCardsRoutes, { prefix: '/api/preference-cards' });
   await fastify.register(settingsRoutes, { prefix: '/api/settings' });
   await fastify.register(caseCardsRoutes, { prefix: '/api/case-cards' });
