@@ -84,15 +84,19 @@ export default function InventoryCheckInPage() {
     if (!token || !lastResult?.item) return;
 
     try {
+      // LAW COMPLIANCE: User must explicitly confirm to create inventory events.
+      // deviceEventId links the verification to the original scan for audit trail.
       const eventData: {
         inventoryItemId: string;
         eventType: string;
         locationId?: string;
         sterilityStatus?: string;
         notes?: string;
+        deviceEventId?: string;
       } = {
         inventoryItemId: lastResult.item.id,
         eventType: mode === 'receive' ? 'RECEIVED' : mode === 'location_change' ? 'LOCATION_CHANGED' : 'VERIFIED',
+        deviceEventId: lastResult.deviceEventId || undefined,
       };
 
       if (mode === 'receive' || mode === 'location_change') {

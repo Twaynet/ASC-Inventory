@@ -485,7 +485,7 @@ export default function AdminPendingReviewsPage() {
                             !resolvedSearchTerm ||
                             review.caseName.toLowerCase().includes(searchLower) ||
                             review.surgeonName.toLowerCase().includes(searchLower) ||
-                            review.signedByName.toLowerCase().includes(searchLower) ||
+                            review.signedByName?.toLowerCase().includes(searchLower) ||
                             (review.flagComment?.toLowerCase().includes(searchLower)) ||
                             (review.resolutionNotes?.toLowerCase().includes(searchLower));
                           const matchesType =
@@ -521,7 +521,7 @@ export default function AdminPendingReviewsPage() {
                               </div>
                               <div className="resolved-row">
                                 <span className="resolved-label">Flagged at:</span>
-                                <span>{new Date(review.signedAt).toLocaleString()}</span>
+                                <span>{review.signedAt ? new Date(review.signedAt).toLocaleString() : 'N/A'}</span>
                               </div>
                               {review.flagComment && (
                                 <div className="resolved-row">
@@ -550,7 +550,7 @@ export default function AdminPendingReviewsPage() {
                           !resolvedSearchTerm ||
                           review.caseName.toLowerCase().includes(searchLower) ||
                           review.surgeonName.toLowerCase().includes(searchLower) ||
-                          review.signedByName.toLowerCase().includes(searchLower) ||
+                          review.signedByName?.toLowerCase().includes(searchLower) ||
                           (review.flagComment?.toLowerCase().includes(searchLower)) ||
                           (review.resolutionNotes?.toLowerCase().includes(searchLower));
                         const matchesType =

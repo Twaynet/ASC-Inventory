@@ -266,10 +266,18 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * POST /inventory/device-events
    * Receive device event from Device Adapter
-   * Processes the event and optionally creates an InventoryEvent
+   * Resolves the scan to a candidate inventory item but does NOT auto-create events.
+   *
+   * LAW COMPLIANCE (device-events.md §6, physical-devices.md):
+   * - DeviceEvents may trigger lookup and populate candidates
+   * - DeviceEvents may NEVER directly create inventory events or mutate truth
+   * - Human confirmation is required before creating VERIFIED events
    *
    * Special device ID '00000000-0000-0000-0000-000000000000' is reserved for
    * keyboard wedge input (virtual device, no database record required).
+   *
+   * Returns candidate item details for UI to display. User must explicitly
+   * call POST /inventory/events to create a VERIFIED event after confirmation.
    */
   fastify.post('/device-events', {
     preHandler: [fastify.authenticate],
@@ -287,7 +295,6 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
     const isKeyboardWedge = data.deviceId === KEYBOARD_WEDGE_DEVICE_ID;
     let actualDeviceId = data.deviceId;
-    let deviceLocationId: string | null = null;
 
     if (isKeyboardWedge) {
       // Get or create virtual keyboard wedge device
@@ -299,14 +306,14 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       if (!device || !device.active) {
         return reply.status(404).send({ error: 'Device not found or inactive' });
       }
-      deviceLocationId = device.locationId;
     }
 
     const occurredAt = data.occurredAt ? new Date(data.occurredAt) : new Date();
 
-    // Try to resolve the raw value to an inventory item
+    // Try to resolve the raw value to an inventory item (candidate lookup only)
     let processedItemId: string | null = null;
     let processingError: string | null = null;
+    let candidateItem: ReturnType<typeof formatInventoryItem> | null = null;
 
     // Try by barcode first, then serial number
     let item = await inventoryRepo.findByBarcode(data.rawValue, facilityId);
@@ -316,11 +323,16 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
     if (item) {
       processedItemId = item.id;
+      // Get full item details for candidate display
+      const itemDetails = await inventoryRepo.findByIdWithDetails(item.id, facilityId);
+      if (itemDetails) {
+        candidateItem = formatInventoryItem(itemDetails);
+      }
     } else {
       processingError = 'No matching inventory item found';
     }
 
-    // Create device event
+    // Create device event (audit record of the scan)
     const deviceEvent = await deviceRepo.createEvent({
       facilityId,
       deviceId: actualDeviceId,
@@ -333,30 +345,15 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       occurredAt,
     });
 
-    // If we found a matching item on a scan, create a VERIFIED inventory event
-    if (processedItemId && data.payloadType === 'scan') {
-      await inventoryRepo.createEventWithItemUpdate(
-        {
-          facilityId,
-          inventoryItemId: processedItemId,
-          eventType: 'VERIFIED',
-          locationId: deviceLocationId || item!.locationId,
-          previousLocationId: item!.locationId,
-          performedByUserId: userId,
-          deviceEventId: deviceEvent.id,
-          occurredAt,
-        },
-        {
-          lastVerifiedAt: occurredAt,
-          lastVerifiedByUserId: userId,
-        }
-      );
-    }
+    // LAW COMPLIANCE: No automatic VERIFIED event creation.
+    // The UI must call POST /inventory/events with deviceEventId to create
+    // a VERIFIED event after human confirmation.
 
     return reply.status(201).send({
       deviceEventId: deviceEvent.id,
       processed: processedItemId !== null,
       processedItemId,
+      candidate: candidateItem,
       error: processingError,
     });
   });

@@ -660,6 +660,12 @@ export interface DeviceEventResponse {
   deviceEventId: string;
   processed: boolean;
   processedItemId: string | null;
+  /**
+   * Candidate item details returned by device-events endpoint.
+   * LAW COMPLIANCE: This is for display only. User must explicitly confirm
+   * to create a VERIFIED event via POST /inventory/events.
+   */
+  candidate: InventoryItemDetail | null;
   error: string | null;
 }
 

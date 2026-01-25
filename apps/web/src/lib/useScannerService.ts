@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useScanner, ScanResult } from './useScanner';
-import { createDeviceEvent, getInventoryItem, type InventoryItemDetail } from './api';
+import { createDeviceEvent, type InventoryItemDetail } from './api';
 
 // Well-known device ID for keyboard wedge input (matches backend constant)
 const KEYBOARD_WEDGE_DEVICE_ID = '00000000-0000-0000-0000-000000000000';
@@ -25,11 +25,15 @@ export interface UseScannerServiceOptions {
 /**
  * Scanner service hook that combines keyboard wedge detection with API processing.
  *
+ * LAW COMPLIANCE (device-events.md §6, physical-devices.md):
+ * - Device events trigger LOOKUP only, not automatic VERIFIED events
+ * - Human confirmation is required before creating inventory events
+ *
  * When a barcode is scanned:
  * 1. Detects the scan via useScanner
- * 2. Sends device event to API (creates VERIFIED event if item found)
- * 3. Fetches full item details if processed successfully
- * 4. Returns the result to the caller
+ * 2. Sends device event to API (returns candidate item, NO auto-verify)
+ * 3. Returns the candidate to the UI for human confirmation
+ * 4. User must explicitly call createInventoryEvent to create VERIFIED event
  */
 export function useScannerService(options: UseScannerServiceOptions) {
   const { token, enabled = true, onScanProcessed } = options;
@@ -56,7 +60,8 @@ export function useScannerService(options: UseScannerServiceOptions) {
     setIsProcessing(true);
 
     try {
-      // Send device event to API
+      // Send device event to API - returns candidate item for display
+      // LAW COMPLIANCE: No automatic VERIFIED event is created
       const deviceResponse = await createDeviceEvent(token, {
         deviceId: KEYBOARD_WEDGE_DEVICE_ID,
         deviceType: 'barcode',
@@ -64,17 +69,8 @@ export function useScannerService(options: UseScannerServiceOptions) {
         rawValue: scanResult.value,
       });
 
-      let item: InventoryItemDetail | null = null;
-
-      // If the scan was processed (item found), fetch full details
-      if (deviceResponse.processed && deviceResponse.processedItemId) {
-        try {
-          const itemResponse = await getInventoryItem(token, deviceResponse.processedItemId);
-          item = itemResponse.item;
-        } catch {
-          // Item fetch failed, but scan was still processed
-        }
-      }
+      // Use candidate directly from response (no separate API call needed)
+      const item: InventoryItemDetail | null = deviceResponse.candidate;
 
       const result: ScanProcessResult = {
         rawValue: scanResult.value,
