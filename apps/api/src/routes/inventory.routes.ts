@@ -422,7 +422,20 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /inventory/items
-   * Create new inventory item (ADMIN only)
+   * Create new inventory item (Check-in / Receiving)
+   *
+   * W1 VALIDATION RULES (Governance 2026-01-25):
+   * Required field capture is enforced based on Catalog v1.1 intent flags:
+   *   - requires_lot_tracking=true => lot_number REQUIRED
+   *   - requires_serial_tracking=true => serial_number REQUIRED
+   *   - requires_expiration_tracking=true => sterility_expires_at REQUIRED
+   *
+   * POLICY DEFAULT (expiration):
+   *   If catalog.requires_sterility=true OR catalog.category='IMPLANT',
+   *   then sterility_expires_at is REQUIRED unless catalog.requires_expiration_tracking
+   *   is explicitly set to false (override).
+   *
+   * Validation occurs BEFORE item creation. Returns 400 with field-specific errors.
    */
   fastify.post('/items', {
     preHandler: [requireAdmin],
@@ -438,15 +451,66 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     const { facilityId } = request.user;
     const data = parseResult.data;
 
-    // Verify catalog item exists (cross-domain check - kept as direct query)
-    const catalogCheck = await query<{ id: string; requires_sterility: boolean }>(`
-      SELECT id, requires_sterility FROM item_catalog
+    // Verify catalog item exists and fetch v1.1 intent fields for W1 validation
+    const catalogCheck = await query<{
+      id: string;
+      category: string;
+      requires_sterility: boolean;
+      requires_lot_tracking: boolean;
+      requires_serial_tracking: boolean;
+      requires_expiration_tracking: boolean;
+    }>(`
+      SELECT id, category, requires_sterility,
+             requires_lot_tracking, requires_serial_tracking, requires_expiration_tracking
+      FROM item_catalog
       WHERE id = $1 AND facility_id = $2 AND active = true
     `, [data.catalogId, facilityId]);
 
     if (catalogCheck.rows.length === 0) {
       return reply.status(400).send({ error: 'Catalog item not found or inactive' });
     }
+
+    const catalog = catalogCheck.rows[0];
+
+    // =========================================================================
+    // W1 CHECK-IN VALIDATION: Enforce required capture based on Catalog intent
+    // =========================================================================
+    const missingFields: string[] = [];
+
+    // Lot tracking: required if catalog flag is true
+    if (catalog.requires_lot_tracking && !data.lotNumber) {
+      missingFields.push('lotNumber');
+    }
+
+    // Serial tracking: required if catalog flag is true
+    if (catalog.requires_serial_tracking && !data.serialNumber) {
+      missingFields.push('serialNumber');
+    }
+
+    // Expiration tracking: required if catalog flag is true, OR by policy default
+    // Policy: sterile items and implants require expiration unless explicitly overridden
+    const expirationRequiredByPolicy =
+      (catalog.requires_sterility || catalog.category === 'IMPLANT') &&
+      catalog.requires_expiration_tracking !== false;
+    const expirationRequiredByFlag = catalog.requires_expiration_tracking === true;
+
+    if ((expirationRequiredByFlag || expirationRequiredByPolicy) && !data.sterilityExpiresAt) {
+      missingFields.push('sterilityExpiresAt');
+    }
+
+    if (missingFields.length > 0) {
+      return reply.status(400).send({
+        error: 'Required fields missing based on catalog tracking requirements',
+        missingFields,
+        catalogRules: {
+          requiresLotTracking: catalog.requires_lot_tracking,
+          requiresSerialTracking: catalog.requires_serial_tracking,
+          requiresExpirationTracking: catalog.requires_expiration_tracking,
+          expirationRequiredByPolicy,
+        },
+      });
+    }
+    // =========================================================================
 
     // Verify location if specified (cross-domain check)
     if (data.locationId) {
@@ -468,7 +532,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const sterilityStatus = data.sterilityStatus ||
-      (catalogCheck.rows[0].requires_sterility ? 'STERILE' : 'NON_STERILE');
+      (catalog.requires_sterility ? 'STERILE' : 'NON_STERILE');
 
     const item = await inventoryRepo.create({
       facilityId,
