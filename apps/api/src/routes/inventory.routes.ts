@@ -291,7 +291,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const data = parseResult.data;
-    const { facilityId, userId } = request.user;
+    const { facilityId } = request.user;
 
     const isKeyboardWedge = data.deviceId === KEYBOARD_WEDGE_DEVICE_ID;
     let actualDeviceId = data.deviceId;
