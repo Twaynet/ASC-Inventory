@@ -219,21 +219,74 @@ export function PreferenceCardDialog({
 
   if (!isOpen) return null;
 
+  const getSubmitButtonText = () => {
+    if (isLoading) return 'Saving...';
+    switch (mode) {
+      case 'edit': return 'Save Changes';
+      case 'clone': return 'Clone Card';
+      default: return 'Create';
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal preference-card-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{getDialogTitle()}</h2>
-          <button className="close-btn" onClick={handleClose} type="button">
-            &times;
-          </button>
+          <div className="header-actions">
+            <button
+              type="submit"
+              form="preference-card-form"
+              className="btn btn-primary btn-sm"
+              disabled={isLoading || ((mode === 'edit' || mode === 'clone') && !editingCard)}
+            >
+              {getSubmitButtonText()}
+            </button>
+            <button className="close-btn" onClick={handleClose} type="button">
+              &times;
+            </button>
+          </div>
         </div>
         <div className="modal-body">
           {isLoading && (mode === 'edit' || mode === 'clone') && !editingCard ? (
             <div className="loading">Loading preference card...</div>
           ) : (
-            <form onSubmit={handleSubmit} autoComplete="off">
-              {/* Header Information Section */}
+            <form id="preference-card-form" onSubmit={handleSubmit} autoComplete="off">
+              {/* Clone mode: simplified form with just Surgeon and Procedure Name */}
+              {mode === 'clone' ? (
+                <div className="form-section">
+                  <p className="clone-info">
+                    Select a surgeon and update the procedure name. All other card details will be copied from the original.
+                  </p>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Surgeon *</label>
+                      <select
+                        value={formData.surgeonId}
+                        onChange={(e) => setFormData({ ...formData, surgeonId: e.target.value })}
+                        required
+                        autoComplete="off"
+                      >
+                        <option value="">Select surgeon...</option>
+                        {surgeons.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Procedure Name *</label>
+                      <input
+                        type="text"
+                        value={formData.procedureName}
+                        onChange={(e) => setFormData({ ...formData, procedureName: e.target.value })}
+                        required
+                        placeholder="e.g., Total Hip Replacement"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+              /* Create/Edit mode: full form */
               <div className="form-section">
                 <h3>Header Information</h3>
                 <div className="form-row">
@@ -273,9 +326,10 @@ export function PreferenceCardDialog({
                   />
                 </div>
               </div>
+              )}
 
-              {/* Collapsible Sections */}
-              {sections.map(section => (
+              {/* Collapsible Sections - only show for create/edit modes */}
+              {mode !== 'clone' && sections.map(section => (
                 <div key={section.id} className="collapsible-section">
                   <button
                     type="button"
@@ -697,6 +751,17 @@ export function PreferenceCardDialog({
           font-size: 1.25rem;
         }
 
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .header-actions .btn-sm {
+          padding: 0.375rem 0.75rem;
+          font-size: 0.875rem;
+        }
+
         .close-btn {
           background: none;
           border: none;
@@ -820,6 +885,16 @@ export function PreferenceCardDialog({
           color: #718096;
           font-style: italic;
           margin: 0 0 1rem 0;
+        }
+
+        .clone-info {
+          background: #ebf8ff;
+          border: 1px solid #90cdf4;
+          border-radius: 4px;
+          padding: 0.75rem 1rem;
+          margin-bottom: 1rem;
+          font-size: 0.875rem;
+          color: #2c5282;
         }
 
         .checkbox-grid {
