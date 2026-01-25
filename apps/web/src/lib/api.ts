@@ -692,16 +692,16 @@ export async function getDevices(token: string): Promise<{ devices: Device[] }> 
 // Inventory Items
 export interface InventoryItem {
   id: string;
-  catalog_id: string;
-  catalog_name: string;
+  catalogId: string;
+  catalogName: string;
   category: string;
   barcode: string | null;
-  serial_number: string | null;
-  location_id: string | null;
-  location_name: string | null;
-  sterility_status: string;
-  availability_status: string;
-  last_verified_at: string | null;
+  serialNumber: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  sterilityStatus: string;
+  availabilityStatus: string;
+  lastVerifiedAt: string | null;
 }
 
 export async function getInventoryItems(

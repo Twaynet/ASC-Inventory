@@ -178,7 +178,7 @@ export default function AdminInventoryPage() {
 
   // Compute status counts
   const statusCounts = items.reduce((acc, item) => {
-    acc[item.availability_status] = (acc[item.availability_status] || 0) + 1;
+    acc[item.availabilityStatus] = (acc[item.availabilityStatus] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -407,7 +407,7 @@ export default function AdminInventoryPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Item Name</th>
+                  <th>Catalog Item</th>
                   <th>Barcode</th>
                   <th>Serial #</th>
                   <th>Location</th>
@@ -427,25 +427,25 @@ export default function AdminInventoryPage() {
                 ) : (
                   items.map((item) => (
                     <tr key={item.id}>
-                      <td className="name-cell">{item.catalog_name}</td>
+                      <td className="name-cell">{item.catalogName}</td>
                       <td className="barcode">{item.barcode || '-'}</td>
-                      <td className="serial">{item.serial_number || '-'}</td>
-                      <td>{item.location_name || '-'}</td>
-                      <td>{item.sterility_status}</td>
+                      <td className="serial">{item.serialNumber || '-'}</td>
+                      <td>{item.locationName || '-'}</td>
+                      <td>{item.sterilityStatus}</td>
                       <td>
                         <span
                           className="status-badge"
                           style={{
-                            backgroundColor: STATUS_COLORS[item.availability_status]?.bg || '#e2e8f0',
-                            color: STATUS_COLORS[item.availability_status]?.color || '#4a5568',
+                            backgroundColor: STATUS_COLORS[item.availabilityStatus]?.bg || '#e2e8f0',
+                            color: STATUS_COLORS[item.availabilityStatus]?.color || '#4a5568',
                           }}
                         >
-                          {(item.availability_status || 'UNKNOWN').replace('_', ' ')}
+                          {(item.availabilityStatus || 'UNKNOWN').replace('_', ' ')}
                         </span>
                       </td>
                       <td>
-                        {item.last_verified_at
-                          ? new Date(item.last_verified_at).toLocaleDateString()
+                        {item.lastVerifiedAt
+                          ? new Date(item.lastVerifiedAt).toLocaleDateString()
                           : '-'}
                       </td>
                       <td className="actions-cell">
@@ -475,7 +475,7 @@ export default function AdminInventoryPage() {
           <div className="modal-overlay" onClick={() => setViewingHistoryItem(null)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Event History: {viewingHistoryItem.catalog_name}</h2>
+                <h2>Event History: {viewingHistoryItem.catalogName}</h2>
                 <button
                   className="close-btn"
                   onClick={() => setViewingHistoryItem(null)}
