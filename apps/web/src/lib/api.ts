@@ -1480,6 +1480,93 @@ export async function removeCatalogGroupItem(
 }
 
 // ============================================================================
+// CATALOG SET COMPONENTS (LAW v2.1: Set Definitions - Expectation Only)
+// ============================================================================
+
+/**
+ * LAW NOTICE: Catalog Set Components define EXPECTED composition only.
+ * They DO NOT assert physical state, presence, readiness, or verification.
+ */
+
+export interface CatalogSet {
+  id: string;
+  facilityId: string;
+  name: string;
+  category: ItemCategory;
+  manufacturer: string | null;
+  catalogNumber: string | null;
+  active: boolean;
+  componentCount: number;
+}
+
+export interface SetComponent {
+  id: string;
+  setCatalogId: string;
+  componentCatalogId: string;
+  componentName: string;
+  componentCategory: ItemCategory;
+  componentManufacturer: string | null;
+  componentCatalogNumber: string | null;
+  requiredQuantity: number;
+  optionalQuantity: number;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface CreateSetComponentRequest {
+  componentCatalogId: string;
+  requiredQuantity?: number;
+  optionalQuantity?: number;
+  notes?: string;
+}
+
+export interface UpdateSetComponentRequest {
+  requiredQuantity?: number;
+  optionalQuantity?: number;
+  notes?: string | null;
+}
+
+export async function getCatalogSets(
+  token: string,
+  includeEmpty = false
+): Promise<{ sets: CatalogSet[] }> {
+  const query = includeEmpty ? '?includeEmpty=true' : '';
+  return api(`/catalog/sets${query}`, { token });
+}
+
+export async function getSetComponents(
+  token: string,
+  catalogId: string
+): Promise<{ setCatalogId: string; components: SetComponent[] }> {
+  return api(`/catalog/sets/${catalogId}/components`, { token });
+}
+
+export async function addSetComponent(
+  token: string,
+  catalogId: string,
+  data: CreateSetComponentRequest
+): Promise<{ component: SetComponent }> {
+  return api(`/catalog/sets/${catalogId}/components`, { method: 'POST', body: data, token });
+}
+
+export async function updateSetComponent(
+  token: string,
+  catalogId: string,
+  componentId: string,
+  data: UpdateSetComponentRequest
+): Promise<{ component: SetComponent }> {
+  return api(`/catalog/sets/${catalogId}/components/${componentId}`, { method: 'PATCH', body: data, token });
+}
+
+export async function removeSetComponent(
+  token: string,
+  catalogId: string,
+  componentId: string
+): Promise<{ success: boolean }> {
+  return api(`/catalog/sets/${catalogId}/components/${componentId}`, { method: 'DELETE', token });
+}
+
+// ============================================================================
 // PREFERENCE CARDS MANAGEMENT
 // ============================================================================
 

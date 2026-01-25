@@ -531,6 +531,58 @@ export const CatalogGroupResponseSchema = z.object({
 export type CatalogGroupResponse = z.infer<typeof CatalogGroupResponseSchema>;
 
 // ============================================================================
+// CATALOG SET COMPONENT SCHEMAS (LAW v2.1: Set Definitions - Expectation Only)
+// ============================================================================
+
+/**
+ * LAW NOTICE: Catalog Set Components define EXPECTED composition only.
+ * They DO NOT assert physical state, presence, readiness, or verification.
+ * See docs/LAW/catalog.md v2.1 Amendment.
+ */
+
+export const CreateSetComponentRequestSchema = z.object({
+  componentCatalogId: z.string().uuid(),
+  requiredQuantity: z.number().int().nonnegative().default(0),
+  optionalQuantity: z.number().int().nonnegative().default(0),
+  notes: z.string().max(500).optional(),
+});
+export type CreateSetComponentRequest = z.infer<typeof CreateSetComponentRequestSchema>;
+
+export const UpdateSetComponentRequestSchema = z.object({
+  requiredQuantity: z.number().int().nonnegative().optional(),
+  optionalQuantity: z.number().int().nonnegative().optional(),
+  notes: z.string().max(500).nullable().optional(),
+});
+export type UpdateSetComponentRequest = z.infer<typeof UpdateSetComponentRequestSchema>;
+
+export const SetComponentResponseSchema = z.object({
+  id: z.string().uuid(),
+  setCatalogId: z.string().uuid(),
+  componentCatalogId: z.string().uuid(),
+  componentName: z.string(),
+  componentCategory: ItemCategory,
+  componentManufacturer: z.string().nullable(),
+  componentCatalogNumber: z.string().nullable(),
+  requiredQuantity: z.number().int().nonnegative(),
+  optionalQuantity: z.number().int().nonnegative(),
+  notes: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type SetComponentResponse = z.infer<typeof SetComponentResponseSchema>;
+
+export const CatalogSetResponseSchema = z.object({
+  id: z.string().uuid(),
+  facilityId: z.string().uuid(),
+  name: z.string(),
+  category: ItemCategory,
+  manufacturer: z.string().nullable(),
+  catalogNumber: z.string().nullable(),
+  active: z.boolean(),
+  componentCount: z.number().int().nonnegative(),
+});
+export type CatalogSetResponse = z.infer<typeof CatalogSetResponseSchema>;
+
+// ============================================================================
 // PREFERENCE CARD SCHEMAS
 // ============================================================================
 

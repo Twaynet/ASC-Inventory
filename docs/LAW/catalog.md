@@ -304,3 +304,155 @@ If the Catalog is ambiguous,
 every downstream system becomes untrustworthy.
 
 **Correctness here is not optional.**
+
+---
+
+# Amendment: Catalog v2.1 — Set / Kit Definitions & Component Expectations
+**Effective:** 2026-01-25  
+**Change Type:** Additive (No removals, no boundary relaxation)
+
+This amendment introduces **Catalog-level Set (Kit/Tray) Definitions** to support
+loaner sets, instrument trays, and composite items where **expected composition**
+must be known independently of any physical instance.
+
+This amendment is REQUIRED to safely support:
+- Loaner instrument sets
+- Trays with many discrete components
+- Verification workflows for completeness
+- Staff onboarding and visual disambiguation
+
+This amendment does NOT introduce physical state, verification truth, or readiness logic.
+
+---
+
+## A. Definition: Catalog Set
+
+A **Catalog Set** is a Catalog Item that represents a *defined collection of component items*.
+
+Examples:
+- Loaner instrument set
+- Arthroscopy tray
+- Power tool kit
+- Implant system tray
+
+A Catalog Set:
+- Is NOT a physical instance
+- Does NOT prove completeness
+- Does NOT assert availability
+- Does NOT assert readiness
+
+It defines **expectation only**.
+
+---
+
+## B. Set Classification Rule
+
+A Catalog Set MUST:
+- Be a normal Catalog Item
+- Use an appropriate Engine Category (typically `INSTRUMENT` or `EQUIPMENT`)
+- Use Supply Mode `LOANER` or `STOCKED` (outside Catalog, per Supply Mode LAW)
+
+A Set is **not** a special category.
+
+---
+
+## C. Catalog Set Components (Expectation Only)
+
+A Catalog Set MAY define a list of **Set Components**.
+
+Each Set Component MUST include:
+- `set_catalog_id` — UUID (the parent set)
+- `component_catalog_id` — UUID (the expected item type)
+- `required_quantity` — integer ≥ 0
+- `optional_quantity` — integer ≥ 0 (optional)
+- `notes` — text (optional, descriptive only)
+- `reference_images[]` — optional URLs or asset references
+
+**Meaning:**
+> “A complete instance of this set is expected to include these components.”
+
+---
+
+## D. Explicit Non-Guarantees (Hard Boundary)
+
+Catalog Set Definitions:
+- DO NOT prove a component exists
+- DO NOT prove a component is present
+- DO NOT prove sterility
+- DO NOT prove readiness
+- DO NOT replace verification workflows
+- DO NOT create inventory records
+
+Any attempt to treat a Set Definition as proof is a **SYSTEM LAW violation**.
+
+---
+
+## E. Images (Documentation, Not Evidence)
+
+Reference images:
+- MAY be attached to Catalog Sets
+- MAY be attached to Set Components
+- Exist solely to assist human recognition
+
+Images MUST NOT:
+- Assert correctness
+- Assert completeness
+- Assert verification
+- Assert readiness
+- Substitute for attestation or inventory events
+
+Images are **documentation**, not evidence.
+
+---
+
+## F. Relationship to Inventory (Strict)
+
+Inventory is the ONLY system allowed to determine:
+- Whether a specific set instance exists
+- Whether components are present or missing
+- Whether substitutions were accepted
+- Whether a set is complete for a case
+
+Inventory verification MUST be expressed via:
+- Inventory events
+- Attestations
+- Overrides (per Readiness LAW)
+
+Catalog Set Definitions are inputs to these workflows — never outputs.
+
+---
+
+## G. Relationship to Devices
+
+DeviceEvents MAY:
+- Assist lookup
+- Assist data entry
+- Assist verification workflows
+
+DeviceEvents MUST NOT:
+- Satisfy component presence
+- Satisfy completeness
+- Create inventory truth
+
+---
+
+## H. Enforcement Requirement
+
+Any implementation using Catalog Sets MUST ensure:
+1. Set Definitions are read-only during verification
+2. Physical completeness is determined only at Inventory layer
+3. Missing components generate explicit verification outcomes
+4. Substitution is permitted only if Catalog intent allows it
+
+Violation of any rule above is a SYSTEM LAW violation.
+
+---
+
+## I. Summary (Non-Negotiable)
+
+Catalog Sets define **what should be there**.  
+Inventory determines **what actually is there**.
+
+This separation is mandatory for loaner safety, auditability, and staff trust.
+
+---
