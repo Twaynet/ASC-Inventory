@@ -44,6 +44,27 @@ export default function AdminCatalogPage() {
   const [filterCategory, setFilterCategory] = useState<ItemCategory | ''>('');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Sort state
+  type SortColumn = 'category' | 'manufacturer' | null;
+  type SortDirection = 'asc' | 'desc';
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      // Toggle direction or clear sort
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortColumn(null);
+        setSortDirection('asc');
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
   // Use shared hook for data loading, auth, and error handling
   const {
     data,
@@ -82,6 +103,28 @@ export default function AdminCatalogPage() {
       (item.manufacturer?.toLowerCase().includes(term)) ||
       (item.catalogNumber?.toLowerCase().includes(term))
     );
+  });
+
+  // Sort filtered items
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let comparison = 0;
+    if (sortColumn === 'category') {
+      // Sort by category label for user-friendly ordering
+      const labelA = CATEGORY_LABELS[a.category];
+      const labelB = CATEGORY_LABELS[b.category];
+      comparison = labelA.localeCompare(labelB);
+    } else if (sortColumn === 'manufacturer') {
+      // Sort by manufacturer, treating null/empty as last
+      const mfgA = a.manufacturer || '';
+      const mfgB = b.manufacturer || '';
+      if (!mfgA && mfgB) return sortDirection === 'asc' ? 1 : -1;
+      if (mfgA && !mfgB) return sortDirection === 'asc' ? -1 : 1;
+      comparison = mfgA.localeCompare(mfgB);
+    }
+
+    return sortDirection === 'asc' ? comparison : -comparison;
   });
 
   // Form state
@@ -424,8 +467,24 @@ export default function AdminCatalogPage() {
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th>Category</th>
-                  <th>Manufacturer</th>
+                  <th
+                    className="sortable-header"
+                    onClick={() => handleSort('category')}
+                  >
+                    Category
+                    <span className="sort-indicator">
+                      {sortColumn === 'category' ? (sortDirection === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </span>
+                  </th>
+                  <th
+                    className="sortable-header"
+                    onClick={() => handleSort('manufacturer')}
+                  >
+                    Manufacturer
+                    <span className="sort-indicator">
+                      {sortColumn === 'manufacturer' ? (sortDirection === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </span>
+                  </th>
                   <th>Catalog #</th>
                   <th>Sterility</th>
                   <th>Loaner</th>
@@ -435,7 +494,7 @@ export default function AdminCatalogPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredItems.length === 0 ? (
+                {sortedItems.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="empty-state">
                       {searchTerm || filterCategory
@@ -444,7 +503,7 @@ export default function AdminCatalogPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredItems.map((item) => (
+                  sortedItems.map((item) => (
                     <tr key={item.id} className={!item.active ? 'inactive-row' : ''}>
                       <td className="name-cell">{item.name}</td>
                       <td>
@@ -787,6 +846,21 @@ export default function AdminCatalogPage() {
         .data-table th {
           background: #f8f9fa;
           font-weight: 600;
+        }
+
+        .sortable-header {
+          cursor: pointer;
+          user-select: none;
+          white-space: nowrap;
+        }
+
+        .sortable-header:hover {
+          background: #edf2f7;
+        }
+
+        .sort-indicator {
+          font-size: 0.75rem;
+          color: #4299e1;
         }
 
         .data-table tr:hover {
