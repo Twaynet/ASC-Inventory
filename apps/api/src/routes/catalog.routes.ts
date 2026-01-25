@@ -22,6 +22,14 @@ interface CatalogRow {
   requires_sterility: boolean;
   is_loaner: boolean;
   active: boolean;
+  // v1.1 Risk-Intent Extensions
+  requires_lot_tracking: boolean;
+  requires_serial_tracking: boolean;
+  requires_expiration_tracking: boolean;
+  criticality: string;
+  readiness_required: boolean;
+  expiration_warning_days: number | null;
+  substitutable: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -45,7 +53,10 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT
         c.id, c.facility_id, c.name, c.description, c.category,
         c.manufacturer, c.catalog_number, c.requires_sterility, c.is_loaner,
-        c.active, c.created_at, c.updated_at,
+        c.active,
+        c.requires_lot_tracking, c.requires_serial_tracking, c.requires_expiration_tracking,
+        c.criticality, c.readiness_required, c.expiration_warning_days, c.substitutable,
+        c.created_at, c.updated_at,
         (SELECT COUNT(*) FROM inventory_item i WHERE i.catalog_id = c.id) as inventory_count
       FROM item_catalog c
       WHERE c.facility_id = $1
@@ -77,6 +88,14 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         requiresSterility: row.requires_sterility,
         isLoaner: row.is_loaner,
         active: row.active,
+        // v1.1 Risk-Intent Extensions
+        requiresLotTracking: row.requires_lot_tracking,
+        requiresSerialTracking: row.requires_serial_tracking,
+        requiresExpirationTracking: row.requires_expiration_tracking,
+        criticality: row.criticality,
+        readinessRequired: row.readiness_required,
+        expirationWarningDays: row.expiration_warning_days,
+        substitutable: row.substitutable,
         inventoryCount: parseInt(row.inventory_count),
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
@@ -98,7 +117,10 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT
         c.id, c.facility_id, c.name, c.description, c.category,
         c.manufacturer, c.catalog_number, c.requires_sterility, c.is_loaner,
-        c.active, c.created_at, c.updated_at,
+        c.active,
+        c.requires_lot_tracking, c.requires_serial_tracking, c.requires_expiration_tracking,
+        c.criticality, c.readiness_required, c.expiration_warning_days, c.substitutable,
+        c.created_at, c.updated_at,
         (SELECT COUNT(*) FROM inventory_item i WHERE i.catalog_id = c.id) as inventory_count
       FROM item_catalog c
       WHERE c.id = $1 AND c.facility_id = $2
@@ -120,6 +142,14 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         requiresSterility: row.requires_sterility,
         isLoaner: row.is_loaner,
         active: row.active,
+        // v1.1 Risk-Intent Extensions
+        requiresLotTracking: row.requires_lot_tracking,
+        requiresSerialTracking: row.requires_serial_tracking,
+        requiresExpirationTracking: row.requires_expiration_tracking,
+        criticality: row.criticality,
+        readinessRequired: row.readiness_required,
+        expirationWarningDays: row.expiration_warning_days,
+        substitutable: row.substitutable,
         inventoryCount: parseInt(row.inventory_count),
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
@@ -157,9 +187,11 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     const result = await query<CatalogRow>(`
       INSERT INTO item_catalog (
         facility_id, name, description, category, manufacturer,
-        catalog_number, requires_sterility, is_loaner, active
+        catalog_number, requires_sterility, is_loaner, active,
+        requires_lot_tracking, requires_serial_tracking, requires_expiration_tracking,
+        criticality, readiness_required, expiration_warning_days, substitutable
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `, [
       facilityId,
@@ -170,6 +202,14 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       data.catalogNumber || null,
       data.requiresSterility ?? true,
       data.isLoaner ?? false,
+      // v1.1 fields with defaults
+      data.requiresLotTracking ?? false,
+      data.requiresSerialTracking ?? false,
+      data.requiresExpirationTracking ?? false,
+      data.criticality ?? 'ROUTINE',
+      data.readinessRequired ?? true,
+      data.expirationWarningDays ?? null,
+      data.substitutable ?? false,
     ]);
 
     const row = result.rows[0];
@@ -184,6 +224,14 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         requiresSterility: row.requires_sterility,
         isLoaner: row.is_loaner,
         active: row.active,
+        // v1.1 Risk-Intent Extensions
+        requiresLotTracking: row.requires_lot_tracking,
+        requiresSerialTracking: row.requires_serial_tracking,
+        requiresExpirationTracking: row.requires_expiration_tracking,
+        criticality: row.criticality,
+        readinessRequired: row.readiness_required,
+        expirationWarningDays: row.expiration_warning_days,
+        substitutable: row.substitutable,
         inventoryCount: 0,
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
@@ -264,6 +312,35 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       updates.push(`is_loaner = $${paramIndex++}`);
       values.push(data.isLoaner);
     }
+    // v1.1 Risk-Intent Extensions
+    if (data.requiresLotTracking !== undefined) {
+      updates.push(`requires_lot_tracking = $${paramIndex++}`);
+      values.push(data.requiresLotTracking);
+    }
+    if (data.requiresSerialTracking !== undefined) {
+      updates.push(`requires_serial_tracking = $${paramIndex++}`);
+      values.push(data.requiresSerialTracking);
+    }
+    if (data.requiresExpirationTracking !== undefined) {
+      updates.push(`requires_expiration_tracking = $${paramIndex++}`);
+      values.push(data.requiresExpirationTracking);
+    }
+    if (data.criticality !== undefined) {
+      updates.push(`criticality = $${paramIndex++}`);
+      values.push(data.criticality);
+    }
+    if (data.readinessRequired !== undefined) {
+      updates.push(`readiness_required = $${paramIndex++}`);
+      values.push(data.readinessRequired);
+    }
+    if (data.expirationWarningDays !== undefined) {
+      updates.push(`expiration_warning_days = $${paramIndex++}`);
+      values.push(data.expirationWarningDays);
+    }
+    if (data.substitutable !== undefined) {
+      updates.push(`substitutable = $${paramIndex++}`);
+      values.push(data.substitutable);
+    }
 
     if (updates.length === 0) {
       return reply.status(400).send({ error: 'No updates provided' });
@@ -282,7 +359,10 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT
         c.id, c.facility_id, c.name, c.description, c.category,
         c.manufacturer, c.catalog_number, c.requires_sterility, c.is_loaner,
-        c.active, c.created_at, c.updated_at,
+        c.active,
+        c.requires_lot_tracking, c.requires_serial_tracking, c.requires_expiration_tracking,
+        c.criticality, c.readiness_required, c.expiration_warning_days, c.substitutable,
+        c.created_at, c.updated_at,
         (SELECT COUNT(*) FROM inventory_item i WHERE i.catalog_id = c.id) as inventory_count
       FROM item_catalog c
       WHERE c.id = $1
@@ -300,6 +380,14 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         requiresSterility: row.requires_sterility,
         isLoaner: row.is_loaner,
         active: row.active,
+        // v1.1 Risk-Intent Extensions
+        requiresLotTracking: row.requires_lot_tracking,
+        requiresSerialTracking: row.requires_serial_tracking,
+        requiresExpirationTracking: row.requires_expiration_tracking,
+        criticality: row.criticality,
+        readinessRequired: row.readiness_required,
+        expirationWarningDays: row.expiration_warning_days,
+        substitutable: row.substitutable,
         inventoryCount: parseInt(row.inventory_count),
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),

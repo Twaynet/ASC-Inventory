@@ -17,6 +17,7 @@ import {
   ChecklistStatus,
   SignatureMethod,
   ItemCategory,
+  Criticality,
 } from '@asc/domain';
 
 // ============================================================================
@@ -465,6 +466,14 @@ export const CreateCatalogItemRequestSchema = z.object({
   catalogNumber: z.string().max(100).optional(),
   requiresSterility: z.boolean().optional(),
   isLoaner: z.boolean().optional(),
+  // v1.1 Risk-Intent Extensions
+  requiresLotTracking: z.boolean().optional(),
+  requiresSerialTracking: z.boolean().optional(),
+  requiresExpirationTracking: z.boolean().optional(),
+  criticality: Criticality.optional(),
+  readinessRequired: z.boolean().optional(),
+  expirationWarningDays: z.number().int().positive().nullable().optional(),
+  substitutable: z.boolean().optional(),
 });
 export type CreateCatalogItemRequest = z.infer<typeof CreateCatalogItemRequestSchema>;
 
@@ -476,6 +485,14 @@ export const UpdateCatalogItemRequestSchema = z.object({
   catalogNumber: z.string().max(100).nullable().optional(),
   requiresSterility: z.boolean().optional(),
   isLoaner: z.boolean().optional(),
+  // v1.1 Risk-Intent Extensions
+  requiresLotTracking: z.boolean().optional(),
+  requiresSerialTracking: z.boolean().optional(),
+  requiresExpirationTracking: z.boolean().optional(),
+  criticality: Criticality.optional(),
+  readinessRequired: z.boolean().optional(),
+  expirationWarningDays: z.number().int().positive().nullable().optional(),
+  substitutable: z.boolean().optional(),
 });
 export type UpdateCatalogItemRequest = z.infer<typeof UpdateCatalogItemRequestSchema>;
 

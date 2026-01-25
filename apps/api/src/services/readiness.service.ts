@@ -164,6 +164,14 @@ async function getCatalogItems(facilityId: string): Promise<Map<string, ItemCata
     requires_sterility: boolean;
     is_loaner: boolean;
     active: boolean;
+    // v1.1 Risk-Intent Extensions
+    requires_lot_tracking: boolean;
+    requires_serial_tracking: boolean;
+    requires_expiration_tracking: boolean;
+    criticality: string;
+    readiness_required: boolean;
+    expiration_warning_days: number | null;
+    substitutable: boolean;
     created_at: Date;
     updated_at: Date;
   }>(`
@@ -184,6 +192,14 @@ async function getCatalogItems(facilityId: string): Promise<Map<string, ItemCata
       requiresSterility: row.requires_sterility,
       isLoaner: row.is_loaner,
       active: row.active,
+      // v1.1 Risk-Intent Extensions
+      requiresLotTracking: row.requires_lot_tracking,
+      requiresSerialTracking: row.requires_serial_tracking,
+      requiresExpirationTracking: row.requires_expiration_tracking,
+      criticality: row.criticality as any,
+      readinessRequired: row.readiness_required,
+      expirationWarningDays: row.expiration_warning_days,
+      substitutable: row.substitutable,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });

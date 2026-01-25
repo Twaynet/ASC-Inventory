@@ -60,6 +60,14 @@ export const ItemCategory = z.enum([
 ]);
 export type ItemCategory = z.infer<typeof ItemCategory>;
 
+// v1.1: Criticality classification for alarm priority
+export const Criticality = z.enum([
+  'CRITICAL',   // Highest alarm priority
+  'IMPORTANT',  // Elevated alarm priority
+  'ROUTINE',    // Standard alarm priority
+]);
+export type Criticality = z.infer<typeof Criticality>;
+
 export const SterilityStatus = z.enum([
   'STERILE',
   'NON_STERILE',
@@ -147,6 +155,14 @@ export const ItemCatalogSchema = z.object({
   requiresSterility: z.boolean().default(true),
   isLoaner: z.boolean().default(false),
   active: z.boolean().default(true),
+  // v1.1 Risk-Intent Extensions
+  requiresLotTracking: z.boolean().default(false),
+  requiresSerialTracking: z.boolean().default(false),
+  requiresExpirationTracking: z.boolean().default(false),
+  criticality: Criticality.default('ROUTINE'),
+  readinessRequired: z.boolean().default(true),
+  expirationWarningDays: z.number().int().positive().nullable().default(null),
+  substitutable: z.boolean().default(false),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

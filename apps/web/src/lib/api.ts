@@ -1302,6 +1302,9 @@ export async function deleteLocation(token: string, locationId: string): Promise
 
 export type ItemCategory = 'IMPLANT' | 'INSTRUMENT' | 'HIGH_VALUE_SUPPLY' | 'LOANER';
 
+// v1.1: Criticality classification for alarm priority
+export type Criticality = 'CRITICAL' | 'IMPORTANT' | 'ROUTINE';
+
 export interface CatalogItem {
   id: string;
   name: string;
@@ -1312,6 +1315,14 @@ export interface CatalogItem {
   requiresSterility: boolean;
   isLoaner: boolean;
   active: boolean;
+  // v1.1 Risk-Intent Extensions
+  requiresLotTracking: boolean;
+  requiresSerialTracking: boolean;
+  requiresExpirationTracking: boolean;
+  criticality: Criticality;
+  readinessRequired: boolean;
+  expirationWarningDays: number | null;
+  substitutable: boolean;
   inventoryCount: number;
   createdAt: string;
   updatedAt: string;
@@ -1325,6 +1336,14 @@ export interface CreateCatalogItemRequest {
   catalogNumber?: string;
   requiresSterility?: boolean;
   isLoaner?: boolean;
+  // v1.1 Risk-Intent Extensions
+  requiresLotTracking?: boolean;
+  requiresSerialTracking?: boolean;
+  requiresExpirationTracking?: boolean;
+  criticality?: Criticality;
+  readinessRequired?: boolean;
+  expirationWarningDays?: number | null;
+  substitutable?: boolean;
 }
 
 export interface UpdateCatalogItemRequest {
@@ -1335,6 +1354,14 @@ export interface UpdateCatalogItemRequest {
   catalogNumber?: string | null;
   requiresSterility?: boolean;
   isLoaner?: boolean;
+  // v1.1 Risk-Intent Extensions
+  requiresLotTracking?: boolean;
+  requiresSerialTracking?: boolean;
+  requiresExpirationTracking?: boolean;
+  criticality?: Criticality;
+  readinessRequired?: boolean;
+  expirationWarningDays?: number | null;
+  substitutable?: boolean;
 }
 
 export async function getCatalogItems(
