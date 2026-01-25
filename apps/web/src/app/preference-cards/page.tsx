@@ -297,7 +297,6 @@ export default function PreferenceCardsPage() {
                 <tr>
                   <th>Procedure Name</th>
                   <th>Surgeon</th>
-                  <th>Type</th>
                   <th>Version</th>
                   <th>Status</th>
                   <th>Last Updated</th>
@@ -307,7 +306,7 @@ export default function PreferenceCardsPage() {
               <tbody>
                 {cards.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="empty-state">
+                    <td colSpan={6} className="empty-state">
                       No preference cards found. Create your first card to get started.
                     </td>
                   </tr>
@@ -316,7 +315,6 @@ export default function PreferenceCardsPage() {
                     <tr key={card.id} className={card.status === 'DEPRECATED' ? 'deprecated-row' : ''}>
                       <td className="name-cell">{card.procedureName}</td>
                       <td>{card.surgeonName}</td>
-                      <td>{card.caseType}</td>
                       <td>v{card.version}</td>
                       <td>
                         <span className={`status-badge ${card.status.toLowerCase()}`}>
