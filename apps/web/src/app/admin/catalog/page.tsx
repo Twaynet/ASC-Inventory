@@ -42,6 +42,7 @@ export default function AdminCatalogPage() {
   // Filter state (managed locally since it affects data fetching)
   const [showInactive, setShowInactive] = useState(false);
   const [filterCategory, setFilterCategory] = useState<ItemCategory | ''>('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Use shared hook for data loading, auth, and error handling
   const {
@@ -71,6 +72,17 @@ export default function AdminCatalogPage() {
   });
 
   const items = data || [];
+
+  // Filter items by search term (client-side)
+  const filteredItems = items.filter(item => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      item.name.toLowerCase().includes(term) ||
+      (item.manufacturer?.toLowerCase().includes(term)) ||
+      (item.catalogNumber?.toLowerCase().includes(term))
+    );
+  });
 
   // Form state
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -241,23 +253,46 @@ export default function AdminCatalogPage() {
           >
             + Add Catalog Item
           </button>
-          <div className="filters">
-            <label className="checkbox-label">
+          <div className="search-filter-row">
+            <div className="search-box">
               <input
-                type="checkbox"
-                checked={showInactive}
-                onChange={(e) => setShowInactive(e.target.checked)}
+                type="text"
+                placeholder="Search by name, manufacturer, or catalog #..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
               />
-              Show inactive items
-            </label>
-            {filterCategory && (
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setFilterCategory('')}
-              >
-                Clear filter
-              </button>
-            )}
+              {searchTerm && (
+                <button
+                  className="search-clear"
+                  onClick={() => setSearchTerm('')}
+                  title="Clear search"
+                >
+                  x
+                </button>
+              )}
+            </div>
+            <div className="filters">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={showInactive}
+                  onChange={(e) => setShowInactive(e.target.checked)}
+                />
+                Show inactive
+              </label>
+              {(filterCategory || searchTerm) && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setFilterCategory('');
+                    setSearchTerm('');
+                  }}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -367,6 +402,13 @@ export default function AdminCatalogPage() {
           <div className="loading">Loading catalog items...</div>
         ) : (
           <div className="table-container">
+            <div className="table-header">
+              <span className="result-count">
+                {filteredItems.length === items.length
+                  ? `${items.length} item${items.length !== 1 ? 's' : ''}`
+                  : `${filteredItems.length} of ${items.length} items`}
+              </span>
+            </div>
             <table className="data-table">
               <thead>
                 <tr>
@@ -382,14 +424,16 @@ export default function AdminCatalogPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.length === 0 ? (
+                {filteredItems.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="empty-state">
-                      No catalog items found. Create your first item to get started.
+                      {searchTerm || filterCategory
+                        ? 'No items match your search or filter criteria.'
+                        : 'No catalog items found. Create your first item to get started.'}
                     </td>
                   </tr>
                 ) : (
-                  items.map((item) => (
+                  filteredItems.map((item) => (
                     <tr key={item.id} className={!item.active ? 'inactive-row' : ''}>
                       <td className="name-cell">{item.name}</td>
                       <td>
@@ -495,6 +539,52 @@ export default function AdminCatalogPage() {
           gap: 1rem;
         }
 
+        .search-filter-row {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          flex-wrap: wrap;
+          flex: 1;
+          justify-content: flex-end;
+        }
+
+        .search-box {
+          position: relative;
+          min-width: 280px;
+        }
+
+        .search-input {
+          width: 100%;
+          padding: 0.5rem 2rem 0.5rem 0.75rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          font-size: 0.875rem;
+        }
+
+        .search-input:focus {
+          outline: none;
+          border-color: #4299e1;
+          box-shadow: 0 0 0 1px #4299e1;
+        }
+
+        .search-clear {
+          position: absolute;
+          right: 0.5rem;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          color: #a0aec0;
+          cursor: pointer;
+          font-size: 1rem;
+          padding: 0.25rem;
+          line-height: 1;
+        }
+
+        .search-clear:hover {
+          color: #718096;
+        }
+
         .filters {
           display: flex;
           align-items: center;
@@ -565,6 +655,18 @@ export default function AdminCatalogPage() {
           padding: 1.5rem;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
           overflow-x: auto;
+        }
+
+        .table-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+
+        .result-count {
+          font-size: 0.875rem;
+          color: #718096;
         }
 
         .data-table {
