@@ -286,17 +286,17 @@ export default function AdminCatalogPage() {
         </div>
 
         <div className="actions-bar">
-          <button
-            className="btn btn-create"
-            onClick={() => {
-              setShowCreateForm(true);
-              setEditingItem(null);
-              setFormData({});
-            }}
-          >
-            + Add Catalog Item
-          </button>
-          <div className="search-filter-row">
+          <div className="actions-left">
+            <button
+              className="btn btn-create"
+              onClick={() => {
+                setShowCreateForm(true);
+                setEditingItem(null);
+                setFormData({});
+              }}
+            >
+              + Add Catalog Item
+            </button>
             <div className="search-box">
               <input
                 type="text"
@@ -315,27 +315,26 @@ export default function AdminCatalogPage() {
                 </button>
               )}
             </div>
-            <div className="filters">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={showInactive}
-                  onChange={(e) => setShowInactive(e.target.checked)}
-                />
-                Show inactive
-              </label>
-              {(filterCategory || searchTerm) && (
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    setFilterCategory('');
-                    setSearchTerm('');
-                  }}
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
+          </div>
+          <div className="actions-right">
+            <button
+              type="button"
+              className={`pill-toggle ${showInactive ? 'selected' : ''}`}
+              onClick={() => setShowInactive(!showInactive)}
+            >
+              Show Inactive
+            </button>
+            {(filterCategory || searchTerm) && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setFilterCategory('');
+                  setSearchTerm('');
+                }}
+              >
+                Clear all
+              </button>
+            )}
           </div>
         </div>
 
@@ -609,13 +608,17 @@ export default function AdminCatalogPage() {
           gap: 1rem;
         }
 
-        .search-filter-row {
+        .actions-left {
           display: flex;
           align-items: center;
           gap: 1rem;
           flex-wrap: wrap;
-          flex: 1;
-          justify-content: flex-end;
+        }
+
+        .actions-right {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
         }
 
         .search-box {
@@ -653,19 +656,6 @@ export default function AdminCatalogPage() {
 
         .search-clear:hover {
           color: #718096;
-        }
-
-        .filters {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
         }
 
         /* Modal Styles */
