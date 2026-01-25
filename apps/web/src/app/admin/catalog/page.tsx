@@ -296,104 +296,115 @@ export default function AdminCatalogPage() {
           </div>
         </div>
 
-        {/* Create/Edit Form */}
+        {/* Create/Edit Modal */}
         {(showCreateForm || editingItem) && (
-          <div className="form-card">
-            <h2>{editingItem ? 'Edit Catalog Item' : 'Create New Catalog Item'}</h2>
-            <form onSubmit={editingItem ? handleUpdate : handleCreate}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Name *</label>
-                  <input
-                    type="text"
-                    value={formData.name || ''}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    placeholder="e.g., Hip Prosthesis Model X"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Category *</label>
-                  <select
-                    value={formData.category || ''}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value as ItemCategory })}
-                    required
-                  >
-                    <option value="">Select category...</option>
-                    {CATEGORIES.map(cat => (
-                      <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Manufacturer</label>
-                  <input
-                    type="text"
-                    value={formData.manufacturer || ''}
-                    onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                    placeholder="e.g., Stryker"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Catalog Number</label>
-                  <input
-                    type="text"
-                    value={formData.catalogNumber || ''}
-                    onChange={(e) => setFormData({ ...formData, catalogNumber: e.target.value })}
-                    placeholder="e.g., SKU-12345"
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Description</label>
-                <input
-                  type="text"
-                  value={formData.description || ''}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Optional description"
-                />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={formData.requiresSterility || false}
-                      onChange={(e) => setFormData({ ...formData, requiresSterility: e.target.checked })}
-                    />
-                    Requires Sterility
-                  </label>
-                </div>
-                <div className="form-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={formData.isLoaner || false}
-                      onChange={(e) => setFormData({ ...formData, isLoaner: e.target.checked })}
-                    />
-                    Is Loaner Item
-                  </label>
-                </div>
-              </div>
-              <div className="form-actions">
-                <button type="submit" className="btn btn-primary">
-                  {editingItem ? 'Save Changes' : 'Create Item'}
-                </button>
+          <div className="modal-overlay" onClick={() => { setShowCreateForm(false); setEditingItem(null); setFormData({}); }}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>{editingItem ? 'Edit Catalog Item' : 'Create Catalog Item'}</h2>
                 <button
-                  type="button"
-                  className="btn btn-secondary"
+                  className="modal-close"
                   onClick={() => {
                     setShowCreateForm(false);
                     setEditingItem(null);
                     setFormData({});
                   }}
                 >
-                  Cancel
+                  &times;
                 </button>
               </div>
-            </form>
+              <form onSubmit={editingItem ? handleUpdate : handleCreate} className="modal-body">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Name *</label>
+                    <input
+                      type="text"
+                      value={formData.name || ''}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                      placeholder="e.g., Hip Prosthesis Model X"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Category *</label>
+                    <select
+                      value={formData.category || ''}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value as ItemCategory })}
+                      required
+                    >
+                      <option value="">Select category...</option>
+                      {CATEGORIES.map(cat => (
+                        <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Manufacturer</label>
+                    <input
+                      type="text"
+                      value={formData.manufacturer || ''}
+                      onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
+                      placeholder="e.g., Stryker"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Catalog Number</label>
+                    <input
+                      type="text"
+                      value={formData.catalogNumber || ''}
+                      onChange={(e) => setFormData({ ...formData, catalogNumber: e.target.value })}
+                      placeholder="e.g., SKU-12345"
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Description</label>
+                  <input
+                    type="text"
+                    value={formData.description || ''}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Optional description"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Item Properties</label>
+                  <div className="pill-toggle-group">
+                    <button
+                      type="button"
+                      className={`pill-toggle ${formData.requiresSterility ? 'selected' : ''}`}
+                      onClick={() => setFormData({ ...formData, requiresSterility: !formData.requiresSterility })}
+                    >
+                      Requires Sterility
+                    </button>
+                    <button
+                      type="button"
+                      className={`pill-toggle ${formData.isLoaner ? 'selected' : ''}`}
+                      onClick={() => setFormData({ ...formData, isLoaner: !formData.isLoaner })}
+                    >
+                      Loaner Item
+                    </button>
+                  </div>
+                </div>
+                <div className="modal-actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      setEditingItem(null);
+                      setFormData({});
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    {editingItem ? 'Save Changes' : 'Create Item'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
@@ -598,17 +609,69 @@ export default function AdminCatalogPage() {
           cursor: pointer;
         }
 
-        .form-card {
-          background: white;
-          border-radius: 8px;
-          padding: 1.5rem;
-          margin-bottom: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
         }
 
-        .form-card h2 {
-          margin-top: 0;
-          margin-bottom: 1rem;
+        .modal {
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+          width: 100%;
+          max-width: 560px;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1rem 1.5rem;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .modal-header h2 {
+          margin: 0;
+          font-size: 1.25rem;
+          font-weight: 600;
+        }
+
+        .modal-close {
+          background: none;
+          border: none;
+          font-size: 1.5rem;
+          cursor: pointer;
+          color: #718096;
+          padding: 0;
+          line-height: 1;
+        }
+
+        .modal-close:hover {
+          color: #1a202c;
+        }
+
+        .modal-body {
+          padding: 1.5rem;
+        }
+
+        .modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.75rem;
+          padding-top: 1rem;
+          margin-top: 1rem;
+          border-top: 1px solid #e2e8f0;
         }
 
         .form-row {
@@ -631,22 +694,62 @@ export default function AdminCatalogPage() {
           display: block;
           margin-bottom: 0.5rem;
           font-weight: 500;
+          color: #374151;
         }
 
         .form-group input[type="text"],
         .form-group input[type="email"],
         .form-group select {
           width: 100%;
-          padding: 0.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
+          padding: 0.5rem 0.75rem;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
           font-size: 1rem;
+          background: white;
         }
 
-        .form-actions {
+        .form-group input:focus,
+        .form-group select:focus {
+          outline: none;
+          border-color: #4299e1;
+          box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+        }
+
+        /* Pill Toggle Styles */
+        .pill-toggle-group {
           display: flex;
-          gap: 1rem;
-          margin-top: 1rem;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+
+        .pill-toggle {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.375rem 0.75rem;
+          font-size: 0.875rem;
+          font-weight: 500;
+          border-radius: 9999px;
+          border: 1px solid #d1d5db;
+          background: #f9fafb;
+          color: #6b7280;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .pill-toggle:hover {
+          background: #e5e7eb;
+          border-color: #9ca3af;
+        }
+
+        .pill-toggle.selected {
+          background: #4299e1;
+          border-color: #4299e1;
+          color: white;
+        }
+
+        .pill-toggle.selected:hover {
+          background: #3182ce;
+          border-color: #3182ce;
         }
 
         .table-container {
