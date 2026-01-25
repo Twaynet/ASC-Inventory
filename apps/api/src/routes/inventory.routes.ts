@@ -487,14 +487,18 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       missingFields.push('serialNumber');
     }
 
-    // Expiration tracking: required if catalog flag is true, OR by policy default
-    // Policy: sterile items and implants require expiration unless explicitly overridden
-    const expirationRequiredByPolicy =
-      (catalog.requires_sterility || catalog.category === 'IMPLANT') &&
-      catalog.requires_expiration_tracking !== false;
-    const expirationRequiredByFlag = catalog.requires_expiration_tracking === true;
+    // Expiration tracking: required if ANY of the following are true:
+    //   - catalog.requires_expiration_tracking = true (explicit flag)
+    //   - catalog.requires_sterility = true (sterile items need expiration dates)
+    //   - catalog.category = 'IMPLANT' (implants always need expiration tracking)
+    // POLICY DEFAULT: Sterile items and implants inherently require expiration
+    // tracking for patient safety — this is non-negotiable.
+    const expirationRequired =
+      catalog.requires_expiration_tracking === true ||
+      catalog.requires_sterility === true ||
+      catalog.category === 'IMPLANT';
 
-    if ((expirationRequiredByFlag || expirationRequiredByPolicy) && !data.sterilityExpiresAt) {
+    if (expirationRequired && !data.sterilityExpiresAt) {
       missingFields.push('sterilityExpiresAt');
     }
 
@@ -506,7 +510,9 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
           requiresLotTracking: catalog.requires_lot_tracking,
           requiresSerialTracking: catalog.requires_serial_tracking,
           requiresExpirationTracking: catalog.requires_expiration_tracking,
-          expirationRequiredByPolicy,
+          requiresSterility: catalog.requires_sterility,
+          category: catalog.category,
+          expirationRequired,
         },
       });
     }
