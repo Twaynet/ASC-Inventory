@@ -1581,6 +1581,34 @@ export async function createInventoryEvent(
 export const createDeviceEvent = sendDeviceEvent;
 
 // ============================================================================
+// INVENTORY RISK QUEUE
+// ============================================================================
+
+export interface RiskQueueItem {
+  rule: 'MISSING_LOT' | 'MISSING_SERIAL' | 'MISSING_EXPIRATION' | 'EXPIRED' | 'EXPIRING_SOON';
+  severity: 'RED' | 'ORANGE' | 'YELLOW';
+  facilityId: string;
+  catalogId: string;
+  catalogName: string;
+  inventoryItemId: string;
+  identifier: string | null;
+  daysToExpire: number | null;
+  expiresAt: string | null;
+  missingFields: string[];
+  explain: string;
+  debug: {
+    criticality: string;
+    requiresSterility: boolean;
+    expirationRequired: boolean;
+    effectiveWarningDays: number;
+  };
+}
+
+export async function getInventoryRiskQueue(token: string): Promise<{ riskItems: RiskQueueItem[] }> {
+  return api('/inventory/risk-queue', { token });
+}
+
+// ============================================================================
 // SETTINGS & ROOMS (Extended)
 // ============================================================================
 

@@ -641,4 +641,281 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.send({ events: events.map(formatInventoryEvent) });
   });
+
+  /**
+   * GET /inventory/risk-queue
+   * Returns computed inventory risk items based on Catalog v1.1 intent flags.
+   *
+   * ALARM RULES (all derived, not stored):
+   * A1: MISSING_LOT - catalog.requires_lot_tracking=true but lot_number missing
+   * A2: MISSING_SERIAL - catalog.requires_serial_tracking=true but serial_number missing
+   * A3: MISSING_EXPIRATION - expiration required but sterility_expires_at missing
+   * B1: EXPIRING_SOON - within warning horizon (catalog or criticality fallback)
+   * B2: EXPIRED - sterility_expires_at <= today OR sterility_status='EXPIRED'
+   *
+   * Expiration required if:
+   *   - catalog.requires_expiration_tracking = true, OR
+   *   - catalog.requires_sterility = true (policy default), OR
+   *   - catalog.category = 'IMPLANT' (policy default)
+   *
+   * Warning horizon:
+   *   - catalog.expiration_warning_days if set, else fallback by criticality:
+   *     CRITICAL=90, IMPORTANT=60, ROUTINE=30
+   *
+   * Severity mapping:
+   *   - CRITICAL → RED
+   *   - IMPORTANT → ORANGE
+   *   - ROUTINE → YELLOW
+   *   - EXPIRED is always RED
+   *
+   * LAW COMPLIANCE:
+   *   - Read-only (no mutations)
+   *   - Facility-scoped
+   *   - No DeviceEvent used as truth
+   */
+  fastify.get('/risk-queue', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+
+    // Single query to compute all risk items
+    // Joins inventory_item with item_catalog to get v1.1 intent fields
+    const result = await query<{
+      inventory_item_id: string;
+      catalog_id: string;
+      catalog_name: string;
+      category: string;
+      serial_number: string | null;
+      lot_number: string | null;
+      barcode: string | null;
+      sterility_expires_at: Date | null;
+      sterility_status: string;
+      availability_status: string;
+      requires_lot_tracking: boolean;
+      requires_serial_tracking: boolean;
+      requires_expiration_tracking: boolean;
+      requires_sterility: boolean;
+      criticality: string;
+      expiration_warning_days: number | null;
+    }>(`
+      SELECT
+        i.id AS inventory_item_id,
+        c.id AS catalog_id,
+        c.name AS catalog_name,
+        c.category,
+        i.serial_number,
+        i.lot_number,
+        i.barcode,
+        i.sterility_expires_at,
+        i.sterility_status,
+        i.availability_status,
+        c.requires_lot_tracking,
+        c.requires_serial_tracking,
+        c.requires_expiration_tracking,
+        c.requires_sterility,
+        c.criticality,
+        c.expiration_warning_days
+      FROM inventory_item i
+      JOIN item_catalog c ON i.catalog_id = c.id
+      WHERE i.facility_id = $1
+        AND c.active = true
+        AND i.availability_status NOT IN ('UNAVAILABLE', 'MISSING')
+      ORDER BY c.name ASC
+    `, [facilityId]);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const riskItems: Array<{
+      rule: string;
+      severity: string;
+      facilityId: string;
+      catalogId: string;
+      catalogName: string;
+      inventoryItemId: string;
+      identifier: string | null;
+      daysToExpire: number | null;
+      expiresAt: string | null;
+      missingFields: string[];
+      explain: string;
+      debug: {
+        criticality: string;
+        requiresSterility: boolean;
+        expirationRequired: boolean;
+        effectiveWarningDays: number;
+      };
+    }> = [];
+
+    // Criticality to severity mapping
+    const severityMap: Record<string, string> = {
+      CRITICAL: 'RED',
+      IMPORTANT: 'ORANGE',
+      ROUTINE: 'YELLOW',
+    };
+
+    // Warning horizon fallbacks by criticality
+    const warningFallback: Record<string, number> = {
+      CRITICAL: 90,
+      IMPORTANT: 60,
+      ROUTINE: 30,
+    };
+
+    for (const row of result.rows) {
+      const expirationRequired =
+        row.requires_expiration_tracking === true ||
+        row.requires_sterility === true ||
+        row.category === 'IMPLANT';
+
+      const effectiveWarningDays =
+        row.expiration_warning_days ?? warningFallback[row.criticality] ?? 30;
+
+      const severity = severityMap[row.criticality] || 'YELLOW';
+
+      const identifier = row.barcode || row.serial_number || row.lot_number || null;
+
+      const debugInfo = {
+        criticality: row.criticality,
+        requiresSterility: row.requires_sterility,
+        expirationRequired,
+        effectiveWarningDays,
+      };
+
+      // A1: Missing lot number
+      if (row.requires_lot_tracking && !row.lot_number) {
+        riskItems.push({
+          rule: 'MISSING_LOT',
+          severity,
+          facilityId,
+          catalogId: row.catalog_id,
+          catalogName: row.catalog_name,
+          inventoryItemId: row.inventory_item_id,
+          identifier,
+          daysToExpire: null,
+          expiresAt: null,
+          missingFields: ['lotNumber'],
+          explain: `${row.catalog_name} requires lot tracking but lot number is missing.`,
+          debug: debugInfo,
+        });
+      }
+
+      // A2: Missing serial number
+      if (row.requires_serial_tracking && !row.serial_number) {
+        riskItems.push({
+          rule: 'MISSING_SERIAL',
+          severity,
+          facilityId,
+          catalogId: row.catalog_id,
+          catalogName: row.catalog_name,
+          inventoryItemId: row.inventory_item_id,
+          identifier,
+          daysToExpire: null,
+          expiresAt: null,
+          missingFields: ['serialNumber'],
+          explain: `${row.catalog_name} requires serial tracking but serial number is missing.`,
+          debug: debugInfo,
+        });
+      }
+
+      // A3: Missing expiration date
+      if (expirationRequired && !row.sterility_expires_at) {
+        riskItems.push({
+          rule: 'MISSING_EXPIRATION',
+          severity,
+          facilityId,
+          catalogId: row.catalog_id,
+          catalogName: row.catalog_name,
+          inventoryItemId: row.inventory_item_id,
+          identifier,
+          daysToExpire: null,
+          expiresAt: null,
+          missingFields: ['sterilityExpiresAt'],
+          explain: `${row.catalog_name} requires expiration tracking but expiration date is missing.`,
+          debug: debugInfo,
+        });
+      }
+
+      // B2: Expired (check first - takes precedence over "expiring soon")
+      if (row.sterility_status === 'EXPIRED') {
+        riskItems.push({
+          rule: 'EXPIRED',
+          severity: 'RED', // Always RED
+          facilityId,
+          catalogId: row.catalog_id,
+          catalogName: row.catalog_name,
+          inventoryItemId: row.inventory_item_id,
+          identifier,
+          daysToExpire: null,
+          expiresAt: row.sterility_expires_at?.toISOString() || null,
+          missingFields: [],
+          explain: `${row.catalog_name} sterility has expired.`,
+          debug: debugInfo,
+        });
+      } else if (row.sterility_expires_at) {
+        const expiresAt = new Date(row.sterility_expires_at);
+        expiresAt.setHours(0, 0, 0, 0);
+        const daysToExpire = Math.floor((expiresAt.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        // B2: Expired by date
+        if (daysToExpire <= 0) {
+          riskItems.push({
+            rule: 'EXPIRED',
+            severity: 'RED', // Always RED
+            facilityId,
+            catalogId: row.catalog_id,
+            catalogName: row.catalog_name,
+            inventoryItemId: row.inventory_item_id,
+            identifier,
+            daysToExpire,
+            expiresAt: row.sterility_expires_at.toISOString(),
+            missingFields: [],
+            explain: `${row.catalog_name} sterility expired ${Math.abs(daysToExpire)} day(s) ago.`,
+            debug: debugInfo,
+          });
+        }
+        // B1: Expiring soon (within warning horizon)
+        else if (expirationRequired && daysToExpire <= effectiveWarningDays) {
+          riskItems.push({
+            rule: 'EXPIRING_SOON',
+            severity,
+            facilityId,
+            catalogId: row.catalog_id,
+            catalogName: row.catalog_name,
+            inventoryItemId: row.inventory_item_id,
+            identifier,
+            daysToExpire,
+            expiresAt: row.sterility_expires_at.toISOString(),
+            missingFields: [],
+            explain: `${row.catalog_name} sterility expires in ${daysToExpire} day(s).`,
+            debug: debugInfo,
+          });
+        }
+      }
+    }
+
+    // Sort: severity DESC (RED > ORANGE > YELLOW), then rule, then daysToExpire ASC, then catalogName ASC
+    const severityOrder: Record<string, number> = { RED: 0, ORANGE: 1, YELLOW: 2 };
+    riskItems.sort((a, b) => {
+      // Severity DESC
+      const sevA = severityOrder[a.severity] ?? 3;
+      const sevB = severityOrder[b.severity] ?? 3;
+      if (sevA !== sevB) return sevA - sevB;
+
+      // Rule ASC
+      if (a.rule !== b.rule) return a.rule.localeCompare(b.rule);
+
+      // daysToExpire ASC (null last)
+      if (a.daysToExpire !== null && b.daysToExpire !== null) {
+        if (a.daysToExpire !== b.daysToExpire) return a.daysToExpire - b.daysToExpire;
+      } else if (a.daysToExpire !== null) {
+        return -1;
+      } else if (b.daysToExpire !== null) {
+        return 1;
+      }
+
+      // catalogName ASC
+      return a.catalogName.localeCompare(b.catalogName);
+    });
+
+    return reply.send({ riskItems });
+  });
 }
