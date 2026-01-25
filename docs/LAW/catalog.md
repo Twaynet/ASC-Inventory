@@ -225,3 +225,122 @@ The Catalog is:
 - The first system that must be correct
 
 If the Catalog is wrong, **every downstream system is untrustworthy**.
+
+
+---
+
+# Amendment: Catalog v1.1 — Risk Intent Extensions  
+**Effective:** 2026-01-25  
+**Change Type:** Additive (No removals, no behavioral relaxations)
+
+This amendment extends the Catalog system with a minimal set of **risk-intent** properties required to support alarms and readiness reasoning in an ASC environment where inventory management is frequently a secondary duty.
+
+This amendment is **strictly additive**:
+- No existing prohibitions are relaxed
+- No existing fields are removed or redefined
+- The Catalog/Inventory boundary remains intact per Sections 3 and 7
+
+If any downstream implementation uses these fields to track physical state (quantity/location/sterility/expiration state), that is a LAW violation.
+
+---
+
+## A. New Fields (v1.1)
+
+The following fields are hereby added to the **Canonical Data Model** (Section 5).  
+All new fields are Catalog-level *intent* only.
+
+### A1. Tracking Requirement Flags (Catalog declares what must be captured)
+- `requires_lot_tracking` — boolean  
+  **Meaning:** Physical instances of this item must capture a lot number at the Inventory layer.
+- `requires_serial_tracking` — boolean  
+  **Meaning:** Physical instances of this item must capture a serial number at the Inventory layer.
+- `requires_expiration_tracking` — boolean  
+  **Meaning:** Physical instances of this item must capture an expiration date at the Inventory layer.
+
+**LAW Boundary:** These flags declare requirements; the Catalog does not store lot/serial/expiration values.
+
+---
+
+### A2. Criticality Classification (Alarm priority semantics)
+- `criticality` — ENUM (closed set):
+  - `CRITICAL`
+  - `IMPORTANT`
+  - `ROUTINE`
+
+**Meaning:** Determines alarm severity and prioritization.  
+**LAW Boundary:** Classification only; no inventory state is stored.
+
+---
+
+### A3. Readiness Requirement Flag (Readiness expectation semantics)
+- `readiness_required` — boolean
+
+**Meaning:** Indicates whether the item is expected to be satisfied for case readiness evaluation.  
+**LAW Boundary:** Readiness remains computed in the Readiness system; Catalog only declares expectation.
+
+---
+
+### A4. Expiration Warning Horizon (Alarm timing semantics)
+- `expiration_warning_days` — integer or null
+
+**Meaning:** Number of days before expiration when warnings may begin.  
+`null` indicates no early-warning horizon is required.
+
+**LAW Boundary:** Catalog does not store actual expiration state; Inventory stores expiration values.
+
+---
+
+### A5. Substitution Allowance (Minimal substitution intent)
+- `substitutable` — boolean
+
+**Meaning:** Indicates whether a lawful substitution may satisfy readiness requirements downstream.  
+**LAW Boundary:** Substitution logic and matching are not implemented or stored in Catalog; this field only expresses permission intent.
+
+---
+
+## B. Updated Canonical Data Model (Section 5 Addendum)
+
+Every Catalog Item MUST include all fields listed in Section 5, plus the following v1.1 fields:
+
+- `requires_lot_tracking` — boolean
+- `requires_serial_tracking` — boolean
+- `requires_expiration_tracking` — boolean
+- `criticality` — ENUM (`CRITICAL` | `IMPORTANT` | `ROUTINE`)
+- `readiness_required` — boolean
+- `expiration_warning_days` — integer | null
+- `substitutable` — boolean
+
+No additional fields may be added without formally amending this LAW.
+
+---
+
+## C. Non-Negotiable Boundary Reaffirmation (Catalog vs Inventory)
+
+The addition of v1.1 fields does NOT change the Catalog boundary.
+
+Catalog MUST NOT:
+- Track quantity or stock levels
+- Track physical location
+- Track sterility state
+- Track expiration state (actual dates for specific items)
+- Track availability
+- Track case assignment
+- Track event history
+- Track usage
+
+Inventory MUST:
+- Continue to store and govern all physical-instance values and event history per `docs/LAW/inventory.md`.
+
+---
+
+## D. Compliance Requirement (Derived Behavior)
+
+Any implementation that uses these v1.1 fields MUST ensure:
+
+1. Inventory check-in workflows can enforce required capture of lot/serial/expiration when the corresponding flags are true.
+2. Alarming and readiness reasoning treat `criticality`, `readiness_required`, and `expiration_warning_days` as intent signals only.
+3. No Catalog record may be modified to represent physical state.
+
+Violation of any item above is a SYSTEM LAW violation.
+
+---
