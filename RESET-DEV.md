@@ -284,6 +284,42 @@ When asked to "reset dev" or fix broken dev state:
 
 ---
 
+## Deep Dive: "Cannot find module './XXX.js'" — Full Fix
+
+This error means stale webpack chunks exist. Clearing the cache alone is **not sufficient** — the running process must also be restarted.
+
+### Symptom Progression
+1. Initial error: `Cannot find module './819.js'` (or similar numbered chunk)
+2. After clearing `.next`: All routes return **404**
+3. After restarting server: Fixed
+
+### Why This Happens
+- Next.js dev server holds webpack chunks in memory
+- Deleting `.next` while server runs creates a mismatch
+- Server tries to serve from deleted/rebuilt chunks → 404
+- Only a full restart loads the new build
+
+### One-Liner Fix (Git Bash / WSL)
+```bash
+# Kill web server, clear cache, restart
+pkill -f "next dev" 2>/dev/null; rm -rf apps/web/.next; cd apps/web && npm run dev
+```
+
+### One-Liner Fix (PowerShell)
+```powershell
+# Kill web server, clear cache, restart
+Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force
+Remove-Item -Recurse -Force apps\web\.next -ErrorAction SilentlyContinue
+cd apps\web; npm run dev
+```
+
+### Key Rule
+**Never clear `.next` without also restarting the web server.**
+
+If you see 404 after clearing cache, the server is still running stale code — kill and restart it.
+
+---
+
 ## Maintenance Notes
 
 - This file should be updated when port assignments change
