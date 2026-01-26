@@ -2355,3 +2355,95 @@ export async function reorderScheduleItems(
 ): Promise<{ success: boolean }> {
   return api('/schedule/reorder', { method: 'PATCH', body: data, token });
 }
+
+// ============================================================================
+// Catalog Item Images (LAW: Documentation only, not evidence)
+// ============================================================================
+
+export interface CatalogImage {
+  id: string;
+  catalogId: string;
+  kind: 'PRIMARY' | 'REFERENCE';
+  caption: string | null;
+  sortOrder: number;
+  assetUrl: string;
+  source: 'URL' | 'UPLOAD';
+  createdAt: string;
+}
+
+export async function getCatalogImages(
+  token: string,
+  catalogId: string
+): Promise<{ images: CatalogImage[] }> {
+  return api(`/catalog/${catalogId}/images`, { token });
+}
+
+export async function addCatalogImageByUrl(
+  token: string,
+  catalogId: string,
+  data: {
+    assetUrl: string;
+    kind?: 'PRIMARY' | 'REFERENCE';
+    caption?: string;
+    sortOrder?: number;
+  }
+): Promise<{ image: CatalogImage }> {
+  return api(`/catalog/${catalogId}/images`, { method: 'POST', body: data, token });
+}
+
+export async function uploadCatalogImage(
+  token: string,
+  catalogId: string,
+  file: File,
+  options?: {
+    kind?: 'PRIMARY' | 'REFERENCE';
+    caption?: string;
+    sortOrder?: number;
+  }
+): Promise<{ image: CatalogImage }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (options?.kind) formData.append('kind', options.kind);
+  if (options?.caption) formData.append('caption', options.caption);
+  if (options?.sortOrder !== undefined) formData.append('sortOrder', String(options.sortOrder));
+
+  const response = await fetch(
+    `${API_BASE}/catalog/${catalogId}/images/upload`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(error.error || `Upload Error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function updateCatalogImage(
+  token: string,
+  catalogId: string,
+  imageId: string,
+  data: {
+    kind?: 'PRIMARY' | 'REFERENCE';
+    caption?: string;
+    sortOrder?: number;
+  }
+): Promise<{ image: CatalogImage }> {
+  return api(`/catalog/${catalogId}/images/${imageId}`, { method: 'PATCH', body: data, token });
+}
+
+export async function deleteCatalogImage(
+  token: string,
+  catalogId: string,
+  imageId: string
+): Promise<void> {
+  await fetch(`${API_BASE}/catalog/${catalogId}/images/${imageId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}

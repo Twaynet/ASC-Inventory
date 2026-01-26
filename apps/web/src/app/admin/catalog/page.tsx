@@ -12,7 +12,12 @@ import {
   updateCatalogItem,
   deactivateCatalogItem,
   activateCatalogItem,
+  getCatalogImages,
+  addCatalogImageByUrl,
+  uploadCatalogImage,
+  deleteCatalogImage,
   type CatalogItem,
+  type CatalogImage,
   type ItemCategory,
   type CreateCatalogItemRequest,
   type UpdateCatalogItemRequest,
@@ -132,6 +137,85 @@ export default function AdminCatalogPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [formData, setFormData] = useState<Partial<CreateCatalogItemRequest>>({});
+
+  // Images modal state
+  const [imagesItem, setImagesItem] = useState<CatalogItem | null>(null);
+  const [images, setImages] = useState<CatalogImage[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [imageTab, setImageTab] = useState<'url' | 'upload'>('url');
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageCaption, setImageCaption] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const openImagesModal = async (item: CatalogItem) => {
+    setImagesItem(item);
+    setImages([]);
+    setLoadingImages(true);
+    setImageUrl('');
+    setImageCaption('');
+    setImageTab('url');
+    try {
+      if (token) {
+        const result = await getCatalogImages(token, item.id);
+        setImages(result.images);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load images');
+    } finally {
+      setLoadingImages(false);
+    }
+  };
+
+  const handleAddImageByUrl = async () => {
+    if (!token || !imagesItem || !imageUrl.trim()) return;
+    setUploadingImage(true);
+    try {
+      const result = await addCatalogImageByUrl(token, imagesItem.id, {
+        assetUrl: imageUrl.trim(),
+        caption: imageCaption.trim() || undefined,
+      });
+      setImages(prev => [...prev, result.image]);
+      setImageUrl('');
+      setImageCaption('');
+      setSuccessMessage('Image added');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!token || !imagesItem || !file) return;
+    setUploadingImage(true);
+    try {
+      const result = await uploadCatalogImage(token, imagesItem.id, file, {
+        caption: imageCaption.trim() || undefined,
+      });
+      setImages(prev => [...prev, result.image]);
+      setImageCaption('');
+      setSuccessMessage('Image uploaded');
+      // Reset file input
+      e.target.value = '';
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleDeleteImage = async (imageId: string) => {
+    if (!token || !imagesItem) return;
+    if (!confirm('Delete this image?')) return;
+    try {
+      await deleteCatalogImage(token, imagesItem.id, imageId);
+      setImages(prev => prev.filter(img => img.id !== imageId));
+      setSuccessMessage('Image deleted');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete image');
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -457,6 +541,125 @@ export default function AdminCatalogPage() {
           </div>
         )}
 
+        {/* Images Modal */}
+        {imagesItem && (
+          <div className="modal-overlay" onClick={() => setImagesItem(null)}>
+            <div className="modal images-modal" onClick={e => e.stopPropagation()}>
+              <h2>Images: {imagesItem.name}</h2>
+              <p className="images-notice">
+                Images are for reference only. They do not verify inventory or readiness.
+              </p>
+
+              {/* Tab Selector */}
+              <div className="image-tabs">
+                <button
+                  type="button"
+                  className={`tab-btn ${imageTab === 'url' ? 'active' : ''}`}
+                  onClick={() => setImageTab('url')}
+                >
+                  Add by URL
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${imageTab === 'upload' ? 'active' : ''}`}
+                  onClick={() => setImageTab('upload')}
+                >
+                  Upload Image
+                </button>
+              </div>
+
+              {/* Add Image Form */}
+              <div className="add-image-form">
+                <div className="form-group">
+                  <label>Caption (optional)</label>
+                  <input
+                    type="text"
+                    value={imageCaption}
+                    onChange={e => setImageCaption(e.target.value)}
+                    placeholder="Optional caption for this image"
+                  />
+                </div>
+
+                {imageTab === 'url' ? (
+                  <div className="form-row">
+                    <input
+                      type="url"
+                      value={imageUrl}
+                      onChange={e => setImageUrl(e.target.value)}
+                      placeholder="https://example.com/image.jpg"
+                      className="url-input"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleAddImageByUrl}
+                      disabled={uploadingImage || !imageUrl.trim()}
+                    >
+                      {uploadingImage ? 'Adding...' : 'Add'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="form-row">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleUploadImage}
+                      disabled={uploadingImage}
+                      className="file-input"
+                    />
+                    {uploadingImage && <span className="uploading-text">Uploading...</span>}
+                  </div>
+                )}
+              </div>
+
+              {/* Image List */}
+              <div className="images-list">
+                {loadingImages ? (
+                  <div className="loading-images">Loading images...</div>
+                ) : images.length === 0 ? (
+                  <div className="no-images">No images yet. Add one above.</div>
+                ) : (
+                  images.map(img => (
+                    <div key={img.id} className="image-item">
+                      <div className="image-thumbnail">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={img.assetUrl.startsWith('/') ? `http://localhost:3001${img.assetUrl}` : img.assetUrl}
+                          alt={img.caption || 'Catalog image'}
+                        />
+                      </div>
+                      <div className="image-info">
+                        <div className="image-caption">{img.caption || '(no caption)'}</div>
+                        <div className="image-meta">
+                          <span className={`image-kind ${img.kind.toLowerCase()}`}>{img.kind}</span>
+                          <span className="image-source">{img.source}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleDeleteImage(img.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setImagesItem(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Catalog Table */}
         {isLoadingData ? (
           <div className="loading">Loading catalog items...</div>
@@ -540,6 +743,12 @@ export default function AdminCatalogPage() {
                           onClick={() => startEdit(item)}
                         >
                           Edit
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => openImagesModal(item)}
+                        >
+                          Images
                         </button>
                         {item.active ? (
                           <button
@@ -937,6 +1146,147 @@ export default function AdminCatalogPage() {
 
         .btn-success:hover {
           background: #2f855a;
+        }
+
+        /* Images Modal Styles */
+        .images-modal {
+          max-width: 700px;
+          max-height: 80vh;
+          overflow-y: auto;
+        }
+
+        .images-notice {
+          font-size: 0.875rem;
+          color: #718096;
+          margin-bottom: 1rem;
+          padding: 0.5rem;
+          background: #f7fafc;
+          border-radius: 4px;
+        }
+
+        .image-tabs {
+          display: flex;
+          gap: 0.5rem;
+          margin-bottom: 1rem;
+        }
+
+        .tab-btn {
+          padding: 0.5rem 1rem;
+          border: 1px solid #e2e8f0;
+          background: white;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 500;
+        }
+
+        .tab-btn.active {
+          background: #4299e1;
+          color: white;
+          border-color: #4299e1;
+        }
+
+        .add-image-form {
+          background: #f7fafc;
+          padding: 1rem;
+          border-radius: 8px;
+          margin-bottom: 1rem;
+        }
+
+        .form-row {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+        }
+
+        .url-input {
+          flex: 1;
+          padding: 0.5rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+        }
+
+        .file-input {
+          flex: 1;
+        }
+
+        .uploading-text {
+          color: #4299e1;
+          font-size: 0.875rem;
+        }
+
+        .images-list {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          max-height: 300px;
+          overflow-y: auto;
+        }
+
+        .loading-images,
+        .no-images {
+          padding: 2rem;
+          text-align: center;
+          color: #718096;
+        }
+
+        .image-item {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 0.75rem;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .image-item:last-child {
+          border-bottom: none;
+        }
+
+        .image-thumbnail {
+          width: 60px;
+          height: 60px;
+          border-radius: 4px;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+
+        .image-thumbnail img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .image-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .image-caption {
+          font-weight: 500;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .image-meta {
+          display: flex;
+          gap: 0.5rem;
+          font-size: 0.75rem;
+          margin-top: 0.25rem;
+        }
+
+        .image-kind {
+          padding: 0.125rem 0.375rem;
+          border-radius: 4px;
+          background: #e2e8f0;
+          color: #4a5568;
+        }
+
+        .image-kind.primary {
+          background: #c6f6d5;
+          color: #276749;
+        }
+
+        .image-source {
+          color: #718096;
         }
       `}</style>
     </>

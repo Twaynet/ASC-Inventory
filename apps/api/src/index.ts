@@ -7,6 +7,14 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
 import fastifyJwt from '@fastify/jwt';
+import fastifyMultipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import { existsSync, mkdirSync } from 'fs';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const UPLOADS_DIR = join(__dirname, '../uploads');
 import { authRoutes } from './routes/auth.routes.js';
 import { usersRoutes } from './routes/users.routes.js';
 import { casesRoutes } from './routes/cases.routes.js';
@@ -17,6 +25,7 @@ import { locationsRoutes } from './routes/locations.routes.js';
 import { catalogRoutes } from './routes/catalog.routes.js';
 import { catalogGroupsRoutes } from './routes/catalog-groups.routes.js';
 import { catalogSetsRoutes } from './routes/catalog-sets.routes.js';
+import { catalogImagesRoutes } from './routes/catalog-images.routes.js';
 import { preferenceCardsRoutes } from './routes/preference-cards.routes.js';
 import { settingsRoutes } from './routes/settings.routes.js';
 import { caseCardsRoutes } from './routes/case-cards.routes.js';
@@ -45,6 +54,23 @@ async function main() {
   });
 
   await fastify.register(sensible);
+
+  // Register multipart for file uploads
+  await fastify.register(fastifyMultipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    },
+  });
+
+  // Ensure uploads directory exists and serve static files
+  if (!existsSync(UPLOADS_DIR)) {
+    mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+  await fastify.register(fastifyStatic, {
+    root: UPLOADS_DIR,
+    prefix: '/uploads/',
+    decorateReply: false,
+  });
 
   // Register JWT at root level so it's available to all routes
   await fastify.register(fastifyJwt, {
@@ -78,6 +104,7 @@ async function main() {
   await fastify.register(catalogRoutes, { prefix: '/api/catalog' });
   await fastify.register(catalogGroupsRoutes, { prefix: '/api/catalog/groups' });
   await fastify.register(catalogSetsRoutes, { prefix: '/api/catalog/sets' });
+  await fastify.register(catalogImagesRoutes, { prefix: '/api/catalog' });
   await fastify.register(preferenceCardsRoutes, { prefix: '/api/preference-cards' });
   await fastify.register(settingsRoutes, { prefix: '/api/settings' });
   await fastify.register(caseCardsRoutes, { prefix: '/api/case-cards' });
