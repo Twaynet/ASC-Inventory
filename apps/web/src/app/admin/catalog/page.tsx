@@ -1226,6 +1226,7 @@ export default function AdminCatalogPage() {
           max-width: 700px;
           max-height: 80vh;
           overflow-y: auto;
+          padding: 1.5rem;
         }
 
         .images-notice {
