@@ -15,6 +15,7 @@ import {
   getCatalogImages,
   addCatalogImageByUrl,
   uploadCatalogImage,
+  updateCatalogImage,
   deleteCatalogImage,
   type CatalogItem,
   type CatalogImage,
@@ -146,6 +147,8 @@ export default function AdminCatalogPage() {
   const [imageUrl, setImageUrl] = useState('');
   const [imageCaption, setImageCaption] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [editingImageId, setEditingImageId] = useState<string | null>(null);
+  const [editingCaption, setEditingCaption] = useState('');
 
   const openImagesModal = async (item: CatalogItem) => {
     setImagesItem(item);
@@ -178,6 +181,7 @@ export default function AdminCatalogPage() {
       setImageUrl('');
       setImageCaption('');
       setSuccessMessage('Image added');
+      refetch(); // Update catalog list to reflect new image count
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add image');
     } finally {
@@ -196,6 +200,7 @@ export default function AdminCatalogPage() {
       setImages(prev => [...prev, result.image]);
       setImageCaption('');
       setSuccessMessage('Image uploaded');
+      refetch(); // Update catalog list to reflect new image count
       // Reset file input
       e.target.value = '';
     } catch (err) {
@@ -212,8 +217,29 @@ export default function AdminCatalogPage() {
       await deleteCatalogImage(token, imagesItem.id, imageId);
       setImages(prev => prev.filter(img => img.id !== imageId));
       setSuccessMessage('Image deleted');
+      refetch(); // Update catalog list to reflect new image count
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete image');
+    }
+  };
+
+  const startEditCaption = (img: CatalogImage) => {
+    setEditingImageId(img.id);
+    setEditingCaption(img.caption || '');
+  };
+
+  const handleSaveCaption = async () => {
+    if (!token || !imagesItem || !editingImageId) return;
+    try {
+      const result = await updateCatalogImage(token, imagesItem.id, editingImageId, {
+        caption: editingCaption.trim() || undefined,
+      });
+      setImages(prev => prev.map(img => img.id === editingImageId ? result.image : img));
+      setEditingImageId(null);
+      setEditingCaption('');
+      setSuccessMessage('Caption updated');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update caption');
     }
   };
 
@@ -621,15 +647,53 @@ export default function AdminCatalogPage() {
                 ) : (
                   images.map(img => (
                     <div key={img.id} className="image-item">
-                      <div className="image-thumbnail">
+                      <a
+                        href={img.assetUrl.startsWith('/') ? `http://localhost:3001${img.assetUrl}` : img.assetUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="image-thumbnail"
+                        title="Click to view full size"
+                      >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={img.assetUrl.startsWith('/') ? `http://localhost:3001${img.assetUrl}` : img.assetUrl}
                           alt={img.caption || 'Catalog image'}
                         />
-                      </div>
+                      </a>
                       <div className="image-info">
-                        <div className="image-caption">{img.caption || '(no caption)'}</div>
+                        {editingImageId === img.id ? (
+                          <div className="caption-edit">
+                            <input
+                              type="text"
+                              value={editingCaption}
+                              onChange={e => setEditingCaption(e.target.value)}
+                              placeholder="Enter caption"
+                              className="caption-input"
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={handleSaveCaption}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => setEditingImageId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            className="image-caption clickable"
+                            onClick={() => startEditCaption(img)}
+                            title="Click to edit caption"
+                          >
+                            {img.caption || '(click to add caption)'}
+                          </div>
+                        )}
                         <div className="image-meta">
                           <span className={`image-kind ${img.kind.toLowerCase()}`}>{img.kind}</span>
                           <span className="image-source">{img.source}</span>
@@ -745,10 +809,10 @@ export default function AdminCatalogPage() {
                           Edit
                         </button>
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className={`btn btn-sm ${item.imageCount > 0 ? 'btn-has-images' : 'btn-secondary'}`}
                           onClick={() => openImagesModal(item)}
                         >
-                          Images
+                          Images{item.imageCount > 0 ? ` (${item.imageCount})` : ''}
                         </button>
                         {item.active ? (
                           <button
@@ -1148,6 +1212,15 @@ export default function AdminCatalogPage() {
           background: #2f855a;
         }
 
+        .btn-has-images {
+          background: #4299e1;
+          color: white;
+        }
+
+        .btn-has-images:hover {
+          background: #3182ce;
+        }
+
         /* Images Modal Styles */
         .images-modal {
           max-width: 700px;
@@ -1246,6 +1319,14 @@ export default function AdminCatalogPage() {
           border-radius: 4px;
           overflow: hidden;
           flex-shrink: 0;
+          cursor: pointer;
+          display: block;
+          border: 2px solid transparent;
+          transition: border-color 0.2s;
+        }
+
+        .image-thumbnail:hover {
+          border-color: #4299e1;
         }
 
         .image-thumbnail img {
@@ -1264,6 +1345,29 @@ export default function AdminCatalogPage() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .image-caption.clickable {
+          cursor: pointer;
+          color: #4299e1;
+        }
+
+        .image-caption.clickable:hover {
+          text-decoration: underline;
+        }
+
+        .caption-edit {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+        }
+
+        .caption-input {
+          flex: 1;
+          padding: 0.25rem 0.5rem;
+          border: 1px solid #4299e1;
+          border-radius: 4px;
+          font-size: 0.875rem;
         }
 
         .image-meta {

@@ -1325,6 +1325,7 @@ export interface CatalogItem {
   expirationWarningDays: number | null;
   substitutable: boolean;
   inventoryCount: number;
+  imageCount: number;
   createdAt: string;
   updatedAt: string;
 }

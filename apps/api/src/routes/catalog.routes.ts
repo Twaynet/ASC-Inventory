@@ -36,6 +36,7 @@ interface CatalogRow {
 
 interface CatalogWithCount extends CatalogRow {
   inventory_count: string;
+  image_count: string;
 }
 
 export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
@@ -57,7 +58,8 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         c.requires_lot_tracking, c.requires_serial_tracking, c.requires_expiration_tracking,
         c.criticality, c.readiness_required, c.expiration_warning_days, c.substitutable,
         c.created_at, c.updated_at,
-        (SELECT COUNT(*) FROM inventory_item i WHERE i.catalog_id = c.id) as inventory_count
+        (SELECT COUNT(*) FROM inventory_item i WHERE i.catalog_id = c.id) as inventory_count,
+        (SELECT COUNT(*) FROM catalog_item_image img WHERE img.catalog_id = c.id) as image_count
       FROM item_catalog c
       WHERE c.facility_id = $1
     `;
@@ -97,6 +99,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         expirationWarningDays: row.expiration_warning_days,
         substitutable: row.substitutable,
         inventoryCount: parseInt(row.inventory_count),
+        imageCount: parseInt(row.image_count),
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
       })),
