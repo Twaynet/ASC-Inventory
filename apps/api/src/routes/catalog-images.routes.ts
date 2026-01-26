@@ -12,9 +12,10 @@ import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
 import { requireAdmin } from '../plugins/auth.js';
 import { randomUUID } from 'crypto';
-import { createWriteStream, existsSync, mkdirSync, unlinkSync } from 'fs';
-import { join, dirname, extname } from 'path';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
+import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import sharp from 'sharp';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = join(__dirname, '../../uploads/catalog');
@@ -25,7 +26,9 @@ if (!existsSync(UPLOADS_DIR)) {
 }
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB (LAW-compliant limit)
+const MAX_DIMENSION = 1600; // Max longest edge in pixels
+const JPEG_QUALITY = 80; // Re-encode quality
 
 interface ImageRow {
   id: string;
@@ -141,6 +144,12 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
   /**
    * POST /:catalogId/images/upload
    * Upload image file (multipart/form-data)
+   *
+   * Processing (LAW-compliant storage discipline):
+   * - Max 3MB upload size
+   * - Strip EXIF/metadata
+   * - Resize to max 1600px longest edge
+   * - Re-encode as JPEG quality 80%
    */
   fastify.post<{ Params: { catalogId: string } }>('/:catalogId/images/upload', {
     preHandler: [fastify.authenticate, requireAdmin],
@@ -170,47 +179,53 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
       });
     }
 
-    // Generate safe filename
-    const imageId = randomUUID();
-    const ext = extname(data.filename) || '.jpg';
-    const safeExt = ext.match(/^\.(jpg|jpeg|png|webp)$/i) ? ext.toLowerCase() : '.jpg';
+    // Collect file into buffer with size limit
+    const chunks: Buffer[] = [];
+    let totalSize = 0;
 
-    // Create facility-scoped directory
+    for await (const chunk of data.file) {
+      totalSize += chunk.length;
+      if (totalSize > MAX_FILE_SIZE) {
+        return reply.status(400).send({
+          error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`
+        });
+      }
+      chunks.push(chunk);
+    }
+
+    const inputBuffer = Buffer.concat(chunks);
+
+    // Process image with sharp:
+    // - Strip EXIF/metadata
+    // - Resize to max dimension
+    // - Re-encode as JPEG
+    let processedBuffer: Buffer;
+    try {
+      processedBuffer = await sharp(inputBuffer)
+        .rotate() // Auto-rotate based on EXIF, then strip EXIF
+        .resize(MAX_DIMENSION, MAX_DIMENSION, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: JPEG_QUALITY })
+        .toBuffer();
+    } catch (err) {
+      return reply.status(400).send({
+        error: 'Failed to process image. Ensure file is a valid image.'
+      });
+    }
+
+    // Generate filename and save processed image
+    const imageId = randomUUID();
+    const fileName = `${imageId}.jpg`; // Always JPEG after processing
+
     const facilityDir = join(UPLOADS_DIR, facilityId);
     if (!existsSync(facilityDir)) {
       mkdirSync(facilityDir, { recursive: true });
     }
 
-    const fileName = `${imageId}${safeExt}`;
     const filePath = join(facilityDir, fileName);
-
-    // Stream file to disk with size limit
-    let bytesWritten = 0;
-    const writeStream = createWriteStream(filePath);
-
-    try {
-      for await (const chunk of data.file) {
-        bytesWritten += chunk.length;
-        if (bytesWritten > MAX_FILE_SIZE) {
-          writeStream.destroy();
-          if (existsSync(filePath)) {
-            unlinkSync(filePath);
-          }
-          return reply.status(400).send({ error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB` });
-        }
-        writeStream.write(chunk);
-      }
-      writeStream.end();
-      await new Promise<void>((resolve, reject) => {
-        writeStream.on('finish', resolve);
-        writeStream.on('error', reject);
-      });
-    } catch (err) {
-      if (existsSync(filePath)) {
-        unlinkSync(filePath);
-      }
-      throw err;
-    }
+    writeFileSync(filePath, processedBuffer);
 
     // Create database record
     const assetUrl = `/uploads/catalog/${facilityId}/${fileName}`;

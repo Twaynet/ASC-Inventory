@@ -189,9 +189,20 @@ export default function AdminCatalogPage() {
     }
   };
 
+  const MAX_FILE_SIZE_MB = 3; // LAW-compliant limit
+  const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
+
   const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!token || !imagesItem || !file) return;
+
+    // Client-side file size validation
+    if (file.size > MAX_FILE_SIZE) {
+      setError(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
+      e.target.value = '';
+      return;
+    }
+
     setUploadingImage(true);
     try {
       const result = await uploadCatalogImage(token, imagesItem.id, file, {
@@ -625,15 +636,20 @@ export default function AdminCatalogPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="form-row">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={handleUploadImage}
-                      disabled={uploadingImage}
-                      className="file-input"
-                    />
-                    {uploadingImage && <span className="uploading-text">Uploading...</span>}
+                  <div className="upload-section">
+                    <div className="form-row">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleUploadImage}
+                        disabled={uploadingImage}
+                        className="file-input"
+                      />
+                      {uploadingImage && <span className="uploading-text">Uploading...</span>}
+                    </div>
+                    <div className="upload-hint">
+                      JPEG, PNG, or WebP. Maximum {MAX_FILE_SIZE_MB}MB.
+                    </div>
                   </div>
                 )}
               </div>
@@ -1286,6 +1302,12 @@ export default function AdminCatalogPage() {
         .uploading-text {
           color: #4299e1;
           font-size: 0.875rem;
+        }
+
+        .upload-hint {
+          font-size: 0.75rem;
+          color: #718096;
+          margin-top: 0.5rem;
         }
 
         .images-list {

@@ -58,7 +58,7 @@ async function main() {
   // Register multipart for file uploads
   await fastify.register(fastifyMultipart, {
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB
+      fileSize: 3 * 1024 * 1024, // 3MB (LAW-compliant limit)
     },
   });
 
