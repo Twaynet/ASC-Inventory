@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Header } from '@/app/components/Header';
 import { PageAlerts } from '@/app/components/Alert';
 import { StatusBadge } from '@/app/components/StatusBadge';
@@ -262,6 +263,12 @@ export default function AdminCatalogPage() {
           onDismissError={clearError}
           onDismissSuccess={clearSuccess}
         />
+
+        <div className="catalog-nav">
+          <Link href="/admin/catalog" className="nav-link active">Items</Link>
+          <Link href="/admin/catalog/groups" className="nav-link">Groups</Link>
+          <Link href="/admin/catalog/sets" className="nav-link">Set Definitions</Link>
+        </div>
 
         <div className="summary-cards">
           {CATEGORIES.map(cat => (
@@ -562,6 +569,32 @@ export default function AdminCatalogPage() {
       <style jsx>{`
         .admin-catalog-page {
           padding: 2rem 0;
+        }
+
+        .catalog-nav {
+          display: flex;
+          gap: 0.5rem;
+          margin-bottom: 1.5rem;
+          border-bottom: 1px solid #e2e8f0;
+          padding-bottom: 0.75rem;
+        }
+
+        .catalog-nav :global(.nav-link) {
+          padding: 0.5rem 1rem;
+          border-radius: 4px;
+          text-decoration: none;
+          color: #4a5568;
+          font-weight: 500;
+          transition: background 0.2s, color 0.2s;
+        }
+
+        .catalog-nav :global(.nav-link:hover) {
+          background: #f8f9fa;
+        }
+
+        .catalog-nav :global(.nav-link.active) {
+          background: #4299e1;
+          color: white;
         }
 
         .summary-cards {
