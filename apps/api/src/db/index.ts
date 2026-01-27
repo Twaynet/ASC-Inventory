@@ -2,12 +2,19 @@ import pg, { QueryResultRow } from 'pg';
 
 const { Pool } = pg;
 
+// Determine SSL usage (required for Neon, off for local dev)
+const useSSL = process.env.DB_SSL === 'true';
+
 export const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
   database: process.env.DB_NAME || 'asc_inventory',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
+
+  // Neon requires SSL; local Postgres usually does not
+  ssl: useSSL ? { rejectUnauthorized: false } : undefined,
+
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
