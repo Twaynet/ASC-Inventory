@@ -8,12 +8,15 @@ import bcrypt from 'bcryptjs';
 
 const { Pool } = pg;
 
+const useSSL = (process.env.DB_SSL || '').toLowerCase() === 'true';
+
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
   database: process.env.DB_NAME || 'asc_inventory',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
+  ssl: useSSL ? { rejectUnauthorized: false } : undefined,
 });
 
 async function seed() {
