@@ -34,14 +34,20 @@ async function seed() {
 
     await client.query('BEGIN');
 
-    // Create facility
-    const facilityResult = await client.query(`
-      INSERT INTO facility (name, timezone, address)
-      VALUES ('Demo Surgery Center', 'America/New_York', '123 Medical Drive, Suite 100')
-      RETURNING id
-    `);
-    const facilityId = facilityResult.rows[0].id;
-    console.log(`Created facility: ${facilityId}`);
+  // Create facility
+const facilityKey = process.env.SEED_FACILITY_KEY || 'ORTHOWISE_BETA';
+
+const facilityResult = await client.query(
+  `
+    INSERT INTO facility (name, facility_key, timezone, address)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id
+  `,
+  ['Demo Surgery Center', facilityKey, 'America/New_York', '123 Medical Drive, Suite 100']
+);
+
+const facilityId = facilityResult.rows[0].id;
+console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
 
     // Create users with hashed passwords
     const passwordHash = await bcrypt.hash('password123', 10);
