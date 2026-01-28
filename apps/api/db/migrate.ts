@@ -58,11 +58,25 @@ const noTransaction = new Set([
   '032_align_categories_with_law.sql',
 ]);
 
+function splitSqlStatements(sqlText: string): string[] {
+  // Simple splitter good enough for typical migration SQL (no $$ functions).
+  return sqlText
+    .split(/;\s*\n/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(s => (s.endsWith(';') ? s : s + ';'));
+}
+
 if (noTransaction.has(file)) {
   // Required for enum ALTER TYPE ADD VALUE + immediate use
-  await client.query(sql);
+  const statements = splitSqlStatements(sql);
+
+  for (const stmt of statements) {
+    await client.query(stmt);
+  }
+
   await client.query('INSERT INTO _migrations (name) VALUES ($1)', [file]);
-  console.log(`Completed ${file} (no transaction)`);
+  console.log(`Completed ${file} (no transaction, split statements)`);
 } else {
   await client.query('BEGIN');
   try {
@@ -75,8 +89,6 @@ if (noTransaction.has(file)) {
     throw err;
   }
 }
-
-    }
 
     console.log('All migrations completed successfully');
   } finally {
