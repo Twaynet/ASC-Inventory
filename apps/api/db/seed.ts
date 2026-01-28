@@ -247,9 +247,9 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     const case1Result = await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
       )
-      VALUES ($1, $2, '08:00', $3, 'Total Hip Arthroplasty', $4, 'SCHEDULED', true, NOW(), $5)
+      VALUES ($1, $2, '08:00', $3, 'Total Hip Arthroplasty', $4, 'SCHEDULED', true, NOW(), $5, generate_case_number($1))
       RETURNING id
     `, [facilityId, tomorrowStr, drSmithId, hipVersionResult.rows[0].id, adminId]);
 
@@ -273,9 +273,9 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     const case2Result = await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
       )
-      VALUES ($1, $2, '10:30', $3, 'Total Knee Arthroplasty', $4, 'SCHEDULED', true, NOW(), $5)
+      VALUES ($1, $2, '10:30', $3, 'Total Knee Arthroplasty', $4, 'SCHEDULED', true, NOW(), $5, generate_case_number($1))
       RETURNING id
     `, [facilityId, tomorrowStr, drJonesId, kneeVersionResult.rows[0].id, adminId]);
 
@@ -294,9 +294,9 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     const case3Result = await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
       )
-      VALUES ($1, $2, '13:00', $3, 'Lumbar Fusion', $4, 'SCHEDULED', true, NOW(), $5)
+      VALUES ($1, $2, '13:00', $3, 'Lumbar Fusion', $4, 'SCHEDULED', true, NOW(), $5, generate_case_number($1))
       RETURNING id
     `, [facilityId, tomorrowStr, drSmithId, spineVersionResult.rows[0].id, adminId]);
 
@@ -330,42 +330,42 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
       )
       VALUES
-        ($1, $2, '07:30', $3, 'Hip Replacement - Test 1', $4, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '09:00', $3, 'Hip Replacement - Test 2', $4, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '10:30', $5, 'Knee Replacement - Test 1', $6, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '12:00', $5, 'Knee Replacement - Test 2', $6, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '14:00', $3, 'Hip Replacement - Test 3', $4, 'SCHEDULED', true, NOW(), $7)
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 1', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 2', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 1', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 2', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 3', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1))
     `, [facilityId, dayAfterStr, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId]);
 
     // Test cases for debrief testing - Day +3 (all active)
     await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
       )
       VALUES
-        ($1, $2, '07:30', $3, 'Hip Replacement - Test 4', $4, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '09:00', $3, 'Hip Replacement - Test 5', $4, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '10:30', $5, 'Knee Replacement - Test 3', $6, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '12:00', $5, 'Knee Replacement - Test 4', $6, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '14:00', $3, 'Hip Replacement - Test 6', $4, 'SCHEDULED', true, NOW(), $7)
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 4', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 5', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 3', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 4', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 6', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1))
     `, [facilityId, day3Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId]);
 
     // Test cases for debrief testing - Day +4 (all active)
     await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
       )
       VALUES
-        ($1, $2, '07:30', $3, 'Hip Replacement - Test 7', $4, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '09:00', $3, 'Hip Replacement - Test 8', $4, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '10:30', $5, 'Knee Replacement - Test 5', $6, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '12:00', $5, 'Knee Replacement - Test 6', $6, 'SCHEDULED', true, NOW(), $7),
-        ($1, $2, '14:00', $3, 'Hip Replacement - Test 9', $4, 'SCHEDULED', true, NOW(), $7)
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 7', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 8', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 5', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 6', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 9', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1))
     `, [facilityId, day4Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId]);
 
     console.log('Created 15 additional test cases for debrief testing');
