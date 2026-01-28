@@ -65,8 +65,8 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     const users: Record<string, string> = {};
     for (const user of usersData) {
       const result = await client.query(`
-        INSERT INTO app_user (facility_id, username, email, name, role, password_hash)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO app_user (facility_id, username, email, name, role, roles, password_hash)
+        VALUES ($1, $2, $3, $4, $5, ARRAY[$5::user_role], $6)
         RETURNING id
       `, [facilityId, user.username, user.email, user.name, user.role, passwordHash]);
       users[user.role + '_' + user.name] = result.rows[0].id;
