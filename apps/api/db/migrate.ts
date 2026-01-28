@@ -54,16 +54,28 @@ async function migrate() {
       console.log(`Executing ${file}...`);
       const sql = readFileSync(join(migrationsDir, file), 'utf-8');
 
-      await client.query('BEGIN');
-      try {
-        await client.query(sql);
-        await client.query('INSERT INTO _migrations (name) VALUES ($1)', [file]);
-        await client.query('COMMIT');
-        console.log(`Completed ${file}`);
-      } catch (err) {
-        await client.query('ROLLBACK');
-        throw err;
-      }
+const noTransaction = new Set([
+  '032_align_categories_with_law.sql',
+]);
+
+if (noTransaction.has(file)) {
+  // Required for enum ALTER TYPE ADD VALUE + immediate use
+  await client.query(sql);
+  await client.query('INSERT INTO _migrations (name) VALUES ($1)', [file]);
+  console.log(`Completed ${file} (no transaction)`);
+} else {
+  await client.query('BEGIN');
+  try {
+    await client.query(sql);
+    await client.query('INSERT INTO _migrations (name) VALUES ($1)', [file]);
+    await client.query('COMMIT');
+    console.log(`Completed ${file}`);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  }
+}
+
     }
 
     console.log('All migrations completed successfully');
