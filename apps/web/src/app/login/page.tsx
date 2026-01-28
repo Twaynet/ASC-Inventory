@@ -24,7 +24,7 @@ function EyeOffIcon() {
 }
 
 export default function LoginPage() {
-  const [facilityKey, setFacilityKey] = useState('ASC-00001');
+  const [facilityKey, setFacilityKey] = useState('ORTHOWISE_BETA');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
