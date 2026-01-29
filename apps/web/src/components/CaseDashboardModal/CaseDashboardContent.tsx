@@ -822,7 +822,7 @@ export function CaseDashboardContent({
               </div>
             </div>
             <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label>Patient-Specific Flags (Non-PHI) <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply)</span></label>
+              <label>Patient-Specific Flags (Non-PHI) <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply – ADMIN edit in General Settings → Case Dashboard Settings)</span></label>
               <div className="pill-toggle-group">
                 {patientFlagOptions.map(flag => (
                   <label key={flag.itemKey} className="pill-toggle">
@@ -866,7 +866,7 @@ export function CaseDashboardContent({
         {!collapsedSections.has('anesthesia') && (
           <div>
             <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label>Modality * <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply)</span></label>
+              <label>Modality * <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply – ADMIN edit in General Settings → Case Dashboard Settings)</span></label>
               <div className="pill-toggle-group">
                 {anesthesiaModalities.map(m => (
                   <label key={m.itemKey} className="pill-toggle">
