@@ -803,7 +803,7 @@ export function CaseDashboardContent({
               />
             </div>
             <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label>Admission Type <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply)</span></label>
+              <label>Admission Type <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply – ADMIN edit in General Settings → Case Dashboard Settings)</span></label>
               <div className="pill-toggle-group">
                 {[
                   { key: 'outpatient', label: 'Outpatient' },
