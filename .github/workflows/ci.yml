@@ -73,11 +73,37 @@ jobs:
       - name: Run tests
         run: npm test
 
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    outputs:
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for Docker-relevant changes
+        id: filter
+        run: |
+          DIFF=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          if [ -z "$DIFF" ]; then
+            echo "docker=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if echo "$DIFF" | grep -qE '^(apps/|packages/|package\.json|package-lock\.json|Dockerfile|\.dockerignore|docker-compose)'; then
+            echo "docker=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docker=false" >> "$GITHUB_OUTPUT"
+          fi
+
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [lint, build, test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [lint, build, test, changes]
+    if: needs.changes.outputs.docker == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
