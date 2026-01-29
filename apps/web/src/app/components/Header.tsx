@@ -57,6 +57,27 @@ export function Header({ title }: HeaderProps) {
         </div>
         <div className="header-user">
           <AdminNav userRole={user?.role || ''} />
+          <button
+            onClick={() => router.push('/help')}
+            aria-label="Help & FAQ"
+            title="Help & FAQ"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              background: 'transparent',
+              border: '2px solid rgba(255,255,255,0.5)',
+              borderRadius: '50%',
+              color: 'white',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: 700,
+            }}
+          >
+            ?
+          </button>
           <span>{user?.name} ({user?.role})</span>
           <span>{user?.facilityName}</span>
           <button className="btn btn-secondary btn-sm" onClick={logout}>
