@@ -9,7 +9,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { query } from '../db/index.js';
 import { requireAdmin } from '../plugins/auth.js';
-import { ok, fail } from '../utils/reply.js';
+import { ok } from '../utils/reply.js';
 import {
   getFacilitySettings,
 } from '../services/checklists.service.js';

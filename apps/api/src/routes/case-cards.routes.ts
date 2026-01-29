@@ -762,7 +762,6 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
-    const userRoles = extractUserRoles(request.user);
 
     const result = await query<{ status: string; surgeon_id: string; procedure_name: string }>(`
       SELECT status, surgeon_id, procedure_name FROM case_card WHERE id = $1 AND facility_id = $2
@@ -883,7 +882,6 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
-    const userRoles = extractUserRoles(request.user);
     const body = request.body as any;
 
     const result = await query<{ status: string; surgeon_id: string }>(`
@@ -1119,7 +1117,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const { id } = request.params;
-    const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const { facilityId, userId, name: userName } = request.user;
     const userRoles = extractUserRoles(request.user);
 
     // Per governance doc: SCHEDULER is explicitly excluded
