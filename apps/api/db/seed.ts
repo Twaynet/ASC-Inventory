@@ -26,10 +26,15 @@ async function seed() {
     console.log('Seeding database...');
 
     // Check if already seeded
+    const forceReseed = process.argv.includes('--reset');
     const { rows: facilities } = await client.query('SELECT id FROM facility LIMIT 1');
     if (facilities.length > 0) {
-      console.log('Database already seeded. Skipping.');
-      return;
+      if (!forceReseed) {
+        console.log('Database already seeded. Skipping. Use --reset to reseed.');
+        return;
+      }
+      console.log('Resetting existing data...');
+      await client.query('TRUNCATE facility CASCADE');
     }
 
     await client.query('BEGIN');
