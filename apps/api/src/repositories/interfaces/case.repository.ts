@@ -111,11 +111,11 @@ export interface ICaseRepository {
 
   // Case mutations
   create(data: CreateCaseData): Promise<SurgicalCase>;
-  update(id: string, facilityId: string, data: UpdateCaseData): Promise<SurgicalCase | null>;
+  update(id: string, facilityId: string, data: UpdateCaseData, actorUserId?: string): Promise<SurgicalCase | null>;
   activate(id: string, facilityId: string, userId: string, data: ActivateCaseData): Promise<SurgicalCase | null>;
   approve(id: string, facilityId: string, userId: string, data: ApproveCaseData): Promise<SurgicalCase | null>;
   reject(id: string, facilityId: string, userId: string, data: RejectCaseData): Promise<SurgicalCase | null>;
-  deactivate(id: string, facilityId: string): Promise<SurgicalCase | null>;
+  deactivate(id: string, facilityId: string, userId: string): Promise<SurgicalCase | null>;
   cancel(id: string, facilityId: string, userId: string, reason?: string): Promise<SurgicalCase | null>;
 
   // Requirement operations

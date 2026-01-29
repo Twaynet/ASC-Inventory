@@ -11,11 +11,15 @@
 import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
 import { requireAdmin } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
 import { randomUUID } from 'crypto';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
+
+const MAX_IMAGES_PER_ITEM = 10;
+const MAX_CAPTION_LENGTH = 200;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = join(__dirname, '../../uploads/catalog');
@@ -106,11 +110,25 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
     const { assetUrl, kind = 'REFERENCE', caption, sortOrder = 0 } = request.body;
 
     if (!assetUrl || typeof assetUrl !== 'string') {
-      return reply.status(400).send({ error: 'assetUrl is required' });
+      return fail(reply, 'VALIDATION', 'assetUrl is required');
+    }
+
+    // Validate URL is http or https
+    try {
+      const parsed = new URL(assetUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return fail(reply, 'VALIDATION', 'assetUrl must be an http or https URL');
+      }
+    } catch {
+      return fail(reply, 'VALIDATION', 'assetUrl must be a valid URL');
     }
 
     if (kind !== 'PRIMARY' && kind !== 'REFERENCE') {
-      return reply.status(400).send({ error: 'kind must be PRIMARY or REFERENCE' });
+      return fail(reply, 'VALIDATION', 'kind must be PRIMARY or REFERENCE');
+    }
+
+    if (caption && caption.length > MAX_CAPTION_LENGTH) {
+      return fail(reply, 'VALIDATION', `caption must be ${MAX_CAPTION_LENGTH} characters or fewer`);
     }
 
     // Verify catalog item belongs to facility
@@ -119,7 +137,16 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
       [catalogId, facilityId]
     );
     if (catalogCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Catalog item not found' });
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
+    }
+
+    // Enforce max images per item
+    const countCheck = await query<{ count: string }>(
+      'SELECT COUNT(*) as count FROM catalog_item_image WHERE catalog_id = $1 AND facility_id = $2',
+      [catalogId, facilityId]
+    );
+    if (parseInt(countCheck.rows[0].count) >= MAX_IMAGES_PER_ITEM) {
+      return fail(reply, 'LIMIT_EXCEEDED', `Maximum ${MAX_IMAGES_PER_ITEM} images per catalog item`);
     }
 
     // If setting as PRIMARY, clear existing PRIMARY
@@ -138,7 +165,16 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
       [facilityId, catalogId, kind, caption || null, sortOrder, assetUrl]
     );
 
-    return reply.status(201).send({ image: mapImageRow(result.rows[0]) });
+    const image = mapImageRow(result.rows[0]);
+
+    // Audit event
+    await query(
+      `INSERT INTO catalog_event (facility_id, catalog_item_id, action, actor_user_id, payload)
+       VALUES ($1, $2, 'IMAGE_ADDED', $3, $4)`,
+      [facilityId, catalogId, request.user.userId, JSON.stringify({ imageId: image.id, url: assetUrl, caption: caption || null })]
+    );
+
+    return ok(reply, { image }, 201);
   });
 
   /**
@@ -342,7 +378,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
       [imageId, catalogId, facilityId]
     );
     if (existing.rows.length === 0) {
-      return reply.status(404).send({ error: 'Image not found' });
+      return fail(reply, 'NOT_FOUND', 'Image not found', 404);
     }
 
     const image = existing.rows[0];
@@ -362,6 +398,13 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
         }
       }
     }
+
+    // Audit event
+    await query(
+      `INSERT INTO catalog_event (facility_id, catalog_item_id, action, actor_user_id, payload)
+       VALUES ($1, $2, 'IMAGE_REMOVED', $3, $4)`,
+      [facilityId, catalogId, request.user.userId, JSON.stringify({ imageId, url: image.asset_url })]
+    );
 
     // Delete database record
     await query(

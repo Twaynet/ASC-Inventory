@@ -10,6 +10,34 @@ interface ApiOptions {
   token?: string;
 }
 
+/**
+ * Structured API error matching the server envelope: { error: { code, message, details? } }
+ */
+export class ApiError extends Error {
+  code: string;
+  details?: unknown;
+  status: number;
+
+  constructor(status: number, code: string, message: string, details?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+/**
+ * Core fetch wrapper.
+ *
+ * Handles both response shapes during migration:
+ *   - New envelope: { data: <payload> } → returns <payload>
+ *   - Legacy:       <payload>           → returns <payload> as-is
+ *
+ * Errors:
+ *   - New envelope: { error: { code, message, details? } } → throws ApiError
+ *   - Legacy:       { error: "string" }                     → throws ApiError
+ */
 async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const { method = 'GET', body, token } = options;
 
@@ -31,11 +59,32 @@ async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `API Error: ${response.status}`);
+    const errBody = await response.json().catch(() => ({ error: 'Unknown error' }));
+    // Support both new { error: { code, message } } and legacy { error: "string" }
+    if (errBody.error && typeof errBody.error === 'object') {
+      throw new ApiError(
+        response.status,
+        errBody.error.code || 'UNKNOWN',
+        errBody.error.message || 'Unknown error',
+        errBody.error.details,
+      );
+    }
+    throw new ApiError(
+      response.status,
+      'UNKNOWN',
+      typeof errBody.error === 'string' ? errBody.error : `API Error: ${response.status}`,
+    );
   }
 
-  return response.json();
+  const json = await response.json();
+
+  // Auto-unwrap { data } envelope if present (new convention)
+  if (json && typeof json === 'object' && 'data' in json && Object.keys(json).length === 1) {
+    return json.data as T;
+  }
+
+  // Legacy: return as-is
+  return json as T;
 }
 
 // Auth

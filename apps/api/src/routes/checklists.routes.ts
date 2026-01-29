@@ -31,6 +31,7 @@ import {
   getSurgeonChecklists,
   updateSurgeonFeedback,
 } from '../services/checklists.service.js';
+import { requireAdmin } from '../plugins/auth.js';
 
 export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> {
   // ============================================================================
@@ -66,16 +67,9 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
    * Update facility settings (Admin only)
    */
   fastify.patch('/facility/settings', {
-    preHandler: [fastify.authenticate],
+    preHandler: [requireAdmin],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { facilityId, role } = request.user;
-
-    // Admin only
-    if (role !== 'ADMIN') {
-      return reply.status(403).send({
-        error: 'Only administrators can modify facility settings',
-      });
-    }
+    const { facilityId } = request.user;
 
     const parseResult = UpdateFacilitySettingsRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -171,12 +165,11 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
   });
 
   /**
-   * PUT /checklists/templates/:type
+   * PUT /checklists/templates/:type (legacy — prefer PATCH)
+   * PATCH /checklists/templates/:type
    * Update checklist template items (creates a new version)
    */
-  fastify.put('/checklists/templates/:type', {
-    preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{
+  const updateTemplateHandler = async (request: FastifyRequest<{
     Params: { type: string };
     Body: {
       items: Array<{
@@ -254,7 +247,52 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
         error: err instanceof Error ? err.message : 'Failed to update template',
       });
     }
-  });
+  };
+  fastify.put('/checklists/templates/:type', {
+    preHandler: [fastify.authenticate],
+  }, updateTemplateHandler);
+  fastify.patch('/checklists/templates/:type', {
+    preHandler: [fastify.authenticate],
+  }, updateTemplateHandler);
+
+  /**
+   * PUT /surgeon/checklists/:instanceId/feedback (legacy — prefer PATCH)
+   * PATCH /surgeon/checklists/:instanceId/feedback
+   * Update surgeon feedback on a checklist (notes and/or flag for review)
+   */
+  const updateSurgeonFeedbackHandler = async (request: FastifyRequest<{
+    Params: { instanceId: string };
+    Body: { notes?: string; flagged?: boolean; flaggedComment?: string };
+  }>, reply: FastifyReply) => {
+    const { instanceId } = request.params;
+    const { facilityId, userId, roles } = request.user;
+
+    if (!roles || !roles.includes('SURGEON')) {
+      return reply.status(403).send({
+        error: 'Only surgeons can update surgeon feedback',
+      });
+    }
+
+    const body = request.body as { notes?: string; flagged?: boolean; flaggedComment?: string };
+
+    const result = await updateSurgeonFeedback(instanceId, facilityId, userId, {
+      notes: body.notes,
+      flagged: body.flagged,
+      flaggedComment: body.flaggedComment,
+    });
+
+    if (!result.success) {
+      return reply.status(400).send({ error: result.error });
+    }
+
+    return reply.send({ success: true });
+  };
+  fastify.put('/surgeon/checklists/:instanceId/feedback', {
+    preHandler: [fastify.authenticate],
+  }, updateSurgeonFeedbackHandler);
+  fastify.patch('/surgeon/checklists/:instanceId/feedback', {
+    preHandler: [fastify.authenticate],
+  }, updateSurgeonFeedbackHandler);
 
   // ============================================================================
   // CASE CHECKLISTS
@@ -720,38 +758,4 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     });
   });
 
-  /**
-   * PUT /surgeon/checklists/:instanceId/feedback
-   * Update surgeon feedback on a checklist (notes and/or flag for review)
-   */
-  fastify.put('/surgeon/checklists/:instanceId/feedback', {
-    preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{
-    Params: { instanceId: string };
-    Body: { notes?: string; flagged?: boolean; flaggedComment?: string };
-  }>, reply: FastifyReply) => {
-    const { instanceId } = request.params;
-    const { facilityId, userId, roles } = request.user;
-
-    // Only surgeons can update surgeon feedback (check roles array for multi-role support)
-    if (!roles || !roles.includes('SURGEON')) {
-      return reply.status(403).send({
-        error: 'Only surgeons can update surgeon feedback',
-      });
-    }
-
-    const body = request.body as { notes?: string; flagged?: boolean; flaggedComment?: string };
-
-    const result = await updateSurgeonFeedback(instanceId, facilityId, userId, {
-      notes: body.notes,
-      flagged: body.flagged,
-      flaggedComment: body.flaggedComment,
-    });
-
-    if (!result.success) {
-      return reply.status(400).send({ error: result.error });
-    }
-
-    return reply.send({ success: true });
-  });
 }

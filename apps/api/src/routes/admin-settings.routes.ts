@@ -1,0 +1,216 @@
+/**
+ * Canonical Admin Settings Routes
+ *
+ * Provides a unified entry-point for all settings under /api/admin/settings/*.
+ * Delegates to existing handlers — no duplicate business logic.
+ * See docs/api-contract.md for conventions.
+ */
+
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { query } from '../db/index.js';
+import { requireAdmin } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
+import {
+  getFacilitySettings,
+} from '../services/checklists.service.js';
+
+interface RoomRow {
+  id: string;
+  name: string;
+  active: boolean;
+  sort_order: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface ConfigItemRow {
+  id: string;
+  item_type: string;
+  item_key: string;
+  display_label: string;
+  description: string | null;
+  sort_order: number;
+  active: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface SurgeonRow {
+  id: string;
+  name: string;
+  username: string;
+  display_color: string | null;
+}
+
+export async function adminSettingsRoutes(fastify: FastifyInstance): Promise<void> {
+  /**
+   * GET /admin/settings
+   * Returns all settings categories in a stable structure.
+   */
+  fastify.get('/', {
+    preHandler: [requireAdmin],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { facilityId } = request.user;
+
+    // Fetch all settings in parallel
+    const [facility, roomsResult, surgeonsResult, configItemsResult] = await Promise.all([
+      getFacilitySettings(facilityId),
+      query<RoomRow>(`
+        SELECT id, name, active, sort_order, created_at, updated_at
+        FROM room WHERE facility_id = $1
+        ORDER BY sort_order ASC, name ASC
+      `, [facilityId]),
+      query<SurgeonRow>(`
+        SELECT id, name, username, display_color
+        FROM app_user
+        WHERE facility_id = $1 AND 'SURGEON' = ANY(roles)
+        ORDER BY name ASC
+      `, [facilityId]),
+      query<ConfigItemRow>(`
+        SELECT id, item_type, item_key, display_label, description, sort_order, active, created_at, updated_at
+        FROM facility_config_item
+        WHERE facility_id = $1
+        ORDER BY item_type, sort_order ASC
+      `, [facilityId]),
+    ]);
+
+    return ok(reply, {
+      facility: facility || {
+        facilityId,
+        enableTimeoutDebrief: false,
+      },
+      rooms: roomsResult.rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        active: r.active,
+        sortOrder: r.sort_order,
+        createdAt: r.created_at.toISOString(),
+        updatedAt: r.updated_at.toISOString(),
+      })),
+      surgeons: surgeonsResult.rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        username: r.username,
+        displayColor: r.display_color,
+      })),
+      configItems: configItemsResult.rows.map(r => ({
+        id: r.id,
+        itemType: r.item_type,
+        itemKey: r.item_key,
+        displayLabel: r.display_label,
+        description: r.description,
+        sortOrder: r.sort_order,
+        active: r.active,
+        createdAt: r.created_at.toISOString(),
+        updatedAt: r.updated_at.toISOString(),
+      })),
+    });
+  });
+
+  /**
+   * GET /admin/settings/facility
+   * Canonical alias for GET /facility/settings
+   */
+  fastify.get('/facility', {
+    preHandler: [requireAdmin],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { facilityId } = request.user;
+    const settings = await getFacilitySettings(facilityId);
+    return ok(reply, settings || {
+      facilityId,
+      enableTimeoutDebrief: false,
+    });
+  });
+
+  /**
+   * GET /admin/settings/rooms
+   * Canonical alias for GET /settings/rooms
+   */
+  fastify.get<{ Querystring: { includeInactive?: string } }>('/rooms', {
+    preHandler: [requireAdmin],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const includeInactive = request.query.includeInactive === 'true';
+
+    let sql = `
+      SELECT id, name, active, sort_order, created_at, updated_at
+      FROM room WHERE facility_id = $1
+    `;
+    if (!includeInactive) sql += ` AND active = true`;
+    sql += ` ORDER BY sort_order ASC, name ASC`;
+
+    const result = await query<RoomRow>(sql, [facilityId]);
+    return ok(reply, {
+      rooms: result.rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        active: r.active,
+        sortOrder: r.sort_order,
+        createdAt: r.created_at.toISOString(),
+        updatedAt: r.updated_at.toISOString(),
+      })),
+    });
+  });
+
+  /**
+   * GET /admin/settings/surgeons
+   * Canonical alias for GET /settings/surgeons
+   */
+  fastify.get('/surgeons', {
+    preHandler: [requireAdmin],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { facilityId } = request.user;
+    const result = await query<SurgeonRow>(`
+      SELECT id, name, username, display_color
+      FROM app_user
+      WHERE facility_id = $1 AND 'SURGEON' = ANY(roles)
+      ORDER BY name ASC
+    `, [facilityId]);
+    return ok(reply, {
+      surgeons: result.rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        username: r.username,
+        displayColor: r.display_color,
+      })),
+    });
+  });
+
+  /**
+   * GET /admin/settings/config-items
+   * Canonical alias for GET /general-settings/config-items
+   */
+  fastify.get<{ Querystring: { itemType?: string; includeInactive?: string } }>('/config-items', {
+    preHandler: [requireAdmin],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { itemType, includeInactive } = request.query;
+
+    let sql = `
+      SELECT id, item_type, item_key, display_label, description, sort_order, active, created_at, updated_at
+      FROM facility_config_item WHERE facility_id = $1
+    `;
+    const params: unknown[] = [facilityId];
+    if (itemType) {
+      sql += ` AND item_type = $2`;
+      params.push(itemType);
+    }
+    if (includeInactive !== 'true') sql += ` AND active = true`;
+    sql += ` ORDER BY item_type, sort_order ASC`;
+
+    const result = await query<ConfigItemRow>(sql, params);
+    return ok(reply, {
+      items: result.rows.map(r => ({
+        id: r.id,
+        itemType: r.item_type,
+        itemKey: r.item_key,
+        displayLabel: r.display_label,
+        description: r.description,
+        sortOrder: r.sort_order,
+        active: r.active,
+        createdAt: r.created_at.toISOString(),
+        updatedAt: r.updated_at.toISOString(),
+      })),
+    });
+  });
+}

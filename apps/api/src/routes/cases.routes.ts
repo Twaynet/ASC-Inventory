@@ -19,6 +19,8 @@ import {
 import { requireScheduler, requireSurgeon, requireAdmin } from '../plugins/auth.js';
 import { canStartCase, canCompleteCase } from '../services/checklists.service.js';
 import { getCaseRepository, SurgicalCase } from '../repositories/index.js';
+import { getStatusEvents } from '../services/case-status.service.js';
+import { ok } from '../utils/reply.js';
 
 // Helper to format case for API response
 function formatCase(c: SurgicalCase) {
@@ -201,7 +203,8 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const { id } = request.params;
-    const { facilityId, role } = request.user;
+    const { facilityId } = request.user;
+    const userRoles = request.user.roles || [request.user.role];
 
     const parseResult = UpdateCaseRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -221,7 +224,8 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Only ADMIN or SCHEDULER can modify date/time on active cases
     if (caseStatus.isActive && (data.scheduledDate !== undefined || data.scheduledTime !== undefined)) {
-      if (role !== 'ADMIN' && role !== 'SCHEDULER') {
+      const canModifySchedule = userRoles.includes('ADMIN') || userRoles.includes('SCHEDULER');
+      if (!canModifySchedule) {
         return reply.status(403).send({ error: 'Only ADMIN or SCHEDULER can modify date/time on active cases' });
       }
     }
@@ -255,7 +259,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       preferenceCardVersionId: data.preferenceCardVersionId,
       status: data.status as any,
       notes: data.notes,
-    });
+    }, request.user.userId);
 
     if (!updated) {
       return reply.status(404).send({ error: 'Procedure not found' });
@@ -452,7 +456,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Cannot deactivate a case that is in progress or completed' });
     }
 
-    const deactivated = await caseRepo.deactivate(id, facilityId);
+    const deactivated = await caseRepo.deactivate(id, facilityId, request.user.userId);
     if (!deactivated) {
       return reply.status(404).send({ error: 'Procedure not found' });
     }
@@ -684,6 +688,13 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       FOREIGN KEY (case_id) REFERENCES surgical_case(id) ON DELETE SET NULL
     `);
 
+    // For surgical_case_status_event (append-only), orphan records
+    await query(`ALTER TABLE surgical_case_status_event DISABLE TRIGGER case_status_event_no_update`);
+    await query(`ALTER TABLE surgical_case_status_event DISABLE TRIGGER case_status_event_no_delete`);
+    await query(`UPDATE surgical_case_status_event SET surgical_case_id = NULL WHERE surgical_case_id = $1`, [id]);
+    await query(`ALTER TABLE surgical_case_status_event ENABLE TRIGGER case_status_event_no_update`);
+    await query(`ALTER TABLE surgical_case_status_event ENABLE TRIGGER case_status_event_no_delete`);
+
     // For case_event_log (append-only with NOT NULL case_id), we need to:
     // 1. Drop FK constraint
     // 2. Disable trigger
@@ -715,5 +726,35 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     return reply.send({ success: true, message: 'Case deleted successfully' });
+  });
+
+  /**
+   * GET /cases/:id/status-events
+   * Append-only audit trail for status transitions
+   */
+  fastify.get<{ Params: { id: string } }>('/:id/status-events', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId } = request.user;
+
+    // Verify case belongs to facility
+    const caseStatus = await caseRepo.getStatus(id, facilityId);
+    if (!caseStatus) {
+      return reply.status(404).send({ error: 'Procedure not found' });
+    }
+
+    const events = await getStatusEvents(id);
+    return ok(reply, events.map(e => ({
+      id: e.id,
+      surgicalCaseId: e.surgical_case_id,
+      fromStatus: e.from_status,
+      toStatus: e.to_status,
+      reason: e.reason,
+      context: e.context,
+      actorUserId: e.actor_user_id,
+      actorName: e.actor_name,
+      createdAt: e.created_at.toISOString(),
+    })));
   });
 }

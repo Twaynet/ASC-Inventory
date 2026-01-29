@@ -11,6 +11,7 @@ import {
   ReorderConfigItemsRequestSchema,
 } from '../schemas/index.js';
 import { requireAdmin } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
 
 interface ConfigItemRow {
   id: string;
@@ -70,7 +71,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
 
     const result = await query<ConfigItemRow>(sql, params);
 
-    return reply.send({
+    return ok(reply, {
       items: result.rows.map(mapRowToResponse),
     });
   });
@@ -84,10 +85,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
   }, async (request, reply) => {
     const parseResult = CreateConfigItemRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { facilityId } = request.user;
@@ -100,7 +98,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
     `, [facilityId, data.itemType, data.itemKey]);
 
     if (keyCheck.rows.length > 0) {
-      return reply.status(400).send({ error: 'Item key already exists for this type' });
+      return fail(reply, 'DUPLICATE', 'Item key already exists for this type', 400);
     }
 
     // Get next sort order
@@ -117,9 +115,9 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
     `, [facilityId, data.itemType, data.itemKey, data.displayLabel, data.description || null, nextSortOrder]);
 
     const row = result.rows[0];
-    return reply.status(201).send({
+    return ok(reply, {
       item: mapRowToResponse(row),
-    });
+    }, 201);
   });
 
   /**
@@ -134,10 +132,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
 
     const parseResult = UpdateConfigItemRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const data = parseResult.data;
@@ -148,7 +143,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
     `, [id, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Config item not found' });
+      return fail(reply, 'NOT_FOUND', 'Config item not found', 404);
     }
 
     // Build update query
@@ -166,7 +161,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
     }
 
     if (updates.length === 0) {
-      return reply.status(400).send({ error: 'No updates provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No updates provided', 400);
     }
 
     values.push(id, facilityId);
@@ -179,7 +174,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
     `, values);
 
     const row = result.rows[0];
-    return reply.send({
+    return ok(reply, {
       item: mapRowToResponse(row),
     });
   });
@@ -199,11 +194,11 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Config item not found' });
+      return fail(reply, 'NOT_FOUND', 'Config item not found', 404);
     }
 
     if (!result.rows[0].active) {
-      return reply.status(400).send({ error: 'Item is already inactive' });
+      return fail(reply, 'INVALID_STATE', 'Item is already inactive', 400);
     }
 
     await query(`
@@ -211,7 +206,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -229,11 +224,11 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Config item not found' });
+      return fail(reply, 'NOT_FOUND', 'Config item not found', 404);
     }
 
     if (result.rows[0].active) {
-      return reply.status(400).send({ error: 'Item is already active' });
+      return fail(reply, 'INVALID_STATE', 'Item is already active', 400);
     }
 
     await query(`
@@ -241,22 +236,18 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
-   * PUT /general-settings/config-items/reorder
+   * PUT /general-settings/config-items/reorder (legacy — prefer PATCH)
+   * PATCH /general-settings/config-items/reorder
    * Bulk reorder config items (ADMIN only)
    */
-  fastify.put('/config-items/reorder', {
-    preHandler: [requireAdmin],
-  }, async (request, reply) => {
+  const reorderHandler = async (request: import('fastify').FastifyRequest, reply: import('fastify').FastifyReply) => {
     const parseResult = ReorderConfigItemsRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { facilityId } = request.user;
@@ -269,7 +260,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
     `, [facilityId, itemType, orderedIds]);
 
     if (verifyResult.rows.length !== orderedIds.length) {
-      return reply.status(400).send({ error: 'Invalid item IDs provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid item IDs provided', 400);
     }
 
     // Update sort orders
@@ -281,6 +272,8 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
       `, [i + 1, orderedIds[i], facilityId]);
     }
 
-    return reply.send({ success: true });
-  });
+    return ok(reply, { success: true });
+  };
+  fastify.put('/config-items/reorder', { preHandler: [requireAdmin] }, reorderHandler);
+  fastify.patch('/config-items/reorder', { preHandler: [requireAdmin] }, reorderHandler);
 }

@@ -10,6 +10,7 @@ import {
   UpdateRoomRequestSchema,
 } from '../schemas/index.js';
 import { requireAdmin } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
 
 interface RoomRow {
   id: string;
@@ -46,7 +47,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
 
     const result = await query<RoomRow>(sql, [facilityId]);
 
-    return reply.send({
+    return ok(reply, {
       rooms: result.rows.map(row => ({
         id: row.id,
         name: row.name,
@@ -67,10 +68,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const parseResult = CreateRoomRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { facilityId } = request.user;
@@ -82,7 +80,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [facilityId, data.name]);
 
     if (nameCheck.rows.length > 0) {
-      return reply.status(400).send({ error: 'Room name already exists' });
+      return fail(reply, 'DUPLICATE', 'Room name already exists', 400);
     }
 
     // Get the next sort_order value
@@ -98,7 +96,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [facilityId, data.name, nextSortOrder]);
 
     const row = result.rows[0];
-    return reply.status(201).send({
+    return ok(reply, {
       room: {
         id: row.id,
         name: row.name,
@@ -107,7 +105,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
       },
-    });
+    }, 201);
   });
 
   /**
@@ -122,10 +120,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
 
     const parseResult = UpdateRoomRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const data = parseResult.data;
@@ -136,7 +131,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Room not found' });
+      return fail(reply, 'NOT_FOUND', 'Room not found', 404);
     }
 
     // Check name uniqueness if changing
@@ -146,12 +141,12 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
       `, [facilityId, data.name, id]);
 
       if (nameCheck.rows.length > 0) {
-        return reply.status(400).send({ error: 'Room name already exists' });
+        return fail(reply, 'DUPLICATE', 'Room name already exists', 400);
       }
     }
 
     if (!data.name) {
-      return reply.status(400).send({ error: 'No updates provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No updates provided', 400);
     }
 
     const result = await query<RoomRow>(`
@@ -161,7 +156,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [data.name, id, facilityId]);
 
     const row = result.rows[0];
-    return reply.send({
+    return ok(reply, {
       room: {
         id: row.id,
         name: row.name,
@@ -188,11 +183,11 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Room not found' });
+      return fail(reply, 'NOT_FOUND', 'Room not found', 404);
     }
 
     if (!result.rows[0].active) {
-      return reply.status(400).send({ error: 'Room is already inactive' });
+      return fail(reply, 'INVALID_STATE', 'Room is already inactive', 400);
     }
 
     await query(`
@@ -200,7 +195,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -218,11 +213,11 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Room not found' });
+      return fail(reply, 'NOT_FOUND', 'Room not found', 404);
     }
 
     if (result.rows[0].active) {
-      return reply.status(400).send({ error: 'Room is already active' });
+      return fail(reply, 'INVALID_STATE', 'Room is already active', 400);
     }
 
     await query(`
@@ -230,7 +225,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -245,7 +240,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     const { orderedIds } = request.body;
 
     if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
-      return reply.status(400).send({ error: 'orderedIds must be a non-empty array' });
+      return fail(reply, 'VALIDATION_ERROR', 'orderedIds must be a non-empty array', 400);
     }
 
     // Verify all rooms belong to this facility
@@ -257,7 +252,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     const invalidIds = orderedIds.filter(id => !facilityRoomIds.has(id));
 
     if (invalidIds.length > 0) {
-      return reply.status(400).send({ error: 'Invalid room IDs provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid room IDs provided', 400);
     }
 
     // Update sort_order for each room in a transaction
@@ -275,7 +270,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
       throw err;
     }
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   // ============================================================================
@@ -305,7 +300,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
       ORDER BY name ASC
     `, [facilityId]);
 
-    return reply.send({
+    return ok(reply, {
       surgeons: result.rows.map(row => ({
         id: row.id,
         name: row.name,
@@ -329,7 +324,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     // Validate color format if provided
     if (displayColor !== undefined && displayColor !== null) {
       if (!/^#[0-9A-Fa-f]{6}$/.test(displayColor)) {
-        return reply.status(400).send({ error: 'Invalid color format. Use hex format (e.g., #3B82F6)' });
+        return fail(reply, 'VALIDATION_ERROR', 'Invalid color format. Use hex format (e.g., #3B82F6)', 400);
       }
     }
 
@@ -341,7 +336,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (userCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Surgeon not found' });
+      return fail(reply, 'NOT_FOUND', 'Surgeon not found', 404);
     }
 
     // Update the display color
@@ -350,6 +345,6 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
       WHERE id = $2 AND facility_id = $3
     `, [displayColor ?? null, id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 }

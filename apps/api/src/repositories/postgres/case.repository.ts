@@ -15,6 +15,7 @@ import {
   CaseFilters,
   RequirementItem,
 } from '../interfaces/case.repository.js';
+import { recordStatusEvent } from '../../services/case-status.service.js';
 
 interface CaseRow {
   id: string;
@@ -193,10 +194,26 @@ export class PostgresCaseRepository implements ICaseRepository {
       isActive,
     ]);
 
-    return mapCaseRow(result.rows[0]);
+    const created = mapCaseRow(result.rows[0]);
+
+    // Record the initial status event
+    await recordStatusEvent(created.id, null, created.status, null, {
+      context: { source: 'case_create' },
+    });
+
+    return created;
   }
 
-  async update(id: string, facilityId: string, data: UpdateCaseData): Promise<SurgicalCase | null> {
+  async update(id: string, facilityId: string, data: UpdateCaseData, actorUserId?: string): Promise<SurgicalCase | null> {
+    // Capture previous status when a status change is requested
+    let previousStatus: string | null = null;
+    if (data.status !== undefined) {
+      const prev = await query<{ status: string }>(`
+        SELECT status FROM surgical_case WHERE id = $1 AND facility_id = $2
+      `, [id, facilityId]);
+      if (prev.rows.length > 0) previousStatus = prev.rows[0].status;
+    }
+
     const updates: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -256,6 +273,14 @@ export class PostgresCaseRepository implements ICaseRepository {
     `, values);
 
     if (result.rows.length === 0) return null;
+
+    // Record status transition event when status actually changed
+    if (data.status !== undefined && previousStatus !== null && previousStatus !== data.status) {
+      await recordStatusEvent(id, previousStatus, data.status, actorUserId ?? null, {
+        context: { source: 'case_update' },
+      });
+    }
+
     return mapCaseRow(result.rows[0]);
   }
 
@@ -265,6 +290,10 @@ export class PostgresCaseRepository implements ICaseRepository {
     userId: string,
     data: ActivateCaseData
   ): Promise<SurgicalCase | null> {
+    // Capture previous status for event
+    const prev = await query<{ status: string }>(`SELECT status FROM surgical_case WHERE id = $1 AND facility_id = $2`, [id, facilityId]);
+    const fromStatus = prev.rows[0]?.status ?? null;
+
     const result = await query<CaseRow>(`
       UPDATE surgical_case
       SET is_active = true,
@@ -281,6 +310,11 @@ export class PostgresCaseRepository implements ICaseRepository {
     `, [id, facilityId, userId, data.scheduledDate, data.scheduledTime ?? null]);
 
     if (result.rows.length === 0) return null;
+
+    await recordStatusEvent(id, fromStatus, 'SCHEDULED', userId, {
+      context: { source: 'case_activate' },
+    });
+
     return mapCaseRow(result.rows[0]);
   }
 
@@ -308,6 +342,11 @@ export class PostgresCaseRepository implements ICaseRepository {
     `, [id, facilityId, data.scheduledDate, data.scheduledTime ?? null, userId, data.roomId ?? null, data.estimatedDurationMinutes ?? null]);
 
     if (result.rows.length === 0) return null;
+
+    await recordStatusEvent(id, 'REQUESTED', 'SCHEDULED', userId, {
+      context: { source: 'case_approve' },
+    });
+
     return mapCaseRow(result.rows[0]);
   }
 
@@ -331,10 +370,20 @@ export class PostgresCaseRepository implements ICaseRepository {
     `, [id, facilityId, userId, data.reason]);
 
     if (result.rows.length === 0) return null;
+
+    await recordStatusEvent(id, 'REQUESTED', 'REJECTED', userId, {
+      reason: data.reason,
+      context: { source: 'case_reject' },
+    });
+
     return mapCaseRow(result.rows[0]);
   }
 
-  async deactivate(id: string, facilityId: string): Promise<SurgicalCase | null> {
+  async deactivate(id: string, facilityId: string, userId: string): Promise<SurgicalCase | null> {
+    // Capture previous status for event
+    const prev = await query<{ status: string }>(`SELECT status FROM surgical_case WHERE id = $1 AND facility_id = $2`, [id, facilityId]);
+    const fromStatus = prev.rows[0]?.status ?? null;
+
     const result = await query<CaseRow>(`
       UPDATE surgical_case
       SET is_active = false,
@@ -347,6 +396,11 @@ export class PostgresCaseRepository implements ICaseRepository {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) return null;
+
+    await recordStatusEvent(id, fromStatus, 'DRAFT', userId, {
+      context: { source: 'case_deactivate' },
+    });
+
     return mapCaseRow(result.rows[0]);
   }
 
@@ -356,6 +410,10 @@ export class PostgresCaseRepository implements ICaseRepository {
     userId: string,
     reason?: string
   ): Promise<SurgicalCase | null> {
+    // Capture previous status for event
+    const prev = await query<{ status: string }>(`SELECT status FROM surgical_case WHERE id = $1 AND facility_id = $2`, [id, facilityId]);
+    const fromStatus = prev.rows[0]?.status ?? null;
+
     const result = await query<CaseRow>(`
       UPDATE surgical_case
       SET is_cancelled = true,
@@ -371,6 +429,12 @@ export class PostgresCaseRepository implements ICaseRepository {
     `, [id, facilityId, userId, reason ?? null]);
 
     if (result.rows.length === 0) return null;
+
+    await recordStatusEvent(id, fromStatus, 'CANCELLED', userId, {
+      reason: reason ?? undefined,
+      context: { source: 'case_cancel' },
+    });
+
     return mapCaseRow(result.rows[0]);
   }
 

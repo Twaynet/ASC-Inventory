@@ -375,6 +375,14 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
 
     console.log('Created 15 additional test cases for debrief testing');
 
+    // Record status events for all seeded cases (append-only audit trail)
+    await client.query(`
+      INSERT INTO surgical_case_status_event (surgical_case_id, from_status, to_status, context, actor_user_id)
+      SELECT id, NULL, status::text, '{"source":"seed"}'::jsonb, $1
+      FROM surgical_case WHERE facility_id = $2
+    `, [adminId, facilityId]);
+    console.log('Recorded status events for seeded cases');
+
     // Create a device
     await client.query(`
       INSERT INTO device (facility_id, name, device_type, location_id)

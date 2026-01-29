@@ -21,6 +21,7 @@
 
 import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
+import { composeCaseCardVersion } from '../services/compose-case-card.js';
 
 // ============================================================================
 // Constants
@@ -78,6 +79,9 @@ interface CaseCardVersionRow {
   medications: Record<string, unknown>;
   setup_positioning: Record<string, unknown>;
   surgeon_notes: Record<string, unknown>;
+  components: unknown[];
+  overrides: unknown[];
+  composed_cache: unknown | null;
   created_at: Date;
   created_by_user_id: string;
   created_by_name: string;
@@ -102,11 +106,18 @@ interface EditLogRow {
 // ============================================================================
 
 /**
- * Check if user role is allowed to access case cards
- * Per governance doc: SCHEDULER is explicitly excluded
+ * Check if ANY of the user's roles is allowed to access case cards.
+ * Accepts a single role string or roles array. Uses roles[] as truth.
+ * Per governance doc: SCHEDULER is explicitly excluded.
  */
-function isRoleAllowed(role: string): boolean {
-  return CASE_CARD_ALLOWED_ROLES.includes(role);
+function isRoleAllowed(roleOrRoles: string | string[]): boolean {
+  const roles = Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles];
+  return roles.some(r => CASE_CARD_ALLOWED_ROLES.includes(r));
+}
+
+/** Extract roles[] from request.user, with backward-compat fallback. */
+function extractUserRoles(user: { roles?: string[]; role?: string }): string[] {
+  return user.roles && user.roles.length > 0 ? user.roles : (user.role ? [user.role] : []);
 }
 
 /**
@@ -440,10 +451,11 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const userRoles = extractUserRoles(request.user);
     const body = request.body as any;
 
     // Per governance doc: SCHEDULER is explicitly excluded from case-card editing
-    if (!isRoleAllowed(userRole)) {
+    if (!isRoleAllowed(userRoles)) {
       return reply.status(403).send({ error: 'Your role does not have permission to create case cards' });
     }
 
@@ -574,10 +586,11 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const userRoles = extractUserRoles(request.user);
     const body = request.body as any;
 
     // Per governance doc: SCHEDULER is explicitly excluded from case-card editing
-    if (!isRoleAllowed(userRole)) {
+    if (!isRoleAllowed(userRoles)) {
       return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
     }
 
@@ -673,15 +686,23 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       id,
     ]);
 
-    // Create new version
+    // Load prior version's composition data to carry forward
+    const priorComp = await query<{ components: unknown; overrides: unknown }>(`
+      SELECT components, overrides FROM case_card_version WHERE id = $1
+    `, [existing.current_version_id]);
+    const priorComponents = priorComp.rows[0]?.components ?? [];
+    const priorOverrides = priorComp.rows[0]?.overrides ?? [];
+
+    // Create new version (components/overrides copied forward, cache cleared)
     const versionResult = await query<{ id: string }>(`
       INSERT INTO case_card_version (
         case_card_id, version_number,
         header_info, patient_flags, instrumentation, equipment,
         supplies, medications, setup_positioning, surgeon_notes,
+        components, overrides,
         created_by_user_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING id
     `, [
       id,
@@ -694,6 +715,8 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       JSON.stringify(body.medications || {}),
       JSON.stringify(body.setupPositioning || {}),
       JSON.stringify(body.surgeonNotes || {}),
+      JSON.stringify(priorComponents),
+      JSON.stringify(priorOverrides),
       userId,
     ]);
 
@@ -739,6 +762,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const userRoles = extractUserRoles(request.user);
 
     const result = await query<{ status: string; surgeon_id: string; procedure_name: string }>(`
       SELECT status, surgeon_id, procedure_name FROM case_card WHERE id = $1 AND facility_id = $2
@@ -788,6 +812,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const userRoles = extractUserRoles(request.user);
     const body = request.body as any;
 
     const result = await query<{ status: string; surgeon_id: string }>(`
@@ -802,7 +827,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Per governance doc: Only OWNER-SURGEON or ADMIN can deactivate
     const isOwnerSurgeon = card.surgeon_id === userId;
-    const isAdmin = userRole === 'ADMIN';
+    const isAdmin = userRoles.includes('ADMIN');
 
     if (!isOwnerSurgeon && !isAdmin) {
       return reply.status(403).send({
@@ -858,6 +883,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const userRoles = extractUserRoles(request.user);
     const body = request.body as any;
 
     const result = await query<{ status: string; surgeon_id: string }>(`
@@ -926,10 +952,11 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { id: sourceId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const userRoles = extractUserRoles(request.user);
     const body = request.body as any;
 
     // Per governance doc: SCHEDULER is explicitly excluded
-    if (!isRoleAllowed(userRole)) {
+    if (!isRoleAllowed(userRoles)) {
       return reply.status(403).send({ error: 'Your role does not have permission to clone case cards' });
     }
 
@@ -1014,15 +1041,16 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
     const newCardId = newCardResult.rows[0].id;
 
-    // Create initial version (cloned from source)
+    // Create initial version (cloned from source, composition copied, cache cleared)
     const newVersionResult = await query<{ id: string }>(`
       INSERT INTO case_card_version (
         case_card_id, version_number,
         header_info, patient_flags, instrumentation, equipment,
         supplies, medications, setup_positioning, surgeon_notes,
+        components, overrides,
         created_by_user_id
       )
-      VALUES ($1, '1.0.0', $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, '1.0.0', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id
     `, [
       newCardId,
@@ -1034,6 +1062,8 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       sourceVersion?.medications || '{}',
       sourceVersion?.setup_positioning || '{}',
       sourceVersion?.surgeon_notes || '{}',
+      JSON.stringify(sourceVersion?.components ?? []),
+      JSON.stringify(sourceVersion?.overrides ?? []),
       userId,
     ]);
 
@@ -1090,9 +1120,10 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const userRoles = extractUserRoles(request.user);
 
     // Per governance doc: SCHEDULER is explicitly excluded
-    if (!isRoleAllowed(userRole)) {
+    if (!isRoleAllowed(userRoles)) {
       return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
     }
 
@@ -1203,10 +1234,11 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { id, versionId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const userRoles = extractUserRoles(request.user);
     const body = request.body as any;
 
     // Per governance doc: SCHEDULER is explicitly excluded
-    if (!isRoleAllowed(userRole)) {
+    if (!isRoleAllowed(userRoles)) {
       return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
     }
 
@@ -1272,15 +1304,16 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     const newPatch = card.version_patch + 1;
     const newVersionNumber = `${newMajor}.${newMinor}.${newPatch}`;
 
-    // Create new version (copy of target version's content)
+    // Create new version (copy of target version's content, composition copied, cache cleared)
     const newVersionResult = await query<{ id: string }>(`
       INSERT INTO case_card_version (
         case_card_id, version_number,
         header_info, patient_flags, instrumentation, equipment,
         supplies, medications, setup_positioning, surgeon_notes,
+        components, overrides,
         created_by_user_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING id
     `, [
       id,
@@ -1293,6 +1326,8 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       targetVersion.medications,
       targetVersion.setup_positioning,
       targetVersion.surgeon_notes,
+      JSON.stringify(targetVersion.components ?? []),
+      JSON.stringify(targetVersion.overrides ?? []),
       userId,
     ]);
 
@@ -1594,4 +1629,163 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       reviewedAt: new Date().toISOString(),
     });
   });
+
+  // ==========================================================================
+  // Composition endpoints
+  // ==========================================================================
+
+  /**
+   * PATCH /case-cards/:caseCardId/versions/:versionId/components
+   * Update the components list on a DRAFT version.
+   */
+  fastify.patch<{ Params: { caseCardId: string; versionId: string } }>(
+    '/:caseCardId/versions/:versionId/components',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const { caseCardId, versionId } = request.params;
+      const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const userRoles = extractUserRoles(request.user);
+      const body = request.body as { components?: unknown[] };
+
+      if (!isRoleAllowed(userRoles)) {
+        return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
+      }
+
+      if (!Array.isArray(body.components)) {
+        return reply.status(400).send({ error: 'components must be an array' });
+      }
+
+      // Verify card exists, belongs to facility, and is DRAFT
+      const card = await query<{ status: string }>(`
+        SELECT cc.status FROM case_card cc
+        JOIN case_card_version ccv ON ccv.case_card_id = cc.id
+        WHERE cc.id = $1 AND cc.facility_id = $2 AND ccv.id = $3
+      `, [caseCardId, facilityId, versionId]);
+
+      if (card.rows.length === 0) {
+        return reply.status(404).send({ error: 'Case card or version not found' });
+      }
+      if (card.rows[0].status !== 'DRAFT') {
+        return reply.status(400).send({ error: 'Only DRAFT case cards can be edited' });
+      }
+
+      // Persist
+      await query(`
+        UPDATE case_card_version
+        SET components = $1, composed_cache = NULL
+        WHERE id = $2
+      `, [JSON.stringify(body.components), versionId]);
+
+      // Audit log
+      await query(`
+        INSERT INTO case_card_edit_log (
+          case_card_id, facility_id, editor_user_id, editor_name, editor_role,
+          change_summary, action_type, new_version_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [
+        caseCardId, facilityId, userId, userName, userRole,
+        `Components updated: ${body.components.length} component(s)`,
+        'COMPONENTS_UPDATED',
+        versionId,
+      ]);
+
+      return reply.send({ success: true, components: body.components });
+    },
+  );
+
+  /**
+   * PATCH /case-cards/:caseCardId/versions/:versionId/overrides
+   * Update the overrides list on a DRAFT version.
+   */
+  fastify.patch<{ Params: { caseCardId: string; versionId: string } }>(
+    '/:caseCardId/versions/:versionId/overrides',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const { caseCardId, versionId } = request.params;
+      const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const userRoles = extractUserRoles(request.user);
+      const body = request.body as { overrides?: unknown[] };
+
+      if (!isRoleAllowed(userRoles)) {
+        return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
+      }
+
+      if (!Array.isArray(body.overrides)) {
+        return reply.status(400).send({ error: 'overrides must be an array' });
+      }
+
+      const card = await query<{ status: string }>(`
+        SELECT cc.status FROM case_card cc
+        JOIN case_card_version ccv ON ccv.case_card_id = cc.id
+        WHERE cc.id = $1 AND cc.facility_id = $2 AND ccv.id = $3
+      `, [caseCardId, facilityId, versionId]);
+
+      if (card.rows.length === 0) {
+        return reply.status(404).send({ error: 'Case card or version not found' });
+      }
+      if (card.rows[0].status !== 'DRAFT') {
+        return reply.status(400).send({ error: 'Only DRAFT case cards can be edited' });
+      }
+
+      await query(`
+        UPDATE case_card_version
+        SET overrides = $1, composed_cache = NULL
+        WHERE id = $2
+      `, [JSON.stringify(body.overrides), versionId]);
+
+      await query(`
+        INSERT INTO case_card_edit_log (
+          case_card_id, facility_id, editor_user_id, editor_name, editor_role,
+          change_summary, action_type, new_version_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [
+        caseCardId, facilityId, userId, userName, userRole,
+        `Overrides updated: ${body.overrides.length} override(s)`,
+        'OVERRIDES_UPDATED',
+        versionId,
+      ]);
+
+      return reply.send({ success: true, overrides: body.overrides });
+    },
+  );
+
+  /**
+   * GET /case-cards/versions/:versionId/composed
+   * Return the composed (merged) view of a case card version.
+   */
+  fastify.get<{ Params: { versionId: string } }>(
+    '/versions/:versionId/composed',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const { versionId } = request.params;
+      const { facilityId } = request.user;
+
+      // Verify version belongs to a card in the user's facility
+      const check = await query<{ id: string; composed_cache: unknown | null }>(`
+        SELECT ccv.id, ccv.composed_cache
+        FROM case_card_version ccv
+        JOIN case_card cc ON cc.id = ccv.case_card_id
+        WHERE ccv.id = $1 AND cc.facility_id = $2
+      `, [versionId, facilityId]);
+
+      if (check.rows.length === 0) {
+        return reply.status(404).send({ error: 'Version not found' });
+      }
+
+      // Return cache if available
+      if (check.rows[0].composed_cache) {
+        return reply.send(check.rows[0].composed_cache);
+      }
+
+      // Compose
+      const result = await composeCaseCardVersion(versionId);
+
+      // Cache result (fire-and-forget)
+      query(`
+        UPDATE case_card_version SET composed_cache = $1 WHERE id = $2
+      `, [JSON.stringify(result), versionId]).catch(() => { /* ignore cache write errors */ });
+
+      return reply.send(result);
+    },
+  );
 }

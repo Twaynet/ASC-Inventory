@@ -33,6 +33,7 @@ import { caseDashboardRoutes } from './routes/case-dashboard.routes.js';
 import { reportsRoutes } from './routes/reports.routes.js';
 import { generalSettingsRoutes } from './routes/general-settings.routes.js';
 import { scheduleRoutes } from './routes/schedule.routes.js';
+import { adminSettingsRoutes } from './routes/admin-settings.routes.js';
 
 const PORT = parseInt(process.env.PORT || '3001');
 const HOST = process.env.HOST || '0.0.0.0';
@@ -112,6 +113,7 @@ async function main() {
   await fastify.register(reportsRoutes, { prefix: '/api/reports' });
   await fastify.register(generalSettingsRoutes, { prefix: '/api/general-settings' });
   await fastify.register(scheduleRoutes, { prefix: '/api/schedule' });
+  await fastify.register(adminSettingsRoutes, { prefix: '/api/admin/settings' });
 
   // Start server
   try {

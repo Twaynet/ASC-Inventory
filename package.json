@@ -13,7 +13,8 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "db:migrate": "cd apps/api && npm run db:migrate",
-    "db:seed": "cd apps/api && npm run db:seed",
+    "db:seed": "cd apps/api && node --import tsx db/seed.ts",
+    "db:check": "cd apps/api && npm run db:check",
     "validate:docs": "npx tsx scripts/validate-docs.ts",
     "validate:doc": "npx tsx scripts/validate-docs.ts"
   },

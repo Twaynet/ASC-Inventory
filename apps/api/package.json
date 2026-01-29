@@ -10,8 +10,9 @@
     "start": "node dist/index.js",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "vitest run",
-    "db:migrate": "node --import tsx db/migrate.ts",
-    "db:seed": "node --import tsx db/seed.ts"
+    "db:migrate": "node --import tsx db/migrate.ts && node --import tsx db/schema-sanity.ts",
+    "db:seed": "node --import tsx db/seed.ts && node --import tsx db/schema-sanity.ts --post-seed",
+    "db:check": "node --import tsx db/schema-sanity.ts"
   },
   "dependencies": {
     "@asc/domain": "*",

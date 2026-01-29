@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { useAuth, useAccessControl } from '@/lib/auth';
 import { AdminNav } from './AdminNav';
 
 interface HeaderProps {
@@ -10,6 +10,7 @@ interface HeaderProps {
 
 export function Header({ title }: HeaderProps) {
   const { user, logout } = useAuth();
+  const { roles } = useAccessControl();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -56,7 +57,7 @@ export function Header({ title }: HeaderProps) {
           <h1>{title}</h1>
         </div>
         <div className="header-user">
-          <AdminNav userRole={user?.role || ''} />
+          <AdminNav userRoles={roles} />
           <button
             onClick={() => router.push('/help')}
             aria-label="Help & FAQ"
@@ -78,7 +79,7 @@ export function Header({ title }: HeaderProps) {
           >
             ?
           </button>
-          <span>{user?.name} ({user?.role})</span>
+          <span>{user?.name} ({roles.join(', ') || user?.role})</span>
           <span>{user?.facilityName}</span>
           <button className="btn btn-secondary btn-sm" onClick={logout}>
             Sign Out

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 interface AdminNavProps {
-  userRole: string;
+  userRoles: string[];
 }
 
 const ADMIN_LINKS = [
@@ -20,7 +20,7 @@ const ADMIN_LINKS = [
   { href: '/admin/pending-reviews', label: 'Pending Reviews' },
 ];
 
-export function AdminNav({ userRole }: AdminNavProps) {
+export function AdminNav({ userRoles }: AdminNavProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -42,7 +42,7 @@ export function AdminNav({ userRole }: AdminNavProps) {
     setIsOpen(false);
   }, [pathname]);
 
-  if (userRole !== 'ADMIN') {
+  if (!userRoles.includes('ADMIN')) {
     return null;
   }
 

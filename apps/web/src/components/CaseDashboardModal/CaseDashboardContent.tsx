@@ -547,7 +547,7 @@ export function CaseDashboardContent({
               </span>
             </p>
             {/* Deactivate/Reactivate button for ADMIN and SCHEDULER */}
-            {(user.role === 'ADMIN' || user.role === 'SCHEDULER') && (
+            {((user.roles || [user.role]).includes('ADMIN') || (user.roles || [user.role]).includes('SCHEDULER')) && (
               <div style={{ margin: '0.5rem 0' }}>
                 <button
                   onClick={handleToggleActive}
