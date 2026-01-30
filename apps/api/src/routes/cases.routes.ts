@@ -16,11 +16,11 @@ import {
   CancelCaseRequestSchema,
   AssignRoomRequestSchema,
 } from '../schemas/index.js';
-import { requireScheduler, requireSurgeon, requireAdmin } from '../plugins/auth.js';
+import { requireCapabilities, getUserRoles, deriveCapabilities } from '../plugins/auth.js';
 import { canStartCase, canCompleteCase } from '../services/checklists.service.js';
 import { getCaseRepository, SurgicalCase } from '../repositories/index.js';
 import { getStatusEvents } from '../services/case-status.service.js';
-import { ok } from '../utils/reply.js';
+import { ok, fail, validated } from '../utils/reply.js';
 
 // Helper to format case for API response
 function formatCase(c: SurgicalCase) {
@@ -79,28 +79,19 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       search,
     });
 
-    return reply.send({
-      cases: cases.map(formatCase),
-    });
+    return ok(reply, { cases: cases.map(formatCase) });
   });
 
   /**
    * POST /cases
-   * Create a new case (any authenticated user)
+   * Create a new case (CASE_CREATE capability)
    * Cases start as inactive (is_active=false)
    */
   fastify.post('/', {
-    preHandler: [fastify.authenticate],
+    preHandler: [requireCapabilities('CASE_CREATE')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parseResult = CreateCaseRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
-
-    const data = parseResult.data;
+    const data = validated(reply, CreateCaseRequestSchema, request.body);
+    if (!data) return;
     const { facilityId } = request.user;
 
     // Validate surgeon exists and belongs to facility (cross-domain check)
@@ -110,7 +101,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     `, [data.surgeonId, facilityId]);
 
     if (surgeonResult.rows.length === 0) {
-      return reply.status(400).send({ error: 'Invalid surgeon' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid surgeon');
     }
 
     // If preference card provided, get its current version
@@ -122,7 +113,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       `, [data.preferenceCardId, facilityId, data.surgeonId]);
 
       if (pcResult.rows.length === 0) {
-        return reply.status(400).send({ error: 'Invalid preference card' });
+        return fail(reply, 'VALIDATION_ERROR', 'Invalid preference card');
       }
 
       preferenceCardVersionId = pcResult.rows[0].current_version_id;
@@ -131,11 +122,11 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     // Check if user is trying to create directly in SCHEDULED status
     let status: 'REQUESTED' | 'SCHEDULED' = 'REQUESTED';
     if (data.status === 'SCHEDULED') {
-      // Only Admin or Scheduler can create directly scheduled cases
-      const userRoles = request.user.roles || [request.user.role];
-      const canDirectSchedule = userRoles.includes('ADMIN') || userRoles.includes('SCHEDULER');
-      if (!canDirectSchedule) {
-        return reply.status(403).send({ error: 'Only Admin or Scheduler can create directly scheduled cases' });
+      // Direct scheduling requires CASE_APPROVE capability
+      const userRoles = getUserRoles(request.user);
+      const userCaps = deriveCapabilities(userRoles);
+      if (!userCaps.includes('CASE_APPROVE')) {
+        return fail(reply, 'FORBIDDEN', 'Only users with scheduling capability can create directly scheduled cases', 403);
       }
       status = 'SCHEDULED';
     }
@@ -159,7 +150,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       await caseRepo.copyRequirementsFromVersion(newCase.id, preferenceCardVersionId);
     }
 
-    return reply.status(201).send({ case: formatCase(newCase) });
+    return ok(reply, { case: formatCase(newCase) }, 201);
   });
 
   /**
@@ -176,12 +167,12 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
     const surgicalCase = await caseRepo.findById(id, facilityId);
     if (!surgicalCase) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     const requirements = await caseRepo.getRequirements(id);
 
-    return reply.send({
+    return ok(reply, {
       case: formatCase(surgicalCase),
       requirements: requirements.map(r => ({
         id: r.id,
@@ -196,37 +187,30 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * PATCH /cases/:id
-   * Update case (any authenticated user)
-   * Note: Only ADMIN can update date/time on active cases
+   * Update case (CASE_UPDATE capability)
+   * Note: Modifying date/time on active cases requires CASE_SCHEDULE
    */
   fastify.patch<{ Params: { id: string } }>('/:id', {
-    preHandler: [fastify.authenticate],
+    preHandler: [requireCapabilities('CASE_UPDATE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
-    const userRoles = request.user.roles || [request.user.role];
 
-    const parseResult = UpdateCaseRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
-
-    const data = parseResult.data;
+    const data = validated(reply, UpdateCaseRequestSchema, request.body);
+    if (!data) return;
 
     // Check current case state
     const caseStatus = await caseRepo.getStatus(id, facilityId);
     if (!caseStatus) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
-    // Only ADMIN or SCHEDULER can modify date/time on active cases
+    // Modifying schedule on active cases requires CASE_SCHEDULE capability
     if (caseStatus.isActive && (data.scheduledDate !== undefined || data.scheduledTime !== undefined)) {
-      const canModifySchedule = userRoles.includes('ADMIN') || userRoles.includes('SCHEDULER');
-      if (!canModifySchedule) {
-        return reply.status(403).send({ error: 'Only ADMIN or SCHEDULER can modify date/time on active cases' });
+      const userRoles = getUserRoles(request.user);
+      const userCaps = deriveCapabilities(userRoles);
+      if (!userCaps.includes('CASE_ASSIGN_ROOM')) {
+        return fail(reply, 'FORBIDDEN', 'Only users with scheduling capability can modify date/time on active cases', 403);
       }
     }
 
@@ -234,20 +218,14 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     if (data.status === 'IN_PROGRESS') {
       const canStart = await canStartCase(id, facilityId);
       if (!canStart) {
-        return reply.status(400).send({
-          error: 'Time Out checklist must be completed before starting the procedure',
-          code: 'TIMEOUT_REQUIRED',
-        });
+        return fail(reply, 'TIMEOUT_REQUIRED', 'Time Out checklist must be completed before starting the procedure');
       }
     }
 
     if (data.status === 'COMPLETED') {
       const canComplete = await canCompleteCase(id, facilityId);
       if (!canComplete) {
-        return reply.status(400).send({
-          error: 'Post-op Debrief checklist must be completed before completing the procedure',
-          code: 'DEBRIEF_REQUIRED',
-        });
+        return fail(reply, 'DEBRIEF_REQUIRED', 'Post-op Debrief checklist must be completed before completing the procedure');
       }
     }
 
@@ -262,45 +240,38 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     }, request.user.userId);
 
     if (!updated) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
-    return reply.send({ case: formatCase(updated) });
+    return ok(reply, { case: formatCase(updated) });
   });
 
   /**
    * POST /cases/:id/activate
-   * Activate a case (ADMIN only)
+   * Activate a case (CASE_ACTIVATE capability)
    * Sets date/time and marks case as active
    */
   fastify.post<{ Params: { id: string } }>('/:id/activate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CASE_ACTIVATE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId } = request.user;
 
-    const parseResult = ActivateCaseRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
-
-    const data = parseResult.data;
+    const data = validated(reply, ActivateCaseRequestSchema, request.body);
+    if (!data) return;
 
     // Check current case state
     const caseStatus = await caseRepo.getStatus(id, facilityId);
     if (!caseStatus) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     if (caseStatus.isCancelled) {
-      return reply.status(400).send({ error: 'Cannot activate a cancelled case' });
+      return fail(reply, 'INVALID_STATE', 'Cannot activate a cancelled case');
     }
 
     if (caseStatus.isActive) {
-      return reply.status(400).send({ error: 'Case is already active' });
+      return fail(reply, 'INVALID_STATE', 'Case is already active');
     }
 
     const activated = await caseRepo.activate(id, facilityId, userId, {
@@ -309,32 +280,25 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     if (!activated) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
-    return reply.send({ case: formatCase(activated) });
+    return ok(reply, { case: formatCase(activated) });
   });
 
   /**
    * POST /cases/:id/approve
-   * Approve a case request (ADMIN/SCHEDULER only)
+   * Approve a case request (CASE_APPROVE capability)
    * Transitions from REQUESTED to SCHEDULED
    */
   fastify.post<{ Params: { id: string } }>('/:id/approve', {
-    preHandler: [requireScheduler],
+    preHandler: [requireCapabilities('CASE_APPROVE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId } = request.user;
 
-    const parseResult = ApproveCaseRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
-
-    const data = parseResult.data;
+    const data = validated(reply, ApproveCaseRequestSchema, request.body);
+    if (!data) return;
 
     const approved = await caseRepo.approve(id, facilityId, userId, {
       scheduledDate: data.scheduledDate,
@@ -344,36 +308,31 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     if (!approved) {
-      return reply.status(404).send({ error: 'Case not found or not in REQUESTED status' });
+      return fail(reply, 'NOT_FOUND', 'Case not found or not in REQUESTED status', 404);
     }
 
-    return reply.send({ case: formatCase(approved) });
+    return ok(reply, { case: formatCase(approved) });
   });
 
   /**
    * PATCH /cases/:id/assign-room
-   * Assign or unassign a room to a case (ADMIN/SCHEDULER only)
+   * Assign or unassign a room to a case (CASE_ASSIGN_ROOM capability)
    */
   fastify.patch<{ Params: { id: string } }>('/:id/assign-room', {
-    preHandler: [requireScheduler],
+    preHandler: [requireCapabilities('CASE_ASSIGN_ROOM')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
 
-    const parseResult = AssignRoomRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
+    const data = validated(reply, AssignRoomRequestSchema, request.body);
+    if (!data) return;
 
-    const { roomId, sortOrder, estimatedDurationMinutes } = parseResult.data;
+    const { roomId, sortOrder, estimatedDurationMinutes } = data;
 
     // Verify case exists
     const caseStatus = await caseRepo.getStatus(id, facilityId);
     if (!caseStatus) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     // Validate room belongs to facility if provided
@@ -383,7 +342,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       `, [roomId, facilityId]);
 
       if (roomResult.rows.length === 0) {
-        return reply.status(400).send({ error: 'Invalid or inactive room' });
+        return fail(reply, 'VALIDATION_ERROR', 'Invalid or inactive room');
       }
     }
 
@@ -394,49 +353,42 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     if (!updated) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
-    return reply.send({ case: formatCase(updated) });
+    return ok(reply, { case: formatCase(updated) });
   });
 
   /**
    * POST /cases/:id/reject
-   * Reject a case request (ADMIN/SCHEDULER only)
+   * Reject a case request (CASE_REJECT capability)
    * Transitions from REQUESTED to REJECTED
    */
   fastify.post<{ Params: { id: string } }>('/:id/reject', {
-    preHandler: [requireScheduler],
+    preHandler: [requireCapabilities('CASE_REJECT')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId } = request.user;
 
-    const parseResult = RejectCaseRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
+    const data = validated(reply, RejectCaseRequestSchema, request.body);
+    if (!data) return;
 
-    const { reason } = parseResult.data;
-
-    const rejected = await caseRepo.reject(id, facilityId, userId, { reason });
+    const rejected = await caseRepo.reject(id, facilityId, userId, { reason: data.reason });
 
     if (!rejected) {
-      return reply.status(404).send({ error: 'Case not found or not in REQUESTED status' });
+      return fail(reply, 'NOT_FOUND', 'Case not found or not in REQUESTED status', 404);
     }
 
-    return reply.send({ case: formatCase(rejected) });
+    return ok(reply, { case: formatCase(rejected) });
   });
 
   /**
    * POST /cases/:id/deactivate
-   * Deactivate a case (ADMIN only)
+   * Deactivate a case (CASE_ACTIVATE capability)
    * Reversible - returns case to inactive state
    */
   fastify.post<{ Params: { id: string } }>('/:id/deactivate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CASE_ACTIVATE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -444,63 +396,56 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     // Check current case state
     const caseStatus = await caseRepo.getStatus(id, facilityId);
     if (!caseStatus) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     if (!caseStatus.isActive) {
-      return reply.status(400).send({ error: 'Case is already inactive' });
+      return fail(reply, 'INVALID_STATE', 'Case is already inactive');
     }
 
     // Cannot deactivate IN_PROGRESS or COMPLETED cases
     if (caseStatus.status === 'IN_PROGRESS' || caseStatus.status === 'COMPLETED') {
-      return reply.status(400).send({ error: 'Cannot deactivate a case that is in progress or completed' });
+      return fail(reply, 'INVALID_STATE', 'Cannot deactivate a case that is in progress or completed');
     }
 
     const deactivated = await caseRepo.deactivate(id, facilityId, request.user.userId);
     if (!deactivated) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
-    return reply.send({ case: formatCase(deactivated) });
+    return ok(reply, { case: formatCase(deactivated) });
   });
 
   /**
    * POST /cases/:id/cancel
-   * Cancel a case (any authenticated user)
+   * Cancel a case (CASE_CANCEL capability)
    * Can happen at any stage
    */
   fastify.post<{ Params: { id: string } }>('/:id/cancel', {
-    preHandler: [fastify.authenticate],
+    preHandler: [requireCapabilities('CASE_CANCEL')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId } = request.user;
 
-    const parseResult = CancelCaseRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
-
-    const { reason } = parseResult.data;
+    const data = validated(reply, CancelCaseRequestSchema, request.body);
+    if (!data) return;
 
     // Check current case state
     const caseStatus = await caseRepo.getStatus(id, facilityId);
     if (!caseStatus) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     if (caseStatus.isCancelled) {
-      return reply.status(400).send({ error: 'Case is already cancelled' });
+      return fail(reply, 'INVALID_STATE', 'Case is already cancelled');
     }
 
-    const cancelled = await caseRepo.cancel(id, facilityId, userId, reason);
+    const cancelled = await caseRepo.cancel(id, facilityId, userId, data.reason);
     if (!cancelled) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
-    return reply.send({ case: formatCase(cancelled) });
+    return ok(reply, { case: formatCase(cancelled) });
   });
 
   /**
@@ -508,25 +453,20 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
    * Select preference card for case (and optionally copy its items)
    */
   fastify.post<{ Params: { id: string } }>('/:id/preference-card', {
-    preHandler: [fastify.authenticate],
+    preHandler: [requireCapabilities('CASE_PREFERENCE_CARD_LINK')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
 
-    const parseResult = SelectPreferenceCardRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
+    const data = validated(reply, SelectPreferenceCardRequestSchema, request.body);
+    if (!data) return;
 
-    const { preferenceCardId } = parseResult.data;
+    const { preferenceCardId } = data;
 
     // Get case surgeon
     const surgeonId = await caseRepo.getSurgeonId(id, facilityId);
     if (!surgeonId) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     // Get preference card and verify it belongs to the surgeon
@@ -536,7 +476,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     `, [preferenceCardId, facilityId, surgeonId]);
 
     if (pcResult.rows.length === 0) {
-      return reply.status(400).send({ error: 'Invalid preference card for this surgeon' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid preference card for this surgeon');
     }
 
     const versionId = pcResult.rows[0].current_version_id;
@@ -557,37 +497,51 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       }
     });
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
    * PUT /cases/:id/requirements
-   * Set case requirements (surgeon override)
+   * Set case requirements.
+   * Capability-based: SURGEON (owner) or ADMIN (override) can set requirements.
    */
   fastify.put<{ Params: { id: string } }>('/:id/requirements', {
-    preHandler: [requireSurgeon],
+    preHandler: [requireCapabilities('CASE_VIEW')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId } = request.user;
 
-    const parseResult = SetCaseRequirementsRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
+    const body = validated(reply, SetCaseRequirementsRequestSchema, request.body);
+    if (!body) return;
 
-    const { requirements, isSurgeonOverride } = parseResult.data;
+    const { requirements, isSurgeonOverride } = body;
 
-    // Verify case exists and surgeon owns it
+    // Verify case exists
     const surgeonId = await caseRepo.getSurgeonId(id, facilityId);
     if (!surgeonId) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
-    if (surgeonId !== userId) {
-      return reply.status(403).send({ error: 'Only the assigned surgeon can modify requirements' });
+    // Authorization: assigned surgeon OR admin (via USER_MANAGE capability)
+    const userRoles = getUserRoles(request.user);
+    const userCaps = deriveCapabilities(userRoles);
+    const isAssignedSurgeon = surgeonId === userId;
+    const isAdmin = userCaps.includes('USER_MANAGE');
+
+    if (!isAssignedSurgeon && !isAdmin) {
+      return fail(reply, 'FORBIDDEN', 'Only the assigned surgeon or an administrator can modify requirements', 403);
+    }
+
+    // Log when ADMIN overrides (not the assigned surgeon)
+    if (isAdmin && !isAssignedSurgeon) {
+      console.info(JSON.stringify({
+        code: 'ADMIN_REQUIREMENTS_OVERRIDE',
+        level: 'info',
+        message: 'Admin modified case requirements for another surgeon',
+        userId,
+        caseId: id,
+        surgeonId,
+      }));
     }
 
     await caseRepo.setRequirements(
@@ -600,16 +554,16 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       isSurgeonOverride
     );
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
    * DELETE /cases/:id
-   * Delete an inactive case (ADMIN/SCHEDULER only)
+   * Delete an inactive case (CASE_DELETE capability — ADMIN only)
    * Only inactive cases can be deleted
    */
   fastify.delete<{ Params: { id: string } }>('/:id', {
-    preHandler: [requireScheduler],
+    preHandler: [requireCapabilities('CASE_DELETE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -617,15 +571,15 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     // Check current case state
     const caseStatus = await caseRepo.getStatus(id, facilityId);
     if (!caseStatus) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     if (caseStatus.isActive) {
-      return reply.status(400).send({ error: 'Cannot delete an active case. Deactivate it first.' });
+      return fail(reply, 'INVALID_STATE', 'Cannot delete an active case. Deactivate it first.');
     }
 
     if (caseStatus.status === 'IN_PROGRESS' || caseStatus.status === 'COMPLETED') {
-      return reply.status(400).send({ error: 'Cannot delete a case that is in progress or completed' });
+      return fail(reply, 'INVALID_STATE', 'Cannot delete a case that is in progress or completed');
     }
 
     // Check if case has any completed checklists (Timeout/Debrief)
@@ -637,9 +591,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id]);
 
     if (parseInt(completedChecklists.rows[0]?.count || '0') > 0) {
-      return reply.status(400).send({
-        error: 'Cannot delete a case with completed Timeout or Debrief checklists. These are part of the audit record.'
-      });
+      return fail(reply, 'INVALID_STATE', 'Cannot delete a case with completed Timeout or Debrief checklists. These are part of the audit record.');
     }
 
     // Delete related records first (foreign key constraints)
@@ -722,10 +674,10 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (deleted.rows.length === 0) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
-    return reply.send({ success: true, message: 'Case deleted successfully' });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -741,7 +693,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     // Verify case belongs to facility
     const caseStatus = await caseRepo.getStatus(id, facilityId);
     if (!caseStatus) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     const events = await getStatusEvents(id);

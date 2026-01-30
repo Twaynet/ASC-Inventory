@@ -12,7 +12,8 @@ import {
   CreateInventoryItemRequestSchema,
   UpdateInventoryItemRequestSchema,
 } from '../schemas/index.js';
-import { requireInventoryTech, requireAdmin } from '../plugins/auth.js';
+import { requireCapabilities } from '../plugins/auth.js';
+import { ok, fail, validated } from '../utils/reply.js';
 import {
   getInventoryRepository,
   getDeviceRepository,
@@ -160,23 +161,17 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
    * Record a single inventory event
    */
   fastify.post('/events', {
-    preHandler: [requireInventoryTech],
+    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parseResult = CreateInventoryEventRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
+    const data = validated(reply, CreateInventoryEventRequestSchema, request.body);
+    if (!data) return;
 
-    const data = parseResult.data;
     const { facilityId, userId } = request.user;
 
     // Verify inventory item exists
     const item = await inventoryRepo.findById(data.inventoryItemId, facilityId);
     if (!item) {
-      return reply.status(404).send({ error: 'Inventory item not found' });
+      return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
     }
 
     const occurredAt = data.occurredAt ? new Date(data.occurredAt) : new Date();
@@ -199,7 +194,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       itemUpdate as any
     );
 
-    return reply.status(201).send({ success: true });
+    return ok(reply, { success: true }, 201);
   });
 
   /**
@@ -207,17 +202,12 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
    * Record multiple inventory events (for batch operations)
    */
   fastify.post('/events/bulk', {
-    preHandler: [requireInventoryTech],
+    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parseResult = BulkInventoryEventRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
+    const body = validated(reply, BulkInventoryEventRequestSchema, request.body);
+    if (!body) return;
 
-    const { events } = parseResult.data;
+    const { events } = body;
     const { facilityId, userId } = request.user;
 
     // Verify all items exist
@@ -231,10 +221,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     const missingIds = itemIds.filter(id => !existingIds.has(id));
 
     if (missingIds.length > 0) {
-      return reply.status(400).send({
-        error: 'Some inventory items not found',
-        missingIds,
-      });
+      return fail(reply, 'ITEMS_NOT_FOUND', 'Some inventory items not found', 400, { missingIds });
     }
 
     // Process each event
@@ -261,7 +248,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       );
     }
 
-    return reply.status(201).send({ success: true, count: events.length });
+    return ok(reply, { success: true, count: events.length }, 201);
   });
 
   /**
@@ -283,15 +270,8 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/device-events', {
     preHandler: [fastify.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parseResult = CreateDeviceEventRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
-
-    const data = parseResult.data;
+    const data = validated(reply, CreateDeviceEventRequestSchema, request.body);
+    if (!data) return;
     const { facilityId } = request.user;
 
     const isKeyboardWedge = data.deviceId === KEYBOARD_WEDGE_DEVICE_ID;
@@ -305,7 +285,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       // Verify device exists and get location
       const device = await deviceRepo.findById(data.deviceId, facilityId);
       if (!device || !device.active) {
-        return reply.status(404).send({ error: 'Device not found or inactive' });
+        return fail(reply, 'NOT_FOUND', 'Device not found or inactive', 404);
       }
     }
 
@@ -387,7 +367,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     // The UI must call POST /inventory/events with deviceEventId to create
     // a VERIFIED event after human confirmation.
 
-    return reply.status(201).send({
+    return ok(reply, {
       deviceEventId: deviceEvent.id,
       processed: processedItemId !== null,
       processedItemId,
@@ -396,7 +376,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       catalogMatch,
       barcodeClassification,
       error: processingError,
-    });
+    }, 201);
   });
 
   /**
@@ -410,7 +390,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
     const devices = await deviceRepo.findMany(facilityId, true);
 
-    return reply.send({
+    return ok(reply, {
       devices: devices.map(d => ({
         id: d.id,
         name: d.name,
@@ -440,7 +420,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       status,
     });
 
-    return reply.send({ items: items.map(formatInventoryItem) });
+    return ok(reply, { items: items.map(formatInventoryItem) });
   });
 
   /**
@@ -455,10 +435,10 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
     const item = await inventoryRepo.findByIdWithDetails(id, facilityId);
     if (!item) {
-      return reply.status(404).send({ error: 'Inventory item not found' });
+      return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
     }
 
-    return reply.send({ item: formatInventoryItem(item) });
+    return ok(reply, { item: formatInventoryItem(item) });
   });
 
   /**
@@ -479,18 +459,12 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
    * Validation occurs BEFORE item creation. Returns 400 with field-specific errors.
    */
   fastify.post('/items', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
   }, async (request, reply) => {
-    const parseResult = CreateInventoryItemRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
+    const data = validated(reply, CreateInventoryItemRequestSchema, request.body);
+    if (!data) return;
 
     const { facilityId } = request.user;
-    const data = parseResult.data;
 
     // Verify catalog item exists and fetch v1.1 intent fields for W1 validation
     const catalogCheck = await query<{
@@ -508,7 +482,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     `, [data.catalogId, facilityId]);
 
     if (catalogCheck.rows.length === 0) {
-      return reply.status(400).send({ error: 'Catalog item not found or inactive' });
+      return fail(reply, 'VALIDATION_ERROR', 'Catalog item not found or inactive');
     }
 
     const catalog = catalogCheck.rows[0];
@@ -544,8 +518,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     if (missingFields.length > 0) {
-      return reply.status(400).send({
-        error: 'Required fields missing based on catalog tracking requirements',
+      return fail(reply, 'VALIDATION_ERROR', 'Required fields missing based on catalog tracking requirements', 400, {
         missingFields,
         catalogRules: {
           requiresLotTracking: catalog.requires_lot_tracking,
@@ -566,7 +539,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       `, [data.locationId, facilityId]);
 
       if (locationCheck.rows.length === 0) {
-        return reply.status(400).send({ error: 'Location not found' });
+        return fail(reply, 'VALIDATION_ERROR', 'Location not found');
       }
     }
 
@@ -574,7 +547,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     if (data.barcode) {
       const exists = await inventoryRepo.barcodeExists(data.barcode, facilityId);
       if (exists) {
-        return reply.status(400).send({ error: 'Barcode already exists' });
+        return fail(reply, 'DUPLICATE', 'Barcode already exists');
       }
     }
 
@@ -599,7 +572,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       attestedByUserId: data.attestationReason ? request.user.userId : null,
     });
 
-    return reply.status(201).send({ item: formatInventoryItem(item) });
+    return ok(reply, { item: formatInventoryItem(item) }, 201);
   });
 
   /**
@@ -607,25 +580,18 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
    * Update inventory item (ADMIN only)
    */
   fastify.patch<{ Params: { id: string } }>('/items/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
 
-    const parseResult = UpdateInventoryItemRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
-
-    const data = parseResult.data;
+    const data = validated(reply, UpdateInventoryItemRequestSchema, request.body);
+    if (!data) return;
 
     // Check item exists
     const existing = await inventoryRepo.findById(id, facilityId);
     if (!existing) {
-      return reply.status(404).send({ error: 'Inventory item not found' });
+      return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
     }
 
     // Verify location if changing (cross-domain check)
@@ -635,7 +601,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       `, [data.locationId, facilityId]);
 
       if (locationCheck.rows.length === 0) {
-        return reply.status(400).send({ error: 'Location not found' });
+        return fail(reply, 'VALIDATION_ERROR', 'Location not found');
       }
     }
 
@@ -643,12 +609,12 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     if (data.barcode) {
       const exists = await inventoryRepo.barcodeExists(data.barcode, facilityId, id);
       if (exists) {
-        return reply.status(400).send({ error: 'Barcode already exists' });
+        return fail(reply, 'DUPLICATE', 'Barcode already exists');
       }
     }
 
     if (Object.keys(data).length === 0) {
-      return reply.status(400).send({ error: 'No updates provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No updates provided');
     }
 
     const updated = await inventoryRepo.update(id, facilityId, {
@@ -661,10 +627,10 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     if (!updated) {
-      return reply.status(404).send({ error: 'Inventory item not found' });
+      return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
     }
 
-    return reply.send({ item: formatInventoryItem(updated) });
+    return ok(reply, { item: formatInventoryItem(updated) });
   });
 
   /**
@@ -683,11 +649,11 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       // Check if item exists
       const item = await inventoryRepo.findById(id, facilityId);
       if (!item) {
-        return reply.status(404).send({ error: 'Inventory item not found' });
+        return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
       }
     }
 
-    return reply.send({ events: events.map(formatInventoryEvent) });
+    return ok(reply, { events: events.map(formatInventoryEvent) });
   });
 
   /**
@@ -964,6 +930,6 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       return a.catalogName.localeCompare(b.catalogName);
     });
 
-    return reply.send({ riskItems });
+    return ok(reply, { riskItems });
   });
 }

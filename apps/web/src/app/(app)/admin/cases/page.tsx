@@ -11,13 +11,11 @@ import {
   rejectCase,
   deactivateCase,
   cancelCase,
-  getSurgeons,
-  getPreferenceCards,
   type Case,
   type ActivateCaseRequest,
-  type User,
-  type PreferenceCard,
-} from '@/lib/api';
+} from '@/lib/api/cases';
+import { getSurgeons, type User } from '@/lib/api/users';
+import { getPreferenceCards, type PreferenceCard } from '@/lib/api/preference-cards';
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00');

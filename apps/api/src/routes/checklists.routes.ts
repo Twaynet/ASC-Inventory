@@ -32,6 +32,7 @@ import {
   updateSurgeonFeedback,
 } from '../services/checklists.service.js';
 import { requireAdmin } from '../plugins/auth.js';
+// capability-guardrail-allowlist: requireAdmin used; target SETTINGS_MANAGE (Wave 4)
 
 export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> {
   // ============================================================================

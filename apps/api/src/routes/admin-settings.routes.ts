@@ -11,6 +11,7 @@ import { query } from '../db/index.js';
 import { requireAdmin } from '../plugins/auth.js';
 import { ok } from '../utils/reply.js';
 import {
+// capability-guardrail-allowlist: requireAdmin used; target SETTINGS_MANAGE (Wave 4)
   getFacilitySettings,
 } from '../services/checklists.service.js';
 

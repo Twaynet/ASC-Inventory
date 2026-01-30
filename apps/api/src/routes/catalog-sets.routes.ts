@@ -19,6 +19,7 @@ import {
   UpdateSetComponentRequestSchema,
 } from '../schemas/index.js';
 import { requireAdmin } from '../plugins/auth.js';
+// capability-guardrail-allowlist: requireAdmin used; target CATALOG_MANAGE (Wave 4)
 
 interface CatalogSetRow {
   id: string;

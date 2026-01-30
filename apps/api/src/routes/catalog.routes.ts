@@ -9,8 +9,8 @@ import {
   CreateCatalogItemRequestSchema,
   UpdateCatalogItemRequestSchema,
 } from '../schemas/index.js';
-import { requireAdmin } from '../plugins/auth.js';
-import { ok, fail } from '../utils/reply.js';
+import { requireCapabilities } from '../plugins/auth.js';
+import { ok, fail, validated } from '../utils/reply.js';
 import { classifyBarcode, parseGS1 } from '../lib/gs1-parser.js';
 
 interface CatalogRow {
@@ -83,7 +83,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
 
     const result = await query<CatalogWithCount>(sql, params);
 
-    return reply.send({
+    return ok(reply, {
       items: result.rows.map(row => ({
         id: row.id,
         name: row.name,
@@ -135,11 +135,11 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Catalog item not found' });
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
     }
 
     const row = result.rows[0];
-    return reply.send({
+    return ok(reply, {
       item: {
         id: row.id,
         name: row.name,
@@ -170,18 +170,12 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
    * Create new catalog item (ADMIN only)
    */
   fastify.post('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
-    const parseResult = CreateCatalogItemRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
+    const data = validated(reply, CreateCatalogItemRequestSchema, request.body);
+    if (!data) return;
 
     const { facilityId } = request.user;
-    const data = parseResult.data;
 
     // Check name uniqueness within facility
     const nameCheck = await query(`
@@ -189,7 +183,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     `, [facilityId, data.name]);
 
     if (nameCheck.rows.length > 0) {
-      return reply.status(400).send({ error: 'Catalog item name already exists' });
+      return fail(reply, 'DUPLICATE', 'Catalog item name already exists');
     }
 
     const result = await query<CatalogRow>(`
@@ -221,7 +215,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     ]);
 
     const row = result.rows[0];
-    return reply.status(201).send({
+    return ok(reply, {
       item: {
         id: row.id,
         name: row.name,
@@ -244,7 +238,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
       },
-    });
+    }, 201);
   });
 
   /**
@@ -252,20 +246,13 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
    * Update catalog item (ADMIN only)
    */
   fastify.patch<{ Params: { id: string } }>('/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
 
-    const parseResult = UpdateCatalogItemRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
-
-    const data = parseResult.data;
+    const data = validated(reply, UpdateCatalogItemRequestSchema, request.body);
+    if (!data) return;
 
     // Check item exists
     const existingResult = await query(`
@@ -273,7 +260,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Catalog item not found' });
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
     }
 
     // Check name uniqueness if changing
@@ -283,7 +270,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       `, [facilityId, data.name, id]);
 
       if (nameCheck.rows.length > 0) {
-        return reply.status(400).send({ error: 'Catalog item name already exists' });
+        return fail(reply, 'DUPLICATE', 'Catalog item name already exists');
       }
     }
 
@@ -351,7 +338,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     if (updates.length === 0) {
-      return reply.status(400).send({ error: 'No updates provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No updates provided');
     }
 
     values.push(id, facilityId);
@@ -377,7 +364,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id]);
 
     const row = result.rows[0];
-    return reply.send({
+    return ok(reply, {
       item: {
         id: row.id,
         name: row.name,
@@ -408,7 +395,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
    * Deactivate catalog item (ADMIN only)
    */
   fastify.post<{ Params: { id: string } }>('/:id/deactivate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -418,11 +405,11 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Catalog item not found' });
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
     }
 
     if (!result.rows[0].active) {
-      return reply.status(400).send({ error: 'Catalog item is already inactive' });
+      return fail(reply, 'INVALID_STATE', 'Catalog item is already inactive');
     }
 
     await query(`
@@ -430,7 +417,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -438,7 +425,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
    * Activate catalog item (ADMIN only)
    */
   fastify.post<{ Params: { id: string } }>('/:id/activate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -448,11 +435,11 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Catalog item not found' });
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
     }
 
     if (result.rows[0].active) {
-      return reply.status(400).send({ error: 'Catalog item is already active' });
+      return fail(reply, 'INVALID_STATE', 'Catalog item is already active');
     }
 
     await query(`
@@ -460,7 +447,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   // ── Catalog Identifier Endpoints ──────────────────────────────
@@ -529,7 +516,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     Params: { id: string };
     Body: { rawValue: string; source?: string };
   }>('/:id/identifiers', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { facilityId, userId } = request.user;
     const { id } = request.params;
@@ -607,7 +594,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
    * Remove identifier from catalog item
    */
   fastify.delete<{ Params: { id: string; identifierId: string } }>('/:id/identifiers/:identifierId', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { facilityId, userId } = request.user;
     const { id, identifierId } = request.params;
@@ -636,6 +623,6 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       [identifierId, id, facilityId]
     );
 
-    return reply.status(204).send();
+    return ok(reply, { success: true });
   });
 }

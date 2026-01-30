@@ -20,14 +20,14 @@ import {
   getCatalogIdentifiers,
   addCatalogIdentifier,
   deleteCatalogIdentifier,
-  resolveAssetUrl,
   type CatalogItem,
   type CatalogImage,
   type CatalogIdentifier,
   type ItemCategory,
   type CreateCatalogItemRequest,
   type UpdateCatalogItemRequest,
-} from '@/lib/api';
+} from '@/lib/api/catalog';
+import { resolveAssetUrl } from '@/lib/api/client';
 
 // LAW catalog.md v2.0 §4A: Engine Category
 const CATEGORIES: ItemCategory[] = ['IMPLANT', 'INSTRUMENT', 'EQUIPMENT', 'MEDICATION', 'CONSUMABLE', 'PPE'];

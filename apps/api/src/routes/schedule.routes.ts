@@ -11,6 +11,7 @@ import {
   SetRoomDayConfigRequestSchema,
 } from '../schemas/index.js';
 import { requireScheduler } from '../plugins/auth.js';
+// capability-guardrail-allowlist: requireScheduler used; target CASE_APPROVE / CASE_ASSIGN_ROOM (Wave 4)
 
 interface CaseRow {
   id: string;

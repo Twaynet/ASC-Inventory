@@ -13,6 +13,7 @@
  */
 
 import { FastifyReply } from 'fastify';
+import { z } from 'zod';
 
 /**
  * Send a success response wrapped in { data }.
@@ -38,4 +39,25 @@ export function fail(
     body.error.details = details;
   }
   return reply.status(statusCode).send(body);
+}
+
+/**
+ * Parse request data against a Zod schema.
+ * Returns the parsed value on success, or null after sending a 400 error.
+ *
+ * Usage:
+ *   const body = validated(reply, MySchema, request.body);
+ *   if (!body) return;
+ */
+export function validated<T>(
+  reply: FastifyReply,
+  schema: z.ZodType<T>,
+  data: unknown,
+): T | null {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, result.error.flatten());
+    return null;
+  }
+  return result.data;
 }

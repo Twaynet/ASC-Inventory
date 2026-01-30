@@ -10,6 +10,7 @@ import {
   UpdateLocationRequestSchema,
 } from '../schemas/index.js';
 import { requireAdmin } from '../plugins/auth.js';
+// capability-guardrail-allowlist: requireAdmin used; target LOCATION_MANAGE (Wave 4)
 
 interface LocationRow {
   id: string;

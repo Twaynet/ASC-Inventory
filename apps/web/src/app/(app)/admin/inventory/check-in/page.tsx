@@ -5,15 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import { useScannerService, ScanProcessResult } from '@/lib/useScannerService';
-import {
-  createInventoryEvent,
-  createInventoryItem,
-  getLocations,
-  getCatalogItems,
-  type Location,
-  type CatalogItem,
-  type CreateInventoryItemRequest,
-} from '@/lib/api';
+import { createInventoryEvent, createInventoryItem, type CreateInventoryItemRequest } from '@/lib/api/inventory';
+import { getCatalogItems, type CatalogItem } from '@/lib/api/catalog';
+import { getLocations, type Location } from '@/lib/api/settings';
 
 type CheckInMode = 'verify' | 'receive' | 'location_change';
 

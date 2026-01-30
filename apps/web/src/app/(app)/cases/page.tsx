@@ -4,17 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import { TimeSelect } from '@/components/TimeSelect';
-import {
-  getCases,
-  createCase,
-  approveCase,
-  rejectCase,
-  getSurgeons,
-  getRooms,
-  type Case,
-  type User,
-  type Room,
-} from '@/lib/api';
+import { getCases, createCase, approveCase, rejectCase, type Case } from '@/lib/api/cases';
+import { getSurgeons, type User } from '@/lib/api/users';
+import { getRooms, type Room } from '@/lib/api/settings';
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return 'Not set';

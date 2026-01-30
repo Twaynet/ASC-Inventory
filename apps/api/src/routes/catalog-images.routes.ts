@@ -17,6 +17,7 @@ import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
+// capability-guardrail-allowlist: requireAdmin used; target CATALOG_MANAGE (Wave 4)
 
 const MAX_IMAGES_PER_ITEM = 10;
 const MAX_CAPTION_LENGTH = 200;

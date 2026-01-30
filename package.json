@@ -16,7 +16,9 @@
     "db:seed": "cd apps/api && node --import tsx db/seed.ts",
     "db:check": "cd apps/api && npm run db:check",
     "validate:docs": "npx tsx scripts/validate-docs.ts",
-    "validate:doc": "npx tsx scripts/validate-docs.ts"
+    "validate:doc": "npx tsx scripts/validate-docs.ts",
+    "validate:capabilities": "npx tsx scripts/ci-capability-guardrails.ts",
+    "validate:api-modules": "npx tsx scripts/ci-api-modules.ts"
   },
   "devDependencies": {
     "tsx": "^4.10.0",

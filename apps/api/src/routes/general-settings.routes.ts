@@ -12,6 +12,7 @@ import {
 } from '../schemas/index.js';
 import { requireAdmin } from '../plugins/auth.js';
 import { ok, fail } from '../utils/reply.js';
+// capability-guardrail-allowlist: requireAdmin used; target SETTINGS_MANAGE (Wave 4)
 
 interface ConfigItemRow {
   id: string;

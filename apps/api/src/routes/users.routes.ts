@@ -11,6 +11,8 @@ import {
   UpdateUserRequestSchema,
 } from '../schemas/index.js';
 import { requireAdmin } from '../plugins/auth.js';
+import { ok, fail, validated } from '../utils/reply.js';
+// capability-guardrail-allowlist: requireAdmin used; target USER_MANAGE (Wave 4)
 
 interface UserRow {
   id: string;
@@ -211,15 +213,8 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const { id } = request.params;
     const { facilityId } = request.user;
 
-    const parseResult = UpdateUserRequestSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
-    }
-
-    const data = parseResult.data;
+    const data = validated(reply, UpdateUserRequestSchema, request.body);
+    if (!data) return;
 
     // Check user exists
     const existingResult = await query<{ role: string; roles: string[] }>(`
@@ -227,7 +222,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'User not found' });
+      return fail(reply, 'NOT_FOUND', 'User not found', 404);
     }
 
     // Determine new roles
@@ -237,7 +232,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
     // If any role is ADMIN, require email
     if (newRoles.includes('ADMIN') && data.email === null) {
-      return reply.status(400).send({ error: 'Email is required for ADMIN role' });
+      return fail(reply, 'VALIDATION_ERROR', 'Email is required for ADMIN role');
     }
 
     // If changing username, check uniqueness
@@ -248,7 +243,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       `, [facilityId, data.username, id]);
 
       if (usernameCheck.rows.length > 0) {
-        return reply.status(400).send({ error: 'Username already exists in this facility' });
+        return fail(reply, 'DUPLICATE', 'Username already exists in this facility');
       }
     }
 
@@ -283,7 +278,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     if (updates.length === 0) {
-      return reply.status(400).send({ error: 'No updates provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No updates provided');
     }
 
     values.push(id, facilityId);
@@ -296,12 +291,12 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     `, values);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'User not found' });
+      return fail(reply, 'NOT_FOUND', 'User not found', 404);
     }
 
     const row = result.rows[0];
     const resultRoles = normalizeRoles(row.roles, row.role);
-    return reply.send({
+    return ok(reply, {
       user: {
         id: row.id,
         username: row.username,
@@ -328,7 +323,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Cannot deactivate yourself
     if (id === userId) {
-      return reply.status(400).send({ error: 'Cannot deactivate your own account' });
+      return fail(reply, 'INVALID_STATE', 'Cannot deactivate your own account');
     }
 
     // Check if user exists and is currently active
@@ -337,11 +332,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'User not found' });
+      return fail(reply, 'NOT_FOUND', 'User not found', 404);
     }
 
     if (!existingResult.rows[0].active) {
-      return reply.status(400).send({ error: 'User is already deactivated' });
+      return fail(reply, 'INVALID_STATE', 'User is already deactivated');
     }
 
     // Check if this is the last active ADMIN
@@ -352,7 +347,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       `, [facilityId, id]);
 
       if (parseInt(adminCount.rows[0].count) === 0) {
-        return reply.status(400).send({ error: 'Cannot deactivate the last admin' });
+        return fail(reply, 'INVALID_STATE', 'Cannot deactivate the last admin');
       }
     }
 
@@ -363,7 +358,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -382,11 +377,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'User not found' });
+      return fail(reply, 'NOT_FOUND', 'User not found', 404);
     }
 
     if (existingResult.rows[0].active) {
-      return reply.status(400).send({ error: 'User is already active' });
+      return fail(reply, 'INVALID_STATE', 'User is already active');
     }
 
     // Activate user
@@ -396,6 +391,6 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 }

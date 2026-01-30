@@ -10,16 +10,14 @@ import {
   createInventoryItem,
   updateInventoryItem,
   getInventoryItemHistory,
-  getCatalogItems,
-  getLocations,
   type InventoryItem,
   type InventoryItemDetail,
   type InventoryItemEvent,
   type CreateInventoryItemRequest,
   type UpdateInventoryItemRequest,
-  type CatalogItem,
-  type Location,
-} from '@/lib/api';
+} from '@/lib/api/inventory';
+import { getCatalogItems, type CatalogItem } from '@/lib/api/catalog';
+import { getLocations, type Location } from '@/lib/api/settings';
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   AVAILABLE: { bg: '#c6f6d5', color: '#276749' },
