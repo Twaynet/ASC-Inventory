@@ -4,6 +4,19 @@
 
 import { request, API_BASE } from './client';
 import type { ItemCategory } from './catalog';
+import {
+  InventoryItemListResponseSchema,
+  InventoryItemResponseSchema,
+  InventoryItemHistoryResponseSchema,
+  InventoryDevicesResponseSchema,
+  InventoryRiskQueueResponseSchema,
+  DeviceEventResponseSchema,
+  SuccessResponseSchema,
+  CreateInventoryEventRequestSchema,
+  DeviceEventRequestSchema,
+  CreateInventoryItemRequestSchema,
+  UpdateInventoryItemRequestSchema,
+} from './schemas';
 
 // ============================================================================
 // Types
@@ -154,7 +167,6 @@ export interface RiskQueueItem {
 // Endpoints
 // ============================================================================
 
-// TODO(api-schema): needs Zod response schema
 export async function getInventoryItems(
   token: string,
   filters?: { catalogId?: string; locationId?: string; status?: string }
@@ -164,54 +176,46 @@ export async function getInventoryItems(
   if (filters?.locationId) params.set('locationId', filters.locationId);
   if (filters?.status) params.set('status', filters.status);
   const query = params.toString() ? `?${params.toString()}` : '';
-  return request(`/inventory/items${query}`, { token });
+  return request(`/inventory/items${query}`, { token, responseSchema: InventoryItemListResponseSchema });
 }
 
-// TODO(api-schema): needs Zod response schema
 export async function getInventoryItem(token: string, itemId: string): Promise<{ item: InventoryItemDetail }> {
-  return request(`/inventory/items/${itemId}`, { token });
+  return request(`/inventory/items/${itemId}`, { token, responseSchema: InventoryItemResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function createInventoryItem(token: string, data: CreateInventoryItemRequest): Promise<{ item: InventoryItemDetail }> {
-  return request('/inventory/items', { method: 'POST', body: data, token });
+  return request('/inventory/items', { method: 'POST', body: data, token, requestSchema: CreateInventoryItemRequestSchema, responseSchema: InventoryItemResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function updateInventoryItem(token: string, itemId: string, data: UpdateInventoryItemRequest): Promise<{ item: InventoryItemDetail }> {
-  return request(`/inventory/items/${itemId}`, { method: 'PATCH', body: data, token });
+  return request(`/inventory/items/${itemId}`, { method: 'PATCH', body: data, token, requestSchema: UpdateInventoryItemRequestSchema, responseSchema: InventoryItemResponseSchema });
 }
 
-// TODO(api-schema): needs Zod response schema
 export async function getInventoryItemHistory(token: string, itemId: string): Promise<{ events: InventoryItemEvent[] }> {
-  return request(`/inventory/items/${itemId}/history`, { token });
+  return request(`/inventory/items/${itemId}/history`, { token, responseSchema: InventoryItemHistoryResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function createInventoryEvent(
   token: string,
   data: CreateInventoryEventRequest
 ): Promise<{ success: boolean }> {
-  return request('/inventory/events', { method: 'POST', body: data, token });
+  return request('/inventory/events', { method: 'POST', body: data, token, requestSchema: CreateInventoryEventRequestSchema, responseSchema: SuccessResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function sendDeviceEvent(
   token: string,
   data: DeviceEventRequest
 ): Promise<DeviceEventResponse> {
-  return request('/inventory/device-events', { method: 'POST', body: data, token });
+  return request('/inventory/device-events', { method: 'POST', body: data, token, requestSchema: DeviceEventRequestSchema, responseSchema: DeviceEventResponseSchema });
 }
 
 // Alias for sendDeviceEvent (for consistency)
 export const createDeviceEvent = sendDeviceEvent;
 
-// TODO(api-schema): needs Zod response schema
 export async function getDevices(token: string): Promise<{ devices: Device[] }> {
-  return request('/inventory/devices', { token });
+  return request('/inventory/devices', { token, responseSchema: InventoryDevicesResponseSchema });
 }
 
-// TODO(api-schema): needs Zod response schema
 export async function getInventoryRiskQueue(token: string): Promise<{ riskItems: RiskQueueItem[] }> {
-  return request('/inventory/risk-queue', { token });
+  return request('/inventory/risk-queue', { token, responseSchema: InventoryRiskQueueResponseSchema });
 }

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { z } from 'zod';
 import { request, ApiError, resolveAssetUrl } from '@/lib/api/client';
+import { CaseListResponseSchema, CaseApiSchema } from '@/lib/api/schemas';
 
 describe('client.ts', () => {
   const originalFetch = globalThis.fetch;
@@ -137,6 +139,139 @@ describe('client.ts', () => {
     it('returns absolute URLs unchanged', () => {
       const url = resolveAssetUrl('https://cdn.example.com/img.png');
       expect(url).toBe('https://cdn.example.com/img.png');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Schema validation (Wave 5)
+  // -------------------------------------------------------------------------
+
+  describe('schema validation', () => {
+    const testSchema = z.object({ id: z.string(), name: z.string() });
+
+    beforeEach(() => {
+      globalThis.fetch = vi.fn();
+    });
+
+    it('passes when response matches responseSchema', async () => {
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: '1', name: 'valid' }),
+      });
+
+      const result = await request<{ id: string; name: string }>('/test', {
+        token: 't',
+        responseSchema: testSchema,
+      });
+      expect(result).toEqual({ id: '1', name: 'valid' });
+    });
+
+    it('throws CLIENT_SCHEMA_VALIDATION when response fails responseSchema', async () => {
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 123, name: null }),
+      });
+
+      try {
+        await request('/test', { token: 't', responseSchema: testSchema });
+        expect.fail('should have thrown');
+      } catch (e) {
+        const err = e as ApiError;
+        expect(err.code).toBe('CLIENT_SCHEMA_VALIDATION');
+        expect(err.message).toBe('Response schema validation failed');
+        expect(err.details).toHaveProperty('endpoint', '/test');
+        expect(err.details).toHaveProperty('issues');
+      }
+    });
+
+    it('throws CLIENT_SCHEMA_VALIDATION when request body fails requestSchema', async () => {
+      const reqSchema = z.object({ name: z.string().min(1) });
+
+      try {
+        await request('/test', {
+          method: 'POST',
+          body: { name: '' },
+          token: 't',
+          requestSchema: reqSchema,
+        });
+        expect.fail('should have thrown');
+      } catch (e) {
+        const err = e as ApiError;
+        expect(err.code).toBe('CLIENT_SCHEMA_VALIDATION');
+        expect(err.message).toBe('Request schema validation failed');
+        expect(err.details).toHaveProperty('method', 'POST');
+        expect(err.details).toHaveProperty('endpoint', '/test');
+        expect(err.details).toHaveProperty('issues');
+      }
+      // fetch should NOT have been called
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('includes method and endpoint in schema error details', async () => {
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ wrong: 'shape' }),
+      });
+
+      try {
+        await request('/cases/123', { method: 'PATCH', token: 't', responseSchema: testSchema });
+        expect.fail('should have thrown');
+      } catch (e) {
+        const err = e as ApiError;
+        expect(err.code).toBe('CLIENT_SCHEMA_VALIDATION');
+        const details = err.details as { method: string; endpoint: string };
+        expect(details.method).toBe('PATCH');
+        expect(details.endpoint).toBe('/cases/123');
+      }
+    });
+
+    it('validates real CaseListResponseSchema — accepts valid cases array', () => {
+      const validCase = {
+        id: 'c1', caseNumber: 'C-001', facilityId: 'f1',
+        scheduledDate: '2025-01-15', scheduledTime: '08:00',
+        requestedDate: null, requestedTime: null,
+        surgeonId: 's1', surgeonName: 'Dr. Smith', procedureName: 'ACL Repair',
+        preferenceCardVersionId: null, status: 'SCHEDULED',
+        notes: null, isActive: true,
+        activatedAt: '2025-01-14T10:00:00Z', activatedByUserId: 'u1',
+        isCancelled: false, cancelledAt: null, cancelledByUserId: null,
+        rejectedAt: null, rejectedByUserId: null, rejectionReason: null,
+        createdAt: '2025-01-10T08:00:00Z', updatedAt: '2025-01-14T10:00:00Z',
+      };
+
+      const valid = CaseListResponseSchema.safeParse({ cases: [validCase] });
+      expect(valid.success).toBe(true);
+
+      // Malformed: missing required field
+      const invalid = CaseListResponseSchema.safeParse({ cases: [{ id: 'c1' }] });
+      expect(invalid.success).toBe(false);
+    });
+
+    it('validates envelope-unwrapped data with responseSchema', async () => {
+      const validCase = {
+        id: 'c1', caseNumber: 'C-001', facilityId: 'f1',
+        scheduledDate: null, scheduledTime: null,
+        requestedDate: null, requestedTime: null,
+        surgeonId: 's1', surgeonName: 'Dr. Smith', procedureName: 'Test',
+        preferenceCardVersionId: null, status: 'DRAFT',
+        notes: null, isActive: false,
+        activatedAt: null, activatedByUserId: null,
+        isCancelled: false, cancelledAt: null, cancelledByUserId: null,
+        rejectedAt: null, rejectedByUserId: null, rejectionReason: null,
+        createdAt: '2025-01-10T08:00:00Z', updatedAt: '2025-01-10T08:00:00Z',
+      };
+
+      // Envelope-wrapped response
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ data: { cases: [validCase] } }),
+      });
+
+      const result = await request<{ cases: unknown[] }>('/cases', {
+        token: 't',
+        responseSchema: CaseListResponseSchema,
+      });
+      expect(result.cases).toHaveLength(1);
     });
   });
 });

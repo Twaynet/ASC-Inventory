@@ -19,7 +19,7 @@ const API_DIR = join(ROOT, 'apps', 'web', 'src', 'lib', 'api');
 
 // Baseline: number of TODO(api-schema) comments as of Wave 4.5.
 // This number must NEVER increase. Decrease it as schemas are added.
-const SCHEMA_TODO_BASELINE = 141;
+const SCHEMA_TODO_BASELINE = 110;
 
 interface Violation {
   file: string;

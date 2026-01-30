@@ -3,6 +3,20 @@
  */
 
 import { request, API_BASE } from './client';
+import {
+  CatalogItemListResponseSchema,
+  CatalogItemResponseSchema,
+  CatalogImagesResponseSchema,
+  CatalogImageResponseSchema,
+  CatalogIdentifiersResponseSchema,
+  CatalogIdentifierResponseSchema,
+  SuccessResponseSchema,
+  CreateCatalogItemRequestSchema,
+  UpdateCatalogItemRequestSchema,
+  AddCatalogImageByUrlRequestSchema,
+  UpdateCatalogImageRequestSchema,
+  AddCatalogIdentifierRequestSchema,
+} from './schemas';
 
 // ============================================================================
 // Types
@@ -167,7 +181,6 @@ export interface UpdateSetComponentRequest {
 // Endpoints — Catalog Items
 // ============================================================================
 
-// TODO(api-schema): needs Zod response schema
 export async function getCatalogItems(
   token: string,
   filters?: { category?: ItemCategory; includeInactive?: boolean }
@@ -176,47 +189,40 @@ export async function getCatalogItems(
   if (filters?.category) params.set('category', filters.category);
   if (filters?.includeInactive) params.set('includeInactive', 'true');
   const query = params.toString() ? `?${params.toString()}` : '';
-  return request(`/catalog${query}`, { token });
+  return request(`/catalog${query}`, { token, responseSchema: CatalogItemListResponseSchema });
 }
 
-// TODO(api-schema): needs Zod response schema
 export async function getCatalogItem(token: string, catalogId: string): Promise<{ item: CatalogItem }> {
-  return request(`/catalog/${catalogId}`, { token });
+  return request(`/catalog/${catalogId}`, { token, responseSchema: CatalogItemResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function createCatalogItem(token: string, data: CreateCatalogItemRequest): Promise<{ item: CatalogItem }> {
-  return request('/catalog', { method: 'POST', body: data, token });
+  return request('/catalog', { method: 'POST', body: data, token, requestSchema: CreateCatalogItemRequestSchema, responseSchema: CatalogItemResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function updateCatalogItem(token: string, catalogId: string, data: UpdateCatalogItemRequest): Promise<{ item: CatalogItem }> {
-  return request(`/catalog/${catalogId}`, { method: 'PATCH', body: data, token });
+  return request(`/catalog/${catalogId}`, { method: 'PATCH', body: data, token, requestSchema: UpdateCatalogItemRequestSchema, responseSchema: CatalogItemResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function deactivateCatalogItem(token: string, catalogId: string): Promise<{ success: boolean }> {
-  return request(`/catalog/${catalogId}/deactivate`, { method: 'POST', body: {}, token });
+  return request(`/catalog/${catalogId}/deactivate`, { method: 'POST', body: {}, token, responseSchema: SuccessResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function activateCatalogItem(token: string, catalogId: string): Promise<{ success: boolean }> {
-  return request(`/catalog/${catalogId}/activate`, { method: 'POST', body: {}, token });
+  return request(`/catalog/${catalogId}/activate`, { method: 'POST', body: {}, token, responseSchema: SuccessResponseSchema });
 }
 
 // ============================================================================
 // Endpoints — Catalog Images
 // ============================================================================
 
-// TODO(api-schema): needs Zod response schema
 export async function getCatalogImages(
   token: string,
   catalogId: string
 ): Promise<{ images: CatalogImage[] }> {
-  return request(`/catalog/${catalogId}/images`, { token });
+  return request(`/catalog/${catalogId}/images`, { token, responseSchema: CatalogImagesResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function addCatalogImageByUrl(
   token: string,
   catalogId: string,
@@ -227,10 +233,10 @@ export async function addCatalogImageByUrl(
     sortOrder?: number;
   }
 ): Promise<{ image: CatalogImage }> {
-  return request(`/catalog/${catalogId}/images`, { method: 'POST', body: data, token });
+  return request(`/catalog/${catalogId}/images`, { method: 'POST', body: data, token, requestSchema: AddCatalogImageByUrlRequestSchema, responseSchema: CatalogImageResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
+// TODO(api-schema): FormData upload — cannot validate with JSON schema
 export async function uploadCatalogImage(
   token: string,
   catalogId: string,
@@ -265,7 +271,6 @@ export async function uploadCatalogImage(
   return response.json();
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function updateCatalogImage(
   token: string,
   catalogId: string,
@@ -276,10 +281,10 @@ export async function updateCatalogImage(
     sortOrder?: number;
   }
 ): Promise<{ image: CatalogImage }> {
-  return request(`/catalog/${catalogId}/images/${imageId}`, { method: 'PATCH', body: data, token });
+  return request(`/catalog/${catalogId}/images/${imageId}`, { method: 'PATCH', body: data, token, requestSchema: UpdateCatalogImageRequestSchema, responseSchema: CatalogImageResponseSchema });
 }
 
-// TODO(api-schema): needs Zod response schema
+// TODO(api-schema): void DELETE — no response body to validate
 export async function deleteCatalogImage(
   token: string,
   catalogId: string,
@@ -292,24 +297,22 @@ export async function deleteCatalogImage(
 // Endpoints — Catalog Identifiers
 // ============================================================================
 
-// TODO(api-schema): needs Zod response schema
 export async function getCatalogIdentifiers(
   token: string,
   catalogId: string
 ): Promise<{ identifiers: CatalogIdentifier[] }> {
-  return request(`/catalog/${catalogId}/identifiers`, { token });
+  return request(`/catalog/${catalogId}/identifiers`, { token, responseSchema: CatalogIdentifiersResponseSchema });
 }
 
-// TODO(api-schema): needs Zod request + response schema
 export async function addCatalogIdentifier(
   token: string,
   catalogId: string,
   data: { rawValue: string; source?: string }
-): Promise<{ identifier: CatalogIdentifier; gs1Data: import('./inventory.js').GS1Data | null }> {
-  return request(`/catalog/${catalogId}/identifiers`, { method: 'POST', body: data, token });
+): Promise<{ identifier: CatalogIdentifier; gs1Data: import('./inventory').GS1Data | null }> {
+  return request(`/catalog/${catalogId}/identifiers`, { method: 'POST', body: data, token, requestSchema: AddCatalogIdentifierRequestSchema, responseSchema: CatalogIdentifierResponseSchema });
 }
 
-// TODO(api-schema): needs Zod response schema
+// TODO(api-schema): void DELETE — no response body to validate
 export async function deleteCatalogIdentifier(
   token: string,
   catalogId: string,

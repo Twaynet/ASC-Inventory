@@ -13,6 +13,7 @@
  */
 
 import { PERSONA_STORAGE_KEY, PERSONA_HEADER } from '@asc/domain';
+import type { ZodTypeAny } from 'zod';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -45,10 +46,10 @@ export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   token?: string;
-  /** Zod schema for response validation (placeholder — enforced in future wave) */
-  responseSchema?: unknown;
-  /** Zod schema for request body validation (placeholder — enforced in future wave) */
-  requestSchema?: unknown;
+  /** Zod schema — validates response payload (after envelope unwrap) at runtime */
+  responseSchema?: ZodTypeAny;
+  /** Zod schema — validates request body before sending */
+  requestSchema?: ZodTypeAny;
 }
 
 // ============================================================================
@@ -67,7 +68,19 @@ export interface RequestOptions {
  *   - Legacy:       { error: "string" }                     → throws ApiError
  */
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, token } = options;
+  const { method = 'GET', body, token, requestSchema, responseSchema } = options;
+
+  // Validate request body if schema provided
+  if (requestSchema && body !== undefined) {
+    const result = requestSchema.safeParse(body);
+    if (!result.success) {
+      throw new ApiError(0, 'CLIENT_SCHEMA_VALIDATION', 'Request schema validation failed', {
+        method,
+        endpoint,
+        issues: result.error.issues,
+      });
+    }
+  }
 
   const headers: HeadersInit = {};
 
@@ -115,12 +128,26 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
   const json = await response.json();
 
   // Auto-unwrap { data } envelope if present (new convention)
+  let payload: unknown;
   if (json && typeof json === 'object' && 'data' in json && Object.keys(json).length === 1) {
-    return json.data as T;
+    payload = json.data;
+  } else {
+    payload = json;
   }
 
-  // Legacy: return as-is
-  return json as T;
+  // Validate response if schema provided
+  if (responseSchema) {
+    const result = responseSchema.safeParse(payload);
+    if (!result.success) {
+      throw new ApiError(0, 'CLIENT_SCHEMA_VALIDATION', 'Response schema validation failed', {
+        method,
+        endpoint,
+        issues: result.error.issues,
+      });
+    }
+  }
+
+  return payload as T;
 }
 
 // ============================================================================
