@@ -12,6 +12,8 @@ import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
 import { requireAdmin } from '../plugins/auth.js';
 import { ok, fail } from '../utils/reply.js';
+import { contract } from '@asc/contract';
+import { registerContractRoute } from '../lib/contract-route.js';
 import { randomUUID } from 'crypto';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -66,6 +68,60 @@ function mapImageRow(row: ImageRow) {
 }
 
 export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<void> {
+  const PREFIX = '/catalog';
+
+  // ── [CONTRACT] DELETE /catalog/:catalogId/images/:imageId ────────────
+  registerContractRoute(fastify, contract.catalog.deleteImage, PREFIX, {
+    preHandler: [fastify.authenticate, requireAdmin],
+    handler: async (request, reply) => {
+      const { facilityId } = request.user;
+      const { catalogId, imageId } = request.contractData.params as {
+        catalogId: string; imageId: string;
+      };
+
+      // Get image to check source and path
+      const existing = await query<ImageRow>(
+        `SELECT id, asset_url, source FROM catalog_item_image
+         WHERE id = $1 AND catalog_id = $2 AND facility_id = $3`,
+        [imageId, catalogId, facilityId]
+      );
+      if (existing.rows.length === 0) {
+        return fail(reply, 'NOT_FOUND', 'Image not found', 404);
+      }
+
+      const image = existing.rows[0];
+
+      // Delete file if it was uploaded
+      if (image.source === 'UPLOAD') {
+        const match = image.asset_url.match(/^\/uploads\/catalog\/([^/]+)\/([^/]+)$/);
+        if (match) {
+          const [, urlFacilityId, fileName] = match;
+          if (urlFacilityId === facilityId) {
+            const filePath = join(UPLOADS_DIR, facilityId, fileName);
+            if (existsSync(filePath)) {
+              unlinkSync(filePath);
+            }
+          }
+        }
+      }
+
+      // Audit event
+      await query(
+        `INSERT INTO catalog_event (facility_id, catalog_item_id, action, actor_user_id, payload)
+         VALUES ($1, $2, 'IMAGE_REMOVED', $3, $4)`,
+        [facilityId, catalogId, request.user.userId, JSON.stringify({ imageId, url: image.asset_url })]
+      );
+
+      // Delete database record
+      await query(
+        'DELETE FROM catalog_item_image WHERE id = $1 AND catalog_id = $2 AND facility_id = $3',
+        [imageId, catalogId, facilityId]
+      );
+
+      // void response — adapter sends 204
+    },
+  });
+
   /**
    * GET /:catalogId/images
    * List all images for a catalog item
@@ -362,57 +418,4 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
     return reply.send({ image: mapImageRow(result.rows[0]) });
   });
 
-  /**
-   * DELETE /:catalogId/images/:imageId
-   * Remove image (and delete file if uploaded)
-   */
-  fastify.delete<{ Params: { catalogId: string; imageId: string } }>('/:catalogId/images/:imageId', {
-    preHandler: [fastify.authenticate, requireAdmin],
-  }, async (request, reply) => {
-    const { facilityId } = request.user;
-    const { catalogId, imageId } = request.params;
-
-    // Get image to check source and path
-    const existing = await query<ImageRow>(
-      `SELECT id, asset_url, source FROM catalog_item_image
-       WHERE id = $1 AND catalog_id = $2 AND facility_id = $3`,
-      [imageId, catalogId, facilityId]
-    );
-    if (existing.rows.length === 0) {
-      return fail(reply, 'NOT_FOUND', 'Image not found', 404);
-    }
-
-    const image = existing.rows[0];
-
-    // Delete file if it was uploaded
-    if (image.source === 'UPLOAD') {
-      // Extract path from asset_url: /uploads/catalog/{facilityId}/{filename}
-      const match = image.asset_url.match(/^\/uploads\/catalog\/([^/]+)\/([^/]+)$/);
-      if (match) {
-        const [, urlFacilityId, fileName] = match;
-        // Security: verify facility ID matches
-        if (urlFacilityId === facilityId) {
-          const filePath = join(UPLOADS_DIR, facilityId, fileName);
-          if (existsSync(filePath)) {
-            unlinkSync(filePath);
-          }
-        }
-      }
-    }
-
-    // Audit event
-    await query(
-      `INSERT INTO catalog_event (facility_id, catalog_item_id, action, actor_user_id, payload)
-       VALUES ($1, $2, 'IMAGE_REMOVED', $3, $4)`,
-      [facilityId, catalogId, request.user.userId, JSON.stringify({ imageId, url: image.asset_url })]
-    );
-
-    // Delete database record
-    await query(
-      'DELETE FROM catalog_item_image WHERE id = $1 AND catalog_id = $2 AND facility_id = $3',
-      [imageId, catalogId, facilityId]
-    );
-
-    return reply.status(204).send();
-  });
 }

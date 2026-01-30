@@ -194,6 +194,33 @@ CI guardrail `npm run validate:capabilities` enforces:
 5. **CASE_DELETE** introduced (ADMIN-only) — `DELETE /cases/:id` no longer shares `CASE_APPROVE`.
 6. **CASE_VIEW policy** — explicitly granted to all 7 current roles. New roles get none by default.
 
+### Wave 6B.2 — Contract-authoritative endpoints
+
+12 high-risk endpoints are now registered via `registerContractRoute()` from `apps/api/src/lib/contract-route.ts`. The adapter enforces:
+
+- **Request validation**: params, query, and body are validated against Zod schemas from `@asc/contract` before the handler runs. Invalid input returns 400 with `INVALID_REQUEST` or `VALIDATION_ERROR`.
+- **Response validation**: success responses (status < 400) with `{ data }` payloads are validated against the contract response schema after the handler returns. Mismatches produce 500 `SERVER_RESPONSE_INVALID`.
+- **Auth independence**: `preHandler` hooks (auth, capabilities) run before contract validation. The adapter does not bypass or replace auth.
+
+Contract-authoritative endpoints:
+
+| # | Route | File |
+|---|-------|------|
+| 1 | `GET /cases` | `cases.routes.ts` |
+| 2 | `GET /cases/:caseId` | `cases.routes.ts` |
+| 3 | `PATCH /cases/:caseId` | `cases.routes.ts` |
+| 4 | `POST /cases/:caseId/approve` | `cases.routes.ts` |
+| 5 | `POST /cases/:caseId/reject` | `cases.routes.ts` |
+| 6 | `PATCH /cases/:caseId/assign-room` | `cases.routes.ts` |
+| 7 | `POST /inventory/events` | `inventory.routes.ts` |
+| 8 | `POST /inventory/events/bulk` | `inventory.routes.ts` |
+| 9 | `GET /catalog` | `catalog.routes.ts` |
+| 10 | `POST /catalog/:catalogId/identifiers` | `catalog.routes.ts` |
+| 11 | `DELETE /catalog/:catalogId/identifiers/:identifierId` | `catalog.routes.ts` |
+| 12 | `DELETE /catalog/:catalogId/images/:imageId` | `catalog-images.routes.ts` |
+
+All other endpoints remain legacy (manual validation via `validated()` helper). To migrate additional endpoints, define a contract in `packages/contract/src/routes/` and call `registerContractRoute()` in the route file.
+
 ### Remaining (planned)
 
 - `preference-cards.routes.ts` — all endpoints

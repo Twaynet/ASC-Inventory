@@ -20,6 +20,8 @@ import {
   KEYBOARD_WEDGE_DEVICE_ID,
 } from '../repositories/index.js';
 import { classifyBarcode, parseGS1 } from '../lib/gs1-parser.js';
+import { contract } from '@asc/contract';
+import { registerContractRoute } from '../lib/contract-route.js';
 
 // Helper to format inventory item for API response
 function formatInventoryItem(item: {
@@ -155,100 +157,112 @@ function computeItemUpdate(eventType: string, eventData: {
 export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
   const inventoryRepo = getInventoryRepository();
   const deviceRepo = getDeviceRepository();
+  const PREFIX = '/inventory';
 
-  /**
-   * POST /inventory/events
-   * Record a single inventory event
-   */
-  fastify.post('/events', {
+  // ── [CONTRACT] POST /inventory/events — Record single event ────────
+  registerContractRoute(fastify, contract.inventory.createEvent, PREFIX, {
     preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const data = validated(reply, CreateInventoryEventRequestSchema, request.body);
-    if (!data) return;
+    handler: async (request, reply) => {
+      const data = request.contractData.body as {
+        inventoryItemId: string;
+        eventType: string;
+        caseId?: string;
+        locationId?: string;
+        sterilityStatus?: string;
+        notes?: string;
+        deviceEventId?: string;
+        occurredAt?: string;
+      };
 
-    const { facilityId, userId } = request.user;
+      const { facilityId, userId } = request.user;
 
-    // Verify inventory item exists
-    const item = await inventoryRepo.findById(data.inventoryItemId, facilityId);
-    if (!item) {
-      return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
-    }
+      const item = await inventoryRepo.findById(data.inventoryItemId, facilityId);
+      if (!item) {
+        return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
+      }
 
-    const occurredAt = data.occurredAt ? new Date(data.occurredAt) : new Date();
-    const itemUpdate = computeItemUpdate(data.eventType, data, userId);
-
-    await inventoryRepo.createEventWithItemUpdate(
-      {
-        facilityId,
-        inventoryItemId: data.inventoryItemId,
-        eventType: data.eventType as any,
-        caseId: data.caseId,
-        locationId: data.locationId,
-        previousLocationId: item.locationId,
-        sterilityStatus: data.sterilityStatus,
-        notes: data.notes,
-        performedByUserId: userId,
-        deviceEventId: data.deviceEventId,
-        occurredAt,
-      },
-      itemUpdate as any
-    );
-
-    return ok(reply, { success: true }, 201);
-  });
-
-  /**
-   * POST /inventory/events/bulk
-   * Record multiple inventory events (for batch operations)
-   */
-  fastify.post('/events/bulk', {
-    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = validated(reply, BulkInventoryEventRequestSchema, request.body);
-    if (!body) return;
-
-    const { events } = body;
-    const { facilityId, userId } = request.user;
-
-    // Verify all items exist
-    const itemIds = [...new Set(events.map(e => e.inventoryItemId))];
-    const existingItems = await Promise.all(
-      itemIds.map(id => inventoryRepo.findById(id, facilityId))
-    );
-    const existingIds = new Set(
-      existingItems.filter(Boolean).map(item => item!.id)
-    );
-    const missingIds = itemIds.filter(id => !existingIds.has(id));
-
-    if (missingIds.length > 0) {
-      return fail(reply, 'ITEMS_NOT_FOUND', 'Some inventory items not found', 400, { missingIds });
-    }
-
-    // Process each event
-    for (const event of events) {
-      const item = await inventoryRepo.findById(event.inventoryItemId, facilityId);
-      const occurredAt = event.occurredAt ? new Date(event.occurredAt) : new Date();
-      const itemUpdate = computeItemUpdate(event.eventType, event, userId);
+      const occurredAt = data.occurredAt ? new Date(data.occurredAt) : new Date();
+      const itemUpdate = computeItemUpdate(data.eventType, data, userId);
 
       await inventoryRepo.createEventWithItemUpdate(
         {
           facilityId,
-          inventoryItemId: event.inventoryItemId,
-          eventType: event.eventType as any,
-          caseId: event.caseId,
-          locationId: event.locationId,
-          previousLocationId: item?.locationId ?? null,
-          sterilityStatus: event.sterilityStatus,
-          notes: event.notes,
+          inventoryItemId: data.inventoryItemId,
+          eventType: data.eventType as any,
+          caseId: data.caseId,
+          locationId: data.locationId,
+          previousLocationId: item.locationId,
+          sterilityStatus: data.sterilityStatus,
+          notes: data.notes,
           performedByUserId: userId,
-          deviceEventId: event.deviceEventId,
+          deviceEventId: data.deviceEventId,
           occurredAt,
         },
         itemUpdate as any
       );
-    }
 
-    return ok(reply, { success: true, count: events.length }, 201);
+      return ok(reply, { success: true }, 201);
+    },
+  });
+
+  // ── [CONTRACT] POST /inventory/events/bulk — Bulk events ───────────
+  registerContractRoute(fastify, contract.inventory.bulkEvents, PREFIX, {
+    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')],
+    handler: async (request, reply) => {
+      const body = request.contractData.body as {
+        events: Array<{
+          inventoryItemId: string;
+          eventType: string;
+          caseId?: string;
+          locationId?: string;
+          sterilityStatus?: string;
+          notes?: string;
+          deviceEventId?: string;
+          occurredAt?: string;
+        }>;
+      };
+
+      const { events } = body;
+      const { facilityId, userId } = request.user;
+
+      const itemIds = [...new Set(events.map(e => e.inventoryItemId))];
+      const existingItems = await Promise.all(
+        itemIds.map(id => inventoryRepo.findById(id, facilityId))
+      );
+      const existingIds = new Set(
+        existingItems.filter(Boolean).map(item => item!.id)
+      );
+      const missingIds = itemIds.filter(id => !existingIds.has(id));
+
+      if (missingIds.length > 0) {
+        return fail(reply, 'ITEMS_NOT_FOUND', 'Some inventory items not found', 400, { missingIds });
+      }
+
+      for (const event of events) {
+        const item = await inventoryRepo.findById(event.inventoryItemId, facilityId);
+        const occurredAt = event.occurredAt ? new Date(event.occurredAt) : new Date();
+        const itemUpdate = computeItemUpdate(event.eventType, event, userId);
+
+        await inventoryRepo.createEventWithItemUpdate(
+          {
+            facilityId,
+            inventoryItemId: event.inventoryItemId,
+            eventType: event.eventType as any,
+            caseId: event.caseId,
+            locationId: event.locationId,
+            previousLocationId: item?.locationId ?? null,
+            sterilityStatus: event.sterilityStatus,
+            notes: event.notes,
+            performedByUserId: userId,
+            deviceEventId: event.deviceEventId,
+            occurredAt,
+          },
+          itemUpdate as any
+        );
+      }
+
+      return ok(reply, { success: true, count: events.length }, 201);
+    },
   });
 
   /**
