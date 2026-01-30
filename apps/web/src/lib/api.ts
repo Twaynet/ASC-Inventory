@@ -4,6 +4,16 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+/** Resolve a relative asset URL (e.g. /uploads/...) to a full URL using the API origin */
+export function resolveAssetUrl(assetUrl: string): string {
+  if (!assetUrl.startsWith('/')) return assetUrl;
+  try {
+    return new URL(assetUrl, API_BASE).href;
+  } catch {
+    return assetUrl;
+  }
+}
+
 interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -1390,6 +1400,7 @@ export interface CatalogItem {
   substitutable: boolean;
   inventoryCount: number;
   imageCount: number;
+  identifierCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -2541,8 +2552,7 @@ export async function getCatalogIdentifiers(
   token: string,
   catalogId: string
 ): Promise<{ identifiers: CatalogIdentifier[] }> {
-  const res = await api(`/catalog/${catalogId}/identifiers`, { token }) as { data: { identifiers: CatalogIdentifier[] } };
-  return res.data;
+  return api(`/catalog/${catalogId}/identifiers`, { token });
 }
 
 export async function addCatalogIdentifier(
@@ -2550,8 +2560,7 @@ export async function addCatalogIdentifier(
   catalogId: string,
   data: { rawValue: string; source?: string }
 ): Promise<{ identifier: CatalogIdentifier; gs1Data: GS1Data | null }> {
-  const res = await api(`/catalog/${catalogId}/identifiers`, { method: 'POST', body: data, token }) as { data: { identifier: CatalogIdentifier; gs1Data: GS1Data | null } };
-  return res.data;
+  return api(`/catalog/${catalogId}/identifiers`, { method: 'POST', body: data, token });
 }
 
 export async function deleteCatalogIdentifier(

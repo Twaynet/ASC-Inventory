@@ -20,6 +20,7 @@ import {
   getCatalogIdentifiers,
   addCatalogIdentifier,
   deleteCatalogIdentifier,
+  resolveAssetUrl,
   type CatalogItem,
   type CatalogImage,
   type CatalogIdentifier,
@@ -27,16 +28,6 @@ import {
   type CreateCatalogItemRequest,
   type UpdateCatalogItemRequest,
 } from '@/lib/api';
-
-// API origin for resolving relative asset URLs (e.g. /uploads/catalog/...)
-const API_ORIGIN = (() => {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-  try { return new URL(apiUrl).origin; } catch { return 'http://localhost:3001'; }
-})();
-
-function resolveAssetUrl(assetUrl: string): string {
-  return assetUrl.startsWith('/') ? `${API_ORIGIN}${assetUrl}` : assetUrl;
-}
 
 // LAW catalog.md v2.0 §4A: Engine Category
 const CATEGORIES: ItemCategory[] = ['IMPLANT', 'INSTRUMENT', 'EQUIPMENT', 'MEDICATION', 'CONSUMABLE', 'PPE'];
@@ -854,6 +845,7 @@ export default function AdminCatalogPage() {
                         <img
                           src={resolveAssetUrl(img.assetUrl)}
                           alt={img.caption || 'Catalog image'}
+                          referrerPolicy="no-referrer"
                         />
                       </a>
                       <div className="image-info">
@@ -987,7 +979,22 @@ export default function AdminCatalogPage() {
                         </span>
                       </td>
                       <td>{item.manufacturer || '-'}</td>
-                      <td className="catalog-number">{item.catalogNumber || '-'}</td>
+                      <td className="catalog-number">
+                        {item.catalogNumber || '-'}
+                        {item.identifierCount > 0 && (
+                          <span style={{
+                            marginLeft: '0.35rem',
+                            background: '#2563eb',
+                            color: '#fff',
+                            padding: '1px 5px',
+                            borderRadius: '3px',
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                          }}>
+                            {item.identifierCount} ID{item.identifierCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </td>
                       <td>{item.requiresSterility ? 'Yes' : 'No'}</td>
                       <td>{item.isLoaner ? 'Yes' : 'No'}</td>
                       <td>{item.inventoryCount}</td>
