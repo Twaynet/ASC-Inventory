@@ -3,6 +3,8 @@
  */
 
 import { request, API_BASE } from './client';
+import { callContract } from './contract-client';
+import { contract } from '@asc/contract';
 import {
   CatalogItemListResponseSchema,
   CatalogItemResponseSchema,
@@ -309,7 +311,11 @@ export async function addCatalogIdentifier(
   catalogId: string,
   data: { rawValue: string; source?: string }
 ): Promise<{ identifier: CatalogIdentifier; gs1Data: import('./inventory').GS1Data | null }> {
-  return request(`/catalog/${catalogId}/identifiers`, { method: 'POST', body: data, token, requestSchema: AddCatalogIdentifierRequestSchema, responseSchema: CatalogIdentifierResponseSchema });
+  return callContract(contract.catalog.addIdentifier, {
+    params: { catalogId },
+    body: data,
+    token,
+  }) as Promise<{ identifier: CatalogIdentifier; gs1Data: import('./inventory').GS1Data | null }>;
 }
 
 // TODO(api-schema): void DELETE — no response body to validate

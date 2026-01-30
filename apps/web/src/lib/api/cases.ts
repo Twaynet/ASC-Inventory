@@ -3,6 +3,8 @@
  */
 
 import { request } from './client';
+import { callContract } from './contract-client';
+import { contract } from '@asc/contract';
 import {
   CaseListResponseSchema,
   CaseResponseSchema,
@@ -56,13 +58,10 @@ export interface ActivateCaseRequest {
 // ============================================================================
 
 export async function getCases(token: string, filters?: { date?: string; status?: string; active?: string; search?: string }): Promise<{ cases: Case[] }> {
-  const params = new URLSearchParams();
-  if (filters?.date) params.set('date', filters.date);
-  if (filters?.status) params.set('status', filters.status);
-  if (filters?.active !== undefined) params.set('active', filters.active);
-  if (filters?.search) params.set('search', filters.search);
-  const query = params.toString() ? `?${params.toString()}` : '';
-  return request(`/cases${query}`, { token, responseSchema: CaseListResponseSchema });
+  return callContract(contract.cases.list, {
+    query: filters,
+    token,
+  }) as Promise<{ cases: Case[] }>;
 }
 
 export async function getCase(token: string, caseId: string): Promise<{ case: Case }> {
@@ -86,7 +85,11 @@ export async function cancelCase(token: string, caseId: string, reason?: string)
 }
 
 export async function approveCase(token: string, caseId: string, data: { scheduledDate: string; scheduledTime?: string; roomId?: string }): Promise<{ case: Case }> {
-  return request(`/cases/${caseId}/approve`, { method: 'POST', body: data, token, requestSchema: ApproveCaseRequestSchema, responseSchema: CaseResponseSchema });
+  return callContract(contract.cases.approve, {
+    params: { caseId },
+    body: data,
+    token,
+  }) as Promise<{ case: Case }>;
 }
 
 export async function rejectCase(token: string, caseId: string, reason: string): Promise<{ case: Case }> {

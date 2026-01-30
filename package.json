@@ -18,7 +18,9 @@
     "validate:docs": "npx tsx scripts/validate-docs.ts",
     "validate:doc": "npx tsx scripts/validate-docs.ts",
     "validate:capabilities": "npx tsx scripts/ci-capability-guardrails.ts",
-    "validate:api-modules": "npx tsx scripts/ci-api-modules.ts"
+    "validate:api-modules": "npx tsx scripts/ci-api-modules.ts",
+    "generate:openapi": "npx tsx packages/contract/scripts/generate-openapi.ts",
+    "validate:contracts": "npm test --workspace=@asc/contract"
   },
   "devDependencies": {
     "tsx": "^4.10.0",

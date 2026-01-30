@@ -1,0 +1,2120 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ASC Inventory API",
+    "version": "1.4.0",
+    "description": "Auto-generated from @asc/contract route definitions."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001/api",
+      "description": "Local development"
+    }
+  ],
+  "components": {
+    "schemas": {},
+    "parameters": {}
+  },
+  "paths": {
+    "/cases": {
+      "get": {
+        "operationId": "cases.list",
+        "summary": "List cases with optional filters",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "active",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "search",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "cases": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "caseNumber": {
+                                "type": "string"
+                              },
+                              "facilityId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "scheduledDate": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "scheduledTime": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "requestedDate": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "requestedTime": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "surgeonId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "surgeonName": {
+                                "type": "string"
+                              },
+                              "procedureName": {
+                                "type": "string"
+                              },
+                              "preferenceCardVersionId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "DRAFT",
+                                  "REQUESTED",
+                                  "SCHEDULED",
+                                  "READY",
+                                  "IN_PROGRESS",
+                                  "COMPLETED",
+                                  "CANCELLED",
+                                  "REJECTED"
+                                ]
+                              },
+                              "notes": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "isActive": {
+                                "type": "boolean"
+                              },
+                              "activatedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "activatedByUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "isCancelled": {
+                                "type": "boolean"
+                              },
+                              "cancelledAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "cancelledByUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "rejectedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "rejectedByUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "rejectionReason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "type": "string"
+                              },
+                              "roomId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "roomName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "estimatedDurationMinutes": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "sortOrder": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "caseNumber",
+                              "facilityId",
+                              "scheduledDate",
+                              "scheduledTime",
+                              "requestedDate",
+                              "requestedTime",
+                              "surgeonId",
+                              "surgeonName",
+                              "procedureName",
+                              "preferenceCardVersionId",
+                              "status",
+                              "notes",
+                              "isActive",
+                              "activatedAt",
+                              "activatedByUserId",
+                              "isCancelled",
+                              "cancelledAt",
+                              "cancelledByUserId",
+                              "rejectedAt",
+                              "rejectedByUserId",
+                              "rejectionReason",
+                              "createdAt",
+                              "updatedAt",
+                              "roomId",
+                              "roomName",
+                              "estimatedDurationMinutes",
+                              "sortOrder"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "cases"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{caseId}": {
+      "get": {
+        "operationId": "cases.get",
+        "summary": "Get a single case by ID",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "case": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "caseNumber": {
+                              "type": "string"
+                            },
+                            "facilityId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "scheduledDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "scheduledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "surgeonId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "surgeonName": {
+                              "type": "string"
+                            },
+                            "procedureName": {
+                              "type": "string"
+                            },
+                            "preferenceCardVersionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "DRAFT",
+                                "REQUESTED",
+                                "SCHEDULED",
+                                "READY",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED"
+                              ]
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            },
+                            "activatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "activatedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isCancelled": {
+                              "type": "boolean"
+                            },
+                            "cancelledAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectionReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            },
+                            "roomId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roomName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "estimatedDurationMinutes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "sortOrder": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "caseNumber",
+                            "facilityId",
+                            "scheduledDate",
+                            "scheduledTime",
+                            "requestedDate",
+                            "requestedTime",
+                            "surgeonId",
+                            "surgeonName",
+                            "procedureName",
+                            "preferenceCardVersionId",
+                            "status",
+                            "notes",
+                            "isActive",
+                            "activatedAt",
+                            "activatedByUserId",
+                            "isCancelled",
+                            "cancelledAt",
+                            "cancelledByUserId",
+                            "rejectedAt",
+                            "rejectedByUserId",
+                            "rejectionReason",
+                            "createdAt",
+                            "updatedAt",
+                            "roomId",
+                            "roomName",
+                            "estimatedDurationMinutes",
+                            "sortOrder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "case"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "cases.update",
+        "summary": "Update case fields",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scheduledDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "scheduledTime": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{2}:\\d{2}(:\\d{2})?$"
+                  },
+                  "surgeonId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "procedureName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "preferenceCardVersionId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "DRAFT",
+                      "REQUESTED",
+                      "SCHEDULED",
+                      "READY",
+                      "IN_PROGRESS",
+                      "COMPLETED",
+                      "CANCELLED",
+                      "REJECTED"
+                    ]
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "case": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "caseNumber": {
+                              "type": "string"
+                            },
+                            "facilityId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "scheduledDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "scheduledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "surgeonId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "surgeonName": {
+                              "type": "string"
+                            },
+                            "procedureName": {
+                              "type": "string"
+                            },
+                            "preferenceCardVersionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "DRAFT",
+                                "REQUESTED",
+                                "SCHEDULED",
+                                "READY",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED"
+                              ]
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            },
+                            "activatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "activatedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isCancelled": {
+                              "type": "boolean"
+                            },
+                            "cancelledAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectionReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            },
+                            "roomId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roomName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "estimatedDurationMinutes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "sortOrder": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "caseNumber",
+                            "facilityId",
+                            "scheduledDate",
+                            "scheduledTime",
+                            "requestedDate",
+                            "requestedTime",
+                            "surgeonId",
+                            "surgeonName",
+                            "procedureName",
+                            "preferenceCardVersionId",
+                            "status",
+                            "notes",
+                            "isActive",
+                            "activatedAt",
+                            "activatedByUserId",
+                            "isCancelled",
+                            "cancelledAt",
+                            "cancelledByUserId",
+                            "rejectedAt",
+                            "rejectedByUserId",
+                            "rejectionReason",
+                            "createdAt",
+                            "updatedAt",
+                            "roomId",
+                            "roomName",
+                            "estimatedDurationMinutes",
+                            "sortOrder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "case"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{caseId}/approve": {
+      "post": {
+        "operationId": "cases.approve",
+        "summary": "Approve a requested case",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scheduledDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "scheduledTime": {
+                    "type": "string",
+                    "pattern": "^\\d{2}:\\d{2}(:\\d{2})?$"
+                  },
+                  "roomId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  },
+                  "estimatedDurationMinutes": {
+                    "type": "integer",
+                    "minimum": 15,
+                    "maximum": 720
+                  }
+                },
+                "required": [
+                  "scheduledDate"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "case": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "caseNumber": {
+                              "type": "string"
+                            },
+                            "facilityId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "scheduledDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "scheduledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "surgeonId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "surgeonName": {
+                              "type": "string"
+                            },
+                            "procedureName": {
+                              "type": "string"
+                            },
+                            "preferenceCardVersionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "DRAFT",
+                                "REQUESTED",
+                                "SCHEDULED",
+                                "READY",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED"
+                              ]
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            },
+                            "activatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "activatedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isCancelled": {
+                              "type": "boolean"
+                            },
+                            "cancelledAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectionReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            },
+                            "roomId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roomName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "estimatedDurationMinutes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "sortOrder": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "caseNumber",
+                            "facilityId",
+                            "scheduledDate",
+                            "scheduledTime",
+                            "requestedDate",
+                            "requestedTime",
+                            "surgeonId",
+                            "surgeonName",
+                            "procedureName",
+                            "preferenceCardVersionId",
+                            "status",
+                            "notes",
+                            "isActive",
+                            "activatedAt",
+                            "activatedByUserId",
+                            "isCancelled",
+                            "cancelledAt",
+                            "cancelledByUserId",
+                            "rejectedAt",
+                            "rejectedByUserId",
+                            "rejectionReason",
+                            "createdAt",
+                            "updatedAt",
+                            "roomId",
+                            "roomName",
+                            "estimatedDurationMinutes",
+                            "sortOrder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "case"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{caseId}/reject": {
+      "post": {
+        "operationId": "cases.reject",
+        "summary": "Reject a requested case",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "case": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "caseNumber": {
+                              "type": "string"
+                            },
+                            "facilityId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "scheduledDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "scheduledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "surgeonId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "surgeonName": {
+                              "type": "string"
+                            },
+                            "procedureName": {
+                              "type": "string"
+                            },
+                            "preferenceCardVersionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "DRAFT",
+                                "REQUESTED",
+                                "SCHEDULED",
+                                "READY",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED"
+                              ]
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            },
+                            "activatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "activatedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isCancelled": {
+                              "type": "boolean"
+                            },
+                            "cancelledAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectionReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            },
+                            "roomId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roomName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "estimatedDurationMinutes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "sortOrder": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "caseNumber",
+                            "facilityId",
+                            "scheduledDate",
+                            "scheduledTime",
+                            "requestedDate",
+                            "requestedTime",
+                            "surgeonId",
+                            "surgeonName",
+                            "procedureName",
+                            "preferenceCardVersionId",
+                            "status",
+                            "notes",
+                            "isActive",
+                            "activatedAt",
+                            "activatedByUserId",
+                            "isCancelled",
+                            "cancelledAt",
+                            "cancelledByUserId",
+                            "rejectedAt",
+                            "rejectedByUserId",
+                            "rejectionReason",
+                            "createdAt",
+                            "updatedAt",
+                            "roomId",
+                            "roomName",
+                            "estimatedDurationMinutes",
+                            "sortOrder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "case"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{caseId}/assign-room": {
+      "patch": {
+        "operationId": "cases.assignRoom",
+        "summary": "Assign or unassign a room for a case",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "roomId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  },
+                  "sortOrder": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "estimatedDurationMinutes": {
+                    "type": "integer",
+                    "minimum": 15,
+                    "maximum": 720
+                  }
+                },
+                "required": [
+                  "roomId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "case": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "caseNumber": {
+                              "type": "string"
+                            },
+                            "facilityId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "scheduledDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "scheduledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "surgeonId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "surgeonName": {
+                              "type": "string"
+                            },
+                            "procedureName": {
+                              "type": "string"
+                            },
+                            "preferenceCardVersionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "DRAFT",
+                                "REQUESTED",
+                                "SCHEDULED",
+                                "READY",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED"
+                              ]
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            },
+                            "activatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "activatedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isCancelled": {
+                              "type": "boolean"
+                            },
+                            "cancelledAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectionReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            },
+                            "roomId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roomName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "estimatedDurationMinutes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "sortOrder": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "caseNumber",
+                            "facilityId",
+                            "scheduledDate",
+                            "scheduledTime",
+                            "requestedDate",
+                            "requestedTime",
+                            "surgeonId",
+                            "surgeonName",
+                            "procedureName",
+                            "preferenceCardVersionId",
+                            "status",
+                            "notes",
+                            "isActive",
+                            "activatedAt",
+                            "activatedByUserId",
+                            "isCancelled",
+                            "cancelledAt",
+                            "cancelledByUserId",
+                            "rejectedAt",
+                            "rejectedByUserId",
+                            "rejectionReason",
+                            "createdAt",
+                            "updatedAt",
+                            "roomId",
+                            "roomName",
+                            "estimatedDurationMinutes",
+                            "sortOrder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "case"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/events": {
+      "post": {
+        "operationId": "inventory.createEvent",
+        "summary": "Record a single inventory event",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "inventoryItemId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "eventType": {
+                    "type": "string",
+                    "enum": [
+                      "RECEIVED",
+                      "VERIFIED",
+                      "LOCATION_CHANGED",
+                      "RESERVED",
+                      "RELEASED",
+                      "CONSUMED",
+                      "EXPIRED",
+                      "RETURNED",
+                      "ADJUSTED"
+                    ]
+                  },
+                  "caseId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "sterilityStatus": {
+                    "type": "string",
+                    "enum": [
+                      "STERILE",
+                      "NON_STERILE",
+                      "EXPIRED",
+                      "UNKNOWN"
+                    ]
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "deviceEventId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "occurredAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "inventoryItemId",
+                  "eventType"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "success"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/events/bulk": {
+      "post": {
+        "operationId": "inventory.bulkEvents",
+        "summary": "Record multiple inventory events in one request",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "inventoryItemId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "eventType": {
+                          "type": "string",
+                          "enum": [
+                            "RECEIVED",
+                            "VERIFIED",
+                            "LOCATION_CHANGED",
+                            "RESERVED",
+                            "RELEASED",
+                            "CONSUMED",
+                            "EXPIRED",
+                            "RETURNED",
+                            "ADJUSTED"
+                          ]
+                        },
+                        "caseId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "locationId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "sterilityStatus": {
+                          "type": "string",
+                          "enum": [
+                            "STERILE",
+                            "NON_STERILE",
+                            "EXPIRED",
+                            "UNKNOWN"
+                          ]
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "deviceEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "occurredAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "inventoryItemId",
+                        "eventType"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 100
+                  }
+                },
+                "required": [
+                  "events"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "success"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog": {
+      "get": {
+        "operationId": "catalog.list",
+        "summary": "List all catalog items",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "category",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "includeInactive",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "category": {
+                                "type": "string",
+                                "enum": [
+                                  "IMPLANT",
+                                  "INSTRUMENT",
+                                  "EQUIPMENT",
+                                  "MEDICATION",
+                                  "CONSUMABLE",
+                                  "PPE"
+                                ]
+                              },
+                              "manufacturer": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "catalogNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "requiresSterility": {
+                                "type": "boolean"
+                              },
+                              "isLoaner": {
+                                "type": "boolean"
+                              },
+                              "active": {
+                                "type": "boolean"
+                              },
+                              "requiresLotTracking": {
+                                "type": "boolean"
+                              },
+                              "requiresSerialTracking": {
+                                "type": "boolean"
+                              },
+                              "requiresExpirationTracking": {
+                                "type": "boolean"
+                              },
+                              "criticality": {
+                                "type": "string",
+                                "enum": [
+                                  "CRITICAL",
+                                  "IMPORTANT",
+                                  "ROUTINE"
+                                ]
+                              },
+                              "readinessRequired": {
+                                "type": "boolean"
+                              },
+                              "expirationWarningDays": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "substitutable": {
+                                "type": "boolean"
+                              },
+                              "inventoryCount": {
+                                "type": "number"
+                              },
+                              "imageCount": {
+                                "type": "number"
+                              },
+                              "identifierCount": {
+                                "type": "number"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "description",
+                              "category",
+                              "manufacturer",
+                              "catalogNumber",
+                              "requiresSterility",
+                              "isLoaner",
+                              "active",
+                              "requiresLotTracking",
+                              "requiresSerialTracking",
+                              "requiresExpirationTracking",
+                              "criticality",
+                              "readinessRequired",
+                              "expirationWarningDays",
+                              "substitutable",
+                              "inventoryCount",
+                              "imageCount",
+                              "identifierCount",
+                              "createdAt",
+                              "updatedAt"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "items"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/{catalogId}/identifiers": {
+      "post": {
+        "operationId": "catalog.addIdentifier",
+        "summary": "Add a barcode/identifier to a catalog item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "catalogId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rawValue": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "rawValue"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "identifier": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "catalogId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "identifierType": {
+                              "type": "string"
+                            },
+                            "rawValue": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            },
+                            "classification": {
+                              "type": "string"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "createdByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "creatorName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "catalogId",
+                            "identifierType",
+                            "rawValue",
+                            "source",
+                            "classification",
+                            "createdAt",
+                            "createdByUserId"
+                          ]
+                        },
+                        "gs1Data": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "gtin": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lot": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "expiration": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "serial": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "gtin",
+                            "lot",
+                            "expiration",
+                            "serial"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "identifier",
+                        "gs1Data"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/{catalogId}/identifiers/{identifierId}": {
+      "delete": {
+        "operationId": "catalog.deleteIdentifier",
+        "summary": "Delete a catalog identifier",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "catalogId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "identifierId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          }
+        }
+      }
+    },
+    "/catalog/{catalogId}/images/{imageId}": {
+      "delete": {
+        "operationId": "catalog.deleteImage",
+        "summary": "Delete a catalog image",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "catalogId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "imageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}
