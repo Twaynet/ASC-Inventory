@@ -28,6 +28,16 @@ import {
   type UpdateCatalogItemRequest,
 } from '@/lib/api';
 
+// API origin for resolving relative asset URLs (e.g. /uploads/catalog/...)
+const API_ORIGIN = (() => {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  try { return new URL(apiUrl).origin; } catch { return 'http://localhost:3001'; }
+})();
+
+function resolveAssetUrl(assetUrl: string): string {
+  return assetUrl.startsWith('/') ? `${API_ORIGIN}${assetUrl}` : assetUrl;
+}
+
 // LAW catalog.md v2.0 §4A: Engine Category
 const CATEGORIES: ItemCategory[] = ['IMPLANT', 'INSTRUMENT', 'EQUIPMENT', 'MEDICATION', 'CONSUMABLE', 'PPE'];
 
@@ -154,8 +164,9 @@ export default function AdminCatalogPage() {
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
   const [editingCaption, setEditingCaption] = useState('');
 
-  // Identifiers state (inside edit modal)
+  // Identifiers state (works in both create and edit modes)
   const [identifiers, setIdentifiers] = useState<CatalogIdentifier[]>([]);
+  const [pendingIdentifiers, setPendingIdentifiers] = useState<string[]>([]);
   const [identifierInput, setIdentifierInput] = useState('');
   const [loadingIdentifiers, setLoadingIdentifiers] = useState(false);
 
@@ -173,17 +184,27 @@ export default function AdminCatalogPage() {
   };
 
   const handleAddIdentifier = async () => {
-    if (!token || !editingItem || !identifierInput.trim()) return;
-    try {
-      const res = await addCatalogIdentifier(token, editingItem.id, {
-        rawValue: identifierInput.trim(),
-        source: 'manual',
-      });
-      setIdentifiers(prev => [...prev, res.identifier]);
+    if (!identifierInput.trim()) return;
+    if (editingItem && token) {
+      // Edit mode: save to API immediately
+      try {
+        const res = await addCatalogIdentifier(token, editingItem.id, {
+          rawValue: identifierInput.trim(),
+          source: 'manual',
+        });
+        setIdentifiers(prev => [...prev, res.identifier]);
+        setIdentifierInput('');
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to add identifier';
+        alert(message);
+      }
+    } else {
+      // Create mode: queue locally
+      const val = identifierInput.trim();
+      if (!pendingIdentifiers.includes(val)) {
+        setPendingIdentifiers(prev => [...prev, val]);
+      }
       setIdentifierInput('');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to add identifier';
-      alert(message);
     }
   };
 
@@ -195,6 +216,10 @@ export default function AdminCatalogPage() {
     } catch {
       alert('Failed to delete identifier');
     }
+  };
+
+  const handleRemovePendingIdentifier = (value: string) => {
+    setPendingIdentifiers(prev => prev.filter(v => v !== value));
   };
 
   const openImagesModal = async (item: CatalogItem) => {
@@ -308,10 +333,22 @@ export default function AdminCatalogPage() {
     await withErrorHandling(
       () => createCatalogItem(token, formData as CreateCatalogItemRequest),
       setError,
-      () => {
+      async (result: { item: CatalogItem }) => {
+        // Add any pending identifiers to the newly created item
+        if (pendingIdentifiers.length > 0) {
+          for (const rawValue of pendingIdentifiers) {
+            try {
+              await addCatalogIdentifier(token, result.item.id, { rawValue, source: 'manual' });
+            } catch {
+              // best-effort; item was already created
+            }
+          }
+        }
         setSuccessMessage('Catalog item created successfully');
         setShowCreateForm(false);
         setFormData({});
+        setPendingIdentifiers([]);
+        setIdentifierInput('');
         refetch();
       }
     );
@@ -469,6 +506,9 @@ export default function AdminCatalogPage() {
                 setShowCreateForm(true);
                 setEditingItem(null);
                 setFormData({});
+                setPendingIdentifiers([]);
+                setIdentifiers([]);
+                setIdentifierInput('');
               }}
             >
               + Add Catalog Item
@@ -586,66 +626,98 @@ export default function AdminCatalogPage() {
                     placeholder="Optional description"
                   />
                 </div>
-                {editingItem && (
-                  <div className="form-group">
-                    <label>Identifiers &amp; Barcodes</label>
-                    <p style={{ fontSize: '0.8rem', color: '#666', margin: '0 0 0.5rem 0' }}>
-                      Reference identifiers for human recognition only.
-                    </p>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                      <input
-                        type="text"
-                        value={identifierInput}
-                        onChange={(e) => setIdentifierInput(e.target.value)}
-                        placeholder="Scan or paste barcode/GTIN..."
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddIdentifier(); } }}
-                        style={{ flex: 1 }}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={handleAddIdentifier}
-                        disabled={!identifierInput.trim()}
-                        style={{ whiteSpace: 'nowrap' }}
-                      >
-                        Add
-                      </button>
-                    </div>
-                    {loadingIdentifiers ? (
-                      <p style={{ fontSize: '0.85rem', color: '#888' }}>Loading...</p>
-                    ) : identifiers.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        {identifiers.map(ident => (
-                          <div key={ident.id} style={{
-                            display: 'flex', alignItems: 'center', gap: '0.5rem',
-                            padding: '0.35rem 0.5rem', background: '#f5f5f5', borderRadius: '4px',
-                            fontSize: '0.85rem',
-                          }}>
-                            <span style={{
-                              background: ident.identifierType === 'GTIN' ? '#2563eb' : ident.identifierType === 'UPC' ? '#7c3aed' : '#6b7280',
-                              color: '#fff', padding: '1px 6px', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 600,
-                            }}>
-                              {ident.identifierType}
-                            </span>
-                            <span style={{ flex: 1, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {ident.rawValue}
-                            </span>
-                            <span style={{ color: '#888', fontSize: '0.75rem' }}>{ident.classification}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteIdentifier(ident.id)}
-                              style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px 4px' }}
-                            >
-                              &times;
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p style={{ fontSize: '0.85rem', color: '#888' }}>No identifiers added yet.</p>
-                    )}
+                <div className="form-group">
+                  <label>Identifiers &amp; Barcodes</label>
+                  <p style={{ fontSize: '0.8rem', color: '#666', margin: '0 0 0.5rem 0' }}>
+                    Reference identifiers for human recognition only.
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <input
+                      type="text"
+                      value={identifierInput}
+                      onChange={(e) => setIdentifierInput(e.target.value)}
+                      placeholder="Scan or paste barcode/GTIN..."
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddIdentifier(); } }}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleAddIdentifier}
+                      disabled={!identifierInput.trim()}
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      Add
+                    </button>
                   </div>
-                )}
+                  {/* Edit mode: show saved identifiers from API */}
+                  {editingItem && (loadingIdentifiers ? (
+                    <p style={{ fontSize: '0.85rem', color: '#888' }}>Loading...</p>
+                  ) : identifiers.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      {identifiers.map(ident => (
+                        <div key={ident.id} style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.35rem 0.5rem', background: '#f5f5f5', borderRadius: '4px',
+                          fontSize: '0.85rem',
+                        }}>
+                          <span style={{
+                            background: ident.identifierType === 'GTIN' ? '#2563eb' : ident.identifierType === 'UPC' ? '#7c3aed' : '#6b7280',
+                            color: '#fff', padding: '1px 6px', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 600,
+                          }}>
+                            {ident.identifierType}
+                          </span>
+                          <span style={{ flex: 1, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {ident.rawValue}
+                          </span>
+                          <span style={{ color: '#888', fontSize: '0.75rem' }}>{ident.classification}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteIdentifier(ident.id)}
+                            style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px 4px' }}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null)}
+                  {/* Create mode: show pending identifiers queued locally */}
+                  {!editingItem && pendingIdentifiers.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      {pendingIdentifiers.map(val => (
+                        <div key={val} style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.35rem 0.5rem', background: '#f5f5f5', borderRadius: '4px',
+                          fontSize: '0.85rem',
+                        }}>
+                          <span style={{
+                            background: '#6b7280',
+                            color: '#fff', padding: '1px 6px', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 600,
+                          }}>
+                            PENDING
+                          </span>
+                          <span style={{ flex: 1, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {val}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePendingIdentifier(val)}
+                            style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px 4px' }}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {editingItem && identifiers.length === 0 && !loadingIdentifiers && (
+                    <p style={{ fontSize: '0.85rem', color: '#888' }}>No identifiers added yet.</p>
+                  )}
+                  {!editingItem && pendingIdentifiers.length === 0 && (
+                    <p style={{ fontSize: '0.85rem', color: '#888' }}>No identifiers added yet. Will be saved when item is created.</p>
+                  )}
+                </div>
                 <div className="form-group">
                   <label>Item Properties</label>
                   <div className="pill-toggle-group">
@@ -772,7 +844,7 @@ export default function AdminCatalogPage() {
                   images.map(img => (
                     <div key={img.id} className="image-item">
                       <a
-                        href={img.assetUrl.startsWith('/') ? `http://localhost:3001${img.assetUrl}` : img.assetUrl}
+                        href={resolveAssetUrl(img.assetUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="image-thumbnail"
@@ -780,7 +852,7 @@ export default function AdminCatalogPage() {
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={img.assetUrl.startsWith('/') ? `http://localhost:3001${img.assetUrl}` : img.assetUrl}
+                          src={resolveAssetUrl(img.assetUrl)}
                           alt={img.caption || 'Catalog image'}
                         />
                       </a>
