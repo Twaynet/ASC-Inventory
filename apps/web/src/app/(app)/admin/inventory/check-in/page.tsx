@@ -1,22 +1,83 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { useScannerService, ScanProcessResult } from '@/lib/useScannerService';
 import { createInventoryEvent, createInventoryItem, type CreateInventoryItemRequest } from '@/lib/api/inventory';
 import { getCatalogItems, type CatalogItem } from '@/lib/api/catalog';
 import { getLocations, type Location } from '@/lib/api/settings';
+import { getCase, type Case } from '@/lib/api/cases';
 
 type CheckInMode = 'verify' | 'receive' | 'location_change';
 
 const STERILITY_STATUSES = ['STERILE', 'NON_STERILE', 'EXPIRED', 'UNKNOWN'] as const;
 
+const MODE_LABELS: Record<CheckInMode, { verb: string; past: string; button: string }> = {
+  verify: { verb: 'verify', past: 'verified', button: 'Confirm Verified' },
+  receive: { verb: 'receive', past: 'received', button: 'Receive Item' },
+  location_change: { verb: 'move', past: 'moved', button: 'Move Item' },
+};
+
+const EVENT_TYPE_MAP: Record<CheckInMode, string> = {
+  verify: 'VERIFIED',
+  receive: 'RECEIVED',
+  location_change: 'LOCATION_CHANGED',
+};
+
+/** Map API error codes to user-friendly messages */
+function friendlyError(err: unknown): { message: string; requestId?: string } {
+  if (err && typeof err === 'object') {
+    const e = err as Record<string, unknown>;
+    // Envelope error shape: { error: { code, message, requestId } }
+    if (e.error && typeof e.error === 'object') {
+      const inner = e.error as Record<string, unknown>;
+      const code = inner.code as string | undefined;
+      const requestId = inner.requestId as string | undefined;
+      switch (code) {
+        case 'UNAUTHENTICATED':
+          return { message: 'Session expired — please log in again.', requestId };
+        case 'FORBIDDEN':
+          return { message: 'You don\'t have permission for inventory check-in.', requestId };
+        case 'VALIDATION_ERROR':
+          return { message: 'Scan is invalid or incomplete.', requestId };
+        default:
+          return { message: (inner.message as string) || 'An error occurred.', requestId };
+      }
+    }
+    if (e.message && typeof e.message === 'string') {
+      if (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed to fetch')) {
+        return { message: 'Network issue — retrying is safe. If the problem persists, contact support.' };
+      }
+      return { message: e.message };
+    }
+  }
+  if (err instanceof Error) {
+    if (err.message.includes('fetch') || err.message.includes('Failed to fetch')) {
+      return { message: 'Network issue — retrying is safe. If the problem persists, contact support.' };
+    }
+    return { message: err.message };
+  }
+  return { message: 'An unexpected error occurred.' };
+}
+
+interface LastAction {
+  itemName: string;
+  lotNumber?: string | null;
+  expiresAt?: string | null;
+  eventType: string;
+  mode: CheckInMode;
+  timestamp: Date;
+}
+
 export default function InventoryCheckInPage() {
   const { user, token } = useAuth();
-  const { hasRole } = useAccessControl();
+  const { hasCapability } = useAccessControl();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const caseIdParam = searchParams.get('caseId');
 
   // Scanner service
   const {
@@ -40,8 +101,21 @@ export default function InventoryCheckInPage() {
   const [notes, setNotes] = useState('');
   const [manualBarcode, setManualBarcode] = useState('');
   const [showManualEntry, setShowManualEntry] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
+  const [errorRequestId, setErrorRequestId] = useState<string | undefined>();
+  const [submitting, setSubmitting] = useState(false);
+
+  // Last action feedback (replaces simple successMessage)
+  const [lastAction, setLastAction] = useState<LastAction | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState('');
+
+  // Duplicate detection ref
+  const lastSubmitRef = useRef<{ itemId: string; eventType: string; ts: number } | null>(null);
+
+  // Case context
+  const [caseContext, setCaseContext] = useState<Case | null>(null);
+  const [caseLoading, setCaseLoading] = useState(false);
+  const [caseError, setCaseError] = useState('');
 
   // Loaner tracking fields (optional reference)
   const [loanerReference, setLoanerReference] = useState('');
@@ -57,6 +131,9 @@ export default function InventoryCheckInPage() {
   const [overrideReason, setOverrideReason] = useState('');
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
 
+  // Manual entry input ref for focus management
+  const manualInputRef = useRef<HTMLInputElement>(null);
+
   // Load locations and catalog items
   useEffect(() => {
     if (token) {
@@ -69,9 +146,39 @@ export default function InventoryCheckInPage() {
     }
   }, [token]);
 
+  // Load case context when caseId param present
+  useEffect(() => {
+    if (token && caseIdParam) {
+      setCaseLoading(true);
+      setCaseError('');
+      getCase(token, caseIdParam)
+        .then(result => setCaseContext(result.case))
+        .catch(() => setCaseError('Case not found'))
+        .finally(() => setCaseLoading(false));
+    }
+  }, [token, caseIdParam]);
+
+  // Keyboard: Esc clears current scan result
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && lastResult) {
+        clearLastResult();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [lastResult, clearLastResult]);
+
+  // Clear duplicate warning after 5 seconds
+  useEffect(() => {
+    if (duplicateWarning) {
+      const timer = setTimeout(() => setDuplicateWarning(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [duplicateWarning]);
+
   const openOverride = () => {
     setShowOverride(true);
-    // Pre-fill from GS1 data if available
     if (lastResult?.gs1Data) {
       if (lastResult.gs1Data.lot) setOverrideLot(lastResult.gs1Data.lot);
       if (lastResult.gs1Data.serial) setOverrideSerial(lastResult.gs1Data.serial);
@@ -102,7 +209,14 @@ export default function InventoryCheckInPage() {
         attestationReason: overrideReason,
       };
       await createInventoryItem(token, data);
-      setSuccessMessage('Inventory item created via manual override.');
+      setLastAction({
+        itemName: catalogItems.find(c => c.id === overrideCatalogId)?.name || 'New item',
+        lotNumber: overrideLot || null,
+        expiresAt: overrideExpiration || null,
+        eventType: 'CREATED',
+        mode: 'verify',
+        timestamp: new Date(),
+      });
       setShowOverride(false);
       setOverrideCatalogId('');
       setOverrideLot('');
@@ -111,19 +225,13 @@ export default function InventoryCheckInPage() {
       setOverrideReason('');
       clearLastResult();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create item');
+      const { message, requestId } = friendlyError(err);
+      setError(message);
+      setErrorRequestId(requestId);
     } finally {
       setOverrideSubmitting(false);
     }
   };
-
-  // Clear success message after 3 seconds
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => setSuccessMessage(''), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,7 +243,25 @@ export default function InventoryCheckInPage() {
   };
 
   const handleCheckInAction = async () => {
-    if (!token || !lastResult?.item) return;
+    if (!token || !lastResult?.item || submitting) return;
+
+    const itemId = lastResult.item.id;
+    const eventType = EVENT_TYPE_MAP[mode];
+
+    // Duplicate detection: same item + event type within 5 seconds
+    const now = Date.now();
+    if (lastSubmitRef.current &&
+        lastSubmitRef.current.itemId === itemId &&
+        lastSubmitRef.current.eventType === eventType &&
+        now - lastSubmitRef.current.ts < 5000) {
+      setDuplicateWarning(`Duplicate scan — ${lastResult.item.catalogName || 'Item'} was already ${MODE_LABELS[mode].past} moments ago.`);
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+    setErrorRequestId(undefined);
+    setDuplicateWarning('');
 
     try {
       // LAW COMPLIANCE: User must explicitly confirm to create inventory events.
@@ -143,15 +269,21 @@ export default function InventoryCheckInPage() {
       const eventData: {
         inventoryItemId: string;
         eventType: string;
+        caseId?: string;
         locationId?: string;
         sterilityStatus?: string;
         notes?: string;
         deviceEventId?: string;
       } = {
-        inventoryItemId: lastResult.item.id,
-        eventType: mode === 'receive' ? 'RECEIVED' : mode === 'location_change' ? 'LOCATION_CHANGED' : 'VERIFIED',
+        inventoryItemId: itemId,
+        eventType,
         deviceEventId: lastResult.deviceEventId || undefined,
       };
+
+      // Pass case context if scoped to a case
+      if (caseIdParam && caseContext) {
+        eventData.caseId = caseIdParam;
+      }
 
       if (mode === 'receive' || mode === 'location_change') {
         if (selectedLocationId) {
@@ -180,25 +312,58 @@ export default function InventoryCheckInPage() {
 
       await createInventoryEvent(token, eventData);
 
-      setSuccessMessage(`Item ${mode === 'receive' ? 'received' : mode === 'location_change' ? 'moved' : 'verified'} successfully!`);
+      // Track for duplicate detection
+      lastSubmitRef.current = { itemId, eventType, ts: Date.now() };
+
+      // Capture feedback before clearing
+      setLastAction({
+        itemName: lastResult.item.catalogName || 'Item',
+        lotNumber: lastResult.item.lotNumber,
+        expiresAt: lastResult.item.sterilityExpiresAt,
+        eventType,
+        mode,
+        timestamp: new Date(),
+      });
+
       clearLastResult();
       setNotes('');
       setLoanerReference('');
       setVendorName('');
+
+      // Refocus for next scan
+      if (manualInputRef.current) {
+        manualInputRef.current.focus();
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to process action');
+      const { message, requestId } = friendlyError(err);
+      setError(message);
+      setErrorRequestId(requestId);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // Check access - ADMIN or INVENTORY_TECH
-  const hasAccess = hasRole('ADMIN') || hasRole('INVENTORY_TECH');
+  // Check access — capability-based
+  const hasAccess = hasCapability('INVENTORY_CHECKIN') || hasCapability('INVENTORY_MANAGE');
+
+  const pageTitle = caseContext
+    ? `Check-In — Case ${caseContext.caseNumber}`
+    : 'Inventory Check-In';
+
+  const breadcrumbItems = [
+    { label: 'Admin', href: '/admin' },
+    { label: 'Inventory', href: '/admin/inventory' },
+    { label: 'Check-In', href: '/admin/inventory/check-in' },
+    ...(caseContext ? [{ label: `Case ${caseContext.caseNumber}` }] : []),
+  ];
+
   if (!hasAccess) {
     return (
       <>
         <Header title="Inventory Check-In" />
         <main className="container">
           <div className="alert alert-error">
-            Access denied. This page requires ADMIN or INVENTORY_TECH role.
+            Access denied. You don&apos;t have permission for inventory check-in.
           </div>
         </main>
       </>
@@ -207,11 +372,85 @@ export default function InventoryCheckInPage() {
 
   return (
     <>
-      <Header title="Inventory Check-In" />
+      <Header title={pageTitle} />
 
       <main className="container check-in-page">
-        {error && <div className="alert alert-error" onClick={() => setError('')}>{error}</div>}
-        {successMessage && <div className="alert alert-success">{successMessage}</div>}
+        <Breadcrumbs items={breadcrumbItems} />
+
+        {/* Case Context Panel */}
+        {caseIdParam && (
+          <div className="case-context">
+            {caseLoading && <p style={{ color: '#718096' }}>Loading case...</p>}
+            {caseError && (
+              <div className="case-context-error">
+                <p><strong>Case not found</strong></p>
+                <p>The linked case could not be loaded. You can continue with a general check-in.</p>
+                <button className="btn btn-secondary btn-sm" onClick={() => router.push('/admin/inventory/check-in')}>
+                  General Check-In
+                </button>
+              </div>
+            )}
+            {caseContext && (
+              <div className="case-context-details">
+                <div className="case-context-header">
+                  <strong>Case {caseContext.caseNumber}</strong>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => router.push(`/calendar?openCase=${caseIdParam}`)}
+                  >
+                    Back to Case
+                  </button>
+                </div>
+                <div className="case-context-meta">
+                  <span>{caseContext.procedureName}</span>
+                  <span>Surgeon: {caseContext.surgeonName}</span>
+                  {caseContext.scheduledDate && (
+                    <span>
+                      {new Date(caseContext.scheduledDate).toLocaleDateString()}
+                      {caseContext.scheduledTime && ` at ${caseContext.scheduledTime}`}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Error banner */}
+        {error && (
+          <div className="alert alert-error" onClick={() => { setError(''); setErrorRequestId(undefined); }}>
+            {error}
+            {errorRequestId && (
+              <span className="request-id">requestId: {errorRequestId}</span>
+            )}
+          </div>
+        )}
+
+        {/* Duplicate warning */}
+        {duplicateWarning && (
+          <div className="alert alert-warning" onClick={() => setDuplicateWarning('')}>
+            {duplicateWarning}
+          </div>
+        )}
+
+        {/* Last Action feedback */}
+        {lastAction && !lastResult && (
+          <div className="last-action">
+            <div className="last-action-header">
+              <span className="last-action-badge">{MODE_LABELS[lastAction.mode]?.past.toUpperCase() || lastAction.eventType}</span>
+              <button className="close-btn" onClick={() => setLastAction(null)}>&times;</button>
+            </div>
+            <div className="last-action-details">
+              <strong>{lastAction.itemName}</strong>
+              <span className="last-action-meta">
+                {lastAction.lotNumber && <>Lot: {lastAction.lotNumber}</>}
+                {lastAction.lotNumber && lastAction.expiresAt && <> · </>}
+                {lastAction.expiresAt && <>Exp: {new Date(lastAction.expiresAt).toLocaleDateString()}</>}
+              </span>
+              <span className="last-action-time">{lastAction.timestamp.toLocaleTimeString()}</span>
+            </div>
+          </div>
+        )}
 
         {/* Mode Selector */}
         <div className="mode-selector">
@@ -235,23 +474,29 @@ export default function InventoryCheckInPage() {
           </button>
         </div>
 
-        {/* Scanner Status */}
-        <div className="scanner-status">
-          <div className={`scanner-indicator ${isCapturing ? 'capturing' : isProcessing ? 'processing' : 'ready'}`}>
-            {isCapturing ? 'Scanning...' : isProcessing ? 'Processing...' : 'Ready to Scan'}
+        {/* Scanner Status / Empty State */}
+        {!lastResult && (
+          <div className="scanner-status">
+            <div className={`scanner-indicator ${isCapturing ? 'capturing' : isProcessing ? 'processing' : 'ready'}`}>
+              {isCapturing ? 'Scanning...' : isProcessing ? 'Processing...' : 'Ready to Scan'}
+            </div>
+            {!isCapturing && !isProcessing && (
+              <p className="scanner-empty">Scan an item to begin</p>
+            )}
+            <p className="scanner-hint">
+              Scan a barcode with your USB scanner, or{' '}
+              <button className="link-btn" onClick={() => setShowManualEntry(!showManualEntry)}>
+                enter manually
+              </button>
+            </p>
           </div>
-          <p className="scanner-hint">
-            Scan a barcode with your USB scanner, or{' '}
-            <button className="link-btn" onClick={() => setShowManualEntry(!showManualEntry)}>
-              enter manually
-            </button>
-          </p>
-        </div>
+        )}
 
         {/* Manual Entry Form */}
         {showManualEntry && (
           <form className="manual-entry" onSubmit={handleManualSubmit}>
             <input
+              ref={manualInputRef}
               type="text"
               value={manualBarcode}
               onChange={e => setManualBarcode(e.target.value)}
@@ -368,10 +613,12 @@ export default function InventoryCheckInPage() {
                   </div>
 
                   <div className="form-actions">
-                    <button className="btn btn-primary btn-lg" onClick={handleCheckInAction}>
-                      {mode === 'verify' && 'Confirm Verified'}
-                      {mode === 'receive' && 'Receive Item'}
-                      {mode === 'location_change' && 'Move Item'}
+                    <button
+                      className="btn btn-primary btn-lg"
+                      onClick={handleCheckInAction}
+                      disabled={submitting}
+                    >
+                      {submitting ? 'Processing...' : MODE_LABELS[mode].button}
                     </button>
                   </div>
                 </div>
@@ -501,6 +748,104 @@ export default function InventoryCheckInPage() {
         .check-in-page {
           padding: 2rem 0;
           max-width: 800px;
+        }
+
+        .case-context {
+          background: #ebf8ff;
+          border: 1px solid #bee3f8;
+          border-radius: 8px;
+          padding: 1rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .case-context-error {
+          text-align: center;
+        }
+
+        .case-context-error p {
+          margin: 0.25rem 0;
+          color: #4a5568;
+        }
+
+        .case-context-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.5rem;
+        }
+
+        .case-context-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1rem;
+          font-size: 0.875rem;
+          color: #4a5568;
+        }
+
+        .request-id {
+          display: block;
+          margin-top: 0.5rem;
+          font-size: 0.75rem;
+          color: #a0aec0;
+          font-family: monospace;
+        }
+
+        .alert-warning {
+          background: #fefcbf;
+          border: 1px solid #f6e05e;
+          color: #975a16;
+          padding: 1rem;
+          border-radius: 8px;
+          margin-bottom: 1rem;
+          cursor: pointer;
+        }
+
+        .last-action {
+          background: #f0fff4;
+          border: 1px solid #9ae6b4;
+          border-left: 4px solid #48bb78;
+          border-radius: 8px;
+          padding: 1rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .last-action-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.5rem;
+        }
+
+        .last-action-badge {
+          background: #48bb78;
+          color: white;
+          padding: 0.2rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+
+        .last-action-details {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+          align-items: baseline;
+        }
+
+        .last-action-meta {
+          font-size: 0.875rem;
+          color: #4a5568;
+        }
+
+        .last-action-time {
+          font-size: 0.75rem;
+          color: #a0aec0;
+        }
+
+        .scanner-empty {
+          font-size: 1.125rem;
+          color: #4a5568;
+          margin: 0.5rem 0;
         }
 
         .mode-selector {

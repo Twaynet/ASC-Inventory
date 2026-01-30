@@ -643,7 +643,7 @@ export function CaseDashboardContent({
       </section>
 
       {/* Section 2.5: Workflow — capability-gated workflow entry points */}
-      {(hasCapability('VERIFY_SCAN') || hasCapability('OR_TIMEOUT') || hasCapability('OR_DEBRIEF')) && (
+      {(hasCapability('VERIFY_SCAN') || hasCapability('OR_TIMEOUT') || hasCapability('OR_DEBRIEF') || hasCapability('INVENTORY_CHECKIN') || hasCapability('INVENTORY_MANAGE')) && (
         <section className="dashboard-section" style={{
           background: 'var(--surface)',
           borderRadius: '8px',
@@ -814,6 +814,59 @@ export function CaseDashboardContent({
                       disabled={!debriefEnabled}
                     >
                       {debriefLabel}
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* Inventory Check-In Card */}
+              {(hasCapability('INVENTORY_CHECKIN') || hasCapability('INVENTORY_MANAGE')) && (() => {
+                const inventoryEnabled = dashboard.isActive;
+                const hasMissing = dashboard.missingItems && dashboard.missingItems.length > 0;
+                const inventoryStatus = dashboard.readinessState === 'GREEN' && !hasMissing ? 'READY'
+                  : hasMissing ? 'ITEMS_NEEDED' : null;
+                const inventoryLabel = inventoryStatus === 'READY' ? 'View Inventory'
+                  : inventoryStatus === 'ITEMS_NEEDED' ? 'Check-In Items' : 'Start Check-In';
+                const inventoryPillLabel = inventoryStatus === 'READY' ? 'READY'
+                  : inventoryStatus === 'ITEMS_NEEDED' ? `${dashboard.missingItems.length} NEEDED` : 'NOT STARTED';
+                return (
+                  <div style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    background: inventoryStatus === 'READY' ? 'var(--color-green-bg)' :
+                               inventoryStatus === 'ITEMS_NEEDED' ? 'var(--color-orange-bg)' : 'transparent',
+                    opacity: inventoryEnabled ? 1 : 0.6,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Inventory Check-In</h3>
+                      <span style={{
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        background: inventoryStatus === 'READY' ? 'var(--color-green)' :
+                                   inventoryStatus === 'ITEMS_NEEDED' ? 'var(--color-orange)' : 'var(--color-gray-300)',
+                        color: inventoryStatus ? 'white' : 'var(--text-muted)',
+                      }}>
+                        {inventoryPillLabel}
+                      </span>
+                    </div>
+                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                      Scan and check in inventory items for this case.
+                    </p>
+                    {!inventoryEnabled && (
+                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--color-orange)' }}>
+                        Case must be active to check in items.
+                      </p>
+                    )}
+                    <button
+                      onClick={() => router.push(`/admin/inventory/check-in?caseId=${caseId}`)}
+                      className={inventoryStatus === 'READY' ? 'btn-secondary' : 'btn-primary'}
+                      style={{ width: '100%' }}
+                      disabled={!inventoryEnabled}
+                    >
+                      {inventoryLabel}
                     </button>
                   </div>
                 );
