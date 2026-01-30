@@ -27,7 +27,7 @@ declare module '@fastify/jwt' {
 }
 
 // Re-export capability system from canonical domain source
-export { type Capability, deriveCapabilities } from '@asc/domain';
+export { type Capability, ROLE_CAPABILITIES, deriveCapabilities } from '@asc/domain';
 
 /**
  * Normalize to roles[] — always returns an array regardless of input shape.
