@@ -28,7 +28,7 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   UNAVAILABLE: { bg: '#fed7d7', color: '#c53030' },
 };
 
-const STERILITY_STATUSES = ['STERILE', 'NOT_STERILE', 'EXPIRED', 'UNKNOWN'];
+const STERILITY_STATUSES = ['STERILE', 'NON_STERILE', 'EXPIRED', 'UNKNOWN'];
 
 export default function AdminInventoryPage() {
   const { user, token } = useAuth();
@@ -92,7 +92,12 @@ export default function AdminInventoryPage() {
     if (!token) return;
 
     try {
-      await createInventoryItem(token, formData as CreateInventoryItemRequest);
+      const submitData = { ...formData };
+      // Convert date-only string to ISO datetime for Zod validation
+      if (submitData.sterilityExpiresAt && !submitData.sterilityExpiresAt.includes('T')) {
+        submitData.sterilityExpiresAt = new Date(submitData.sterilityExpiresAt).toISOString();
+      }
+      await createInventoryItem(token, submitData as CreateInventoryItemRequest);
       setSuccessMessage('Inventory item created successfully');
       setShowCreateForm(false);
       setFormData({});
@@ -115,7 +120,11 @@ export default function AdminInventoryPage() {
         updateData.sterilityStatus = formData.sterilityStatus;
       }
       if (formData.sterilityExpiresAt !== editingItem.sterilityExpiresAt) {
-        updateData.sterilityExpiresAt = formData.sterilityExpiresAt || null;
+        let expVal = formData.sterilityExpiresAt || null;
+        if (expVal && !expVal.includes('T')) {
+          expVal = new Date(expVal).toISOString();
+        }
+        updateData.sterilityExpiresAt = expVal;
       }
       if (formData.barcode !== editingItem.barcode) {
         updateData.barcode = formData.barcode || null;
