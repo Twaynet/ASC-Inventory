@@ -5,7 +5,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyJwt from '@fastify/jwt';
-import { UserRole, type Capability, ROLE_CAPABILITIES, deriveCapabilities } from '@asc/domain';
+import { UserRole, type Capability, deriveCapabilities } from '@asc/domain';
 
 // JWT payload type
 export interface JwtPayload {
@@ -27,7 +27,7 @@ declare module '@fastify/jwt' {
 }
 
 // Re-export capability system from canonical domain source
-export { type Capability, ROLE_CAPABILITIES, deriveCapabilities } from '@asc/domain';
+export { type Capability, deriveCapabilities } from '@asc/domain';
 
 /**
  * Normalize to roles[] — always returns an array regardless of input shape.
