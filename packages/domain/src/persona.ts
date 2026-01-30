@@ -9,7 +9,7 @@
  * untrusted X-Active-Persona header for audit/logging only.
  */
 
-import { type UserRole, type Capability, ROLE_CAPABILITIES } from './types.js';
+import { type UserRole, type Capability } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Persona type — currently 1:1 with UserRole but decoupled for future use
