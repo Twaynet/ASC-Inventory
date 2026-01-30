@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { AdminSettingsSubnav } from '@/components/AdminSettingsSubnav';
 import {
   getConfigItems,
   createConfigItem,
@@ -367,9 +369,11 @@ export default function CaseDashboardSettingsPage() {
       <Header title="Case Dashboard Settings" />
 
       <main className="container case-dashboard-settings-page">
-        <button className="back-link" onClick={() => router.push('/admin/general-settings')}>
-          ← Back to General Settings
-        </button>
+        <Breadcrumbs items={[
+          { label: 'General Settings', href: '/admin/general-settings' },
+          { label: 'Case Dashboard' },
+        ]} />
+        <AdminSettingsSubnav />
 
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && (

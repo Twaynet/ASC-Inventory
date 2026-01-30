@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
+import { AdminSettingsSubnav } from '@/components/AdminSettingsSubnav';
 
 interface SettingsCard {
   id: string;
@@ -62,6 +63,7 @@ export default function AdminGeneralSettingsPage() {
       <Header title="General Settings" />
 
       <main className="container general-settings-dashboard">
+        <AdminSettingsSubnav />
         <p className="page-description">
           Configure facility-specific options for forms and workflows. Changes apply to all users in your facility.
         </p>

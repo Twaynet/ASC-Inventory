@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/app/components/Header';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { PageAlerts } from '@/app/components/Alert';
 import { usePageData, withErrorHandling } from '@/lib/hooks/usePageData';
 import {
@@ -239,11 +240,10 @@ export default function CatalogSetsPage() {
         </div>
 
         <div className="page-header">
-          <div className="breadcrumb">
-            <Link href="/admin/catalog">Catalog</Link>
-            <span className="separator">/</span>
-            <span>Set Definitions</span>
-          </div>
+          <Breadcrumbs items={[
+            { label: 'Catalog', href: '/admin/catalog' },
+            { label: 'Set Definitions' },
+          ]} />
           <p className="description">
             Define expected components for kits, trays, and composite items.
             <br />

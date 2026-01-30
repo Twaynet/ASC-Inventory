@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/app/components/Header';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { PageAlerts } from '@/app/components/Alert';
 import { StatusBadge } from '@/app/components/StatusBadge';
 import { usePageData, withErrorHandling } from '@/lib/hooks/usePageData';
@@ -146,11 +147,10 @@ export default function AdminCatalogGroupsPage() {
         </div>
 
         <div className="page-header">
-          <div className="breadcrumb">
-            <Link href="/admin/catalog">Catalog</Link>
-            <span className="separator">/</span>
-            <span>Groups</span>
-          </div>
+          <Breadcrumbs items={[
+            { label: 'Catalog', href: '/admin/catalog' },
+            { label: 'Groups' },
+          ]} />
           <p className="description">
             Organize catalog items into groups for reporting and purchasing.
             Groups are for human organization only and do not affect readiness or alarms.

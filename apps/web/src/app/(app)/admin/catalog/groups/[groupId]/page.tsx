@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Header } from '@/app/components/Header';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { PageAlerts } from '@/app/components/Alert';
 import { StatusBadge } from '@/app/components/StatusBadge';
 import { usePageData, withErrorHandling } from '@/lib/hooks/usePageData';
@@ -187,13 +188,11 @@ export default function CatalogGroupDetailPage() {
         />
 
         <div className="page-header">
-          <div className="breadcrumb">
-            <Link href="/admin/catalog">Catalog</Link>
-            <span className="separator">/</span>
-            <Link href="/admin/catalog/groups">Groups</Link>
-            <span className="separator">/</span>
-            <span>{group.name}</span>
-          </div>
+          <Breadcrumbs items={[
+            { label: 'Catalog', href: '/admin/catalog' },
+            { label: 'Groups', href: '/admin/catalog/groups' },
+            { label: group.name },
+          ]} />
           {group.description && (
             <p className="description">{group.description}</p>
           )}

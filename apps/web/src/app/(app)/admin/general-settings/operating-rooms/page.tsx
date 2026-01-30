@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { AdminSettingsSubnav } from '@/components/AdminSettingsSubnav';
 import {
   getSettingsRooms,
   createRoom,
@@ -167,9 +169,11 @@ export default function OperatingRoomsPage() {
       <Header title="Operating Rooms" />
 
       <main className="container-full operating-rooms-page">
-        <button className="back-link" onClick={() => router.push('/admin/general-settings')}>
-          ← Back to General Settings
-        </button>
+        <Breadcrumbs items={[
+          { label: 'General Settings', href: '/admin/general-settings' },
+          { label: 'Operating Rooms' },
+        ]} />
+        <AdminSettingsSubnav />
 
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && (

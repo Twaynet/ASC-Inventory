@@ -25,8 +25,8 @@ import {
   type ConfigItem,
   type CaseChecklistsResponse,
 } from '@/lib/api';
-import { TimeoutModal, DebriefModal } from '@/components/Checklists';
 import { CaseDashboardPrintView } from './CaseDashboardPrintView';
+import { useAccessControl } from '@/lib/auth';
 
 const CASE_TYPES: { value: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION'; label: string }[] = [
   { value: 'ELECTIVE', label: 'Elective' },
@@ -72,6 +72,7 @@ export function CaseDashboardContent({
 }: CaseDashboardContentProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { hasCapability } = useAccessControl();
 
   // Messages
   const [error, setError] = useState('');
@@ -88,8 +89,6 @@ export function CaseDashboardContent({
   const [showLinkCaseCardModal, setShowLinkCaseCardModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printingCard, setPrintingCard] = useState<{ card: CaseCardDetail; currentVersion: CaseCardVersionData | null } | null>(null);
-  const [showTimeoutModal, setShowTimeoutModal] = useState(false);
-  const [showDebriefModal, setShowDebriefModal] = useState(false);
 
   // Inline editing states
   const [isEditingScheduling, setIsEditingScheduling] = useState(false);
@@ -643,8 +642,8 @@ export function CaseDashboardContent({
         )}
       </section>
 
-      {/* Section 2.5: OR Workflow (Timeout/Debrief) */}
-      {checklists?.featureEnabled && (
+      {/* Section 2.5: Workflow — capability-gated workflow entry points */}
+      {(hasCapability('VERIFY_SCAN') || hasCapability('OR_TIMEOUT') || hasCapability('OR_DEBRIEF')) && (
         <section className="dashboard-section" style={{
           background: 'var(--surface)',
           borderRadius: '8px',
@@ -653,93 +652,173 @@ export function CaseDashboardContent({
           border: '1px solid var(--border)',
         }}>
           <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('orWorkflow')}>
-            {collapsedSections.has('orWorkflow') ? '+ ' : '- '}OR Workflow
+            {collapsedSections.has('orWorkflow') ? '+ ' : '- '}Workflow
           </h2>
           {!collapsedSections.has('orWorkflow') && (
-            <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-                {/* Timeout Card */}
-                <div style={{
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '1rem',
-                  background: checklists.timeout?.status === 'COMPLETED' ? 'var(--color-green-bg)' :
-                             checklists.timeout?.status === 'IN_PROGRESS' ? 'var(--color-orange-bg)' : 'transparent',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>OR Timeout</h3>
-                    <span style={{
-                      padding: '0.25rem 0.5rem',
-                      borderRadius: '4px',
-                      fontSize: '0.75rem',
-                      fontWeight: 'bold',
-                      background: checklists.timeout?.status === 'COMPLETED' ? 'var(--color-green)' :
-                                 checklists.timeout?.status === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
-                      color: checklists.timeout?.status ? 'white' : 'var(--text-muted)',
-                    }}>
-                      {checklists.timeout?.status || 'NOT STARTED'}
-                    </span>
-                  </div>
-                  <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                    Pre-surgery safety checklist to verify patient, procedure, and site.
-                  </p>
-                  {checklists.timeout?.completedAt && (
-                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Completed: {new Date(checklists.timeout.completedAt).toLocaleString()}
-                    </p>
-                  )}
-                  <button
-                    onClick={() => setShowTimeoutModal(true)}
-                    className={checklists.timeout?.status === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
-                    style={{ width: '100%' }}
-                  >
-                    {checklists.timeout?.status === 'COMPLETED' ? 'View Timeout' :
-                     checklists.timeout?.status === 'IN_PROGRESS' ? 'Continue Timeout' : 'Start Timeout'}
-                  </button>
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
 
-                {/* Debrief Card */}
-                <div style={{
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '1rem',
-                  background: checklists.debrief?.status === 'COMPLETED' ? 'var(--color-green-bg)' :
-                             checklists.debrief?.status === 'IN_PROGRESS' ? 'var(--color-orange-bg)' : 'transparent',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>OR Debrief</h3>
-                    <span style={{
-                      padding: '0.25rem 0.5rem',
-                      borderRadius: '4px',
-                      fontSize: '0.75rem',
-                      fontWeight: 'bold',
-                      background: checklists.debrief?.status === 'COMPLETED' ? 'var(--color-green)' :
-                                 checklists.debrief?.status === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
-                      color: checklists.debrief?.status ? 'white' : 'var(--text-muted)',
-                    }}>
-                      {checklists.debrief?.status || 'NOT STARTED'}
-                    </span>
-                  </div>
-                  <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                    Post-surgery review of counts, specimens, and improvement notes.
-                  </p>
-                  {checklists.debrief?.completedAt && (
-                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Completed: {new Date(checklists.debrief.completedAt).toLocaleString()}
+              {/* Verify Scanning Card */}
+              {hasCapability('VERIFY_SCAN') && (() => {
+                const verifyStatus = dashboard.readinessState === 'GREEN' ? 'COMPLETED'
+                  : dashboard.readinessState === 'ORANGE' ? 'IN_PROGRESS' : null;
+                const verifyEnabled = dashboard.isActive;
+                const verifyLabel = verifyStatus === 'COMPLETED' ? 'View Verification'
+                  : verifyStatus === 'IN_PROGRESS' ? 'Continue Verification' : 'Start Verification';
+                const verifyPillLabel = verifyStatus === 'COMPLETED' ? 'COMPLETED'
+                  : verifyStatus === 'IN_PROGRESS' ? 'IN PROGRESS' : 'NOT STARTED';
+                return (
+                  <div style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    background: verifyStatus === 'COMPLETED' ? 'var(--color-green-bg)' :
+                               verifyStatus === 'IN_PROGRESS' ? 'var(--color-orange-bg)' : 'transparent',
+                    opacity: verifyEnabled ? 1 : 0.6,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Verify Scanning</h3>
+                      <span style={{
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        background: verifyStatus === 'COMPLETED' ? 'var(--color-green)' :
+                                   verifyStatus === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
+                        color: verifyStatus ? 'white' : 'var(--text-muted)',
+                      }}>
+                        {verifyPillLabel}
+                      </span>
+                    </div>
+                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                      Scan and verify items required for this case.
                     </p>
-                  )}
-                  <button
-                    onClick={() => setShowDebriefModal(true)}
-                    className={checklists.debrief?.status === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
-                    style={{ width: '100%' }}
-                    disabled={!checklists.timeout || checklists.timeout.status !== 'COMPLETED'}
-                    title={!checklists.timeout || checklists.timeout.status !== 'COMPLETED' ? 'Complete Timeout first' : ''}
-                  >
-                    {checklists.debrief?.status === 'COMPLETED' ? 'View Debrief' :
-                     checklists.debrief?.status === 'IN_PROGRESS' ? 'Continue Debrief' : 'Start Debrief'}
-                  </button>
-                </div>
-              </div>
+                    {!verifyEnabled && (
+                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--color-orange)' }}>
+                        Case must be active to verify items.
+                      </p>
+                    )}
+                    <button
+                      onClick={handleVerifyItems}
+                      className={verifyStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
+                      style={{ width: '100%' }}
+                      disabled={!verifyEnabled}
+                    >
+                      {verifyLabel}
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* OR Timeout Card */}
+              {hasCapability('OR_TIMEOUT') && checklists?.featureEnabled && (() => {
+                const timeoutEnabled = dashboard.isActive;
+                const timeoutStatus = checklists.timeout?.status || null;
+                const timeoutLabel = timeoutStatus === 'COMPLETED' ? 'View Timeout'
+                  : timeoutStatus === 'IN_PROGRESS' ? 'Continue Timeout' : 'Start Timeout';
+                return (
+                  <div style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    background: timeoutStatus === 'COMPLETED' ? 'var(--color-green-bg)' :
+                               timeoutStatus === 'IN_PROGRESS' ? 'var(--color-orange-bg)' : 'transparent',
+                    opacity: timeoutEnabled ? 1 : 0.6,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>OR Timeout</h3>
+                      <span style={{
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        background: timeoutStatus === 'COMPLETED' ? 'var(--color-green)' :
+                                   timeoutStatus === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
+                        color: timeoutStatus ? 'white' : 'var(--text-muted)',
+                      }}>
+                        {timeoutStatus || 'NOT STARTED'}
+                      </span>
+                    </div>
+                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                      Pre-surgery safety checklist to verify patient, procedure, and site.
+                    </p>
+                    {checklists.timeout?.completedAt && (
+                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        Completed: {new Date(checklists.timeout.completedAt).toLocaleString()}
+                      </p>
+                    )}
+                    {!timeoutEnabled && (
+                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--color-orange)' }}>
+                        Case must be active to start timeout.
+                      </p>
+                    )}
+                    <button
+                      onClick={() => router.push(`/or/timeout/${caseId}`)}
+                      className={timeoutStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
+                      style={{ width: '100%' }}
+                      disabled={!timeoutEnabled}
+                    >
+                      {timeoutLabel}
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* OR Debrief Card */}
+              {hasCapability('OR_DEBRIEF') && checklists?.featureEnabled && (() => {
+                const debriefEnabled = dashboard.isActive && checklists.timeout?.status === 'COMPLETED';
+                const debriefStatus = checklists.debrief?.status || null;
+                const debriefLabel = debriefStatus === 'COMPLETED' ? 'View Debrief'
+                  : debriefStatus === 'IN_PROGRESS' ? 'Continue Debrief' : 'Start Debrief';
+                const disabledReason = !dashboard.isActive ? 'Case must be active to start debrief.'
+                  : checklists.timeout?.status !== 'COMPLETED' ? 'Complete Timeout first.' : '';
+                return (
+                  <div style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    background: debriefStatus === 'COMPLETED' ? 'var(--color-green-bg)' :
+                               debriefStatus === 'IN_PROGRESS' ? 'var(--color-orange-bg)' : 'transparent',
+                    opacity: debriefEnabled ? 1 : 0.6,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>OR Debrief</h3>
+                      <span style={{
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        background: debriefStatus === 'COMPLETED' ? 'var(--color-green)' :
+                                   debriefStatus === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
+                        color: debriefStatus ? 'white' : 'var(--text-muted)',
+                      }}>
+                        {debriefStatus || 'NOT STARTED'}
+                      </span>
+                    </div>
+                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                      Post-surgery review of counts, specimens, and improvement notes.
+                    </p>
+                    {checklists.debrief?.completedAt && (
+                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        Completed: {new Date(checklists.debrief.completedAt).toLocaleString()}
+                      </p>
+                    )}
+                    {disabledReason && (
+                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--color-orange)' }}>
+                        {disabledReason}
+                      </p>
+                    )}
+                    <button
+                      onClick={() => router.push(`/or/debrief/${caseId}`)}
+                      className={debriefStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
+                      style={{ width: '100%' }}
+                      disabled={!debriefEnabled}
+                    >
+                      {debriefLabel}
+                    </button>
+                  </div>
+                );
+              })()}
+
             </div>
           )}
         </section>
@@ -1219,34 +1298,6 @@ export function CaseDashboardContent({
           </div>
         </div>
       )}
-
-      {/* Timeout Modal */}
-      <TimeoutModal
-        isOpen={showTimeoutModal}
-        caseId={caseId}
-        token={token}
-        user={user}
-        onClose={() => setShowTimeoutModal(false)}
-        onComplete={() => {
-          setShowTimeoutModal(false);
-          onDataChange();
-        }}
-        zIndex={1200}
-      />
-
-      {/* Debrief Modal */}
-      <DebriefModal
-        isOpen={showDebriefModal}
-        caseId={caseId}
-        token={token}
-        user={user}
-        onClose={() => setShowDebriefModal(false)}
-        onComplete={() => {
-          setShowDebriefModal(false);
-          onDataChange();
-        }}
-        zIndex={1200}
-      />
 
       {/* Print Case Dashboard Modal */}
       {showPrintModal && (
