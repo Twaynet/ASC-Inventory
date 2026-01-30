@@ -2,6 +2,8 @@
  * API Client for ASC Inventory System
  */
 
+import { PERSONA_STORAGE_KEY, PERSONA_HEADER } from '@asc/domain';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 /** Resolve a relative asset URL (e.g. /uploads/...) to a full URL using the API origin */
@@ -60,6 +62,14 @@ async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // Attach active persona from localStorage (UX metadata, not authorization)
+  if (typeof window !== 'undefined') {
+    const persona = localStorage.getItem(PERSONA_STORAGE_KEY);
+    if (persona) {
+      headers[PERSONA_HEADER] = persona;
+    }
   }
 
   const response = await fetch(`${API_BASE}${endpoint}`, {

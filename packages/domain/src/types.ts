@@ -33,6 +33,51 @@ export const UserRole = z.enum([
 ]);
 export type UserRole = z.infer<typeof UserRole>;
 
+// ============================================================================
+// CAPABILITY SYSTEM — single canonical source for role → capability mapping
+// ============================================================================
+
+export type Capability =
+  | 'CASE_VIEW'
+  | 'VERIFY_SCAN'
+  | 'CHECKLIST_ATTEST'
+  | 'OR_DEBRIEF'
+  | 'OR_TIMEOUT'
+  | 'INVENTORY_READ'
+  | 'INVENTORY_CHECKIN'
+  | 'INVENTORY_MANAGE'
+  | 'USER_MANAGE'
+  | 'LOCATION_MANAGE'
+  | 'CATALOG_MANAGE'
+  | 'REPORTS_VIEW'
+  | 'SETTINGS_MANAGE';
+
+export const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
+  SCRUB: ['CASE_VIEW', 'VERIFY_SCAN', 'CHECKLIST_ATTEST'],
+  CIRCULATOR: ['CASE_VIEW', 'CHECKLIST_ATTEST', 'OR_DEBRIEF', 'OR_TIMEOUT'],
+  INVENTORY_TECH: ['INVENTORY_READ', 'INVENTORY_CHECKIN'],
+  ADMIN: [
+    'USER_MANAGE', 'LOCATION_MANAGE', 'CATALOG_MANAGE',
+    'INVENTORY_MANAGE', 'REPORTS_VIEW', 'SETTINGS_MANAGE', 'CASE_VIEW',
+  ],
+  SURGEON: ['CASE_VIEW', 'CHECKLIST_ATTEST'],
+  SCHEDULER: ['CASE_VIEW'],
+  ANESTHESIA: ['CASE_VIEW', 'CHECKLIST_ATTEST'],
+};
+
+/**
+ * Derive the UNION of all capabilities from a user's roles array.
+ */
+export function deriveCapabilities(roles: UserRole[]): Capability[] {
+  const caps = new Set<Capability>();
+  for (const role of roles) {
+    for (const cap of (ROLE_CAPABILITIES[role] || [])) {
+      caps.add(cap);
+    }
+  }
+  return Array.from(caps);
+}
+
 export const CaseStatus = z.enum([
   'DRAFT',
   'REQUESTED',
@@ -128,7 +173,9 @@ export const UserSchema = z.object({
   username: z.string().min(3).max(100),
   email: z.string().email().optional(), // Required for ADMIN, optional for others
   name: z.string().min(1).max(255),
+  /** @deprecated Authorization reads roles[] only. Kept for backward compat. */
   role: UserRole,
+  roles: z.array(UserRole).min(1),
   passwordHash: z.string(), // Never exposed to API
   active: z.boolean().default(true),
   createdAt: z.date(),

@@ -294,6 +294,7 @@ async function getSurgeons(facilityId: string): Promise<Map<string, User>> {
     email: string | null;
     name: string;
     role: string;
+    roles: string[];
     password_hash: string;
     active: boolean;
     created_at: Date;
@@ -312,6 +313,7 @@ async function getSurgeons(facilityId: string): Promise<Map<string, User>> {
       email: row.email ?? undefined,
       name: row.name,
       role: row.role as any,
+      roles: (row.roles ?? [row.role]) as any,
       passwordHash: row.password_hash,
       active: row.active,
       createdAt: row.created_at,

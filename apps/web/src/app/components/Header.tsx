@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth, useAccessControl } from '@/lib/auth';
+import { usePersona } from '@/lib/persona';
 import { AdminNav } from './AdminNav';
 
 interface HeaderProps {
@@ -11,6 +12,7 @@ interface HeaderProps {
 export function Header({ title }: HeaderProps) {
   const { user, logout } = useAuth();
   const { roles } = useAccessControl();
+  const { persona, availablePersonas, setPersona, labelFor } = usePersona();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -79,7 +81,37 @@ export function Header({ title }: HeaderProps) {
           >
             ?
           </button>
-          <span>{user?.name} ({roles.join(', ') || user?.role})</span>
+          <span>
+            {user?.name}
+            {availablePersonas.length > 1 ? (
+              <>
+                {' ('}
+                <select
+                  value={persona}
+                  onChange={(e) => setPersona(e.target.value as typeof persona)}
+                  aria-label="Active persona"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'inherit',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontSize: 'inherit',
+                    padding: 0,
+                  }}
+                >
+                  {availablePersonas.map((p) => (
+                    <option key={p} value={p} style={{ color: '#333' }}>
+                      {labelFor(p)}
+                    </option>
+                  ))}
+                </select>
+                {')'}
+              </>
+            ) : (
+              <> ({labelFor(persona)})</>
+            )}
+          </span>
           <span>{user?.facilityName}</span>
           <button className="btn btn-secondary btn-sm" onClick={logout}>
             Sign Out

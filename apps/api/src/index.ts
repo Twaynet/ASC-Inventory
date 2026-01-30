@@ -34,6 +34,7 @@ import { reportsRoutes } from './routes/reports.routes.js';
 import { generalSettingsRoutes } from './routes/general-settings.routes.js';
 import { scheduleRoutes } from './routes/schedule.routes.js';
 import { adminSettingsRoutes } from './routes/admin-settings.routes.js';
+import { personaPlugin } from './plugins/persona.js';
 
 const PORT = parseInt(process.env.PORT || '3001');
 const HOST = process.env.HOST || '0.0.0.0';
@@ -52,6 +53,7 @@ async function main() {
   await fastify.register(cors, {
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Persona'],
   });
 
   await fastify.register(sensible);
@@ -90,6 +92,9 @@ async function main() {
       reply.status(401).send({ error: 'Unauthorized' });
     }
   });
+
+  // Register persona plugin (reads X-Active-Persona header for audit metadata)
+  await fastify.register(personaPlugin);
 
   // Health check
   fastify.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));

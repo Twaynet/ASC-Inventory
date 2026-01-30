@@ -5,48 +5,17 @@
  * Access = UNION of all capabilities from all assigned roles.
  */
 
-// --- Capability Definitions ---
-export type Capability =
-  | 'CASE_VIEW'
-  | 'VERIFY_SCAN'
-  | 'CHECKLIST_ATTEST'
-  | 'OR_DEBRIEF'
-  | 'OR_TIMEOUT'
-  | 'INVENTORY_READ'
-  | 'INVENTORY_CHECKIN'
-  | 'INVENTORY_MANAGE'
-  | 'USER_MANAGE'
-  | 'LOCATION_MANAGE'
-  | 'CATALOG_MANAGE'
-  | 'REPORTS_VIEW'
-  | 'SETTINGS_MANAGE';
+import {
+  type UserRole,
+  type Capability,
+  ROLE_CAPABILITIES,
+  deriveCapabilities as _domainDeriveCapabilities,
+} from '@asc/domain';
 
-// --- Role Definitions ---
-export type Role =
-  | 'SCRUB'
-  | 'CIRCULATOR'
-  | 'INVENTORY_TECH'
-  | 'ADMIN'
-  | 'SURGEON'
-  | 'SCHEDULER';
-
-// --- Role → Capability Mapping ---
-export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
-  SCRUB: ['CASE_VIEW', 'VERIFY_SCAN', 'CHECKLIST_ATTEST'],
-  CIRCULATOR: ['CASE_VIEW', 'CHECKLIST_ATTEST', 'OR_DEBRIEF', 'OR_TIMEOUT'],
-  INVENTORY_TECH: ['INVENTORY_READ', 'INVENTORY_CHECKIN'],
-  ADMIN: [
-    'USER_MANAGE',
-    'LOCATION_MANAGE',
-    'CATALOG_MANAGE',
-    'INVENTORY_MANAGE',
-    'REPORTS_VIEW',
-    'SETTINGS_MANAGE',
-    'CASE_VIEW',
-  ],
-  SURGEON: ['CASE_VIEW', 'CHECKLIST_ATTEST'],
-  SCHEDULER: ['CASE_VIEW'],
-};
+// Re-export canonical types so existing consumers don't break
+export type { Capability };
+export type Role = UserRole;
+export { ROLE_CAPABILITIES };
 
 // --- Feature Definitions ---
 export interface FeatureDefinition {
@@ -258,27 +227,21 @@ export interface AccessDecision {
 // --- Helper Functions ---
 
 /**
- * Convert single role to roles array (backward compatibility)
+ * Normalize roles to a typed array. Accepts string[] only.
+ *
+ * TODO(PERSONA-REMOVE-LEGACY): The string overload was removed. If callers
+ * still pass a single string, fix the call site — do not re-add the overload.
  */
-export function normalizeRoles(roleOrRoles: string | string[]): Role[] {
-  if (Array.isArray(roleOrRoles)) {
-    return roleOrRoles as Role[];
-  }
-  return [roleOrRoles as Role];
+export function normalizeRoles(roles: string[]): Role[] {
+  return roles as Role[];
 }
 
 /**
- * Derive all capabilities from a set of roles (UNION)
+ * Derive all capabilities from a set of roles (UNION).
+ * Delegates to canonical implementation in @asc/domain.
  */
 export function deriveCapabilities(roles: Role[]): Capability[] {
-  const capabilitySet = new Set<Capability>();
-  for (const role of roles) {
-    const caps = ROLE_CAPABILITIES[role] || [];
-    for (const cap of caps) {
-      capabilitySet.add(cap);
-    }
-  }
-  return Array.from(capabilitySet);
+  return _domainDeriveCapabilities(roles);
 }
 
 /**

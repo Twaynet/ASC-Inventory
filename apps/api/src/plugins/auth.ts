@@ -5,7 +5,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyJwt from '@fastify/jwt';
-import { UserRole } from '@asc/domain';
+import { UserRole, type Capability, ROLE_CAPABILITIES, deriveCapabilities } from '@asc/domain';
 
 // JWT payload type
 export interface JwtPayload {
@@ -26,56 +26,31 @@ declare module '@fastify/jwt' {
   }
 }
 
-// ============================================================================
-// Capability system — single source of truth for role → capability mapping
-// ============================================================================
-
-export type Capability =
-  | 'CASE_VIEW'
-  | 'VERIFY_SCAN'
-  | 'CHECKLIST_ATTEST'
-  | 'OR_DEBRIEF'
-  | 'OR_TIMEOUT'
-  | 'INVENTORY_READ'
-  | 'INVENTORY_CHECKIN'
-  | 'INVENTORY_MANAGE'
-  | 'USER_MANAGE'
-  | 'LOCATION_MANAGE'
-  | 'CATALOG_MANAGE'
-  | 'REPORTS_VIEW'
-  | 'SETTINGS_MANAGE';
-
-export const ROLE_CAPABILITIES: Record<string, Capability[]> = {
-  SCRUB: ['CASE_VIEW', 'VERIFY_SCAN', 'CHECKLIST_ATTEST'],
-  CIRCULATOR: ['CASE_VIEW', 'CHECKLIST_ATTEST', 'OR_DEBRIEF', 'OR_TIMEOUT'],
-  INVENTORY_TECH: ['INVENTORY_READ', 'INVENTORY_CHECKIN'],
-  ADMIN: [
-    'USER_MANAGE', 'LOCATION_MANAGE', 'CATALOG_MANAGE',
-    'INVENTORY_MANAGE', 'REPORTS_VIEW', 'SETTINGS_MANAGE', 'CASE_VIEW',
-  ],
-  SURGEON: ['CASE_VIEW', 'CHECKLIST_ATTEST'],
-  SCHEDULER: ['CASE_VIEW'],
-  ANESTHESIA: ['CASE_VIEW', 'CHECKLIST_ATTEST'],
-};
-
-/**
- * Derive the UNION of all capabilities from a user's roles array.
- */
-export function deriveCapabilities(roles: UserRole[]): Capability[] {
-  const caps = new Set<Capability>();
-  for (const role of roles) {
-    for (const cap of (ROLE_CAPABILITIES[role] || [])) {
-      caps.add(cap);
-    }
-  }
-  return Array.from(caps);
-}
+// Re-export capability system from canonical domain source
+export { type Capability, ROLE_CAPABILITIES, deriveCapabilities } from '@asc/domain';
 
 /**
  * Normalize to roles[] — always returns an array regardless of input shape.
+ *
+ * TODO(PERSONA-REMOVE-LEGACY): Remove the user.role fallback once all JWTs
+ * in circulation contain a populated roles[] array. Gate: no ERROR_CODE
+ * AUTH_LEGACY_ROLE_FALLBACK seen in logs for 30 days.
  */
 export function getUserRoles(user: JwtPayload): UserRole[] {
-  return user.roles && user.roles.length > 0 ? user.roles : [user.role];
+  if (user.roles && user.roles.length > 0) {
+    return user.roles;
+  }
+  // Legacy JWT fallback — log as ERROR so we can track removal readiness
+  console.error(
+    JSON.stringify({
+      code: 'AUTH_LEGACY_ROLE_FALLBACK',
+      level: 'error',
+      message: 'JWT missing roles[]; falling back to deprecated user.role',
+      userId: user.userId,
+      role: user.role,
+    }),
+  );
+  return [user.role];
 }
 
 export async function authPlugin(fastify: FastifyInstance): Promise<void> {
