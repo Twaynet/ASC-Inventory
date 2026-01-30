@@ -55,6 +55,15 @@ export interface CreateInventoryItemData {
   locationId?: string | null;
   sterilityStatus?: 'STERILE' | 'NON_STERILE' | 'EXPIRED' | 'UNKNOWN';
   sterilityExpiresAt?: Date | null;
+  // Barcode parsed fields
+  barcodeClassification?: string | null;
+  barcodeGtin?: string | null;
+  barcodeParsedLot?: string | null;
+  barcodeParsedSerial?: string | null;
+  barcodeParsedExpiration?: Date | null;
+  // Attestation
+  attestationReason?: string | null;
+  attestedByUserId?: string | null;
 }
 
 export interface UpdateInventoryItemData {

@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useScanner, ScanResult } from './useScanner';
-import { createDeviceEvent, type InventoryItemDetail } from './api';
+import { createDeviceEvent, type InventoryItemDetail, type GS1Data, type CatalogMatch } from './api';
 
 // Well-known device ID for keyboard wedge input (matches backend constant)
 const KEYBOARD_WEDGE_DEVICE_ID = '00000000-0000-0000-0000-000000000000';
@@ -14,6 +14,9 @@ export interface ScanProcessResult {
   item: InventoryItemDetail | null;
   error: string | null;
   deviceEventId: string | null;
+  gs1Data: GS1Data | null;
+  catalogMatch: CatalogMatch | null;
+  barcodeClassification: string | null;
 }
 
 export interface UseScannerServiceOptions {
@@ -51,6 +54,9 @@ export function useScannerService(options: UseScannerServiceOptions) {
         item: null,
         error: 'Not authenticated',
         deviceEventId: null,
+        gs1Data: null,
+        catalogMatch: null,
+        barcodeClassification: null,
       };
       setLastResult(result);
       onScanProcessed?.(result);
@@ -79,6 +85,9 @@ export function useScannerService(options: UseScannerServiceOptions) {
         item,
         error: deviceResponse.error || null,
         deviceEventId: deviceResponse.deviceEventId,
+        gs1Data: deviceResponse.gs1Data || null,
+        catalogMatch: deviceResponse.catalogMatch || null,
+        barcodeClassification: deviceResponse.barcodeClassification || null,
       };
 
       setLastResult(result);
@@ -92,6 +101,9 @@ export function useScannerService(options: UseScannerServiceOptions) {
         item: null,
         error: err instanceof Error ? err.message : 'Failed to process scan',
         deviceEventId: null,
+        gs1Data: null,
+        catalogMatch: null,
+        barcodeClassification: null,
       };
       setLastResult(result);
       setScanHistory(prev => [result, ...prev].slice(0, 50));

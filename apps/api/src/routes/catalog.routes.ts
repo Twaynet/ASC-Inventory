@@ -10,6 +10,8 @@ import {
   UpdateCatalogItemRequestSchema,
 } from '../schemas/index.js';
 import { requireAdmin } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
+import { classifyBarcode, parseGS1 } from '../lib/gs1-parser.js';
 
 interface CatalogRow {
   id: string;
@@ -456,5 +458,181 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     return reply.send({ success: true });
+  });
+
+  // ── Catalog Identifier Endpoints ──────────────────────────────
+
+  interface IdentifierRow {
+    id: string;
+    facility_id: string;
+    catalog_id: string;
+    identifier_type: string;
+    raw_value: string;
+    source: string;
+    classification: string;
+    created_at: Date;
+    created_by_user_id: string | null;
+    creator_name: string | null;
+  }
+
+  /**
+   * GET /catalog/:id/identifiers
+   * List all identifiers for a catalog item
+   */
+  fastify.get<{ Params: { id: string } }>('/:id/identifiers', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { id } = request.params;
+
+    const catalogCheck = await query(
+      'SELECT id FROM item_catalog WHERE id = $1 AND facility_id = $2',
+      [id, facilityId]
+    );
+    if (catalogCheck.rows.length === 0) {
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
+    }
+
+    const result = await query<IdentifierRow>(`
+      SELECT ci.id, ci.facility_id, ci.catalog_id, ci.identifier_type, ci.raw_value,
+             ci.source, ci.classification, ci.created_at, ci.created_by_user_id,
+             u.name as creator_name
+      FROM catalog_identifier ci
+      LEFT JOIN app_user u ON u.id = ci.created_by_user_id
+      WHERE ci.catalog_id = $1 AND ci.facility_id = $2
+      ORDER BY ci.created_at ASC
+    `, [id, facilityId]);
+
+    return ok(reply, {
+      identifiers: result.rows.map(r => ({
+        id: r.id,
+        catalogId: r.catalog_id,
+        identifierType: r.identifier_type,
+        rawValue: r.raw_value,
+        source: r.source,
+        classification: r.classification,
+        createdAt: r.created_at.toISOString(),
+        createdByUserId: r.created_by_user_id,
+        creatorName: r.creator_name,
+      })),
+    });
+  });
+
+  /**
+   * POST /catalog/:id/identifiers
+   * Add identifier (barcode/GTIN) to catalog item. Server classifies and parses.
+   */
+  fastify.post<{
+    Params: { id: string };
+    Body: { rawValue: string; source?: string };
+  }>('/:id/identifiers', {
+    preHandler: [requireAdmin],
+  }, async (request, reply) => {
+    const { facilityId, userId } = request.user;
+    const { id } = request.params;
+    const { rawValue, source = 'manual' } = request.body;
+
+    if (!rawValue || typeof rawValue !== 'string' || rawValue.trim().length === 0) {
+      return fail(reply, 'VALIDATION', 'rawValue is required');
+    }
+
+    const catalogCheck = await query(
+      'SELECT id FROM item_catalog WHERE id = $1 AND facility_id = $2',
+      [id, facilityId]
+    );
+    if (catalogCheck.rows.length === 0) {
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
+    }
+
+    const classification = classifyBarcode(rawValue);
+    const gs1Result = parseGS1(rawValue);
+
+    // Determine identifier type based on classification
+    let identifierType = 'BARCODE';
+    if (gs1Result.success && gs1Result.gtin) {
+      identifierType = 'GTIN';
+    } else if (classification === 'upc-a') {
+      identifierType = 'UPC';
+    }
+
+    const result = await query<IdentifierRow>(`
+      INSERT INTO catalog_identifier (facility_id, catalog_id, identifier_type, raw_value, source, classification, created_by_user_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (facility_id, catalog_id, identifier_type, raw_value) DO NOTHING
+      RETURNING id, facility_id, catalog_id, identifier_type, raw_value, source, classification, created_at, created_by_user_id
+    `, [facilityId, id, identifierType, rawValue.trim(), source, classification, userId]);
+
+    if (result.rows.length === 0) {
+      return fail(reply, 'DUPLICATE', 'This identifier already exists for this catalog item');
+    }
+
+    // Audit event
+    await query(
+      `INSERT INTO catalog_event (facility_id, catalog_item_id, action, actor_user_id, payload)
+       VALUES ($1, $2, 'IDENTIFIER_ADDED', $3, $4)`,
+      [facilityId, id, userId, JSON.stringify({
+        identifierId: result.rows[0].id,
+        identifierType,
+        rawValue: rawValue.trim(),
+        classification,
+      })]
+    );
+
+    const row = result.rows[0];
+    return ok(reply, {
+      identifier: {
+        id: row.id,
+        catalogId: row.catalog_id,
+        identifierType: row.identifier_type,
+        rawValue: row.raw_value,
+        source: row.source,
+        classification: row.classification,
+        createdAt: row.created_at.toISOString(),
+        createdByUserId: row.created_by_user_id,
+      },
+      gs1Data: gs1Result.success ? {
+        gtin: gs1Result.gtin,
+        lot: gs1Result.lot,
+        expiration: gs1Result.expiration?.toISOString(),
+        serial: gs1Result.serial,
+      } : null,
+    }, 201);
+  });
+
+  /**
+   * DELETE /catalog/:id/identifiers/:identifierId
+   * Remove identifier from catalog item
+   */
+  fastify.delete<{ Params: { id: string; identifierId: string } }>('/:id/identifiers/:identifierId', {
+    preHandler: [requireAdmin],
+  }, async (request, reply) => {
+    const { facilityId, userId } = request.user;
+    const { id, identifierId } = request.params;
+
+    const existing = await query<{ id: string; raw_value: string; identifier_type: string }>(
+      `SELECT id, raw_value, identifier_type FROM catalog_identifier
+       WHERE id = $1 AND catalog_id = $2 AND facility_id = $3`,
+      [identifierId, id, facilityId]
+    );
+    if (existing.rows.length === 0) {
+      return fail(reply, 'NOT_FOUND', 'Identifier not found', 404);
+    }
+
+    await query(
+      `INSERT INTO catalog_event (facility_id, catalog_item_id, action, actor_user_id, payload)
+       VALUES ($1, $2, 'IDENTIFIER_REMOVED', $3, $4)`,
+      [facilityId, id, userId, JSON.stringify({
+        identifierId,
+        identifierType: existing.rows[0].identifier_type,
+        rawValue: existing.rows[0].raw_value,
+      })]
+    );
+
+    await query(
+      'DELETE FROM catalog_identifier WHERE id = $1 AND catalog_id = $2 AND facility_id = $3',
+      [identifierId, id, facilityId]
+    );
+
+    return reply.status(204).send();
   });
 }

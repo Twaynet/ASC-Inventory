@@ -7,8 +7,12 @@ import { Header } from '@/app/components/Header';
 import { useScannerService, ScanProcessResult } from '@/lib/useScannerService';
 import {
   createInventoryEvent,
+  createInventoryItem,
   getLocations,
+  getCatalogItems,
   type Location,
+  type CatalogItem,
+  type CreateInventoryItemRequest,
 } from '@/lib/api';
 
 type CheckInMode = 'verify' | 'receive' | 'location_change';
@@ -49,14 +53,75 @@ export default function InventoryCheckInPage() {
   const [loanerReference, setLoanerReference] = useState('');
   const [vendorName, setVendorName] = useState('');
 
-  // Load locations
+  // Manual override state
+  const [showOverride, setShowOverride] = useState(false);
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  const [overrideCatalogId, setOverrideCatalogId] = useState('');
+  const [overrideLot, setOverrideLot] = useState('');
+  const [overrideSerial, setOverrideSerial] = useState('');
+  const [overrideExpiration, setOverrideExpiration] = useState('');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideSubmitting, setOverrideSubmitting] = useState(false);
+
+  // Load locations and catalog items
   useEffect(() => {
     if (token) {
       getLocations(token)
         .then(result => setLocations(result.locations))
         .catch(err => setError(err.message));
+      getCatalogItems(token)
+        .then(result => setCatalogItems(result.items))
+        .catch(() => {});
     }
   }, [token]);
+
+  const openOverride = () => {
+    setShowOverride(true);
+    // Pre-fill from GS1 data if available
+    if (lastResult?.gs1Data) {
+      if (lastResult.gs1Data.lot) setOverrideLot(lastResult.gs1Data.lot);
+      if (lastResult.gs1Data.serial) setOverrideSerial(lastResult.gs1Data.serial);
+      if (lastResult.gs1Data.expiration) {
+        setOverrideExpiration(lastResult.gs1Data.expiration.split('T')[0]);
+      }
+    }
+    if (lastResult?.catalogMatch) {
+      setOverrideCatalogId(lastResult.catalogMatch.catalogId);
+    }
+  };
+
+  const handleOverrideSubmit = async () => {
+    if (!token || !overrideCatalogId || !overrideReason) return;
+    setOverrideSubmitting(true);
+    try {
+      const data: CreateInventoryItemRequest = {
+        catalogId: overrideCatalogId,
+        lotNumber: overrideLot || undefined,
+        serialNumber: overrideSerial || undefined,
+        sterilityExpiresAt: overrideExpiration ? new Date(overrideExpiration).toISOString() : undefined,
+        barcode: lastResult?.rawValue,
+        barcodeClassification: lastResult?.barcodeClassification || undefined,
+        barcodeGtin: lastResult?.gs1Data?.gtin || undefined,
+        barcodeParsedLot: lastResult?.gs1Data?.lot || undefined,
+        barcodeParsedSerial: lastResult?.gs1Data?.serial || undefined,
+        barcodeParsedExpiration: lastResult?.gs1Data?.expiration || undefined,
+        attestationReason: overrideReason,
+      };
+      await createInventoryItem(token, data);
+      setSuccessMessage('Inventory item created via manual override.');
+      setShowOverride(false);
+      setOverrideCatalogId('');
+      setOverrideLot('');
+      setOverrideSerial('');
+      setOverrideExpiration('');
+      setOverrideReason('');
+      clearLastResult();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create item');
+    } finally {
+      setOverrideSubmitting(false);
+    }
+  };
 
   // Clear success message after 3 seconds
   useEffect(() => {
@@ -321,14 +386,93 @@ export default function InventoryCheckInPage() {
               <div className="not-found-message">
                 <p><strong>Item not found in inventory</strong></p>
                 <p>{lastResult.error || 'No matching barcode or serial number'}</p>
-                <p className="hint">
-                  If this is a new item, add it first in{' '}
-                  <button className="link-btn" onClick={() => router.push('/admin/inventory')}>
-                    Inventory Management
-                  </button>
-                </p>
+
+                {/* GS1 Parsed Data Display */}
+                {lastResult.gs1Data && (
+                  <div className="gs1-data">
+                    <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Parsed Barcode Data:</p>
+                    <div className="gs1-fields">
+                      {lastResult.gs1Data.gtin && <span><strong>GTIN:</strong> {lastResult.gs1Data.gtin}</span>}
+                      {lastResult.gs1Data.lot && <span><strong>Lot:</strong> {lastResult.gs1Data.lot}</span>}
+                      {lastResult.gs1Data.serial && <span><strong>Serial:</strong> {lastResult.gs1Data.serial}</span>}
+                      {lastResult.gs1Data.expiration && <span><strong>Exp:</strong> {new Date(lastResult.gs1Data.expiration).toLocaleDateString()}</span>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Catalog Match */}
+                {lastResult.catalogMatch && (
+                  <div className="catalog-match">
+                    <p>Catalog match: <strong>{lastResult.catalogMatch.catalogName}</strong></p>
+                    <button className="btn btn-primary" onClick={openOverride} style={{ marginTop: '0.5rem' }}>
+                      Create Inventory Item
+                    </button>
+                  </div>
+                )}
+
+                {/* Manual Override Button */}
+                {!lastResult.catalogMatch && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <button className="btn btn-secondary" onClick={openOverride}>
+                      Manual Override
+                    </button>
+                    <p className="hint" style={{ marginTop: '0.5rem' }}>
+                      Use when barcode is damaged, missing, or pre-UDI.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Manual Override Modal */}
+        {showOverride && (
+          <div className="override-modal">
+            <h3>Manual Override — Create Inventory Item</h3>
+            <div className="form-group">
+              <label>Catalog Item *</label>
+              <select value={overrideCatalogId} onChange={e => setOverrideCatalogId(e.target.value)} required>
+                <option value="">Select catalog item...</option>
+                {catalogItems.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.category})</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Lot Number *</label>
+                <input type="text" value={overrideLot} onChange={e => setOverrideLot(e.target.value)} placeholder="Lot number" />
+              </div>
+              <div className="form-group">
+                <label>Expiration Date *</label>
+                <input type="date" value={overrideExpiration} onChange={e => setOverrideExpiration(e.target.value)} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Serial Number (optional)</label>
+              <input type="text" value={overrideSerial} onChange={e => setOverrideSerial(e.target.value)} placeholder="Serial number" />
+            </div>
+            <div className="form-group">
+              <label>Override Reason *</label>
+              <select value={overrideReason} onChange={e => setOverrideReason(e.target.value)} required>
+                <option value="">Select reason...</option>
+                <option value="Barcode Damaged">Barcode Damaged</option>
+                <option value="Barcode Missing">Barcode Missing</option>
+                <option value="Pre-UDI Device">Pre-UDI Device</option>
+                <option value="Emergency Use">Emergency Use</option>
+              </select>
+            </div>
+            <div className="form-actions" style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleOverrideSubmit}
+                disabled={!overrideCatalogId || !overrideReason || overrideSubmitting}
+              >
+                {overrideSubmitting ? 'Creating...' : 'Create Item'}
+              </button>
+              <button className="btn btn-secondary" onClick={() => setShowOverride(false)}>Cancel</button>
+            </div>
           </div>
         )}
 
@@ -671,6 +815,44 @@ export default function InventoryCheckInPage() {
           border-radius: 8px;
           margin-bottom: 1rem;
           cursor: pointer;
+        }
+
+        .gs1-data {
+          background: #ebf8ff;
+          border: 1px solid #bee3f8;
+          border-radius: 8px;
+          padding: 0.75rem 1rem;
+          margin: 0.75rem 0;
+          text-align: left;
+        }
+
+        .gs1-fields {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1rem;
+          font-size: 0.875rem;
+        }
+
+        .catalog-match {
+          background: #f0fff4;
+          border: 1px solid #9ae6b4;
+          border-radius: 8px;
+          padding: 0.75rem 1rem;
+          margin: 0.75rem 0;
+        }
+
+        .override-modal {
+          background: white;
+          border-radius: 8px;
+          padding: 1.5rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          margin-bottom: 1.5rem;
+          border-left: 4px solid #ed8936;
+        }
+
+        .override-modal h3 {
+          margin: 0 0 1rem 0;
+          color: #c05621;
         }
       `}</style>
     </>

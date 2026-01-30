@@ -18,6 +18,7 @@ import {
   getDeviceRepository,
   KEYBOARD_WEDGE_DEVICE_ID,
 } from '../repositories/index.js';
+import { classifyBarcode, parseGS1 } from '../lib/gs1-parser.js';
 
 // Helper to format inventory item for API response
 function formatInventoryItem(item: {
@@ -332,6 +333,43 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       processingError = 'No matching inventory item found';
     }
 
+    // GS1 parsing — always attempt regardless of inventory match
+    const barcodeClassification = classifyBarcode(data.rawValue);
+    const gs1Result = parseGS1(data.rawValue);
+    const gs1Data = gs1Result.success ? {
+      gtin: gs1Result.gtin || null,
+      lot: gs1Result.lot || null,
+      expiration: gs1Result.expiration?.toISOString() || null,
+      serial: gs1Result.serial || null,
+    } : null;
+
+    // Catalog lookup by GTIN if GS1 parsed and no inventory match
+    let catalogMatch: { catalogId: string; catalogName: string } | null = null;
+    if (!item && gs1Data?.gtin) {
+      const catalogResult = await query<{ catalog_id: string; name: string }>(`
+        SELECT ci.catalog_id, ic.name
+        FROM catalog_identifier ci
+        JOIN item_catalog ic ON ic.id = ci.catalog_id
+        WHERE ci.facility_id = $1 AND ci.raw_value = $2 AND ci.identifier_type = 'GTIN'
+        LIMIT 1
+      `, [facilityId, gs1Data.gtin]);
+      if (catalogResult.rows.length > 0) {
+        catalogMatch = {
+          catalogId: catalogResult.rows[0].catalog_id,
+          catalogName: catalogResult.rows[0].name,
+        };
+      }
+    }
+
+    // Guidance messages for non-GS1 scans
+    if (!item && !gs1Data) {
+      if (barcodeClassification === 'upc-a') {
+        processingError = 'This barcode does not include lot or expiration. Scan the square UDI barcode to add inventory.';
+      } else if (barcodeClassification === 'unknown' || barcodeClassification === 'code128') {
+        processingError = 'Barcode not recognized as UDI. Scan the square UDI barcode or use Manual Override.';
+      }
+    }
+
     // Create device event (audit record of the scan)
     const deviceEvent = await deviceRepo.createEvent({
       facilityId,
@@ -354,6 +392,9 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       processed: processedItemId !== null,
       processedItemId,
       candidate: candidateItem,
+      gs1Data,
+      catalogMatch,
+      barcodeClassification,
       error: processingError,
     });
   });
@@ -549,6 +590,13 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       locationId: data.locationId,
       sterilityStatus: sterilityStatus as any,
       sterilityExpiresAt: data.sterilityExpiresAt ? new Date(data.sterilityExpiresAt) : null,
+      barcodeClassification: data.barcodeClassification,
+      barcodeGtin: data.barcodeGtin,
+      barcodeParsedLot: data.barcodeParsedLot,
+      barcodeParsedSerial: data.barcodeParsedSerial,
+      barcodeParsedExpiration: data.barcodeParsedExpiration ? new Date(data.barcodeParsedExpiration) : null,
+      attestationReason: data.attestationReason,
+      attestedByUserId: data.attestationReason ? request.user.userId : null,
     });
 
     return reply.status(201).send({ item: formatInventoryItem(item) });

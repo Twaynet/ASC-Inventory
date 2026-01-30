@@ -624,6 +624,14 @@ export const CreateInventoryItemRequestSchema = z.object({
   locationId: z.string().uuid().optional(),
   sterilityStatus: SterilityStatus.optional(),
   sterilityExpiresAt: z.string().datetime().optional(),
+  // Barcode parsed fields (from GS1 scanner)
+  barcodeGtin: z.string().max(14).optional(),
+  barcodeParsedLot: z.string().max(255).optional(),
+  barcodeParsedSerial: z.string().max(255).optional(),
+  barcodeParsedExpiration: z.string().optional(),
+  barcodeClassification: z.string().optional(),
+  // Attestation (manual override)
+  attestationReason: z.string().max(500).optional(),
 });
 export type CreateInventoryItemRequest = z.infer<typeof CreateInventoryItemRequestSchema>;
 

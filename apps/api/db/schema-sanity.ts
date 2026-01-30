@@ -44,6 +44,7 @@ const CRITICAL_TABLES = [
   'case_number_sequence',
   'catalog_item_image',
   'catalog_event',
+  'catalog_identifier',
 ];
 
 /** Specific columns that MUST exist */

@@ -191,9 +191,13 @@ export class PostgresInventoryRepository implements IInventoryRepository {
     const result = await query<InventoryItemRow>(`
       INSERT INTO inventory_item (
         facility_id, catalog_id, serial_number, lot_number, barcode,
-        location_id, sterility_status, sterility_expires_at, availability_status
+        location_id, sterility_status, sterility_expires_at, availability_status,
+        barcode_classification, barcode_gtin, barcode_parsed_lot,
+        barcode_parsed_serial, barcode_parsed_expiration,
+        attestation_reason, attested_by_user_id, attested_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'AVAILABLE')
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'AVAILABLE',
+              $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `, [
       data.facilityId,
@@ -204,6 +208,14 @@ export class PostgresInventoryRepository implements IInventoryRepository {
       data.locationId ?? null,
       data.sterilityStatus ?? 'UNKNOWN',
       data.sterilityExpiresAt ?? null,
+      data.barcodeClassification ?? null,
+      data.barcodeGtin ?? null,
+      data.barcodeParsedLot ?? null,
+      data.barcodeParsedSerial ?? null,
+      data.barcodeParsedExpiration ?? null,
+      data.attestationReason ?? null,
+      data.attestedByUserId ?? null,
+      data.attestationReason ? new Date() : null,
     ]);
 
     // Fetch with catalog info

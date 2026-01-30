@@ -17,8 +17,12 @@ import {
   uploadCatalogImage,
   updateCatalogImage,
   deleteCatalogImage,
+  getCatalogIdentifiers,
+  addCatalogIdentifier,
+  deleteCatalogIdentifier,
   type CatalogItem,
   type CatalogImage,
+  type CatalogIdentifier,
   type ItemCategory,
   type CreateCatalogItemRequest,
   type UpdateCatalogItemRequest,
@@ -149,6 +153,49 @@ export default function AdminCatalogPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
   const [editingCaption, setEditingCaption] = useState('');
+
+  // Identifiers state (inside edit modal)
+  const [identifiers, setIdentifiers] = useState<CatalogIdentifier[]>([]);
+  const [identifierInput, setIdentifierInput] = useState('');
+  const [loadingIdentifiers, setLoadingIdentifiers] = useState(false);
+
+  const loadIdentifiers = async (catalogId: string) => {
+    if (!token) return;
+    setLoadingIdentifiers(true);
+    try {
+      const res = await getCatalogIdentifiers(token, catalogId);
+      setIdentifiers(res.identifiers);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingIdentifiers(false);
+    }
+  };
+
+  const handleAddIdentifier = async () => {
+    if (!token || !editingItem || !identifierInput.trim()) return;
+    try {
+      const res = await addCatalogIdentifier(token, editingItem.id, {
+        rawValue: identifierInput.trim(),
+        source: 'manual',
+      });
+      setIdentifiers(prev => [...prev, res.identifier]);
+      setIdentifierInput('');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add identifier';
+      alert(message);
+    }
+  };
+
+  const handleDeleteIdentifier = async (identifierId: string) => {
+    if (!token || !editingItem) return;
+    try {
+      await deleteCatalogIdentifier(token, editingItem.id, identifierId);
+      setIdentifiers(prev => prev.filter(i => i.id !== identifierId));
+    } catch {
+      alert('Failed to delete identifier');
+    }
+  };
 
   const openImagesModal = async (item: CatalogItem) => {
     setImagesItem(item);
@@ -348,6 +395,7 @@ export default function AdminCatalogPage() {
       isLoaner: item.isLoaner,
     });
     setShowCreateForm(false);
+    loadIdentifiers(item.id);
   };
 
   // Compute counts by category
@@ -538,6 +586,66 @@ export default function AdminCatalogPage() {
                     placeholder="Optional description"
                   />
                 </div>
+                {editingItem && (
+                  <div className="form-group">
+                    <label>Identifiers &amp; Barcodes</label>
+                    <p style={{ fontSize: '0.8rem', color: '#666', margin: '0 0 0.5rem 0' }}>
+                      Reference identifiers for human recognition only.
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <input
+                        type="text"
+                        value={identifierInput}
+                        onChange={(e) => setIdentifierInput(e.target.value)}
+                        placeholder="Scan or paste barcode/GTIN..."
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddIdentifier(); } }}
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={handleAddIdentifier}
+                        disabled={!identifierInput.trim()}
+                        style={{ whiteSpace: 'nowrap' }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                    {loadingIdentifiers ? (
+                      <p style={{ fontSize: '0.85rem', color: '#888' }}>Loading...</p>
+                    ) : identifiers.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        {identifiers.map(ident => (
+                          <div key={ident.id} style={{
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            padding: '0.35rem 0.5rem', background: '#f5f5f5', borderRadius: '4px',
+                            fontSize: '0.85rem',
+                          }}>
+                            <span style={{
+                              background: ident.identifierType === 'GTIN' ? '#2563eb' : ident.identifierType === 'UPC' ? '#7c3aed' : '#6b7280',
+                              color: '#fff', padding: '1px 6px', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 600,
+                            }}>
+                              {ident.identifierType}
+                            </span>
+                            <span style={{ flex: 1, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {ident.rawValue}
+                            </span>
+                            <span style={{ color: '#888', fontSize: '0.75rem' }}>{ident.classification}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteIdentifier(ident.id)}
+                              style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px 4px' }}
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.85rem', color: '#888' }}>No identifiers added yet.</p>
+                    )}
+                  </div>
+                )}
                 <div className="form-group">
                   <label>Item Properties</label>
                   <div className="pill-toggle-group">

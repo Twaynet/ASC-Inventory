@@ -705,6 +705,18 @@ export interface DeviceEventRequest {
   occurredAt?: string;
 }
 
+export interface GS1Data {
+  gtin: string | null;
+  lot: string | null;
+  expiration: string | null;
+  serial: string | null;
+}
+
+export interface CatalogMatch {
+  catalogId: string;
+  catalogName: string;
+}
+
 export interface DeviceEventResponse {
   deviceEventId: string;
   processed: boolean;
@@ -715,6 +727,9 @@ export interface DeviceEventResponse {
    * to create a VERIFIED event via POST /inventory/events.
    */
   candidate: InventoryItemDetail | null;
+  gs1Data: GS1Data | null;
+  catalogMatch: CatalogMatch | null;
+  barcodeClassification: string;
   error: string | null;
 }
 
@@ -1741,6 +1756,14 @@ export interface CreateInventoryItemRequest {
   locationId?: string;
   sterilityStatus?: string;
   sterilityExpiresAt?: string;
+  // Barcode parsed fields
+  barcodeGtin?: string;
+  barcodeParsedLot?: string;
+  barcodeParsedSerial?: string;
+  barcodeParsedExpiration?: string;
+  barcodeClassification?: string;
+  // Attestation (manual override)
+  attestationReason?: string;
 }
 
 export interface UpdateInventoryItemRequest {
@@ -2493,6 +2516,50 @@ export async function deleteCatalogImage(
   imageId: string
 ): Promise<void> {
   await fetch(`${API_BASE}/catalog/${catalogId}/images/${imageId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// ============================================================================
+// Catalog Identifiers (barcodes, GTINs — reference only)
+// ============================================================================
+
+export interface CatalogIdentifier {
+  id: string;
+  catalogId: string;
+  identifierType: string;
+  rawValue: string;
+  source: string;
+  classification: string;
+  createdAt: string;
+  createdByUserId: string | null;
+  creatorName?: string | null;
+}
+
+export async function getCatalogIdentifiers(
+  token: string,
+  catalogId: string
+): Promise<{ identifiers: CatalogIdentifier[] }> {
+  const res = await api(`/catalog/${catalogId}/identifiers`, { token }) as { data: { identifiers: CatalogIdentifier[] } };
+  return res.data;
+}
+
+export async function addCatalogIdentifier(
+  token: string,
+  catalogId: string,
+  data: { rawValue: string; source?: string }
+): Promise<{ identifier: CatalogIdentifier; gs1Data: GS1Data | null }> {
+  const res = await api(`/catalog/${catalogId}/identifiers`, { method: 'POST', body: data, token }) as { data: { identifier: CatalogIdentifier; gs1Data: GS1Data | null } };
+  return res.data;
+}
+
+export async function deleteCatalogIdentifier(
+  token: string,
+  catalogId: string,
+  identifierId: string
+): Promise<void> {
+  await fetch(`${API_BASE}/catalog/${catalogId}/identifiers/${identifierId}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   });
