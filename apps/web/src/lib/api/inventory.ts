@@ -3,19 +3,13 @@
  */
 
 import { request, API_BASE } from './client';
+import { callContract } from './contract-client';
+import { contract } from '@asc/contract';
 import type { ItemCategory } from './catalog';
 import {
-  InventoryItemListResponseSchema,
-  InventoryItemResponseSchema,
-  InventoryItemHistoryResponseSchema,
   InventoryDevicesResponseSchema,
-  InventoryRiskQueueResponseSchema,
   DeviceEventResponseSchema,
-  SuccessResponseSchema,
-  CreateInventoryEventRequestSchema,
   DeviceEventRequestSchema,
-  CreateInventoryItemRequestSchema,
-  UpdateInventoryItemRequestSchema,
 } from './schemas';
 
 // ============================================================================
@@ -85,11 +79,17 @@ export interface UpdateInventoryItemRequest {
 export interface InventoryItemEvent {
   id: string;
   eventType: string;
-  eventData: Record<string, unknown>;
-  deviceId: string | null;
-  deviceName: string | null;
-  userId: string | null;
-  userName: string | null;
+  caseId: string | null;
+  caseName?: string | null;
+  locationId: string | null;
+  locationName?: string | null;
+  previousLocationId: string | null;
+  previousLocationName?: string | null;
+  sterilityStatus: string | null;
+  notes: string | null;
+  performedByUserId: string;
+  performedByName?: string | null;
+  deviceEventId: string | null;
   occurredAt: string;
   createdAt: string;
 }
@@ -171,35 +171,49 @@ export async function getInventoryItems(
   token: string,
   filters?: { catalogId?: string; locationId?: string; status?: string }
 ): Promise<{ items: InventoryItem[] }> {
-  const params = new URLSearchParams();
-  if (filters?.catalogId) params.set('catalogId', filters.catalogId);
-  if (filters?.locationId) params.set('locationId', filters.locationId);
-  if (filters?.status) params.set('status', filters.status);
-  const query = params.toString() ? `?${params.toString()}` : '';
-  return request(`/inventory/items${query}`, { token, responseSchema: InventoryItemListResponseSchema });
+  return callContract(contract.inventory.listItems, {
+    query: filters,
+    token,
+  }) as Promise<{ items: InventoryItem[] }>;
 }
 
 export async function getInventoryItem(token: string, itemId: string): Promise<{ item: InventoryItemDetail }> {
-  return request(`/inventory/items/${itemId}`, { token, responseSchema: InventoryItemResponseSchema });
+  return callContract(contract.inventory.getItem, {
+    params: { itemId },
+    token,
+  }) as Promise<{ item: InventoryItemDetail }>;
 }
 
 export async function createInventoryItem(token: string, data: CreateInventoryItemRequest): Promise<{ item: InventoryItemDetail }> {
-  return request('/inventory/items', { method: 'POST', body: data, token, requestSchema: CreateInventoryItemRequestSchema, responseSchema: InventoryItemResponseSchema });
+  return callContract(contract.inventory.createItem, {
+    body: data,
+    token,
+  }) as Promise<{ item: InventoryItemDetail }>;
 }
 
 export async function updateInventoryItem(token: string, itemId: string, data: UpdateInventoryItemRequest): Promise<{ item: InventoryItemDetail }> {
-  return request(`/inventory/items/${itemId}`, { method: 'PATCH', body: data, token, requestSchema: UpdateInventoryItemRequestSchema, responseSchema: InventoryItemResponseSchema });
+  return callContract(contract.inventory.updateItem, {
+    params: { itemId },
+    body: data,
+    token,
+  }) as Promise<{ item: InventoryItemDetail }>;
 }
 
 export async function getInventoryItemHistory(token: string, itemId: string): Promise<{ events: InventoryItemEvent[] }> {
-  return request(`/inventory/items/${itemId}/history`, { token, responseSchema: InventoryItemHistoryResponseSchema });
+  return callContract(contract.inventory.itemHistory, {
+    params: { itemId },
+    token,
+  }) as Promise<{ events: InventoryItemEvent[] }>;
 }
 
 export async function createInventoryEvent(
   token: string,
   data: CreateInventoryEventRequest
 ): Promise<{ success: boolean }> {
-  return request('/inventory/events', { method: 'POST', body: data, token, requestSchema: CreateInventoryEventRequestSchema, responseSchema: SuccessResponseSchema });
+  return callContract(contract.inventory.createEvent, {
+    body: data,
+    token,
+  }) as Promise<{ success: boolean }>;
 }
 
 export async function sendDeviceEvent(
@@ -217,5 +231,7 @@ export async function getDevices(token: string): Promise<{ devices: Device[] }> 
 }
 
 export async function getInventoryRiskQueue(token: string): Promise<{ riskItems: RiskQueueItem[] }> {
-  return request('/inventory/risk-queue', { token, responseSchema: InventoryRiskQueueResponseSchema });
+  return callContract(contract.inventory.riskQueue, {
+    token,
+  }) as Promise<{ riskItems: RiskQueueItem[] }>;
 }

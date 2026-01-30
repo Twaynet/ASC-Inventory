@@ -6,14 +6,11 @@
  * and validated against @asc/contract schemas.
  */
 
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance } from 'fastify';
 import { query, transaction } from '../db/index.js';
 import {
-  CreateCaseRequestSchema,
   SetCaseRequirementsRequestSchema,
   SelectPreferenceCardRequestSchema,
-  ActivateCaseRequestSchema,
-  CancelCaseRequestSchema,
 } from '../schemas/index.js';
 import { requireCapabilities, getUserRoles, deriveCapabilities } from '../plugins/auth.js';
 import { canStartCase, canCompleteCase } from '../services/checklists.service.js';
@@ -265,21 +262,22 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     },
   });
 
-  // ══════════════════════════════════════════════════════════════════════
-  // NON-CONTRACTED ROUTES (legacy registration, unchanged)
-  // ══════════════════════════════════════════════════════════════════════
-
-  /**
-   * POST /cases
-   * Create a new case (CASE_CREATE capability)
-   * Cases start as inactive (is_active=false)
-   */
-  fastify.post('/', {
+  // ── [CONTRACT] POST /cases — Create case ────────────────────────────
+  registerContractRoute(fastify, contract.cases.create, PREFIX, {
     preHandler: [requireCapabilities('CASE_CREATE')],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const data = validated(reply, CreateCaseRequestSchema, request.body);
-    if (!data) return;
-    const { facilityId } = request.user;
+    handler: async (request, reply) => {
+      const data = request.contractData.body as {
+        surgeonId: string;
+        procedureName: string;
+        scheduledDate: string;
+        scheduledTime?: string;
+        requestedDate?: string;
+        requestedTime?: string;
+        preferenceCardId?: string;
+        notes?: string;
+        status?: string;
+      };
+      const { facilityId } = request.user;
 
     // Validate surgeon exists and belongs to facility (cross-domain check)
     const surgeonResult = await query(`
@@ -338,22 +336,22 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     return ok(reply, { case: formatCase(newCase) }, 201);
+    },
   });
 
-  /**
-   * POST /cases/:id/activate
-   * Activate a case (CASE_ACTIVATE capability)
-   */
-  fastify.post<{ Params: { id: string } }>('/:id/activate', {
+  // ── [CONTRACT] POST /cases/:caseId/activate — Activate case ────────
+  registerContractRoute(fastify, contract.cases.activate, PREFIX, {
     preHandler: [requireCapabilities('CASE_ACTIVATE')],
-  }, async (request, reply) => {
-    const { id } = request.params;
-    const { facilityId, userId } = request.user;
+    handler: async (request, reply) => {
+      const { caseId } = request.contractData.params as { caseId: string };
+      const { facilityId, userId } = request.user;
 
-    const data = validated(reply, ActivateCaseRequestSchema, request.body);
-    if (!data) return;
+      const data = request.contractData.body as {
+        scheduledDate?: string;
+        scheduledTime?: string;
+      };
 
-    const caseStatus = await caseRepo.getStatus(id, facilityId);
+      const caseStatus = await caseRepo.getStatus(caseId, facilityId);
     if (!caseStatus) {
       return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
@@ -366,7 +364,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       return fail(reply, 'INVALID_STATE', 'Case is already active');
     }
 
-    const activated = await caseRepo.activate(id, facilityId, userId, {
+    const activated = await caseRepo.activate(caseId, facilityId, userId, {
       scheduledDate: data.scheduledDate,
       scheduledTime: data.scheduledTime,
     });
@@ -376,19 +374,17 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     return ok(reply, { case: formatCase(activated) });
+    },
   });
 
-  /**
-   * POST /cases/:id/deactivate
-   * Deactivate a case (CASE_ACTIVATE capability)
-   */
-  fastify.post<{ Params: { id: string } }>('/:id/deactivate', {
+  // ── [CONTRACT] POST /cases/:caseId/deactivate — Deactivate case ────
+  registerContractRoute(fastify, contract.cases.deactivate, PREFIX, {
     preHandler: [requireCapabilities('CASE_ACTIVATE')],
-  }, async (request, reply) => {
-    const { id } = request.params;
-    const { facilityId } = request.user;
+    handler: async (request, reply) => {
+      const { caseId } = request.contractData.params as { caseId: string };
+      const { facilityId } = request.user;
 
-    const caseStatus = await caseRepo.getStatus(id, facilityId);
+      const caseStatus = await caseRepo.getStatus(caseId, facilityId);
     if (!caseStatus) {
       return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
@@ -401,28 +397,25 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       return fail(reply, 'INVALID_STATE', 'Cannot deactivate a case that is in progress or completed');
     }
 
-    const deactivated = await caseRepo.deactivate(id, facilityId, request.user.userId);
+    const deactivated = await caseRepo.deactivate(caseId, facilityId, request.user.userId);
     if (!deactivated) {
       return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     return ok(reply, { case: formatCase(deactivated) });
+    },
   });
 
-  /**
-   * POST /cases/:id/cancel
-   * Cancel a case (CASE_CANCEL capability)
-   */
-  fastify.post<{ Params: { id: string } }>('/:id/cancel', {
+  // ── [CONTRACT] POST /cases/:caseId/cancel — Cancel case ────────────
+  registerContractRoute(fastify, contract.cases.cancel, PREFIX, {
     preHandler: [requireCapabilities('CASE_CANCEL')],
-  }, async (request, reply) => {
-    const { id } = request.params;
-    const { facilityId, userId } = request.user;
+    handler: async (request, reply) => {
+      const { caseId } = request.contractData.params as { caseId: string };
+      const { facilityId, userId } = request.user;
 
-    const data = validated(reply, CancelCaseRequestSchema, request.body);
-    if (!data) return;
+      const data = request.contractData.body as { reason: string };
 
-    const caseStatus = await caseRepo.getStatus(id, facilityId);
+      const caseStatus = await caseRepo.getStatus(caseId, facilityId);
     if (!caseStatus) {
       return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
@@ -431,13 +424,45 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       return fail(reply, 'INVALID_STATE', 'Case is already cancelled');
     }
 
-    const cancelled = await caseRepo.cancel(id, facilityId, userId, data.reason);
+    const cancelled = await caseRepo.cancel(caseId, facilityId, userId, data.reason);
     if (!cancelled) {
       return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     return ok(reply, { case: formatCase(cancelled) });
+    },
   });
+
+  // ── [CONTRACT] GET /cases/:caseId/status-events — Status events ────
+  registerContractRoute(fastify, contract.cases.statusEvents, PREFIX, {
+    preHandler: [fastify.authenticate],
+    handler: async (request, reply) => {
+      const { caseId } = request.contractData.params as { caseId: string };
+      const { facilityId } = request.user;
+
+      const caseStatus = await caseRepo.getStatus(caseId, facilityId);
+      if (!caseStatus) {
+        return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
+      }
+
+      const events = await getStatusEvents(caseId);
+      return ok(reply, events.map(e => ({
+        id: e.id,
+        surgicalCaseId: e.surgical_case_id,
+        fromStatus: e.from_status,
+        toStatus: e.to_status,
+        reason: e.reason,
+        context: e.context,
+        actorUserId: e.actor_user_id,
+        actorName: e.actor_name,
+        createdAt: e.created_at.toISOString(),
+      })));
+    },
+  });
+
+  // ══════════════════════════════════════════════════════════════════════
+  // NON-CONTRACTED ROUTES (legacy registration, unchanged)
+  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * POST /cases/:id/preference-card
@@ -638,32 +663,4 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     return ok(reply, { success: true });
   });
 
-  /**
-   * GET /cases/:id/status-events
-   * Append-only audit trail for status transitions
-   */
-  fastify.get<{ Params: { id: string } }>('/:id/status-events', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
-    const { id } = request.params;
-    const { facilityId } = request.user;
-
-    const caseStatus = await caseRepo.getStatus(id, facilityId);
-    if (!caseStatus) {
-      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
-    }
-
-    const events = await getStatusEvents(id);
-    return ok(reply, events.map(e => ({
-      id: e.id,
-      surgicalCaseId: e.surgical_case_id,
-      fromStatus: e.from_status,
-      toStatus: e.to_status,
-      reason: e.reason,
-      context: e.context,
-      actorUserId: e.actor_user_id,
-      actorName: e.actor_name,
-      createdAt: e.created_at.toISOString(),
-    })));
-  });
 }

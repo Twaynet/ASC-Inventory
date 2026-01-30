@@ -9,8 +9,6 @@ import {
   CreateInventoryEventRequestSchema,
   BulkInventoryEventRequestSchema,
   CreateDeviceEventRequestSchema,
-  CreateInventoryItemRequestSchema,
-  UpdateInventoryItemRequestSchema,
 } from '../schemas/index.js';
 import { requireCapabilities } from '../plugins/auth.js';
 import { ok, fail, validated } from '../utils/reply.js';
@@ -416,43 +414,39 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     });
   });
 
-  /**
-   * GET /inventory/items
-   * List inventory items
-   */
-  fastify.get('/items', {
+  // ── [CONTRACT] GET /inventory/items — List inventory items ───────────
+  registerContractRoute(fastify, contract.inventory.listItems, PREFIX, {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{
-    Querystring: { catalogId?: string; locationId?: string; status?: string };
-  }>, reply: FastifyReply) => {
-    const { facilityId } = request.user;
-    const { catalogId, locationId, status } = request.query;
+    handler: async (request, reply) => {
+      const { facilityId } = request.user;
+      const { catalogId, locationId, status } = request.contractData.query as {
+        catalogId?: string; locationId?: string; status?: string;
+      };
 
-    const items = await inventoryRepo.findMany(facilityId, {
-      catalogId,
-      locationId,
-      status,
-    });
+      const items = await inventoryRepo.findMany(facilityId, {
+        catalogId,
+        locationId,
+        status,
+      });
 
-    return ok(reply, { items: items.map(formatInventoryItem) });
+      return ok(reply, { items: items.map(formatInventoryItem) });
+    },
   });
 
-  /**
-   * GET /inventory/items/:id
-   * Get single inventory item details
-   */
-  fastify.get<{ Params: { id: string } }>('/items/:id', {
+  // ── [CONTRACT] GET /inventory/items/:itemId — Get single item ────────
+  registerContractRoute(fastify, contract.inventory.getItem, PREFIX, {
     preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
-    const { id } = request.params;
-    const { facilityId } = request.user;
+    handler: async (request, reply) => {
+      const { itemId } = request.contractData.params as { itemId: string };
+      const { facilityId } = request.user;
 
-    const item = await inventoryRepo.findByIdWithDetails(id, facilityId);
-    if (!item) {
-      return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
-    }
+      const item = await inventoryRepo.findByIdWithDetails(itemId, facilityId);
+      if (!item) {
+        return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
+      }
 
-    return ok(reply, { item: formatInventoryItem(item) });
+      return ok(reply, { item: formatInventoryItem(item) });
+    },
   });
 
   /**
@@ -472,11 +466,24 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
    *
    * Validation occurs BEFORE item creation. Returns 400 with field-specific errors.
    */
-  fastify.post('/items', {
+  registerContractRoute(fastify, contract.inventory.createItem, PREFIX, {
     preHandler: [requireCapabilities('INVENTORY_MANAGE')],
-  }, async (request, reply) => {
-    const data = validated(reply, CreateInventoryItemRequestSchema, request.body);
-    if (!data) return;
+    handler: async (request, reply) => {
+    const data = request.contractData.body as {
+      catalogId: string;
+      serialNumber?: string;
+      lotNumber?: string;
+      barcode?: string;
+      locationId?: string;
+      sterilityStatus?: string;
+      sterilityExpiresAt?: string;
+      barcodeClassification?: string;
+      barcodeGtin?: string;
+      barcodeParsedLot?: string;
+      barcodeParsedSerial?: string;
+      barcodeParsedExpiration?: string;
+      attestationReason?: string;
+    };
 
     const { facilityId } = request.user;
 
@@ -587,23 +594,27 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     return ok(reply, { item: formatInventoryItem(item) }, 201);
+    },
   });
 
-  /**
-   * PATCH /inventory/items/:id
-   * Update inventory item (ADMIN only)
-   */
-  fastify.patch<{ Params: { id: string } }>('/items/:id', {
+  // ── [CONTRACT] PATCH /inventory/items/:itemId — Update item ─────────
+  registerContractRoute(fastify, contract.inventory.updateItem, PREFIX, {
     preHandler: [requireCapabilities('INVENTORY_MANAGE')],
-  }, async (request, reply) => {
-    const { id } = request.params;
+    handler: async (request, reply) => {
+    const { itemId } = request.contractData.params as { itemId: string };
     const { facilityId } = request.user;
 
-    const data = validated(reply, UpdateInventoryItemRequestSchema, request.body);
-    if (!data) return;
+    const data = request.contractData.body as {
+      serialNumber?: string;
+      lotNumber?: string;
+      barcode?: string;
+      locationId?: string;
+      sterilityStatus?: string;
+      sterilityExpiresAt?: string;
+    };
 
     // Check item exists
-    const existing = await inventoryRepo.findById(id, facilityId);
+    const existing = await inventoryRepo.findById(itemId, facilityId);
     if (!existing) {
       return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
     }
@@ -621,7 +632,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Check barcode uniqueness if changing
     if (data.barcode) {
-      const exists = await inventoryRepo.barcodeExists(data.barcode, facilityId, id);
+      const exists = await inventoryRepo.barcodeExists(data.barcode, facilityId, itemId);
       if (exists) {
         return fail(reply, 'DUPLICATE', 'Barcode already exists');
       }
@@ -631,7 +642,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       return fail(reply, 'VALIDATION_ERROR', 'No updates provided');
     }
 
-    const updated = await inventoryRepo.update(id, facilityId, {
+    const updated = await inventoryRepo.update(itemId, facilityId, {
       serialNumber: data.serialNumber,
       lotNumber: data.lotNumber,
       barcode: data.barcode,
@@ -645,29 +656,28 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     return ok(reply, { item: formatInventoryItem(updated) });
+    },
   });
 
-  /**
-   * GET /inventory/items/:id/history
-   * Get event history for an inventory item
-   */
-  fastify.get<{ Params: { id: string } }>('/items/:id/history', {
+  // ── [CONTRACT] GET /inventory/items/:itemId/history — Item history ──
+  registerContractRoute(fastify, contract.inventory.itemHistory, PREFIX, {
     preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
-    const { id } = request.params;
-    const { facilityId } = request.user;
+    handler: async (request, reply) => {
+      const { itemId } = request.contractData.params as { itemId: string };
+      const { facilityId } = request.user;
 
-    const events = await inventoryRepo.getItemHistory(id, facilityId);
+      const events = await inventoryRepo.getItemHistory(itemId, facilityId);
 
-    if (events.length === 0) {
-      // Check if item exists
-      const item = await inventoryRepo.findById(id, facilityId);
-      if (!item) {
-        return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
+      if (events.length === 0) {
+        // Check if item exists
+        const item = await inventoryRepo.findById(itemId, facilityId);
+        if (!item) {
+          return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
+        }
       }
-    }
 
-    return ok(reply, { events: events.map(formatInventoryEvent) });
+      return ok(reply, { events: events.map(formatInventoryEvent) });
+    },
   });
 
   /**
@@ -701,9 +711,9 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
    *   - Facility-scoped
    *   - No DeviceEvent used as truth
    */
-  fastify.get('/risk-queue', {
+  registerContractRoute(fastify, contract.inventory.riskQueue, PREFIX, {
     preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
+    handler: async (request, reply) => {
     const { facilityId } = request.user;
 
     // Single query to compute all risk items
@@ -945,5 +955,6 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     return ok(reply, { riskItems });
+    },
   });
 }

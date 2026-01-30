@@ -6,18 +6,9 @@ import { request, API_BASE } from './client';
 import { callContract } from './contract-client';
 import { contract } from '@asc/contract';
 import {
-  CatalogItemListResponseSchema,
-  CatalogItemResponseSchema,
-  CatalogImagesResponseSchema,
   CatalogImageResponseSchema,
-  CatalogIdentifiersResponseSchema,
-  CatalogIdentifierResponseSchema,
-  SuccessResponseSchema,
-  CreateCatalogItemRequestSchema,
-  UpdateCatalogItemRequestSchema,
   AddCatalogImageByUrlRequestSchema,
   UpdateCatalogImageRequestSchema,
-  AddCatalogIdentifierRequestSchema,
 } from './schemas';
 
 // ============================================================================
@@ -187,31 +178,49 @@ export async function getCatalogItems(
   token: string,
   filters?: { category?: ItemCategory; includeInactive?: boolean }
 ): Promise<{ items: CatalogItem[] }> {
-  const params = new URLSearchParams();
-  if (filters?.category) params.set('category', filters.category);
-  if (filters?.includeInactive) params.set('includeInactive', 'true');
-  const query = params.toString() ? `?${params.toString()}` : '';
-  return request(`/catalog${query}`, { token, responseSchema: CatalogItemListResponseSchema });
+  return callContract(contract.catalog.list, {
+    query: {
+      category: filters?.category,
+      includeInactive: filters?.includeInactive ? 'true' : undefined,
+    },
+    token,
+  }) as Promise<{ items: CatalogItem[] }>;
 }
 
 export async function getCatalogItem(token: string, catalogId: string): Promise<{ item: CatalogItem }> {
-  return request(`/catalog/${catalogId}`, { token, responseSchema: CatalogItemResponseSchema });
+  return callContract(contract.catalog.get, {
+    params: { catalogId },
+    token,
+  }) as Promise<{ item: CatalogItem }>;
 }
 
 export async function createCatalogItem(token: string, data: CreateCatalogItemRequest): Promise<{ item: CatalogItem }> {
-  return request('/catalog', { method: 'POST', body: data, token, requestSchema: CreateCatalogItemRequestSchema, responseSchema: CatalogItemResponseSchema });
+  return callContract(contract.catalog.create, {
+    body: data,
+    token,
+  }) as Promise<{ item: CatalogItem }>;
 }
 
 export async function updateCatalogItem(token: string, catalogId: string, data: UpdateCatalogItemRequest): Promise<{ item: CatalogItem }> {
-  return request(`/catalog/${catalogId}`, { method: 'PATCH', body: data, token, requestSchema: UpdateCatalogItemRequestSchema, responseSchema: CatalogItemResponseSchema });
+  return callContract(contract.catalog.update, {
+    params: { catalogId },
+    body: data,
+    token,
+  }) as Promise<{ item: CatalogItem }>;
 }
 
 export async function deactivateCatalogItem(token: string, catalogId: string): Promise<{ success: boolean }> {
-  return request(`/catalog/${catalogId}/deactivate`, { method: 'POST', body: {}, token, responseSchema: SuccessResponseSchema });
+  return callContract(contract.catalog.deactivate, {
+    params: { catalogId },
+    token,
+  }) as Promise<{ success: boolean }>;
 }
 
 export async function activateCatalogItem(token: string, catalogId: string): Promise<{ success: boolean }> {
-  return request(`/catalog/${catalogId}/activate`, { method: 'POST', body: {}, token, responseSchema: SuccessResponseSchema });
+  return callContract(contract.catalog.activate, {
+    params: { catalogId },
+    token,
+  }) as Promise<{ success: boolean }>;
 }
 
 // ============================================================================
@@ -222,7 +231,10 @@ export async function getCatalogImages(
   token: string,
   catalogId: string
 ): Promise<{ images: CatalogImage[] }> {
-  return request(`/catalog/${catalogId}/images`, { token, responseSchema: CatalogImagesResponseSchema });
+  return callContract(contract.catalog.listImages, {
+    params: { catalogId },
+    token,
+  }) as Promise<{ images: CatalogImage[] }>;
 }
 
 export async function addCatalogImageByUrl(
@@ -306,7 +318,10 @@ export async function getCatalogIdentifiers(
   token: string,
   catalogId: string
 ): Promise<{ identifiers: CatalogIdentifier[] }> {
-  return request(`/catalog/${catalogId}/identifiers`, { token, responseSchema: CatalogIdentifiersResponseSchema });
+  return callContract(contract.catalog.listIdentifiers, {
+    params: { catalogId },
+    token,
+  }) as Promise<{ identifiers: CatalogIdentifier[] }>;
 }
 
 export async function addCatalogIdentifier(
@@ -321,13 +336,15 @@ export async function addCatalogIdentifier(
   }) as Promise<{ identifier: CatalogIdentifier; gs1Data: import('./inventory').GS1Data | null }>;
 }
 
-// TODO(api-schema): void DELETE — no response body to validate
 export async function deleteCatalogIdentifier(
   token: string,
   catalogId: string,
   identifierId: string
 ): Promise<void> {
-  await request<void>(`/catalog/${catalogId}/identifiers/${identifierId}`, { method: 'DELETE', token });
+  await callContract(contract.catalog.deleteIdentifier, {
+    params: { catalogId, identifierId },
+    token,
+  });
 }
 
 // ============================================================================

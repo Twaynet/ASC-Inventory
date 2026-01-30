@@ -85,6 +85,40 @@ export const AssignRoomBodySchema = z.object({
   estimatedDurationMinutes: z.number().int().min(15).max(720).optional(),
 });
 
+export const CreateCaseBodySchema = z.object({
+  scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  scheduledTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
+  requestedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  requestedTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
+  surgeonId: z.string().uuid(),
+  procedureName: z.string().min(1).max(255),
+  preferenceCardId: z.string().uuid().optional(),
+  notes: z.string().optional(),
+  status: z.enum(['REQUESTED', 'SCHEDULED']).optional(),
+});
+
+export const ActivateCaseBodySchema = z.object({
+  scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  scheduledTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
+});
+
+export const CancelCaseBodySchema = z.object({
+  reason: z.string().optional(),
+});
+
+/** Status event from the append-only audit trail. */
+export const StatusEventApiSchema = z.object({
+  id: z.string().uuid(),
+  surgicalCaseId: z.string().uuid(),
+  fromStatus: nullableString,
+  toStatus: z.string(),
+  reason: nullableString,
+  context: z.unknown().nullable(),
+  actorUserId: z.string().uuid(),
+  actorName: z.string(),
+  createdAt: z.string(),
+});
+
 // ---------------------------------------------------------------------------
 // Response wrappers
 // ---------------------------------------------------------------------------
@@ -95,6 +129,8 @@ const CaseListResponsePayload = z.object({ cases: z.array(CaseApiSchema) });
 // ---------------------------------------------------------------------------
 // Route definitions
 // ---------------------------------------------------------------------------
+
+const caseIdParams = z.object({ caseId: z.string().uuid() });
 
 export const caseRoutes = {
   list: defineRoute({
@@ -109,7 +145,15 @@ export const caseRoutes = {
     method: 'GET' as const,
     path: '/cases/:caseId',
     summary: 'Get a single case by ID',
-    params: z.object({ caseId: z.string().uuid() }),
+    params: caseIdParams,
+    response: CaseResponsePayload,
+  }),
+
+  create: defineRoute({
+    method: 'POST' as const,
+    path: '/cases',
+    summary: 'Create a new surgical case',
+    body: CreateCaseBodySchema,
     response: CaseResponsePayload,
   }),
 
@@ -117,7 +161,7 @@ export const caseRoutes = {
     method: 'PATCH' as const,
     path: '/cases/:caseId',
     summary: 'Update case fields',
-    params: z.object({ caseId: z.string().uuid() }),
+    params: caseIdParams,
     body: UpdateCaseBodySchema,
     response: CaseResponsePayload,
   }),
@@ -126,7 +170,7 @@ export const caseRoutes = {
     method: 'POST' as const,
     path: '/cases/:caseId/approve',
     summary: 'Approve a requested case',
-    params: z.object({ caseId: z.string().uuid() }),
+    params: caseIdParams,
     body: ApproveCaseBodySchema,
     response: CaseResponsePayload,
   }),
@@ -135,7 +179,7 @@ export const caseRoutes = {
     method: 'POST' as const,
     path: '/cases/:caseId/reject',
     summary: 'Reject a requested case',
-    params: z.object({ caseId: z.string().uuid() }),
+    params: caseIdParams,
     body: RejectCaseBodySchema,
     response: CaseResponsePayload,
   }),
@@ -144,8 +188,42 @@ export const caseRoutes = {
     method: 'PATCH' as const,
     path: '/cases/:caseId/assign-room',
     summary: 'Assign or unassign a room for a case',
-    params: z.object({ caseId: z.string().uuid() }),
+    params: caseIdParams,
     body: AssignRoomBodySchema,
     response: CaseResponsePayload,
+  }),
+
+  activate: defineRoute({
+    method: 'POST' as const,
+    path: '/cases/:caseId/activate',
+    summary: 'Activate a case for the OR day',
+    params: caseIdParams,
+    body: ActivateCaseBodySchema,
+    response: CaseResponsePayload,
+  }),
+
+  deactivate: defineRoute({
+    method: 'POST' as const,
+    path: '/cases/:caseId/deactivate',
+    summary: 'Deactivate an active case',
+    params: caseIdParams,
+    response: CaseResponsePayload,
+  }),
+
+  cancel: defineRoute({
+    method: 'POST' as const,
+    path: '/cases/:caseId/cancel',
+    summary: 'Cancel a case',
+    params: caseIdParams,
+    body: CancelCaseBodySchema,
+    response: CaseResponsePayload,
+  }),
+
+  statusEvents: defineRoute({
+    method: 'GET' as const,
+    path: '/cases/:caseId/status-events',
+    summary: 'Get status change audit trail for a case',
+    params: caseIdParams,
+    response: z.array(StatusEventApiSchema),
   }),
 };

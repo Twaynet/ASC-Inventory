@@ -265,6 +265,272 @@
             }
           }
         }
+      },
+      "post": {
+        "operationId": "cases.create",
+        "summary": "Create a new surgical case",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scheduledDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "scheduledTime": {
+                    "type": "string",
+                    "pattern": "^\\d{2}:\\d{2}(:\\d{2})?$"
+                  },
+                  "requestedDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "requestedTime": {
+                    "type": "string",
+                    "pattern": "^\\d{2}:\\d{2}(:\\d{2})?$"
+                  },
+                  "surgeonId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "procedureName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "preferenceCardId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "REQUESTED",
+                      "SCHEDULED"
+                    ]
+                  }
+                },
+                "required": [
+                  "surgeonId",
+                  "procedureName"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "case": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "caseNumber": {
+                              "type": "string"
+                            },
+                            "facilityId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "scheduledDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "scheduledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "surgeonId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "surgeonName": {
+                              "type": "string"
+                            },
+                            "procedureName": {
+                              "type": "string"
+                            },
+                            "preferenceCardVersionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "DRAFT",
+                                "REQUESTED",
+                                "SCHEDULED",
+                                "READY",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED"
+                              ]
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            },
+                            "activatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "activatedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isCancelled": {
+                              "type": "boolean"
+                            },
+                            "cancelledAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectionReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            },
+                            "roomId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roomName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "estimatedDurationMinutes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "sortOrder": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "caseNumber",
+                            "facilityId",
+                            "scheduledDate",
+                            "scheduledTime",
+                            "requestedDate",
+                            "requestedTime",
+                            "surgeonId",
+                            "surgeonName",
+                            "procedureName",
+                            "preferenceCardVersionId",
+                            "status",
+                            "notes",
+                            "isActive",
+                            "activatedAt",
+                            "activatedByUserId",
+                            "isCancelled",
+                            "cancelledAt",
+                            "cancelledByUserId",
+                            "rejectedAt",
+                            "rejectedByUserId",
+                            "rejectionReason",
+                            "createdAt",
+                            "updatedAt",
+                            "roomId",
+                            "roomName",
+                            "estimatedDurationMinutes",
+                            "sortOrder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "case"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/cases/{caseId}": {
@@ -1530,6 +1796,803 @@
         }
       }
     },
+    "/cases/{caseId}/activate": {
+      "post": {
+        "operationId": "cases.activate",
+        "summary": "Activate a case for the OR day",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scheduledDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "scheduledTime": {
+                    "type": "string",
+                    "pattern": "^\\d{2}:\\d{2}(:\\d{2})?$"
+                  }
+                },
+                "required": [
+                  "scheduledDate"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "case": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "caseNumber": {
+                              "type": "string"
+                            },
+                            "facilityId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "scheduledDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "scheduledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "surgeonId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "surgeonName": {
+                              "type": "string"
+                            },
+                            "procedureName": {
+                              "type": "string"
+                            },
+                            "preferenceCardVersionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "DRAFT",
+                                "REQUESTED",
+                                "SCHEDULED",
+                                "READY",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED"
+                              ]
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            },
+                            "activatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "activatedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isCancelled": {
+                              "type": "boolean"
+                            },
+                            "cancelledAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectionReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            },
+                            "roomId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roomName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "estimatedDurationMinutes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "sortOrder": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "caseNumber",
+                            "facilityId",
+                            "scheduledDate",
+                            "scheduledTime",
+                            "requestedDate",
+                            "requestedTime",
+                            "surgeonId",
+                            "surgeonName",
+                            "procedureName",
+                            "preferenceCardVersionId",
+                            "status",
+                            "notes",
+                            "isActive",
+                            "activatedAt",
+                            "activatedByUserId",
+                            "isCancelled",
+                            "cancelledAt",
+                            "cancelledByUserId",
+                            "rejectedAt",
+                            "rejectedByUserId",
+                            "rejectionReason",
+                            "createdAt",
+                            "updatedAt",
+                            "roomId",
+                            "roomName",
+                            "estimatedDurationMinutes",
+                            "sortOrder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "case"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{caseId}/deactivate": {
+      "post": {
+        "operationId": "cases.deactivate",
+        "summary": "Deactivate an active case",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "case": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "caseNumber": {
+                              "type": "string"
+                            },
+                            "facilityId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "scheduledDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "scheduledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "surgeonId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "surgeonName": {
+                              "type": "string"
+                            },
+                            "procedureName": {
+                              "type": "string"
+                            },
+                            "preferenceCardVersionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "DRAFT",
+                                "REQUESTED",
+                                "SCHEDULED",
+                                "READY",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED"
+                              ]
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            },
+                            "activatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "activatedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isCancelled": {
+                              "type": "boolean"
+                            },
+                            "cancelledAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectionReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            },
+                            "roomId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roomName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "estimatedDurationMinutes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "sortOrder": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "caseNumber",
+                            "facilityId",
+                            "scheduledDate",
+                            "scheduledTime",
+                            "requestedDate",
+                            "requestedTime",
+                            "surgeonId",
+                            "surgeonName",
+                            "procedureName",
+                            "preferenceCardVersionId",
+                            "status",
+                            "notes",
+                            "isActive",
+                            "activatedAt",
+                            "activatedByUserId",
+                            "isCancelled",
+                            "cancelledAt",
+                            "cancelledByUserId",
+                            "rejectedAt",
+                            "rejectedByUserId",
+                            "rejectionReason",
+                            "createdAt",
+                            "updatedAt",
+                            "roomId",
+                            "roomName",
+                            "estimatedDurationMinutes",
+                            "sortOrder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "case"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{caseId}/cancel": {
+      "post": {
+        "operationId": "cases.cancel",
+        "summary": "Cancel a case",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "case": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "caseNumber": {
+                              "type": "string"
+                            },
+                            "facilityId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "scheduledDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "scheduledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "surgeonId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "surgeonName": {
+                              "type": "string"
+                            },
+                            "procedureName": {
+                              "type": "string"
+                            },
+                            "preferenceCardVersionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "DRAFT",
+                                "REQUESTED",
+                                "SCHEDULED",
+                                "READY",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED"
+                              ]
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            },
+                            "activatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "activatedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isCancelled": {
+                              "type": "boolean"
+                            },
+                            "cancelledAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectionReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            },
+                            "roomId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roomName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "estimatedDurationMinutes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "sortOrder": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "caseNumber",
+                            "facilityId",
+                            "scheduledDate",
+                            "scheduledTime",
+                            "requestedDate",
+                            "requestedTime",
+                            "surgeonId",
+                            "surgeonName",
+                            "procedureName",
+                            "preferenceCardVersionId",
+                            "status",
+                            "notes",
+                            "isActive",
+                            "activatedAt",
+                            "activatedByUserId",
+                            "isCancelled",
+                            "cancelledAt",
+                            "cancelledByUserId",
+                            "rejectedAt",
+                            "rejectedByUserId",
+                            "rejectionReason",
+                            "createdAt",
+                            "updatedAt",
+                            "roomId",
+                            "roomName",
+                            "estimatedDurationMinutes",
+                            "sortOrder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "case"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{caseId}/status-events": {
+      "get": {
+        "operationId": "cases.statusEvents",
+        "summary": "Get status change audit trail for a case",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "surgicalCaseId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "fromStatus": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "toStatus": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "context": {},
+                          "actorUserId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "actorName": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "surgicalCaseId",
+                          "fromStatus",
+                          "toStatus",
+                          "reason",
+                          "actorUserId",
+                          "actorName",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/inventory/events": {
       "post": {
         "operationId": "inventory.createEvent",
@@ -1733,6 +2796,977 @@
         }
       }
     },
+    "/inventory/items": {
+      "get": {
+        "operationId": "inventory.listItems",
+        "summary": "List inventory items with optional filters",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "catalogId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "catalogId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "catalogName": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string"
+                              },
+                              "manufacturer": {
+                                "type": "string"
+                              },
+                              "serialNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "lotNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "barcode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "locationId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "locationName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sterilityStatus": {
+                                "type": "string"
+                              },
+                              "sterilityExpiresAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "availabilityStatus": {
+                                "type": "string"
+                              },
+                              "reservedForCaseId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "lastVerifiedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "lastVerifiedByUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "lastVerifiedByName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "catalogId",
+                              "serialNumber",
+                              "lotNumber",
+                              "barcode",
+                              "locationId",
+                              "sterilityStatus",
+                              "sterilityExpiresAt",
+                              "availabilityStatus",
+                              "lastVerifiedAt",
+                              "lastVerifiedByUserId",
+                              "createdAt",
+                              "updatedAt"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "items"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "inventory.createItem",
+        "summary": "Create (check in) an inventory item",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "catalogId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "serialNumber": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "lotNumber": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "barcode": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "sterilityStatus": {
+                    "type": "string",
+                    "enum": [
+                      "STERILE",
+                      "NON_STERILE",
+                      "EXPIRED",
+                      "UNKNOWN"
+                    ]
+                  },
+                  "sterilityExpiresAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "barcodeGtin": {
+                    "type": "string",
+                    "maxLength": 14
+                  },
+                  "barcodeParsedLot": {
+                    "type": "string",
+                    "maxLength": 255
+                  },
+                  "barcodeParsedSerial": {
+                    "type": "string",
+                    "maxLength": 255
+                  },
+                  "barcodeParsedExpiration": {
+                    "type": "string"
+                  },
+                  "barcodeClassification": {
+                    "type": "string"
+                  },
+                  "attestationReason": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "catalogId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "catalogId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "catalogName": {
+                              "type": "string"
+                            },
+                            "category": {
+                              "type": "string"
+                            },
+                            "manufacturer": {
+                              "type": "string"
+                            },
+                            "serialNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lotNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "barcode": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "locationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "locationName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "sterilityStatus": {
+                              "type": "string"
+                            },
+                            "sterilityExpiresAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "availabilityStatus": {
+                              "type": "string"
+                            },
+                            "reservedForCaseId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastVerifiedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastVerifiedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastVerifiedByName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "catalogId",
+                            "serialNumber",
+                            "lotNumber",
+                            "barcode",
+                            "locationId",
+                            "sterilityStatus",
+                            "sterilityExpiresAt",
+                            "availabilityStatus",
+                            "lastVerifiedAt",
+                            "lastVerifiedByUserId",
+                            "createdAt",
+                            "updatedAt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "item"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/items/{itemId}": {
+      "get": {
+        "operationId": "inventory.getItem",
+        "summary": "Get a single inventory item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "itemId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "catalogId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "catalogName": {
+                              "type": "string"
+                            },
+                            "category": {
+                              "type": "string"
+                            },
+                            "manufacturer": {
+                              "type": "string"
+                            },
+                            "serialNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lotNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "barcode": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "locationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "locationName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "sterilityStatus": {
+                              "type": "string"
+                            },
+                            "sterilityExpiresAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "availabilityStatus": {
+                              "type": "string"
+                            },
+                            "reservedForCaseId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastVerifiedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastVerifiedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastVerifiedByName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "catalogId",
+                            "serialNumber",
+                            "lotNumber",
+                            "barcode",
+                            "locationId",
+                            "sterilityStatus",
+                            "sterilityExpiresAt",
+                            "availabilityStatus",
+                            "lastVerifiedAt",
+                            "lastVerifiedByUserId",
+                            "createdAt",
+                            "updatedAt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "item"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "inventory.updateItem",
+        "summary": "Update an inventory item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "itemId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "serialNumber": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 100
+                  },
+                  "lotNumber": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 100
+                  },
+                  "barcode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 100
+                  },
+                  "locationId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  },
+                  "sterilityStatus": {
+                    "type": "string",
+                    "enum": [
+                      "STERILE",
+                      "NON_STERILE",
+                      "EXPIRED",
+                      "UNKNOWN"
+                    ]
+                  },
+                  "sterilityExpiresAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "catalogId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "catalogName": {
+                              "type": "string"
+                            },
+                            "category": {
+                              "type": "string"
+                            },
+                            "manufacturer": {
+                              "type": "string"
+                            },
+                            "serialNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lotNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "barcode": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "locationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "locationName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "sterilityStatus": {
+                              "type": "string"
+                            },
+                            "sterilityExpiresAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "availabilityStatus": {
+                              "type": "string"
+                            },
+                            "reservedForCaseId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastVerifiedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastVerifiedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastVerifiedByName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "catalogId",
+                            "serialNumber",
+                            "lotNumber",
+                            "barcode",
+                            "locationId",
+                            "sterilityStatus",
+                            "sterilityExpiresAt",
+                            "availabilityStatus",
+                            "lastVerifiedAt",
+                            "lastVerifiedByUserId",
+                            "createdAt",
+                            "updatedAt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "item"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/items/{itemId}/history": {
+      "get": {
+        "operationId": "inventory.itemHistory",
+        "summary": "Get event history for an inventory item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "itemId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "events": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "eventType": {
+                                "type": "string"
+                              },
+                              "caseId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "caseName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "locationId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "locationName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "previousLocationId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "previousLocationName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sterilityStatus": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "notes": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "performedByUserId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "performedByName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "deviceEventId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "occurredAt": {
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "eventType",
+                              "caseId",
+                              "locationId",
+                              "previousLocationId",
+                              "sterilityStatus",
+                              "notes",
+                              "performedByUserId",
+                              "deviceEventId",
+                              "occurredAt",
+                              "createdAt"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "events"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/risk-queue": {
+      "get": {
+        "operationId": "inventory.riskQueue",
+        "summary": "Computed inventory risk items",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "riskItems": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "rule": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "type": "string"
+                              },
+                              "facilityId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "catalogId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "catalogName": {
+                                "type": "string"
+                              },
+                              "inventoryItemId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "identifier": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "daysToExpire": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "expiresAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "missingFields": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "explain": {
+                                "type": "string"
+                              },
+                              "debug": {}
+                            },
+                            "required": [
+                              "rule",
+                              "severity",
+                              "facilityId",
+                              "catalogId",
+                              "catalogName",
+                              "inventoryItemId",
+                              "identifier",
+                              "daysToExpire",
+                              "expiresAt",
+                              "explain"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "riskItems"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/catalog": {
       "get": {
         "operationId": "catalog.list",
@@ -1900,9 +3934,817 @@
             }
           }
         }
+      },
+      "post": {
+        "operationId": "catalog.create",
+        "summary": "Create a new catalog item",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "IMPLANT",
+                      "INSTRUMENT",
+                      "EQUIPMENT",
+                      "MEDICATION",
+                      "CONSUMABLE",
+                      "PPE"
+                    ]
+                  },
+                  "manufacturer": {
+                    "type": "string",
+                    "maxLength": 255
+                  },
+                  "catalogNumber": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "requiresSterility": {
+                    "type": "boolean"
+                  },
+                  "isLoaner": {
+                    "type": "boolean"
+                  },
+                  "requiresLotTracking": {
+                    "type": "boolean"
+                  },
+                  "requiresSerialTracking": {
+                    "type": "boolean"
+                  },
+                  "requiresExpirationTracking": {
+                    "type": "boolean"
+                  },
+                  "criticality": {
+                    "type": "string",
+                    "enum": [
+                      "CRITICAL",
+                      "IMPORTANT",
+                      "ROUTINE"
+                    ]
+                  },
+                  "readinessRequired": {
+                    "type": "boolean"
+                  },
+                  "expirationWarningDays": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "exclusiveMinimum": 0
+                  },
+                  "substitutable": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name",
+                  "category"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "category": {
+                              "type": "string",
+                              "enum": [
+                                "IMPLANT",
+                                "INSTRUMENT",
+                                "EQUIPMENT",
+                                "MEDICATION",
+                                "CONSUMABLE",
+                                "PPE"
+                              ]
+                            },
+                            "manufacturer": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "catalogNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requiresSterility": {
+                              "type": "boolean"
+                            },
+                            "isLoaner": {
+                              "type": "boolean"
+                            },
+                            "active": {
+                              "type": "boolean"
+                            },
+                            "requiresLotTracking": {
+                              "type": "boolean"
+                            },
+                            "requiresSerialTracking": {
+                              "type": "boolean"
+                            },
+                            "requiresExpirationTracking": {
+                              "type": "boolean"
+                            },
+                            "criticality": {
+                              "type": "string",
+                              "enum": [
+                                "CRITICAL",
+                                "IMPORTANT",
+                                "ROUTINE"
+                              ]
+                            },
+                            "readinessRequired": {
+                              "type": "boolean"
+                            },
+                            "expirationWarningDays": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "substitutable": {
+                              "type": "boolean"
+                            },
+                            "inventoryCount": {
+                              "type": "number"
+                            },
+                            "imageCount": {
+                              "type": "number"
+                            },
+                            "identifierCount": {
+                              "type": "number"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "description",
+                            "category",
+                            "manufacturer",
+                            "catalogNumber",
+                            "requiresSterility",
+                            "isLoaner",
+                            "active",
+                            "requiresLotTracking",
+                            "requiresSerialTracking",
+                            "requiresExpirationTracking",
+                            "criticality",
+                            "readinessRequired",
+                            "expirationWarningDays",
+                            "substitutable",
+                            "inventoryCount",
+                            "imageCount",
+                            "identifierCount",
+                            "createdAt",
+                            "updatedAt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "item"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/{catalogId}": {
+      "get": {
+        "operationId": "catalog.get",
+        "summary": "Get a single catalog item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "catalogId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "category": {
+                              "type": "string",
+                              "enum": [
+                                "IMPLANT",
+                                "INSTRUMENT",
+                                "EQUIPMENT",
+                                "MEDICATION",
+                                "CONSUMABLE",
+                                "PPE"
+                              ]
+                            },
+                            "manufacturer": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "catalogNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requiresSterility": {
+                              "type": "boolean"
+                            },
+                            "isLoaner": {
+                              "type": "boolean"
+                            },
+                            "active": {
+                              "type": "boolean"
+                            },
+                            "requiresLotTracking": {
+                              "type": "boolean"
+                            },
+                            "requiresSerialTracking": {
+                              "type": "boolean"
+                            },
+                            "requiresExpirationTracking": {
+                              "type": "boolean"
+                            },
+                            "criticality": {
+                              "type": "string",
+                              "enum": [
+                                "CRITICAL",
+                                "IMPORTANT",
+                                "ROUTINE"
+                              ]
+                            },
+                            "readinessRequired": {
+                              "type": "boolean"
+                            },
+                            "expirationWarningDays": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "substitutable": {
+                              "type": "boolean"
+                            },
+                            "inventoryCount": {
+                              "type": "number"
+                            },
+                            "imageCount": {
+                              "type": "number"
+                            },
+                            "identifierCount": {
+                              "type": "number"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "description",
+                            "category",
+                            "manufacturer",
+                            "catalogNumber",
+                            "requiresSterility",
+                            "isLoaner",
+                            "active",
+                            "requiresLotTracking",
+                            "requiresSerialTracking",
+                            "requiresExpirationTracking",
+                            "criticality",
+                            "readinessRequired",
+                            "expirationWarningDays",
+                            "substitutable",
+                            "inventoryCount",
+                            "imageCount",
+                            "identifierCount",
+                            "createdAt",
+                            "updatedAt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "item"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "catalog.update",
+        "summary": "Update a catalog item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "catalogId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 500
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "IMPLANT",
+                      "INSTRUMENT",
+                      "EQUIPMENT",
+                      "MEDICATION",
+                      "CONSUMABLE",
+                      "PPE"
+                    ]
+                  },
+                  "manufacturer": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 255
+                  },
+                  "catalogNumber": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 100
+                  },
+                  "requiresSterility": {
+                    "type": "boolean"
+                  },
+                  "isLoaner": {
+                    "type": "boolean"
+                  },
+                  "requiresLotTracking": {
+                    "type": "boolean"
+                  },
+                  "requiresSerialTracking": {
+                    "type": "boolean"
+                  },
+                  "requiresExpirationTracking": {
+                    "type": "boolean"
+                  },
+                  "criticality": {
+                    "type": "string",
+                    "enum": [
+                      "CRITICAL",
+                      "IMPORTANT",
+                      "ROUTINE"
+                    ]
+                  },
+                  "readinessRequired": {
+                    "type": "boolean"
+                  },
+                  "expirationWarningDays": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "exclusiveMinimum": 0
+                  },
+                  "substitutable": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "category": {
+                              "type": "string",
+                              "enum": [
+                                "IMPLANT",
+                                "INSTRUMENT",
+                                "EQUIPMENT",
+                                "MEDICATION",
+                                "CONSUMABLE",
+                                "PPE"
+                              ]
+                            },
+                            "manufacturer": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "catalogNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requiresSterility": {
+                              "type": "boolean"
+                            },
+                            "isLoaner": {
+                              "type": "boolean"
+                            },
+                            "active": {
+                              "type": "boolean"
+                            },
+                            "requiresLotTracking": {
+                              "type": "boolean"
+                            },
+                            "requiresSerialTracking": {
+                              "type": "boolean"
+                            },
+                            "requiresExpirationTracking": {
+                              "type": "boolean"
+                            },
+                            "criticality": {
+                              "type": "string",
+                              "enum": [
+                                "CRITICAL",
+                                "IMPORTANT",
+                                "ROUTINE"
+                              ]
+                            },
+                            "readinessRequired": {
+                              "type": "boolean"
+                            },
+                            "expirationWarningDays": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "substitutable": {
+                              "type": "boolean"
+                            },
+                            "inventoryCount": {
+                              "type": "number"
+                            },
+                            "imageCount": {
+                              "type": "number"
+                            },
+                            "identifierCount": {
+                              "type": "number"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "description",
+                            "category",
+                            "manufacturer",
+                            "catalogNumber",
+                            "requiresSterility",
+                            "isLoaner",
+                            "active",
+                            "requiresLotTracking",
+                            "requiresSerialTracking",
+                            "requiresExpirationTracking",
+                            "criticality",
+                            "readinessRequired",
+                            "expirationWarningDays",
+                            "substitutable",
+                            "inventoryCount",
+                            "imageCount",
+                            "identifierCount",
+                            "createdAt",
+                            "updatedAt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "item"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/{catalogId}/deactivate": {
+      "post": {
+        "operationId": "catalog.deactivate",
+        "summary": "Deactivate a catalog item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "catalogId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "success"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/{catalogId}/activate": {
+      "post": {
+        "operationId": "catalog.activate",
+        "summary": "Activate a catalog item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "catalogId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "success"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/catalog/{catalogId}/identifiers": {
+      "get": {
+        "operationId": "catalog.listIdentifiers",
+        "summary": "List identifiers for a catalog item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "catalogId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "identifiers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "catalogId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "identifierType": {
+                                "type": "string"
+                              },
+                              "rawValue": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "classification": {
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "createdByUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "creatorName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "catalogId",
+                              "identifierType",
+                              "rawValue",
+                              "source",
+                              "classification",
+                              "createdAt",
+                              "createdByUserId"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "identifiers"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "catalog.addIdentifier",
         "summary": "Add a barcode/identifier to a catalog item",
@@ -2080,6 +4922,95 @@
         "responses": {
           "204": {
             "description": "No content"
+          }
+        }
+      }
+    },
+    "/catalog/{catalogId}/images": {
+      "get": {
+        "operationId": "catalog.listImages",
+        "summary": "List images for a catalog item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "catalogId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "images": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "catalogId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "caption": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sortOrder": {
+                                "type": "number"
+                              },
+                              "assetUrl": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "catalogId",
+                              "kind",
+                              "caption",
+                              "sortOrder",
+                              "assetUrl",
+                              "source",
+                              "createdAt"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "images"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
           }
         }
       }

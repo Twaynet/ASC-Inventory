@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { ItemCategory, Criticality } from '@asc/domain';
 import { defineRoute } from '../define-route.js';
+import { SuccessEnvelope } from '../envelope.js';
 
 // ---------------------------------------------------------------------------
 // Shared schemas
@@ -57,6 +58,17 @@ export const CatalogIdentifierApiSchema = z.object({
   creatorName: nullableString.optional(),
 });
 
+export const CatalogImageApiSchema = z.object({
+  id: z.string().uuid(),
+  catalogId: z.string().uuid(),
+  kind: z.string(),
+  caption: nullableString,
+  sortOrder: z.number(),
+  assetUrl: z.string(),
+  source: z.string(),
+  createdAt: z.string(),
+});
+
 // ---------------------------------------------------------------------------
 // Query / body schemas
 // ---------------------------------------------------------------------------
@@ -71,19 +83,58 @@ export const AddIdentifierBodySchema = z.object({
   source: z.string().optional(),
 });
 
+export const CreateCatalogItemBodySchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().max(500).optional(),
+  category: ItemCategory,
+  manufacturer: z.string().max(255).optional(),
+  catalogNumber: z.string().max(100).optional(),
+  requiresSterility: z.boolean().optional(),
+  isLoaner: z.boolean().optional(),
+  requiresLotTracking: z.boolean().optional(),
+  requiresSerialTracking: z.boolean().optional(),
+  requiresExpirationTracking: z.boolean().optional(),
+  criticality: Criticality.optional(),
+  readinessRequired: z.boolean().optional(),
+  expirationWarningDays: z.number().int().positive().nullable().optional(),
+  substitutable: z.boolean().optional(),
+});
+
+export const UpdateCatalogItemBodySchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(500).nullable().optional(),
+  category: ItemCategory.optional(),
+  manufacturer: z.string().max(255).nullable().optional(),
+  catalogNumber: z.string().max(100).nullable().optional(),
+  requiresSterility: z.boolean().optional(),
+  isLoaner: z.boolean().optional(),
+  requiresLotTracking: z.boolean().optional(),
+  requiresSerialTracking: z.boolean().optional(),
+  requiresExpirationTracking: z.boolean().optional(),
+  criticality: Criticality.optional(),
+  readinessRequired: z.boolean().optional(),
+  expirationWarningDays: z.number().int().positive().nullable().optional(),
+  substitutable: z.boolean().optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Response wrappers
 // ---------------------------------------------------------------------------
 
 const CatalogListResponsePayload = z.object({ items: z.array(CatalogItemApiSchema) });
+const CatalogItemResponsePayload = z.object({ item: CatalogItemApiSchema });
 const AddIdentifierResponsePayload = z.object({
   identifier: CatalogIdentifierApiSchema,
   gs1Data: GS1DataSchema.nullable(),
 });
+const IdentifierListResponsePayload = z.object({ identifiers: z.array(CatalogIdentifierApiSchema) });
+const ImageListResponsePayload = z.object({ images: z.array(CatalogImageApiSchema) });
 
 // ---------------------------------------------------------------------------
 // Route definitions
 // ---------------------------------------------------------------------------
+
+const catalogIdParams = z.object({ catalogId: z.string().uuid() });
 
 export const catalogRoutes = {
   list: defineRoute({
@@ -94,11 +145,60 @@ export const catalogRoutes = {
     response: CatalogListResponsePayload,
   }),
 
+  get: defineRoute({
+    method: 'GET' as const,
+    path: '/catalog/:catalogId',
+    summary: 'Get a single catalog item',
+    params: catalogIdParams,
+    response: CatalogItemResponsePayload,
+  }),
+
+  create: defineRoute({
+    method: 'POST' as const,
+    path: '/catalog',
+    summary: 'Create a new catalog item',
+    body: CreateCatalogItemBodySchema,
+    response: CatalogItemResponsePayload,
+  }),
+
+  update: defineRoute({
+    method: 'PATCH' as const,
+    path: '/catalog/:catalogId',
+    summary: 'Update a catalog item',
+    params: catalogIdParams,
+    body: UpdateCatalogItemBodySchema,
+    response: CatalogItemResponsePayload,
+  }),
+
+  deactivate: defineRoute({
+    method: 'POST' as const,
+    path: '/catalog/:catalogId/deactivate',
+    summary: 'Deactivate a catalog item',
+    params: catalogIdParams,
+    response: SuccessEnvelope,
+  }),
+
+  activate: defineRoute({
+    method: 'POST' as const,
+    path: '/catalog/:catalogId/activate',
+    summary: 'Activate a catalog item',
+    params: catalogIdParams,
+    response: SuccessEnvelope,
+  }),
+
+  listIdentifiers: defineRoute({
+    method: 'GET' as const,
+    path: '/catalog/:catalogId/identifiers',
+    summary: 'List identifiers for a catalog item',
+    params: catalogIdParams,
+    response: IdentifierListResponsePayload,
+  }),
+
   addIdentifier: defineRoute({
     method: 'POST' as const,
     path: '/catalog/:catalogId/identifiers',
     summary: 'Add a barcode/identifier to a catalog item',
-    params: z.object({ catalogId: z.string().uuid() }),
+    params: catalogIdParams,
     body: AddIdentifierBodySchema,
     response: AddIdentifierResponsePayload,
   }),
@@ -112,6 +212,14 @@ export const catalogRoutes = {
       identifierId: z.string().uuid(),
     }),
     response: 'void' as const,
+  }),
+
+  listImages: defineRoute({
+    method: 'GET' as const,
+    path: '/catalog/:catalogId/images',
+    summary: 'List images for a catalog item',
+    params: catalogIdParams,
+    response: ImageListResponsePayload,
   }),
 
   deleteImage: defineRoute({

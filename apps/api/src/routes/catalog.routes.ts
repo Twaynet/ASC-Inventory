@@ -5,12 +5,9 @@
 
 import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
-import {
-  CreateCatalogItemRequestSchema,
-  UpdateCatalogItemRequestSchema,
-} from '../schemas/index.js';
+
 import { requireCapabilities } from '../plugins/auth.js';
-import { ok, fail, validated } from '../utils/reply.js';
+import { ok, fail } from '../utils/reply.js';
 import { classifyBarcode, parseGS1 } from '../lib/gs1-parser.js';
 import { contract } from '@asc/contract';
 import { registerContractRoute } from '../lib/contract-route.js';
@@ -115,14 +112,11 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     },
   });
 
-  /**
-   * GET /catalog/:id
-   * Get single catalog item details
-   */
-  fastify.get<{ Params: { id: string } }>('/:id', {
+  // ── [CONTRACT] GET /catalog/:catalogId — Get single catalog item ────
+  registerContractRoute(fastify, contract.catalog.get, PREFIX, {
     preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
-    const { id } = request.params;
+    handler: async (request, reply) => {
+    const { catalogId } = request.contractData.params as { catalogId: string };
     const { facilityId } = request.user;
 
     const result = await query<CatalogWithCount>(`
@@ -136,7 +130,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         (SELECT COUNT(*) FROM inventory_item i WHERE i.catalog_id = c.id) as inventory_count
       FROM item_catalog c
       WHERE c.id = $1 AND c.facility_id = $2
-    `, [id, facilityId]);
+    `, [catalogId, facilityId]);
 
     if (result.rows.length === 0) {
       return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
@@ -167,17 +161,14 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         updatedAt: row.updated_at.toISOString(),
       },
     });
+    },
   });
 
-  /**
-   * POST /catalog
-   * Create new catalog item (ADMIN only)
-   */
-  fastify.post('/', {
+  // ── [CONTRACT] POST /catalog — Create new catalog item ──────────────
+  registerContractRoute(fastify, contract.catalog.create, PREFIX, {
     preHandler: [requireCapabilities('CATALOG_MANAGE')],
-  }, async (request, reply) => {
-    const data = validated(reply, CreateCatalogItemRequestSchema, request.body);
-    if (!data) return;
+    handler: async (request, reply) => {
+    const data = request.contractData.body as Record<string, unknown>;
 
     const { facilityId } = request.user;
 
@@ -243,20 +234,17 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         updatedAt: row.updated_at.toISOString(),
       },
     }, 201);
+    },
   });
 
-  /**
-   * PATCH /catalog/:id
-   * Update catalog item (ADMIN only)
-   */
-  fastify.patch<{ Params: { id: string } }>('/:id', {
+  // ── [CONTRACT] PATCH /catalog/:catalogId — Update catalog item ─────
+  registerContractRoute(fastify, contract.catalog.update, PREFIX, {
     preHandler: [requireCapabilities('CATALOG_MANAGE')],
-  }, async (request, reply) => {
-    const { id } = request.params;
+    handler: async (request, reply) => {
+    const { catalogId: id } = request.contractData.params as { catalogId: string };
     const { facilityId } = request.user;
 
-    const data = validated(reply, UpdateCatalogItemRequestSchema, request.body);
-    if (!data) return;
+    const data = request.contractData.body as Record<string, unknown>;
 
     // Check item exists
     const existingResult = await query(`
@@ -392,16 +380,14 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         updatedAt: row.updated_at.toISOString(),
       },
     });
+    },
   });
 
-  /**
-   * POST /catalog/:id/deactivate
-   * Deactivate catalog item (ADMIN only)
-   */
-  fastify.post<{ Params: { id: string } }>('/:id/deactivate', {
+  // ── [CONTRACT] POST /catalog/:catalogId/deactivate — Deactivate ────
+  registerContractRoute(fastify, contract.catalog.deactivate, PREFIX, {
     preHandler: [requireCapabilities('CATALOG_MANAGE')],
-  }, async (request, reply) => {
-    const { id } = request.params;
+    handler: async (request, reply) => {
+    const { catalogId: id } = request.contractData.params as { catalogId: string };
     const { facilityId } = request.user;
 
     const result = await query<{ active: boolean }>(`
@@ -422,16 +408,14 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     return ok(reply, { success: true });
+    },
   });
 
-  /**
-   * POST /catalog/:id/activate
-   * Activate catalog item (ADMIN only)
-   */
-  fastify.post<{ Params: { id: string } }>('/:id/activate', {
+  // ── [CONTRACT] POST /catalog/:catalogId/activate — Activate ────────
+  registerContractRoute(fastify, contract.catalog.activate, PREFIX, {
     preHandler: [requireCapabilities('CATALOG_MANAGE')],
-  }, async (request, reply) => {
-    const { id } = request.params;
+    handler: async (request, reply) => {
+    const { catalogId: id } = request.contractData.params as { catalogId: string };
     const { facilityId } = request.user;
 
     const result = await query<{ active: boolean }>(`
@@ -452,6 +436,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     return ok(reply, { success: true });
+    },
   });
 
   // ── Catalog Identifier Endpoints ──────────────────────────────
@@ -469,15 +454,12 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     creator_name: string | null;
   }
 
-  /**
-   * GET /catalog/:id/identifiers
-   * List all identifiers for a catalog item
-   */
-  fastify.get<{ Params: { id: string } }>('/:id/identifiers', {
+  // ── [CONTRACT] GET /catalog/:catalogId/identifiers — List identifiers ─
+  registerContractRoute(fastify, contract.catalog.listIdentifiers, PREFIX, {
     preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
+    handler: async (request, reply) => {
     const { facilityId } = request.user;
-    const { id } = request.params;
+    const { catalogId: id } = request.contractData.params as { catalogId: string };
 
     const catalogCheck = await query(
       'SELECT id FROM item_catalog WHERE id = $1 AND facility_id = $2',
@@ -510,6 +492,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         creatorName: r.creator_name,
       })),
     });
+    },
   });
 
   // ── [CONTRACT] POST /catalog/:catalogId/identifiers — Add identifier ─

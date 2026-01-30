@@ -495,11 +495,11 @@ export default function AdminInventoryPage() {
                         </div>
                         <div className="history-type">{event.eventType}</div>
                         <div className="history-actor">
-                          {event.userName || event.deviceName || 'System'}
+                          {event.performedByName || 'System'}
                         </div>
-                        {event.eventData && Object.keys(event.eventData).length > 0 && (
+                        {event.notes && (
                           <div className="history-data">
-                            {JSON.stringify(event.eventData)}
+                            {event.notes}
                           </div>
                         )}
                       </div>

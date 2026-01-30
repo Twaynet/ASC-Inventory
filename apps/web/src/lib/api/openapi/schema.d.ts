@@ -23,7 +23,8 @@ export type paths = {
         /** List cases with optional filters */
         get: operations["cases.list"];
         put?: never;
-        post?: never;
+        /** Create a new surgical case */
+        post: operations["cases.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -99,6 +100,74 @@ export type paths = {
         patch: operations["cases.assignRoom"];
         trace?: never;
     };
+    "/cases/{caseId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate a case for the OR day */
+        post: operations["cases.activate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{caseId}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deactivate an active case */
+        post: operations["cases.deactivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{caseId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a case */
+        post: operations["cases.cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{caseId}/status-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get status change audit trail for a case */
+        get: operations["cases.statusEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/inventory/events": {
         parameters: {
             query?: never;
@@ -133,6 +202,76 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/inventory/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List inventory items with optional filters */
+        get: operations["inventory.listItems"];
+        put?: never;
+        /** Create (check in) an inventory item */
+        post: operations["inventory.createItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single inventory item */
+        get: operations["inventory.getItem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update an inventory item */
+        patch: operations["inventory.updateItem"];
+        trace?: never;
+    };
+    "/inventory/items/{itemId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get event history for an inventory item */
+        get: operations["inventory.itemHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/risk-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Computed inventory risk items */
+        get: operations["inventory.riskQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/catalog": {
         parameters: {
             query?: never;
@@ -143,7 +282,60 @@ export type paths = {
         /** List all catalog items */
         get: operations["catalog.list"];
         put?: never;
+        /** Create a new catalog item */
+        post: operations["catalog.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/{catalogId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single catalog item */
+        get: operations["catalog.get"];
+        put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a catalog item */
+        patch: operations["catalog.update"];
+        trace?: never;
+    };
+    "/catalog/{catalogId}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deactivate a catalog item */
+        post: operations["catalog.deactivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/{catalogId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate a catalog item */
+        post: operations["catalog.activate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -157,7 +349,8 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List identifiers for a catalog item */
+        get: operations["catalog.listIdentifiers"];
         put?: never;
         /** Add a barcode/identifier to a catalog item */
         post: operations["catalog.addIdentifier"];
@@ -179,6 +372,23 @@ export type paths = {
         post?: never;
         /** Delete a catalog identifier */
         delete: operations["catalog.deleteIdentifier"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/{catalogId}/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List images for a catalog item */
+        get: operations["catalog.listImages"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -269,6 +479,80 @@ export interface operations {
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
                             }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "cases.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    scheduledDate?: string;
+                    scheduledTime?: string;
+                    requestedDate?: string;
+                    requestedTime?: string;
+                    /** Format: uuid */
+                    surgeonId: string;
+                    procedureName: string;
+                    /** Format: uuid */
+                    preferenceCardId?: string;
+                    notes?: string;
+                    /** @enum {string} */
+                    status?: "REQUESTED" | "SCHEDULED";
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            case: {
+                                /** Format: uuid */
+                                id: string;
+                                caseNumber: string;
+                                /** Format: uuid */
+                                facilityId: string;
+                                scheduledDate: string | null;
+                                scheduledTime: string | null;
+                                requestedDate: string | null;
+                                requestedTime: string | null;
+                                /** Format: uuid */
+                                surgeonId: string;
+                                surgeonName: string;
+                                procedureName: string;
+                                preferenceCardVersionId: string | null;
+                                /** @enum {string} */
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                notes: string | null;
+                                isActive: boolean;
+                                activatedAt: string | null;
+                                activatedByUserId: string | null;
+                                isCancelled: boolean;
+                                cancelledAt: string | null;
+                                cancelledByUserId: string | null;
+                                rejectedAt: string | null;
+                                rejectedByUserId: string | null;
+                                rejectionReason: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                roomId: string | null;
+                                roomName: string | null;
+                                estimatedDurationMinutes: number | null;
+                                sortOrder: number | null;
+                            };
                         };
                     };
                 };
@@ -610,6 +894,233 @@ export interface operations {
             };
         };
     };
+    "cases.activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    scheduledDate: string;
+                    scheduledTime?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            case: {
+                                /** Format: uuid */
+                                id: string;
+                                caseNumber: string;
+                                /** Format: uuid */
+                                facilityId: string;
+                                scheduledDate: string | null;
+                                scheduledTime: string | null;
+                                requestedDate: string | null;
+                                requestedTime: string | null;
+                                /** Format: uuid */
+                                surgeonId: string;
+                                surgeonName: string;
+                                procedureName: string;
+                                preferenceCardVersionId: string | null;
+                                /** @enum {string} */
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                notes: string | null;
+                                isActive: boolean;
+                                activatedAt: string | null;
+                                activatedByUserId: string | null;
+                                isCancelled: boolean;
+                                cancelledAt: string | null;
+                                cancelledByUserId: string | null;
+                                rejectedAt: string | null;
+                                rejectedByUserId: string | null;
+                                rejectionReason: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                roomId: string | null;
+                                roomName: string | null;
+                                estimatedDurationMinutes: number | null;
+                                sortOrder: number | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "cases.deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            case: {
+                                /** Format: uuid */
+                                id: string;
+                                caseNumber: string;
+                                /** Format: uuid */
+                                facilityId: string;
+                                scheduledDate: string | null;
+                                scheduledTime: string | null;
+                                requestedDate: string | null;
+                                requestedTime: string | null;
+                                /** Format: uuid */
+                                surgeonId: string;
+                                surgeonName: string;
+                                procedureName: string;
+                                preferenceCardVersionId: string | null;
+                                /** @enum {string} */
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                notes: string | null;
+                                isActive: boolean;
+                                activatedAt: string | null;
+                                activatedByUserId: string | null;
+                                isCancelled: boolean;
+                                cancelledAt: string | null;
+                                cancelledByUserId: string | null;
+                                rejectedAt: string | null;
+                                rejectedByUserId: string | null;
+                                rejectionReason: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                roomId: string | null;
+                                roomName: string | null;
+                                estimatedDurationMinutes: number | null;
+                                sortOrder: number | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "cases.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            case: {
+                                /** Format: uuid */
+                                id: string;
+                                caseNumber: string;
+                                /** Format: uuid */
+                                facilityId: string;
+                                scheduledDate: string | null;
+                                scheduledTime: string | null;
+                                requestedDate: string | null;
+                                requestedTime: string | null;
+                                /** Format: uuid */
+                                surgeonId: string;
+                                surgeonName: string;
+                                procedureName: string;
+                                preferenceCardVersionId: string | null;
+                                /** @enum {string} */
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                notes: string | null;
+                                isActive: boolean;
+                                activatedAt: string | null;
+                                activatedByUserId: string | null;
+                                isCancelled: boolean;
+                                cancelledAt: string | null;
+                                cancelledByUserId: string | null;
+                                rejectedAt: string | null;
+                                rejectedByUserId: string | null;
+                                rejectionReason: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                roomId: string | null;
+                                roomName: string | null;
+                                estimatedDurationMinutes: number | null;
+                                sortOrder: number | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "cases.statusEvents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            surgicalCaseId: string;
+                            fromStatus: string | null;
+                            toStatus: string;
+                            reason: string | null;
+                            context?: unknown;
+                            /** Format: uuid */
+                            actorUserId: string;
+                            actorName: string;
+                            createdAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     "inventory.createEvent": {
         parameters: {
             query?: never;
@@ -700,6 +1211,318 @@ export interface operations {
             };
         };
     };
+    "inventory.listItems": {
+        parameters: {
+            query?: {
+                catalogId?: string;
+                locationId?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                catalogId: string;
+                                catalogName?: string;
+                                category?: string;
+                                manufacturer?: string;
+                                serialNumber: string | null;
+                                lotNumber: string | null;
+                                barcode: string | null;
+                                locationId: string | null;
+                                locationName?: string | null;
+                                sterilityStatus: string;
+                                sterilityExpiresAt: string | null;
+                                availabilityStatus: string;
+                                reservedForCaseId?: string | null;
+                                lastVerifiedAt: string | null;
+                                lastVerifiedByUserId: string | null;
+                                lastVerifiedByName?: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "inventory.createItem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    catalogId: string;
+                    serialNumber?: string;
+                    lotNumber?: string;
+                    barcode?: string;
+                    /** Format: uuid */
+                    locationId?: string;
+                    /** @enum {string} */
+                    sterilityStatus?: "STERILE" | "NON_STERILE" | "EXPIRED" | "UNKNOWN";
+                    /** Format: date-time */
+                    sterilityExpiresAt?: string;
+                    barcodeGtin?: string;
+                    barcodeParsedLot?: string;
+                    barcodeParsedSerial?: string;
+                    barcodeParsedExpiration?: string;
+                    barcodeClassification?: string;
+                    attestationReason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            item: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                catalogId: string;
+                                catalogName?: string;
+                                category?: string;
+                                manufacturer?: string;
+                                serialNumber: string | null;
+                                lotNumber: string | null;
+                                barcode: string | null;
+                                locationId: string | null;
+                                locationName?: string | null;
+                                sterilityStatus: string;
+                                sterilityExpiresAt: string | null;
+                                availabilityStatus: string;
+                                reservedForCaseId?: string | null;
+                                lastVerifiedAt: string | null;
+                                lastVerifiedByUserId: string | null;
+                                lastVerifiedByName?: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "inventory.getItem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            item: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                catalogId: string;
+                                catalogName?: string;
+                                category?: string;
+                                manufacturer?: string;
+                                serialNumber: string | null;
+                                lotNumber: string | null;
+                                barcode: string | null;
+                                locationId: string | null;
+                                locationName?: string | null;
+                                sterilityStatus: string;
+                                sterilityExpiresAt: string | null;
+                                availabilityStatus: string;
+                                reservedForCaseId?: string | null;
+                                lastVerifiedAt: string | null;
+                                lastVerifiedByUserId: string | null;
+                                lastVerifiedByName?: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "inventory.updateItem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    serialNumber?: string | null;
+                    lotNumber?: string | null;
+                    barcode?: string | null;
+                    /** Format: uuid */
+                    locationId?: string | null;
+                    /** @enum {string} */
+                    sterilityStatus?: "STERILE" | "NON_STERILE" | "EXPIRED" | "UNKNOWN";
+                    /** Format: date-time */
+                    sterilityExpiresAt?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            item: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                catalogId: string;
+                                catalogName?: string;
+                                category?: string;
+                                manufacturer?: string;
+                                serialNumber: string | null;
+                                lotNumber: string | null;
+                                barcode: string | null;
+                                locationId: string | null;
+                                locationName?: string | null;
+                                sterilityStatus: string;
+                                sterilityExpiresAt: string | null;
+                                availabilityStatus: string;
+                                reservedForCaseId?: string | null;
+                                lastVerifiedAt: string | null;
+                                lastVerifiedByUserId: string | null;
+                                lastVerifiedByName?: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "inventory.itemHistory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            events: {
+                                /** Format: uuid */
+                                id: string;
+                                eventType: string;
+                                caseId: string | null;
+                                caseName?: string | null;
+                                locationId: string | null;
+                                locationName?: string | null;
+                                previousLocationId: string | null;
+                                previousLocationName?: string | null;
+                                sterilityStatus: string | null;
+                                notes: string | null;
+                                /** Format: uuid */
+                                performedByUserId: string;
+                                performedByName?: string | null;
+                                deviceEventId: string | null;
+                                occurredAt: string;
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "inventory.riskQueue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            riskItems: {
+                                rule: string;
+                                severity: string;
+                                /** Format: uuid */
+                                facilityId: string;
+                                /** Format: uuid */
+                                catalogId: string;
+                                catalogName: string;
+                                /** Format: uuid */
+                                inventoryItemId: string;
+                                identifier: string | null;
+                                daysToExpire: number | null;
+                                expiresAt: string | null;
+                                missingFields?: string[];
+                                explain: string;
+                                debug?: unknown;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
     "catalog.list": {
         parameters: {
             query?: {
@@ -745,6 +1568,289 @@ export interface operations {
                                 identifierCount: number;
                                 createdAt: string;
                                 updatedAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "catalog.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string;
+                    /** @enum {string} */
+                    category: "IMPLANT" | "INSTRUMENT" | "EQUIPMENT" | "MEDICATION" | "CONSUMABLE" | "PPE";
+                    manufacturer?: string;
+                    catalogNumber?: string;
+                    requiresSterility?: boolean;
+                    isLoaner?: boolean;
+                    requiresLotTracking?: boolean;
+                    requiresSerialTracking?: boolean;
+                    requiresExpirationTracking?: boolean;
+                    /** @enum {string} */
+                    criticality?: "CRITICAL" | "IMPORTANT" | "ROUTINE";
+                    readinessRequired?: boolean;
+                    expirationWarningDays?: number | null;
+                    substitutable?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            item: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                description: string | null;
+                                /** @enum {string} */
+                                category: "IMPLANT" | "INSTRUMENT" | "EQUIPMENT" | "MEDICATION" | "CONSUMABLE" | "PPE";
+                                manufacturer: string | null;
+                                catalogNumber: string | null;
+                                requiresSterility: boolean;
+                                isLoaner: boolean;
+                                active: boolean;
+                                requiresLotTracking: boolean;
+                                requiresSerialTracking: boolean;
+                                requiresExpirationTracking: boolean;
+                                /** @enum {string} */
+                                criticality: "CRITICAL" | "IMPORTANT" | "ROUTINE";
+                                readinessRequired: boolean;
+                                expirationWarningDays: number | null;
+                                substitutable: boolean;
+                                inventoryCount: number;
+                                imageCount: number;
+                                identifierCount: number;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "catalog.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                catalogId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            item: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                description: string | null;
+                                /** @enum {string} */
+                                category: "IMPLANT" | "INSTRUMENT" | "EQUIPMENT" | "MEDICATION" | "CONSUMABLE" | "PPE";
+                                manufacturer: string | null;
+                                catalogNumber: string | null;
+                                requiresSterility: boolean;
+                                isLoaner: boolean;
+                                active: boolean;
+                                requiresLotTracking: boolean;
+                                requiresSerialTracking: boolean;
+                                requiresExpirationTracking: boolean;
+                                /** @enum {string} */
+                                criticality: "CRITICAL" | "IMPORTANT" | "ROUTINE";
+                                readinessRequired: boolean;
+                                expirationWarningDays: number | null;
+                                substitutable: boolean;
+                                inventoryCount: number;
+                                imageCount: number;
+                                identifierCount: number;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "catalog.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                catalogId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    description?: string | null;
+                    /** @enum {string} */
+                    category?: "IMPLANT" | "INSTRUMENT" | "EQUIPMENT" | "MEDICATION" | "CONSUMABLE" | "PPE";
+                    manufacturer?: string | null;
+                    catalogNumber?: string | null;
+                    requiresSterility?: boolean;
+                    isLoaner?: boolean;
+                    requiresLotTracking?: boolean;
+                    requiresSerialTracking?: boolean;
+                    requiresExpirationTracking?: boolean;
+                    /** @enum {string} */
+                    criticality?: "CRITICAL" | "IMPORTANT" | "ROUTINE";
+                    readinessRequired?: boolean;
+                    expirationWarningDays?: number | null;
+                    substitutable?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            item: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                description: string | null;
+                                /** @enum {string} */
+                                category: "IMPLANT" | "INSTRUMENT" | "EQUIPMENT" | "MEDICATION" | "CONSUMABLE" | "PPE";
+                                manufacturer: string | null;
+                                catalogNumber: string | null;
+                                requiresSterility: boolean;
+                                isLoaner: boolean;
+                                active: boolean;
+                                requiresLotTracking: boolean;
+                                requiresSerialTracking: boolean;
+                                requiresExpirationTracking: boolean;
+                                /** @enum {string} */
+                                criticality: "CRITICAL" | "IMPORTANT" | "ROUTINE";
+                                readinessRequired: boolean;
+                                expirationWarningDays: number | null;
+                                substitutable: boolean;
+                                inventoryCount: number;
+                                imageCount: number;
+                                identifierCount: number;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "catalog.deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                catalogId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            success: boolean;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "catalog.activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                catalogId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            success: boolean;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "catalog.listIdentifiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                catalogId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            identifiers: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                catalogId: string;
+                                identifierType: string;
+                                rawValue: string;
+                                source: string;
+                                classification: string;
+                                createdAt: string;
+                                createdByUserId: string | null;
+                                creatorName?: string | null;
                             }[];
                         };
                     };
@@ -821,6 +1927,43 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    "catalog.listImages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                catalogId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            images: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                catalogId: string;
+                                kind: string;
+                                caption: string | null;
+                                sortOrder: number;
+                                assetUrl: string;
+                                source: string;
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
             };
         };
     };

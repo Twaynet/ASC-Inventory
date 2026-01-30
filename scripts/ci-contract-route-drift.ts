@@ -2,7 +2,7 @@
 /**
  * CI Contract Route Registration Guardrail
  *
- * Ensures the 12 contracted endpoints are registered ONLY via
+ * Ensures the 30 contracted endpoints are registered ONLY via
  * registerContractRoute(), not via raw fastify.get/post/patch/delete.
  *
  * Strategy: each route file that has contracted endpoints MUST import
@@ -24,10 +24,10 @@ interface RouteFileSpec {
 
 // Files with contracted endpoints and how many contract routes each should have
 const ROUTE_FILES: RouteFileSpec[] = [
-  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'cases.routes.ts'), expectedContractRoutes: 6 },
-  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'inventory.routes.ts'), expectedContractRoutes: 2 },
-  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'catalog.routes.ts'), expectedContractRoutes: 3 },
-  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'catalog-images.routes.ts'), expectedContractRoutes: 1 },
+  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'cases.routes.ts'), expectedContractRoutes: 11 },
+  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'inventory.routes.ts'), expectedContractRoutes: 8 },
+  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'catalog.routes.ts'), expectedContractRoutes: 9 },
+  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'catalog-images.routes.ts'), expectedContractRoutes: 2 },
 ];
 
 let failures = 0;

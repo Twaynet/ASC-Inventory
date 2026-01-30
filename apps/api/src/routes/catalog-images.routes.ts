@@ -122,15 +122,12 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
     },
   });
 
-  /**
-   * GET /:catalogId/images
-   * List all images for a catalog item
-   */
-  fastify.get<{ Params: { catalogId: string } }>('/:catalogId/images', {
+  // ── [CONTRACT] GET /catalog/:catalogId/images — List images ─────────
+  registerContractRoute(fastify, contract.catalog.listImages, PREFIX, {
     preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
+    handler: async (request, reply) => {
     const { facilityId } = request.user;
-    const { catalogId } = request.params;
+    const { catalogId } = request.contractData.params as { catalogId: string };
 
     // Verify catalog item belongs to facility
     const catalogCheck = await query<CatalogRow>(
@@ -150,6 +147,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
     );
 
     return reply.send({ images: result.rows.map(mapImageRow) });
+    },
   });
 
   /**

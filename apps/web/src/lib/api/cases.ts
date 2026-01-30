@@ -6,10 +6,7 @@ import { request } from './client';
 import { callContract } from './contract-client';
 import { contract } from '@asc/contract';
 import {
-  CaseResponseSchema,
   DeleteCaseResponseSchema,
-  ActivateCaseRequestSchema,
-  CancelCaseRequestSchema,
 } from './schemas';
 
 // ============================================================================
@@ -67,19 +64,33 @@ export async function getCase(token: string, caseId: string): Promise<{ case: Ca
 }
 
 export async function createCase(token: string, data: Partial<Case>): Promise<{ case: Case }> {
-  return request('/cases', { method: 'POST', body: data, token, responseSchema: CaseResponseSchema });
+  return callContract(contract.cases.create, {
+    body: data,
+    token,
+  }) as Promise<{ case: Case }>;
 }
 
 export async function activateCase(token: string, caseId: string, data: ActivateCaseRequest): Promise<{ case: Case }> {
-  return request(`/cases/${caseId}/activate`, { method: 'POST', body: data, token, requestSchema: ActivateCaseRequestSchema, responseSchema: CaseResponseSchema });
+  return callContract(contract.cases.activate, {
+    params: { caseId },
+    body: data,
+    token,
+  }) as Promise<{ case: Case }>;
 }
 
 export async function deactivateCase(token: string, caseId: string): Promise<{ case: Case }> {
-  return request(`/cases/${caseId}/deactivate`, { method: 'POST', body: {}, token, responseSchema: CaseResponseSchema });
+  return callContract(contract.cases.deactivate, {
+    params: { caseId },
+    token,
+  }) as Promise<{ case: Case }>;
 }
 
 export async function cancelCase(token: string, caseId: string, reason?: string): Promise<{ case: Case }> {
-  return request(`/cases/${caseId}/cancel`, { method: 'POST', body: { reason }, token, requestSchema: CancelCaseRequestSchema, responseSchema: CaseResponseSchema });
+  return callContract(contract.cases.cancel, {
+    params: { caseId },
+    body: { reason },
+    token,
+  }) as Promise<{ case: Case }>;
 }
 
 export async function approveCase(token: string, caseId: string, data: { scheduledDate: string; scheduledTime?: string; roomId?: string }): Promise<{ case: Case }> {
