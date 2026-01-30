@@ -221,6 +221,39 @@ Contract-authoritative endpoints:
 
 All other endpoints remain legacy (manual validation via `validated()` helper). To migrate additional endpoints, define a contract in `packages/contract/src/routes/` and call `registerContractRoute()` in the route file.
 
+### Wave 6B.3 — OpenAPI-driven typed client generation + drift checks
+
+TypeScript types are auto-generated from `artifacts/openapi.json` using `openapi-typescript`. Generated types live in `apps/web/src/lib/api/openapi/schema.d.ts` (committed, CI-checked).
+
+**Generation pipeline**:
+
+```
+defineRoute() in @asc/contract
+  → npm run generate:openapi   → artifacts/openapi.json
+  → npm run generate:client    → apps/web/src/lib/api/openapi/schema.d.ts
+```
+
+Shortcut: `npm run generate:all` runs both steps.
+
+**Frontend API calls**: Use `callContract()` from `apps/web/src/lib/api/contract-client.ts` with contract route definitions from `@asc/contract`. This provides runtime Zod validation and type inference.
+
+**CI enforcement** (all in the `contract` job):
+
+| Check | What it catches |
+|-------|-----------------|
+| `git diff --exit-code artifacts/openapi.json` | Stale OpenAPI spec |
+| `git diff --exit-code apps/web/src/lib/api/openapi/schema.d.ts` | Stale generated types |
+| `npx tsx scripts/ci-contract-route-drift.ts` | Contracted endpoints registered outside `registerContractRoute()` |
+
+**Adding a new contracted endpoint**:
+
+1. Define route in `packages/contract/src/routes/<domain>.ts` using `defineRoute()`
+2. Export from `packages/contract/src/routes/index.ts`
+3. Register in API route file using `registerContractRoute()`
+4. Call from frontend using `callContract(contract.<domain>.<route>, { ... })`
+5. Run `npm run generate:all` and commit the updated artifacts
+6. Update expected count in `scripts/ci-contract-route-drift.ts`
+
 ### Remaining (planned)
 
 - `preference-cards.routes.ts` — all endpoints

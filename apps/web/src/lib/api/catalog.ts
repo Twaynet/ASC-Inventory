@@ -292,7 +292,10 @@ export async function deleteCatalogImage(
   catalogId: string,
   imageId: string
 ): Promise<void> {
-  await request<void>(`/catalog/${catalogId}/images/${imageId}`, { method: 'DELETE', token });
+  await callContract(contract.catalog.deleteImage, {
+    params: { catalogId, imageId },
+    token,
+  });
 }
 
 // ============================================================================

@@ -6,15 +6,10 @@ import { request } from './client';
 import { callContract } from './contract-client';
 import { contract } from '@asc/contract';
 import {
-  CaseListResponseSchema,
   CaseResponseSchema,
   DeleteCaseResponseSchema,
   ActivateCaseRequestSchema,
-  ApproveCaseRequestSchema,
-  RejectCaseRequestSchema,
   CancelCaseRequestSchema,
-  UpdateCaseRequestSchema,
-  AssignRoomRequestSchema,
 } from './schemas';
 
 // ============================================================================
@@ -65,7 +60,10 @@ export async function getCases(token: string, filters?: { date?: string; status?
 }
 
 export async function getCase(token: string, caseId: string): Promise<{ case: Case }> {
-  return request(`/cases/${caseId}`, { token, responseSchema: CaseResponseSchema });
+  return callContract(contract.cases.get, {
+    params: { caseId },
+    token,
+  }) as Promise<{ case: Case }>;
 }
 
 export async function createCase(token: string, data: Partial<Case>): Promise<{ case: Case }> {
@@ -93,7 +91,11 @@ export async function approveCase(token: string, caseId: string, data: { schedul
 }
 
 export async function rejectCase(token: string, caseId: string, reason: string): Promise<{ case: Case }> {
-  return request(`/cases/${caseId}/reject`, { method: 'POST', body: { reason }, token, requestSchema: RejectCaseRequestSchema, responseSchema: CaseResponseSchema });
+  return callContract(contract.cases.reject, {
+    params: { caseId },
+    body: { reason },
+    token,
+  }) as Promise<{ case: Case }>;
 }
 
 export async function updateCase(
@@ -101,7 +103,11 @@ export async function updateCase(
   caseId: string,
   data: { procedureName?: string; surgeonId?: string }
 ): Promise<{ case: Case }> {
-  return request(`/cases/${caseId}`, { method: 'PATCH', body: data, token, requestSchema: UpdateCaseRequestSchema, responseSchema: CaseResponseSchema });
+  return callContract(contract.cases.update, {
+    params: { caseId },
+    body: data,
+    token,
+  }) as Promise<{ case: Case }>;
 }
 
 export async function deleteCase(
@@ -120,5 +126,9 @@ export async function assignCaseRoom(
     estimatedDurationMinutes?: number;
   }
 ): Promise<{ case: Case }> {
-  return request(`/cases/${caseId}/assign-room`, { method: 'PATCH', body: data, token, requestSchema: AssignRoomRequestSchema, responseSchema: CaseResponseSchema });
+  return callContract(contract.cases.assignRoom, {
+    params: { caseId },
+    body: data,
+    token,
+  }) as Promise<{ case: Case }>;
 }

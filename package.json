@@ -20,9 +20,12 @@
     "validate:capabilities": "npx tsx scripts/ci-capability-guardrails.ts",
     "validate:api-modules": "npx tsx scripts/ci-api-modules.ts",
     "generate:openapi": "npx tsx packages/contract/scripts/generate-openapi.ts",
+    "generate:client": "npx tsx packages/contract/scripts/generate-client.ts",
+    "generate:all": "npm run generate:openapi && npm run generate:client",
     "validate:contracts": "npm test --workspace=@asc/contract"
   },
   "devDependencies": {
+    "openapi-typescript": "^7.10.1",
     "tsx": "^4.10.0",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0"

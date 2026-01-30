@@ -108,6 +108,15 @@ jobs:
       - name: Verify OpenAPI artifact is up to date
         run: git diff --exit-code artifacts/openapi.json
 
+      - name: Generate typed client
+        run: npm run generate:client
+
+      - name: Verify client types are up to date
+        run: git diff --exit-code apps/web/src/lib/api/openapi/schema.d.ts
+
+      - name: Check contract route registration
+        run: npx tsx scripts/ci-contract-route-drift.ts
+
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
