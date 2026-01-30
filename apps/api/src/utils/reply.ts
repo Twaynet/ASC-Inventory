@@ -23,7 +23,7 @@ export function ok<T>(reply: FastifyReply, data: T, statusCode = 200): FastifyRe
 }
 
 /**
- * Send an error response wrapped in { error: { code, message, details? } }.
+ * Send an error response wrapped in { error: { code, message, details?, requestId? } }.
  */
 export function fail(
   reply: FastifyReply,
@@ -31,12 +31,16 @@ export function fail(
   message: string,
   statusCode = 400,
   details?: unknown,
+  requestId?: string,
 ): FastifyReply {
-  const body: { error: { code: string; message: string; details?: unknown } } = {
+  const body: { error: { code: string; message: string; details?: unknown; requestId?: string } } = {
     error: { code, message },
   };
   if (details !== undefined) {
     body.error.details = details;
+  }
+  if (requestId) {
+    body.error.requestId = requestId;
   }
   return reply.status(statusCode).send(body);
 }

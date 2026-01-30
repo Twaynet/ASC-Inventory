@@ -35,6 +35,7 @@ import { generalSettingsRoutes } from './routes/general-settings.routes.js';
 import { scheduleRoutes } from './routes/schedule.routes.js';
 import { adminSettingsRoutes } from './routes/admin-settings.routes.js';
 import { personaPlugin } from './plugins/persona.js';
+import { requestIdPlugin } from './plugins/request-id.js';
 
 const PORT = parseInt(process.env.PORT || '3001');
 const HOST = process.env.HOST || '0.0.0.0';
@@ -53,7 +54,8 @@ async function main() {
   await fastify.register(cors, {
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Persona'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Persona', 'X-Request-Id', 'Idempotency-Key'],
+    exposedHeaders: ['X-Request-Id'],
   });
 
   await fastify.register(sensible);
@@ -89,8 +91,34 @@ async function main() {
     try {
       await request.jwtVerify();
     } catch (err) {
-      reply.status(401).send({ error: 'Unauthorized' });
+      request.log.warn({ code: 'AUTH_FAILED', method: request.method, url: request.url }, 'Authentication failed');
+      reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required', requestId: request.requestId } });
     }
+  });
+
+  // Register request ID plugin (correlation IDs for all requests)
+  await fastify.register(requestIdPlugin);
+
+  // Centralized error handler — ensures consistent error envelope and no stack trace leakage
+  fastify.setErrorHandler((error, request, reply) => {
+    const requestId = request.requestId;
+    // JWT verification errors bubble as 401
+    if (error.statusCode === 401) {
+      return reply.status(401).send({
+        error: { code: 'UNAUTHENTICATED', message: 'Authentication required', requestId },
+      });
+    }
+    // Fastify validation errors (e.g., content-type)
+    if (error.validation) {
+      return reply.status(400).send({
+        error: { code: 'VALIDATION_ERROR', message: error.message, requestId },
+      });
+    }
+    // All other errors — log and return generic 500
+    request.log.error({ err: error }, 'Unhandled error');
+    return reply.status(error.statusCode || 500).send({
+      error: { code: 'INTERNAL_ERROR', message: 'Internal server error', requestId },
+    });
   });
 
   // Register persona plugin (reads X-Active-Persona header for audit metadata)

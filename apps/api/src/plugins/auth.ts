@@ -69,7 +69,8 @@ export async function authPlugin(fastify: FastifyInstance): Promise<void> {
       try {
         await request.jwtVerify();
       } catch (err) {
-        reply.status(401).send({ error: 'Unauthorized' });
+        request.log.warn({ code: 'AUTH_FAILED', method: request.method, url: request.url }, 'Authentication failed');
+        reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required', requestId: request.requestId } });
       }
     }
   );
@@ -88,16 +89,17 @@ export function requireRoles(...allowedRoles: UserRole[]) {
     try {
       await request.jwtVerify();
     } catch (err) {
-      return reply.status(401).send({ error: 'Unauthorized' });
+      request.log.warn({ code: 'AUTH_FAILED', method: request.method, url: request.url }, 'Authentication failed');
+      return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required', requestId: request.requestId } });
     }
 
     const userRoles = getUserRoles(request.user);
     const hasAllowedRole = userRoles.some(role => allowedRoles.includes(role));
 
     if (!hasAllowedRole) {
+      request.log.warn({ code: 'AUTHZ_DENIED', userId: request.user.userId, facilityId: request.user.facilityId, requiredRoles: allowedRoles }, 'Authorization denied — missing roles');
       return reply.status(403).send({
-        error: 'Forbidden',
-        message: `Required roles: ${allowedRoles.join(', ')}`,
+        error: { code: 'FORBIDDEN', message: `Required roles: ${allowedRoles.join(', ')}`, requestId: request.requestId },
       });
     }
   };
@@ -111,7 +113,8 @@ export function requireCapabilities(...requiredCaps: Capability[]) {
     try {
       await request.jwtVerify();
     } catch (err) {
-      return reply.status(401).send({ error: 'Unauthorized' });
+      request.log.warn({ code: 'AUTH_FAILED', method: request.method, url: request.url }, 'Authentication failed');
+      return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required', requestId: request.requestId } });
     }
 
     const userRoles = getUserRoles(request.user);
@@ -119,9 +122,9 @@ export function requireCapabilities(...requiredCaps: Capability[]) {
     const hasRequired = requiredCaps.some(cap => userCaps.includes(cap));
 
     if (!hasRequired) {
+      request.log.warn({ code: 'AUTHZ_DENIED', userId: request.user.userId, facilityId: request.user.facilityId, requiredCapabilities: requiredCaps }, 'Authorization denied — missing capabilities');
       return reply.status(403).send({
-        error: 'Forbidden',
-        message: `Required capabilities: ${requiredCaps.join(', ')}`,
+        error: { code: 'FORBIDDEN', message: `Required capabilities: ${requiredCaps.join(', ')}`, requestId: request.requestId },
       });
     }
   };

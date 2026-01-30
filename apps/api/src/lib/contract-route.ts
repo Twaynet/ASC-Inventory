@@ -134,13 +134,15 @@ export function registerContractRoute(
     url,
     preHandler: preHandlerArray,
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const reqId = request.requestId;
+
       // ── Validate params ──
       let parsedParams: Record<string, unknown> = {};
       if (route.params) {
         const result = (route.params as z.ZodTypeAny).safeParse(request.params);
         if (!result.success) {
           return fail(reply, 'INVALID_REQUEST', 'Invalid path parameters', 400,
-            result.error.flatten());
+            result.error.flatten(), reqId);
         }
         parsedParams = result.data as Record<string, unknown>;
       }
@@ -151,7 +153,7 @@ export function registerContractRoute(
         const result = (route.query as z.ZodTypeAny).safeParse(request.query);
         if (!result.success) {
           return fail(reply, 'INVALID_REQUEST', 'Invalid query parameters', 400,
-            result.error.flatten());
+            result.error.flatten(), reqId);
         }
         parsedQuery = result.data as Record<string, unknown>;
       }
@@ -162,7 +164,7 @@ export function registerContractRoute(
         const result = (route.body as z.ZodTypeAny).safeParse(request.body);
         if (!result.success) {
           return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400,
-            result.error.flatten());
+            result.error.flatten(), reqId);
         }
         parsedBody = result.data;
       }
@@ -192,6 +194,7 @@ export function registerContractRoute(
                 error: {
                   code: 'SERVER_RESPONSE_INVALID',
                   message: 'Response validation failed',
+                  requestId: request.requestId,
                 },
               });
             }

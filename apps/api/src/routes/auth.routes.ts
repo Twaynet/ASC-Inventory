@@ -28,8 +28,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const parseResult = LoginRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
       return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
+        error: { code: 'VALIDATION_ERROR', message: 'Validation error', details: parseResult.error.flatten(), requestId: request.requestId },
       });
     }
 
@@ -47,7 +46,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     `, [facilityKey]);
 
     if (facilityResult.rows.length === 0) {
-      return reply.status(401).send({ error: 'Facility not found' });
+      request.log.warn({ code: 'LOGIN_FAILED', username, reason: 'facility_not_found', requestId: request.requestId }, 'Login failed: facility not found');
+      return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Invalid credentials', requestId: request.requestId } });
     }
 
     const facility = facilityResult.rows[0];
@@ -70,19 +70,22 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     `, [facility.id, username]);
 
     if (result.rows.length === 0) {
-      return reply.status(401).send({ error: 'Invalid credentials' });
+      request.log.warn({ code: 'LOGIN_FAILED', username, reason: 'user_not_found', requestId: request.requestId }, 'Login failed: user not found');
+      return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Invalid credentials', requestId: request.requestId } });
     }
 
     const user = result.rows[0];
 
     if (!user.active) {
-      return reply.status(401).send({ error: 'Account is disabled' });
+      request.log.warn({ code: 'LOGIN_FAILED', username, userId: user.id, reason: 'account_disabled', requestId: request.requestId }, 'Login failed: account disabled');
+      return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Account is disabled', requestId: request.requestId } });
     }
 
     // Verify password
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
-      return reply.status(401).send({ error: 'Invalid credentials' });
+      request.log.warn({ code: 'LOGIN_FAILED', username, userId: user.id, reason: 'bad_password', requestId: request.requestId }, 'Login failed: invalid password');
+      return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Invalid credentials', requestId: request.requestId } });
     }
 
     const facilityName = facility.name;
@@ -102,6 +105,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     };
 
     const token = fastify.jwt.sign(payload);
+
+    request.log.info({ code: 'LOGIN_SUCCESS', userId: user.id, username: user.username, facilityId: user.facility_id, requestId: request.requestId }, 'Login successful');
 
     return reply.send({
       token,

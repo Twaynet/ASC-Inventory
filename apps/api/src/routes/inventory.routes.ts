@@ -12,6 +12,7 @@ import {
 } from '../schemas/index.js';
 import { requireCapabilities } from '../plugins/auth.js';
 import { ok, fail, validated } from '../utils/reply.js';
+import { idempotent } from '../plugins/idempotency.js';
 import {
   getInventoryRepository,
   getDeviceRepository,
@@ -159,7 +160,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /inventory/events — Record single event ────────
   registerContractRoute(fastify, contract.inventory.createEvent, PREFIX, {
-    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')],
+    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE'), idempotent()],
     handler: async (request, reply) => {
       const data = request.contractData.body as {
         inventoryItemId: string;
@@ -205,7 +206,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /inventory/events/bulk — Bulk events ───────────
   registerContractRoute(fastify, contract.inventory.bulkEvents, PREFIX, {
-    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')],
+    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE'), idempotent()],
     handler: async (request, reply) => {
       const body = request.contractData.body as {
         events: Array<{

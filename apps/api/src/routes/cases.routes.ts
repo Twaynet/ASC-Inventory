@@ -17,6 +17,7 @@ import { canStartCase, canCompleteCase } from '../services/checklists.service.js
 import { getCaseRepository, SurgicalCase } from '../repositories/index.js';
 import { getStatusEvents } from '../services/case-status.service.js';
 import { ok, fail, validated } from '../utils/reply.js';
+import { idempotent } from '../plugins/idempotency.js';
 import { contract } from '@asc/contract';
 import { registerContractRoute } from '../lib/contract-route.js';
 
@@ -173,7 +174,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/approve — Approve case ─────────
   registerContractRoute(fastify, contract.cases.approve, PREFIX, {
-    preHandler: [requireCapabilities('CASE_APPROVE')],
+    preHandler: [requireCapabilities('CASE_APPROVE'), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId, userId } = request.user;
@@ -201,7 +202,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/reject — Reject case ───────────
   registerContractRoute(fastify, contract.cases.reject, PREFIX, {
-    preHandler: [requireCapabilities('CASE_REJECT')],
+    preHandler: [requireCapabilities('CASE_REJECT'), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId, userId } = request.user;
@@ -219,7 +220,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] PATCH /cases/:caseId/assign-room — Assign room ─────
   registerContractRoute(fastify, contract.cases.assignRoom, PREFIX, {
-    preHandler: [requireCapabilities('CASE_ASSIGN_ROOM')],
+    preHandler: [requireCapabilities('CASE_ASSIGN_ROOM'), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId } = request.user;
@@ -341,7 +342,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/activate — Activate case ────────
   registerContractRoute(fastify, contract.cases.activate, PREFIX, {
-    preHandler: [requireCapabilities('CASE_ACTIVATE')],
+    preHandler: [requireCapabilities('CASE_ACTIVATE'), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId, userId } = request.user;
@@ -379,7 +380,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/deactivate — Deactivate case ────
   registerContractRoute(fastify, contract.cases.deactivate, PREFIX, {
-    preHandler: [requireCapabilities('CASE_ACTIVATE')],
+    preHandler: [requireCapabilities('CASE_ACTIVATE'), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId } = request.user;
@@ -408,7 +409,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/cancel — Cancel case ────────────
   registerContractRoute(fastify, contract.cases.cancel, PREFIX, {
-    preHandler: [requireCapabilities('CASE_CANCEL')],
+    preHandler: [requireCapabilities('CASE_CANCEL'), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId, userId } = request.user;
