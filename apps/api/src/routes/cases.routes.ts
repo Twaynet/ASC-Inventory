@@ -46,8 +46,8 @@ function formatCase(c: SurgicalCase) {
     rejectedAt: c.rejectedAt?.toISOString() || null,
     rejectedByUserId: c.rejectedByUserId,
     rejectionReason: c.rejectionReason,
-    createdAt: c.createdAt,
-    updatedAt: c.updatedAt,
+    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+    updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
     // Room scheduling fields
     roomId: c.roomId,
     roomName: c.roomName,

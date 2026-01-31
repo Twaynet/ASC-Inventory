@@ -527,7 +527,7 @@ export interface CalendarCaseSummary {
   laterality: string | null;
   surgeonName: string;
   surgeonColor: string | null;
-  readinessState: 'GREEN' | 'ORANGE' | 'RED';
+  readinessState: 'GREEN' | 'ORANGE' | 'RED' | null;
   isActive: boolean;
   roomId: string | null;
   roomName: string | null;
@@ -631,7 +631,7 @@ export async function getCalendarSummary(
       laterality: row.laterality,
       surgeonName: row.surgeon_name,
       surgeonColor: row.surgeon_color,
-      readinessState: (row.readiness_state || 'ORANGE') as 'GREEN' | 'ORANGE' | 'RED',
+      readinessState: (row.readiness_state as 'GREEN' | 'ORANGE' | 'RED') ?? null,
       isActive: row.is_active,
       roomId: row.room_id,
       roomName: row.room_name,
