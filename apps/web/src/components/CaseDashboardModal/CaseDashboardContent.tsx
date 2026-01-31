@@ -27,6 +27,8 @@ import {
 } from '@/lib/api';
 import { CaseDashboardPrintView } from './CaseDashboardPrintView';
 import { useAccessControl } from '@/lib/auth';
+import { computeReadinessSummary, type ReadinessSummary } from '@/lib/readiness/summary';
+import { ReadinessBadge } from '@/components/ReadinessBadge';
 
 const CASE_TYPES: { value: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION'; label: string }[] = [
   { value: 'ELECTIVE', label: 'Elective' },
@@ -581,6 +583,76 @@ export function CaseDashboardContent({
           </div>
         </div>
       </section>
+
+      {/* Section 1.5: Readiness Summary Panel */}
+      {(() => {
+        const readiness: ReadinessSummary = computeReadinessSummary({
+          caseId,
+          readinessState: dashboard.readinessState as 'GREEN' | 'ORANGE' | 'RED' | undefined,
+          missingItems: dashboard.missingItems,
+          status: dashboard.status,
+          isActive: dashboard.isActive,
+          orRoom: dashboard.orRoom,
+          scheduledDate: dashboard.scheduledDate,
+          timeoutStatus: checklists?.timeout?.status || null,
+          debriefStatus: checklists?.debrief?.status || null,
+        });
+        return (
+          <section className="dashboard-section" style={{
+            background: readiness.overall === 'READY' ? '#f0fff4' : readiness.overall === 'BLOCKED' ? '#fffbeb' : 'var(--surface)',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '1rem',
+            border: `1px solid ${readiness.overall === 'READY' ? '#c6f6d5' : readiness.overall === 'BLOCKED' ? '#fde68a' : 'var(--border)'}`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: readiness.blockers.length > 0 ? '0.75rem' : 0 }}>
+              <ReadinessBadge overall={readiness.overall} size="md" />
+              <span style={{ fontSize: '1rem', fontWeight: 600 }}>
+                {readiness.overall === 'READY' ? 'All clear — this case is ready.'
+                  : readiness.overall === 'BLOCKED' ? `${readiness.blockers.length} blocker${readiness.blockers.length !== 1 ? 's' : ''} found`
+                  : 'Readiness status unavailable.'}
+              </span>
+            </div>
+            {readiness.blockers.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {readiness.blockers.map((blocker) => (
+                  <div key={blocker.code} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '0.5rem 0.75rem',
+                    background: 'white',
+                    borderRadius: '6px',
+                    border: `1px solid ${blocker.severity === 'critical' ? '#fc8181' : '#fbd38d'}`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{
+                        width: '8px', height: '8px', borderRadius: '50%',
+                        background: blocker.severity === 'critical' ? '#e53e3e' : '#dd6b20',
+                        flexShrink: 0,
+                      }} />
+                      <span style={{ fontSize: '0.875rem' }}>{blocker.label}</span>
+                    </div>
+                    {blocker.capability && !hasCapability(blocker.capability as any) ? (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                        Requires {blocker.capability}
+                      </span>
+                    ) : (
+                      <button
+                        className="btn-small btn-primary"
+                        style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
+                        onClick={() => router.push(blocker.href)}
+                      >
+                        {blocker.actionLabel}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       {/* Section 2: Readiness Attestation Panel */}
       <section className="dashboard-section" style={{

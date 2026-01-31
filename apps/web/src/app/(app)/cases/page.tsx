@@ -7,6 +7,7 @@ import { TimeSelect } from '@/components/TimeSelect';
 import { getCases, createCase, approveCase, rejectCase, type Case } from '@/lib/api/cases';
 import { getSurgeons, type User } from '@/lib/api/users';
 import { getRooms, type Room } from '@/lib/api/settings';
+import { ReadinessBadge } from '@/components/ReadinessBadge';
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return 'Not set';
@@ -579,6 +580,7 @@ export default function CasesPage() {
                         <tr>
                           <th>Case #</th>
                           <th>Status</th>
+                          <th>Readiness</th>
                           <th>Surgeon</th>
                           <th>Procedure</th>
                           <th>Scheduled Date/Time</th>
@@ -594,6 +596,7 @@ export default function CasesPage() {
                                 {c.status}
                               </span>
                             </td>
+                            <td><ReadinessBadge overall="UNKNOWN" /></td>
                             <td>Dr. {c.surgeonName}</td>
                             <td>{c.procedureName}</td>
                             <td>

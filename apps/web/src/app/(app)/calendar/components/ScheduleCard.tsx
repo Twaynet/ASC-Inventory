@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ReadinessBadge } from '@/components/ReadinessBadge';
+import { readinessFromState } from '@/lib/readiness/summary';
 
 export interface ScheduleItem {
   type: 'case' | 'block';
@@ -22,6 +24,8 @@ export interface ScheduleItem {
   // Checklist status (from OR Timeout/Debrief)
   timeoutStatus?: string;
   debriefStatus?: string;
+  // Readiness (merged from calendar summary)
+  readinessState?: 'GREEN' | 'ORANGE' | 'RED';
   // Block-specific fields
   notes?: string | null;
 }
@@ -210,6 +214,7 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
           {item.caseNumber && (
             <span className="schedule-card-case-number">{item.caseNumber}</span>
           )}
+          <ReadinessBadge overall={readinessFromState(item.readinessState)} />
         </div>
       </div>
 

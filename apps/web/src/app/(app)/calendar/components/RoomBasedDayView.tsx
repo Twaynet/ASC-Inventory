@@ -30,6 +30,7 @@ import {
   type DayScheduleResponse,
   type BlockTime,
 } from '@/lib/api';
+import { getCalendarSummary, type CalendarCaseSummary } from '@/lib/api/readiness';
 
 interface RoomBasedDayViewProps {
   selectedDate: string;
@@ -108,7 +109,35 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
     if (!token) return;
     setIsLoading(true);
     try {
-      const result = await getDaySchedule(token, selectedDate);
+      const [result, readinessResult] = await Promise.all([
+        getDaySchedule(token, selectedDate),
+        getCalendarSummary(token, selectedDate, selectedDate, 'case').catch(() => null),
+      ]);
+
+      // Merge readinessState into schedule items by caseId
+      if (readinessResult?.cases) {
+        const readinessMap = new Map<string, CalendarCaseSummary['readinessState']>();
+        for (const c of readinessResult.cases) {
+          readinessMap.set(c.caseId, c.readinessState);
+        }
+        for (const room of result.rooms) {
+          for (const item of room.items) {
+            if (item.type === 'case') {
+              const state = readinessMap.get(item.id);
+              if (state) (item as ScheduleItem).readinessState = state;
+            }
+          }
+        }
+        if (result.unassignedCases) {
+          for (const item of result.unassignedCases) {
+            if (item.type === 'case') {
+              const state = readinessMap.get(item.id);
+              if (state) (item as ScheduleItem).readinessState = state;
+            }
+          }
+        }
+      }
+
       setData(result);
       setError('');
     } catch (err) {

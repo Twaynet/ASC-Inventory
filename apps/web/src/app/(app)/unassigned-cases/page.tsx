@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import { getUnassignedCases, type UnassignedCase } from '@/lib/api';
+import { ReadinessBadge } from '@/components/ReadinessBadge';
 
 function formatDate(dateStr: string): string {
   // Handle various date formats (YYYY-MM-DD or ISO string)
@@ -176,7 +177,10 @@ export default function UnassignedCasesPage() {
                       </div>
                       <div className="case-procedure">{caseItem.procedureName}</div>
                       <div className="case-surgeon">{caseItem.surgeonName}</div>
-                      <div className="case-duration">{caseItem.durationMinutes} min</div>
+                      <div className="case-footer">
+                        <span className="case-duration">{caseItem.durationMinutes} min</span>
+                        <ReadinessBadge overall="UNKNOWN" />
+                      </div>
                       {!caseItem.isActive && (
                         <span className="inactive-badge">Inactive</span>
                       )}
@@ -357,6 +361,12 @@ export default function UnassignedCasesPage() {
           font-size: 0.8125rem;
           color: #718096;
           margin-bottom: 0.25rem;
+        }
+
+        .case-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
         }
 
         .case-duration {
