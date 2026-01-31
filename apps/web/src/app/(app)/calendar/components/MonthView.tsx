@@ -145,7 +145,7 @@ export function MonthView({
                         {roomCases.map((c) => (
                           <div
                             key={c.caseId}
-                            className={`case-dot ${c.isActive ? `status-${c.readinessState.toLowerCase()}` : 'inactive'}`}
+                            className={`case-dot ${c.isActive ? `status-${(c.readinessState ?? 'unknown').toLowerCase()}` : 'inactive'}`}
                             style={c.surgeonColor ? { backgroundColor: c.surgeonColor } : undefined}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -163,7 +163,7 @@ export function MonthView({
                       {dayRooms.get('unassigned')!.map((c) => (
                         <div
                           key={c.caseId}
-                          className={`case-dot ${c.isActive ? `status-${c.readinessState.toLowerCase()}` : 'inactive'}`}
+                          className={`case-dot ${c.isActive ? `status-${(c.readinessState ?? 'unknown').toLowerCase()}` : 'inactive'}`}
                           style={c.surgeonColor ? { backgroundColor: c.surgeonColor } : undefined}
                           onClick={(e) => {
                             e.stopPropagation();

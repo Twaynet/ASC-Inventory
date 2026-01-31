@@ -128,7 +128,7 @@ export function WeekView({
                   dayCases.map((c) => (
                     <div
                       key={c.caseId}
-                      className={`case-badge ${c.isActive ? `status-${c.readinessState.toLowerCase()}` : 'inactive'}`}
+                      className={`case-badge ${c.isActive ? `status-${(c.readinessState ?? 'unknown').toLowerCase()}` : 'inactive'}`}
                       style={c.surgeonColor ? { borderLeftColor: c.surgeonColor } : undefined}
                       onClick={(e) => {
                         e.stopPropagation();

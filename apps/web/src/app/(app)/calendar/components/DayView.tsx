@@ -223,7 +223,7 @@ function ProcedureCard({
   // Determine card class based on active/cancelled state
   const cardClass = [
     'procedure-card',
-    `status-${procedure.readinessState.toLowerCase()}`,
+    `status-${(procedure.readinessState ?? 'unknown').toLowerCase()}`,
     !isExpanded ? 'collapsed' : '',
     !procedure.isActive ? 'inactive-case' : '',
     procedure.isCancelled ? 'cancelled-case' : '',
@@ -256,7 +256,7 @@ function ProcedureCard({
             {procedure.scheduledDate ? formatTime(procedure.scheduledTime) : 'Date TBD'} &bull; Dr. {procedure.surgeonName}
           </p>
         </div>
-        <div className={`readiness-badge ${procedure.readinessState.toLowerCase()}`}>
+        <div className={`readiness-badge ${(procedure.readinessState ?? 'unknown').toLowerCase()}`}>
           {procedure.readinessState === 'GREEN' && 'READY'}
           {procedure.readinessState === 'ORANGE' && 'PENDING'}
           {procedure.readinessState === 'RED' && 'MISSING ITEMS'}
