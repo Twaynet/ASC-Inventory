@@ -20,8 +20,12 @@
 
 # Test / coverage
 **/coverage
+**/*.lcov
 
-# OS files
+# Editor / OS files
+**/.idea
+**/.vscode
+**/*.swp
 **/.DS_Store
 
 # Uploads (runtime data, not needed for build)
