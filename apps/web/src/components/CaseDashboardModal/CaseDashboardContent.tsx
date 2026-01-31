@@ -31,6 +31,7 @@ import { computeReadinessSummary, type ReadinessSummary } from '@/lib/readiness/
 import { ReadinessBadge } from '@/components/ReadinessBadge';
 import { statusLabel, capabilityLabel, TERMS } from '@/lib/terminology';
 import { CaseProgressStrip } from '@/components/CaseProgressStrip';
+import { ExplainReadinessPanel } from '@/components/ExplainReadinessPanel';
 
 const CASE_TYPES: { value: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION'; label: string }[] = [
   { value: 'ELECTIVE', label: 'Elective' },
@@ -655,6 +656,12 @@ export function CaseDashboardContent({
                 ))}
               </div>
             )}
+            <ExplainReadinessPanel
+              token={token}
+              caseId={caseId}
+              dashboard={dashboard}
+              readiness={readiness}
+            />
           </section>
         );
       })()}

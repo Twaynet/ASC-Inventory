@@ -34,6 +34,7 @@ import { reportsRoutes } from './routes/reports.routes.js';
 import { generalSettingsRoutes } from './routes/general-settings.routes.js';
 import { scheduleRoutes } from './routes/schedule.routes.js';
 import { adminSettingsRoutes } from './routes/admin-settings.routes.js';
+import { aiRoutes } from './routes/ai.routes.js';
 import { personaPlugin } from './plugins/persona.js';
 import { requestIdPlugin } from './plugins/request-id.js';
 
@@ -147,6 +148,7 @@ async function main() {
   await fastify.register(generalSettingsRoutes, { prefix: '/api/general-settings' });
   await fastify.register(scheduleRoutes, { prefix: '/api/schedule' });
   await fastify.register(adminSettingsRoutes, { prefix: '/api/admin/settings' });
+  await fastify.register(aiRoutes, { prefix: '/api/ai' });
 
   // Start server
   try {
