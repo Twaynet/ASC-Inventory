@@ -6,8 +6,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { query } from '../db/index.js';
 import {
-  CreateInventoryEventRequestSchema,
-  BulkInventoryEventRequestSchema,
   CreateDeviceEventRequestSchema,
 } from '../schemas/index.js';
 import { requireCapabilities } from '../plugins/auth.js';
