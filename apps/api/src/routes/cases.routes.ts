@@ -42,6 +42,20 @@ function toDateStr(v: unknown): string | null {
 }
 
 function formatCase(c: SurgicalCase) {
+  const formatted = _formatCaseInner(c);
+  // Validate against contract schema before returning
+  const { CaseApiSchema } = require('@asc/contract');
+  const result = CaseApiSchema.safeParse(formatted);
+  if (!result.success) {
+    console.error('[formatCase:VALIDATION_FAILED]', JSON.stringify(result.error.issues));
+    console.error('[formatCase:values]', JSON.stringify(
+      Object.fromEntries(result.error.issues.map((i: { path: (string | number)[] }) => [i.path.join('.'), (formatted as Record<string, unknown>)[String(i.path[0])]]))
+    ));
+  }
+  return formatted;
+}
+
+function _formatCaseInner(c: SurgicalCase) {
   return {
     id: c.id,
     caseNumber: c.caseNumber,
