@@ -23,6 +23,12 @@ import { registerContractRoute } from '../lib/contract-route.js';
 
 // Helper to format case for API response
 function formatCase(c: SurgicalCase) {
+  // Diagnostic: log field types to debug contract validation failures
+  const diag: Record<string, string> = {};
+  for (const [k, v] of Object.entries(c)) {
+    diag[k] = v === null ? 'null' : v === undefined ? 'undefined' : typeof v === 'object' && v instanceof Date ? 'Date' : typeof v;
+  }
+  console.log('[formatCase:diag]', JSON.stringify(diag));
   return {
     id: c.id,
     caseNumber: c.caseNumber,
