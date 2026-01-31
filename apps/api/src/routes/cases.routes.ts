@@ -22,20 +22,33 @@ import { contract } from '@asc/contract';
 import { registerContractRoute } from '../lib/contract-route.js';
 
 // Helper to format case for API response
-function formatCase(c: SurgicalCase) {
-  // Diagnostic: log field types to debug contract validation failures
-  const diag: Record<string, string> = {};
-  for (const [k, v] of Object.entries(c)) {
-    diag[k] = v === null ? 'null' : v === undefined ? 'undefined' : typeof v === 'object' && v instanceof Date ? 'Date' : typeof v;
+/** Convert any value that might be a Date to an ISO string, or null. */
+function toISOOrNull(v: unknown): string | null {
+  if (v == null) return null;
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
+}
+
+/** Convert a date-only DB value (pg returns Date for `date` columns) to YYYY-MM-DD string or null. */
+function toDateStr(v: unknown): string | null {
+  if (v == null) return null;
+  if (v instanceof Date) {
+    const y = v.getFullYear();
+    const m = String(v.getMonth() + 1).padStart(2, '0');
+    const d = String(v.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
-  console.log('[formatCase:diag]', JSON.stringify(diag));
+  return String(v);
+}
+
+function formatCase(c: SurgicalCase) {
   return {
     id: c.id,
     caseNumber: c.caseNumber,
     facilityId: c.facilityId,
-    scheduledDate: c.scheduledDate ?? null,
+    scheduledDate: toDateStr(c.scheduledDate),
     scheduledTime: c.scheduledTime ?? null,
-    requestedDate: c.requestedDate ?? null,
+    requestedDate: toDateStr(c.requestedDate),
     requestedTime: c.requestedTime ?? null,
     surgeonId: c.surgeonId,
     surgeonName: c.surgeonName ?? '',
@@ -44,16 +57,16 @@ function formatCase(c: SurgicalCase) {
     status: c.status,
     notes: c.notes ?? null,
     isActive: c.isActive ?? false,
-    activatedAt: c.activatedAt?.toISOString() ?? null,
+    activatedAt: toISOOrNull(c.activatedAt),
     activatedByUserId: c.activatedByUserId ?? null,
     isCancelled: c.isCancelled ?? false,
-    cancelledAt: c.cancelledAt?.toISOString() ?? null,
+    cancelledAt: toISOOrNull(c.cancelledAt),
     cancelledByUserId: c.cancelledByUserId ?? null,
-    rejectedAt: c.rejectedAt?.toISOString() ?? null,
+    rejectedAt: toISOOrNull(c.rejectedAt),
     rejectedByUserId: c.rejectedByUserId ?? null,
     rejectionReason: c.rejectionReason ?? null,
-    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : (c.createdAt ?? new Date().toISOString()),
-    updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : (c.updatedAt ?? new Date().toISOString()),
+    createdAt: toISOOrNull(c.createdAt) ?? new Date().toISOString(),
+    updatedAt: toISOOrNull(c.updatedAt) ?? new Date().toISOString(),
     // Room scheduling fields
     roomId: c.roomId ?? null,
     roomName: c.roomName ?? null,
