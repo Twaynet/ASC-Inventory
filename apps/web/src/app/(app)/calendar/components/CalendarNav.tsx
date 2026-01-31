@@ -55,6 +55,16 @@ export function CalendarNav({
     <div className="calendar-nav">
       <div className="calendar-nav-left">
         <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => onNavigate('today')}
+          style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+        >
+          Today
+        </button>
+      </div>
+
+      <div className="calendar-nav-center">
+        <button
           className="btn btn-secondary btn-sm calendar-nav-arrow"
           onClick={() => onNavigate('prev')}
           aria-label="Previous"
@@ -63,12 +73,7 @@ export function CalendarNav({
             <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
           </svg>
         </button>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={() => onNavigate('today')}
-        >
-          Today
-        </button>
+        <h2 className="calendar-nav-title">{formatPeriodLabel(viewMode, currentDate)}</h2>
         <button
           className="btn btn-secondary btn-sm calendar-nav-arrow"
           onClick={() => onNavigate('next')}
@@ -79,8 +84,6 @@ export function CalendarNav({
           </svg>
         </button>
       </div>
-
-      <h2 className="calendar-nav-title">{formatPeriodLabel(viewMode, currentDate)}</h2>
 
       <div className="calendar-nav-right">
         <div className="view-toggle">
