@@ -137,12 +137,13 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
         sc.procedure_name, sc.status, sc.is_active,
         sc.attestation_state, sc.attestation_void_reason,
         sc.estimated_duration_minutes, sc.laterality,
-        sc.or_room, sc.scheduler_notes,
+        COALESCE(sc.or_room, r.name) as or_room, sc.scheduler_notes,
         sc.case_type, sc.procedure_codes, sc.patient_flags, sc.admission_types,
         sc.case_card_version_id
       FROM surgical_case sc
       JOIN facility f ON sc.facility_id = f.id
       JOIN app_user u ON sc.surgeon_id = u.id
+      LEFT JOIN room r ON sc.room_id = r.id
       WHERE sc.id = $1 AND sc.facility_id = $2
     `, [caseId, facilityId]);
 
