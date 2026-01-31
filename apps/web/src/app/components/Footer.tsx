@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 const version = '1.4.0';
 const buildTime = process.env.BUILD_TIME || 'dev';
+const commitSha = process.env.COMMIT_SHA || 'dev';
 
 export function Footer() {
   const [formattedTime, setFormattedTime] = useState<string>(buildTime);
@@ -32,7 +33,7 @@ export function Footer() {
     <footer className="app-footer">
       <span>ASC Inventory v{version}</span>
       <span className="footer-separator">|</span>
-      <span>Built: {formattedTime}</span>
+      <span>Built: {formattedTime} ({commitSha})</span>
       <span className="footer-separator">|</span>
       <Link href="/help" style={{ color: 'inherit', textDecoration: 'none' }}>Help</Link>
     </footer>
