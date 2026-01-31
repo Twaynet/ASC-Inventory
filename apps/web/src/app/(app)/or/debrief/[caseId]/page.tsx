@@ -640,12 +640,20 @@ export default function DebriefPage() {
                       </div>
                     )}
 
-                    <button
-                      className="btn btn-secondary btn-md"
-                      onClick={() => router.push(`/calendar?openCase=${caseId}`)}
-                    >
-                      Return to Case
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        className="btn btn-primary btn-md"
+                        onClick={() => router.push(`/case/${caseId}`)}
+                      >
+                        Return to Case
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-md"
+                        onClick={() => router.push(`/calendar?openCase=${caseId}`)}
+                      >
+                        Back to Calendar
+                      </button>
+                    </div>
                   </div>
                 )}
               </>

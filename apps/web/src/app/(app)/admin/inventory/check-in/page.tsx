@@ -396,7 +396,7 @@ export default function InventoryCheckInPage() {
                   <strong>Case {caseContext.caseNumber}</strong>
                   <button
                     className="btn btn-secondary btn-sm"
-                    onClick={() => router.push(`/calendar?openCase=${caseIdParam}`)}
+                    onClick={() => router.push(`/case/${caseIdParam}`)}
                   >
                     Back to Case
                   </button>
