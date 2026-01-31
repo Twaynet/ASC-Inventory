@@ -5,6 +5,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json turbo.json ./
 COPY packages/domain/package.json ./packages/domain/
+COPY packages/contract/package.json ./packages/contract/
 COPY apps/api/package.json ./apps/api/
 
 # Install dependencies
