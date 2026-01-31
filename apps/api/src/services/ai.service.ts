@@ -66,7 +66,7 @@ export interface ExplainReadinessResult {
 
 // ── PHI Redaction (belt + suspenders) ──────────────────────────────────────
 
-const DOB_PATTERN = /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g;
+const DOB_PATTERN = /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/g;
 const SSN_PATTERN = /\b\d{3}-\d{2}-\d{4}\b/g;
 const MRN_PATTERN = /\b(?:MRN|mrn)[:\s]*\w+/gi;
 
