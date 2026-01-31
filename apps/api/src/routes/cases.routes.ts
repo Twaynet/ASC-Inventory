@@ -32,7 +32,7 @@ function formatCase(c: SurgicalCase) {
     requestedDate: c.requestedDate,
     requestedTime: c.requestedTime,
     surgeonId: c.surgeonId,
-    surgeonName: c.surgeonName,
+    surgeonName: c.surgeonName ?? '',
     procedureName: c.procedureName,
     preferenceCardVersionId: c.preferenceCardVersionId,
     status: c.status,
