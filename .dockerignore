@@ -1,0 +1,31 @@
+# Dependencies (installed inside container)
+**/node_modules
+
+# Build outputs
+**/.next
+**/dist
+**/build
+**/.turbo
+**/.cache
+
+# Version control
+**/.git
+
+# Logs
+**/*.log
+
+# Environment files
+**/.env
+**/.env.*
+
+# Test / coverage
+**/coverage
+
+# OS files
+**/.DS_Store
+
+# Uploads (runtime data, not needed for build)
+apps/api/uploads
+
+# Documentation (not needed for Docker builds)
+docs

@@ -2,14 +2,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json turbo.json ./
+# Copy dependency manifests + lockfile (this layer caches until these files change)
+COPY package.json package-lock.json turbo.json ./
 COPY packages/domain/package.json ./packages/domain/
 COPY packages/contract/package.json ./packages/contract/
 COPY apps/web/package.json ./apps/web/
 
-# Install dependencies
-RUN npm install
+# Deterministic install from lockfile
+RUN npm ci
 
 # Copy source code
 COPY packages/domain ./packages/domain
