@@ -359,9 +359,9 @@ export default function TimeoutPage() {
                     </p>
                     <button
                       className="btn btn-secondary btn-md"
-                      onClick={() => router.push('/calendar')}
+                      onClick={() => router.push(`/calendar?openCase=${caseId}`)}
                     >
-                      Return to Dashboard
+                      Return to Case
                     </button>
                   </div>
                 )}

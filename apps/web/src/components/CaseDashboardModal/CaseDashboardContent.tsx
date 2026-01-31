@@ -29,6 +29,8 @@ import { CaseDashboardPrintView } from './CaseDashboardPrintView';
 import { useAccessControl } from '@/lib/auth';
 import { computeReadinessSummary, type ReadinessSummary } from '@/lib/readiness/summary';
 import { ReadinessBadge } from '@/components/ReadinessBadge';
+import { statusLabel, capabilityLabel, TERMS } from '@/lib/terminology';
+import { CaseProgressStrip } from '@/components/CaseProgressStrip';
 
 const CASE_TYPES: { value: 'ELECTIVE' | 'ADD_ON' | 'TRAUMA' | 'REVISION'; label: string }[] = [
   { value: 'ELECTIVE', label: 'Elective' },
@@ -338,7 +340,7 @@ export function CaseDashboardContent({
       setShowLinkCaseCardModal(false);
       onDataChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to link case card');
+      setError(err instanceof Error ? err.message : 'Failed to link preference card');
     }
   };
 
@@ -584,6 +586,9 @@ export function CaseDashboardContent({
         </div>
       </section>
 
+      {/* Section 1.25: Case Progress Strip */}
+      <CaseProgressStrip dashboard={dashboard} checklists={checklists} />
+
       {/* Section 1.5: Readiness Summary Panel */}
       {(() => {
         const readiness: ReadinessSummary = computeReadinessSummary({
@@ -635,7 +640,7 @@ export function CaseDashboardContent({
                     </div>
                     {blocker.capability && !hasCapability(blocker.capability as any) ? (
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                        Requires {blocker.capability}
+                        Requires {capabilityLabel(blocker.capability)}
                       </span>
                     ) : (
                       <button
@@ -699,7 +704,7 @@ export function CaseDashboardContent({
                   onClick={handleAttest}
                   className="btn-primary"
                   disabled={!dashboard.caseCard || !dashboard.anesthesiaPlan?.modalities?.length}
-                  title={!dashboard.caseCard ? 'Link a Case Card first' : !dashboard.anesthesiaPlan?.modalities?.length ? 'Select anesthesia modality first' : ''}
+                  title={!dashboard.caseCard ? 'Link a Preference Card first' : !dashboard.anesthesiaPlan?.modalities?.length ? 'Select anesthesia modality first' : ''}
                 >
                   Attest Readiness
                 </button>
@@ -736,8 +741,7 @@ export function CaseDashboardContent({
                 const verifyEnabled = dashboard.isActive;
                 const verifyLabel = verifyStatus === 'COMPLETED' ? 'View Verification'
                   : verifyStatus === 'IN_PROGRESS' ? 'Continue Verification' : 'Start Verification';
-                const verifyPillLabel = verifyStatus === 'COMPLETED' ? 'COMPLETED'
-                  : verifyStatus === 'IN_PROGRESS' ? 'IN PROGRESS' : 'NOT STARTED';
+                const verifyPillLabel = statusLabel(verifyStatus);
                 return (
                   <div style={{
                     border: '1px solid var(--border)',
@@ -807,7 +811,7 @@ export function CaseDashboardContent({
                                    timeoutStatus === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
                         color: timeoutStatus ? 'white' : 'var(--text-muted)',
                       }}>
-                        {timeoutStatus || 'NOT STARTED'}
+                        {statusLabel(timeoutStatus)}
                       </span>
                     </div>
                     <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
@@ -853,7 +857,7 @@ export function CaseDashboardContent({
                     opacity: debriefEnabled ? 1 : 0.6,
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>OR Debrief</h3>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{TERMS.DEBRIEF}</h3>
                       <span style={{
                         padding: '0.25rem 0.5rem',
                         borderRadius: '4px',
@@ -863,7 +867,7 @@ export function CaseDashboardContent({
                                    debriefStatus === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
                         color: debriefStatus ? 'white' : 'var(--text-muted)',
                       }}>
-                        {debriefStatus || 'NOT STARTED'}
+                        {statusLabel(debriefStatus)}
                       </span>
                     </div>
                     <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
@@ -899,8 +903,8 @@ export function CaseDashboardContent({
                   : hasMissing ? 'ITEMS_NEEDED' : null;
                 const inventoryLabel = inventoryStatus === 'READY' ? 'View Inventory'
                   : inventoryStatus === 'ITEMS_NEEDED' ? 'Check-In Items' : 'Start Check-In';
-                const inventoryPillLabel = inventoryStatus === 'READY' ? 'READY'
-                  : inventoryStatus === 'ITEMS_NEEDED' ? `${dashboard.missingItems.length} NEEDED` : 'NOT STARTED';
+                const inventoryPillLabel = inventoryStatus === 'READY' ? 'Ready'
+                  : inventoryStatus === 'ITEMS_NEEDED' ? `${dashboard.missingItems.length} Needed` : statusLabel(null);
                 return (
                   <div style={{
                     border: '1px solid var(--border)',
@@ -1120,7 +1124,7 @@ export function CaseDashboardContent({
         border: '1px solid var(--border)',
       }}>
         <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('caseCard')}>
-          {collapsedSections.has('caseCard') ? '+ ' : '- '}Linked Case Card
+          {collapsedSections.has('caseCard') ? '+ ' : '- '}Linked {TERMS.PREFERENCE_CARD}
         </h2>
         {!collapsedSections.has('caseCard') && (
           <div>
@@ -1133,18 +1137,18 @@ export function CaseDashboardContent({
                 </div>
               </div>
             ) : (
-              <p style={{ color: 'var(--red)', marginBottom: '1rem' }}>No Case Card linked. Link a Case Card to enable attestation.</p>
+              <p style={{ color: 'var(--red)', marginBottom: '1rem' }}>No {TERMS.PREFERENCE_CARD} linked. Link a {TERMS.PREFERENCE_CARD} to enable attestation.</p>
             )}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={() => setShowLinkCaseCardModal(true)} className="btn-secondary">
-                {dashboard.caseCard ? 'Change Preference Card' : 'Link Preference Card'}
+                {dashboard.caseCard ? `Change ${TERMS.PREFERENCE_CARD}` : `Link ${TERMS.PREFERENCE_CARD}`}
               </button>
               {dashboard.caseCard && (
                 <button
                   onClick={handlePrintPreferenceCard}
                   className="btn-secondary"
                 >
-                  Print Active Preference Card
+                  Print Active {TERMS.PREFERENCE_CARD}
                 </button>
               )}
             </div>
@@ -1340,8 +1344,8 @@ export function CaseDashboardContent({
       {showLinkCaseCardModal && (
         <div className="modal-overlay nested-modal" onClick={() => setShowLinkCaseCardModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-            <h3>Link Case Card</h3>
-            <p>Select an active case card to link to this case:</p>
+            <h3>Link {TERMS.PREFERENCE_CARD}</h3>
+            <p>Select an active preference card to link to this case:</p>
             {availableCaseCards.length > 0 ? (
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {availableCaseCards
@@ -1368,12 +1372,12 @@ export function CaseDashboardContent({
                   ))}
                 {availableCaseCards.filter(c => c.surgeonId === dashboard.surgeonId).length === 0 && (
                   <p style={{ color: 'var(--text-muted)' }}>
-                    No active case cards found for this surgeon.
+                    No active preference cards found for this surgeon.
                   </p>
                 )}
               </div>
             ) : (
-              <p style={{ color: 'var(--text-muted)' }}>No active case cards available.</p>
+              <p style={{ color: 'var(--text-muted)' }}>No active preference cards available.</p>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
               <button onClick={() => setShowLinkCaseCardModal(false)} className="btn-secondary">Cancel</button>

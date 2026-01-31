@@ -104,7 +104,7 @@ export const FEATURES: FeatureDefinition[] = [
   },
   {
     id: 'or-debrief',
-    title: 'OR Debrief',
+    title: 'Debrief',
     description: 'Complete post-operative debrief checklist',
     path: null,
     group: 'case-workflows',

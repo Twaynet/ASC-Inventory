@@ -266,7 +266,7 @@ export function DebriefModal({
     try {
       await startChecklist(token, caseId, 'DEBRIEF');
       await loadData();
-      setSuccessMessage('Post-Op Debrief started');
+      setSuccessMessage('Debrief started');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start checklist');
@@ -340,7 +340,7 @@ export function DebriefModal({
       });
       setFeedbackSubmitted(true);
       setShowFeedbackForm(false);
-      setSuccessMessage('Feedback submitted! Thank you for helping improve the case card.');
+      setSuccessMessage('Feedback submitted! Thank you for helping improve the preference card.');
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit feedback');
@@ -407,7 +407,7 @@ export function DebriefModal({
     >
       <div className="checklist-modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="checklist-modal-header">
-          <h2>Post-Op Debrief</h2>
+          <h2>Debrief</h2>
           <button
             className="checklist-modal-close"
             onClick={onClose}
@@ -472,7 +472,7 @@ export function DebriefModal({
 
                   {!isStarted ? (
                     <div className="checklist-start-section">
-                      <p>Start the Post-Op Debrief to document counts, specimens, and any issues before completing the procedure.</p>
+                      <p>Start the Debrief to document counts, specimens, and any issues before completing the procedure.</p>
                       <button
                         className="btn btn-primary btn-lg"
                         onClick={handleStart}

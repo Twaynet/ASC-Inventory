@@ -137,14 +137,14 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
 
   // Determine checklist status for display
   const getChecklistStatus = (status?: string) => {
-    if (!status) return { className: 'pending', title: 'Not started' };
+    if (!status) return { className: 'pending', title: 'Not Started' };
     switch (status) {
       case 'COMPLETED':
         return { className: 'completed', title: 'Completed' };
       case 'IN_PROGRESS':
-        return { className: 'in-progress', title: 'In progress' };
+        return { className: 'in-progress', title: 'In Progress' };
       default:
-        return { className: 'pending', title: 'Pending' };
+        return { className: 'pending', title: 'Not Started' };
     }
   };
 

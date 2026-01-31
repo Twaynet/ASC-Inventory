@@ -209,7 +209,7 @@ export default function DebriefPage() {
     try {
       await startChecklist(token, caseId, 'DEBRIEF');
       await loadData();
-      setSuccessMessage('Post-Op Debrief started');
+      setSuccessMessage('Debrief started');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start checklist');
@@ -254,7 +254,7 @@ export default function DebriefPage() {
     try {
       await completeChecklist(token, caseId, 'DEBRIEF');
       await loadData();
-      setSuccessMessage('Post-Op Debrief completed!');
+      setSuccessMessage('Debrief completed!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to complete checklist');
     } finally {
@@ -287,7 +287,7 @@ export default function DebriefPage() {
       });
       setFeedbackSubmitted(true);
       setShowFeedbackForm(false);
-      setSuccessMessage('Feedback submitted! Thank you for helping improve the case card.');
+      setSuccessMessage('Feedback submitted! Thank you for helping improve the preference card.');
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit feedback');
@@ -346,7 +346,7 @@ export default function DebriefPage() {
 
   return (
     <>
-      <Header title="Post-Op Debrief" />
+      <Header title="Debrief" />
 
       <main className="container checklist-page">
         {!checklistData?.featureEnabled && (
@@ -399,7 +399,7 @@ export default function DebriefPage() {
 
             {!isStarted ? (
               <div className="checklist-start-section">
-                <p>Start the Post-Op Debrief to document counts, specimens, and any issues before completing the procedure.</p>
+                <p>Start the Debrief to document counts, specimens, and any issues before completing the procedure.</p>
                 <button
                   className="btn btn-primary btn-lg"
                   onClick={handleStart}
@@ -509,7 +509,7 @@ export default function DebriefPage() {
                       Debrief completed. The procedure may now be marked as complete.
                     </p>
 
-                    {/* Case Card Feedback Section */}
+                    {/* Preference Card Feedback Section */}
                     {caseDashboard?.caseCard && !feedbackSubmitted && (
                       <div className="feedback-section" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
                         {!showFeedbackForm ? (
@@ -520,10 +520,10 @@ export default function DebriefPage() {
                             border: '1px solid var(--border)'
                           }}>
                             <p style={{ margin: '0 0 0.75rem 0' }}>
-                              <strong>Case Card Feedback</strong>
+                              <strong>Preference Card Feedback</strong>
                             </p>
                             <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                              Help improve the case card for &quot;{caseDashboard.caseCard.name}&quot; by providing feedback on what worked and what could be better.
+                              Help improve the preference card for &quot;{caseDashboard.caseCard.name}&quot; by providing feedback on what worked and what could be better.
                             </p>
                             <button
                               className="btn btn-secondary btn-sm"
@@ -540,7 +540,7 @@ export default function DebriefPage() {
                             border: '1px solid var(--border)'
                           }}>
                             <h3 style={{ margin: '0 0 1rem 0' }}>
-                              Case Card Feedback: {caseDashboard.caseCard.name}
+                              Preference Card Feedback: {caseDashboard.caseCard.name}
                             </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                               <div>
@@ -593,12 +593,12 @@ export default function DebriefPage() {
                               </div>
                               <div>
                                 <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
-                                  Suggested Edits to Case Card
+                                  Suggested Edits to Preference Card
                                 </label>
                                 <textarea
                                   value={feedbackForm.suggestedEdits}
                                   onChange={(e) => setFeedbackForm(f => ({ ...f, suggestedEdits: e.target.value }))}
-                                  placeholder="Specific changes you'd recommend for the case card..."
+                                  placeholder="Specific changes you'd recommend for the preference card..."
                                   rows={2}
                                   style={{ width: '100%', padding: '0.5rem' }}
                                 />
@@ -642,9 +642,9 @@ export default function DebriefPage() {
 
                     <button
                       className="btn btn-secondary btn-md"
-                      onClick={() => router.push('/calendar')}
+                      onClick={() => router.push(`/calendar?openCase=${caseId}`)}
                     >
-                      Return to Dashboard
+                      Return to Case
                     </button>
                   </div>
                 )}

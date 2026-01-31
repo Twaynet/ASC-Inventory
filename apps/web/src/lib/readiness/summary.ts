@@ -96,7 +96,7 @@ export function computeReadinessSummary(input: ReadinessSummaryInput): Readiness
     if (timeoutStatus != null && timeoutStatus !== 'COMPLETED') {
       blockers.push({
         code: 'TIMEOUT_INCOMPLETE',
-        label: 'OR Timeout not completed',
+        label: 'Timeout not completed',
         severity: 'warning',
         actionLabel: 'Start Timeout',
         href: `/or/timeout/${caseId}`,
@@ -107,7 +107,7 @@ export function computeReadinessSummary(input: ReadinessSummaryInput): Readiness
     if (debriefStatus != null && debriefStatus !== 'COMPLETED' && timeoutStatus === 'COMPLETED') {
       blockers.push({
         code: 'DEBRIEF_INCOMPLETE',
-        label: 'OR Debrief not completed',
+        label: 'Debrief not completed',
         severity: 'warning',
         actionLabel: 'Start Debrief',
         href: `/or/debrief/${caseId}`,
