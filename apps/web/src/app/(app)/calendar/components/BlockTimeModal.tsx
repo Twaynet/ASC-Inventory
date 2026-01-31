@@ -81,7 +81,7 @@ export function BlockTimeModal({
       onSuccess();
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save block time');
+      setError(err instanceof Error ? err.message : 'Failed to save time slot');
     } finally {
       setIsSubmitting(false);
     }
@@ -89,7 +89,7 @@ export function BlockTimeModal({
 
   const handleDelete = async () => {
     if (!editingBlockTime) return;
-    if (!confirm('Are you sure you want to delete this block time?')) return;
+    if (!confirm('Are you sure you want to delete this time slot?')) return;
 
     setIsSubmitting(true);
     setError('');
@@ -99,7 +99,7 @@ export function BlockTimeModal({
       onSuccess();
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete block time');
+      setError(err instanceof Error ? err.message : 'Failed to delete time slot');
       setIsSubmitting(false);
     }
   };
@@ -117,7 +117,7 @@ export function BlockTimeModal({
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{isEditing ? 'Edit Block Time' : 'Add Block Time'}</h2>
+          <h2>{isEditing ? 'Edit Time Slot' : 'Add Time Slot'}</h2>
           <button className="modal-close" onClick={handleClose}>&times;</button>
         </div>
 
@@ -190,7 +190,7 @@ export function BlockTimeModal({
                 className="btn btn-primary"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Add Block Time'}
+                {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Add Time Slot'}
               </button>
             </div>
           </div>

@@ -169,7 +169,7 @@ export function RoomColumn({
           className="add-block-btn"
           onClick={() => onAddBlockTime(room.roomId, room.roomName)}
         >
-          + Block Time
+          + Time Slot
         </button>
       )}
 

@@ -98,7 +98,7 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
       >
         <div className="schedule-card-time">{formatTime(startTime)}</div>
         <div className="schedule-card-content">
-          <div className="schedule-card-title">Block Time</div>
+          <div className="schedule-card-title">Time Slot</div>
           <div className="schedule-card-subtitle">{item.durationMinutes} min</div>
           {item.notes && (
             <div className="schedule-card-notes">{item.notes}</div>
