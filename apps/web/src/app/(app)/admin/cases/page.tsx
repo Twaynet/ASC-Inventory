@@ -911,6 +911,66 @@ export default function AdminCasesPage() {
           margin-bottom: 1rem;
           cursor: pointer;
         }
+
+        :global([data-theme="dark"]) .summary-card,
+        :global([data-theme="dark"]) .form-card,
+        :global([data-theme="dark"]) .cases-table-container {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .summary-value {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .summary-label,
+        :global([data-theme="dark"]) .form-subtitle,
+        :global([data-theme="dark"]) .form-note,
+        :global([data-theme="dark"]) .form-hint,
+        :global([data-theme="dark"]) .text-muted,
+        :global([data-theme="dark"]) .requested-info {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .form-group input,
+        :global([data-theme="dark"]) .form-group select {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-group select:disabled {
+          background: var(--surface-tertiary);
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .cases-table th,
+        :global([data-theme="dark"]) .cases-table td {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .cases-table th {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .cases-table tr:hover {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .cases-table tr.inactive-row {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .cases-table tr.cancelled-row {
+          background: #742a2a;
+        }
+        :global([data-theme="dark"]) .status-badge.active { background: #22543d; color: #c6f6d5; }
+        :global([data-theme="dark"]) .status-badge.pending { background: #744210; color: #feebc8; }
+        :global([data-theme="dark"]) .status-badge.cancelled { background: #742a2a; color: #fed7d7; }
+        :global([data-theme="dark"]) .status-badge.requested { background: #1e3a5f; color: #dbeafe; }
+        :global([data-theme="dark"]) .status-badge.rejected { background: #742a2a; color: #fee2e2; }
+        :global([data-theme="dark"]) .rejected-row { background: #442a2a; }
+        :global([data-theme="dark"]) .no-cases {
+          background: var(--surface-tertiary);
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .alert-success {
+          background: #22543d;
+          border-color: #276749;
+          color: #c6f6d5;
+        }
       `}</style>
     </>
   );

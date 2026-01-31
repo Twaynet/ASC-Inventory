@@ -440,6 +440,37 @@ export default function AdminLocationsPage() {
           opacity: 0.5;
           cursor: not-allowed;
         }
+
+        :global([data-theme="dark"]) .summary-card,
+        :global([data-theme="dark"]) .form-card,
+        :global([data-theme="dark"]) .table-container {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .summary-value {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .summary-label,
+        :global([data-theme="dark"]) .empty-state {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .form-group input,
+        :global([data-theme="dark"]) .form-group select {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .data-table th,
+        :global([data-theme="dark"]) .data-table td {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .data-table th {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .data-table tr:hover {
+          background: var(--surface-tertiary);
+        }
       `}</style>
     </>
   );

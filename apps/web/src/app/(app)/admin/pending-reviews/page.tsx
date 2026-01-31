@@ -1219,6 +1219,138 @@ export default function AdminPendingReviewsPage() {
             width: 100%;
           }
         }
+
+        :global([data-theme="dark"]) .summary-card {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+          border-left-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .summary-card.green { background: #22543d; border-left-color: #38a169; }
+        :global([data-theme="dark"]) .summary-card.orange { background: #744210; border-left-color: #dd6b20; }
+        :global([data-theme="dark"]) .summary-card.red { background: #742a2a; border-left-color: #e53e3e; }
+        :global([data-theme="dark"]) .summary-card.purple { background: #44337a; border-left-color: #805ad5; }
+        :global([data-theme="dark"]) .summary-value {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .summary-label,
+        :global([data-theme="dark"]) .section-description,
+        :global([data-theme="dark"]) .detail-label,
+        :global([data-theme="dark"]) .no-pending-reviews p,
+        :global([data-theme="dark"]) .debrief-item-surgeon,
+        :global([data-theme="dark"]) .debrief-item-date,
+        :global([data-theme="dark"]) .no-results,
+        :global([data-theme="dark"]) .resolved-date,
+        :global([data-theme="dark"]) .resolved-label {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .pending-reviews-table-container,
+        :global([data-theme="dark"]) .flagged-reviews-section,
+        :global([data-theme="dark"]) .debrief-items-section,
+        :global([data-theme="dark"]) .resolved-reviews-section {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .pending-reviews-table th,
+        :global([data-theme="dark"]) .pending-reviews-table td {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .pending-reviews-table th {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .pending-reviews-table tr:hover {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .pending-reviews-table tr.old-review {
+          background: #442a2a;
+        }
+        :global([data-theme="dark"]) .pending-reviews-table tr.old-review:hover {
+          background: #5a2a2a;
+        }
+        :global([data-theme="dark"]) .badge-scrub { background: #44337a; color: #e9d8fd; }
+        :global([data-theme="dark"]) .badge-surgeon { background: #2a4365; color: #bee3f8; }
+        :global([data-theme="dark"]) .flagged-review-card {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .flagged-review-card.surgeon-flag {
+          background: #2d2248;
+          border-color: #6b46c1;
+        }
+        :global([data-theme="dark"]) .flag-source-badge.staff { background: #744210; color: #feebc8; }
+        :global([data-theme="dark"]) .flag-source-badge.surgeon { background: #44337a; color: #e9d8fd; }
+        :global([data-theme="dark"]) .flag-source-badge.both { background: #744210; color: #fef3c7; }
+        :global([data-theme="dark"]) .surgeon-addendum {
+          background: #2d2248;
+        }
+        :global([data-theme="dark"]) .surgeon-comment-box,
+        :global([data-theme="dark"]) .surgeon-notes-box {
+          background: rgba(0, 0, 0, 0.2);
+        }
+        :global([data-theme="dark"]) .surgeon-comment-text,
+        :global([data-theme="dark"]) .surgeon-notes-text {
+          color: #d6bcfa;
+        }
+        :global([data-theme="dark"]) .flag-comment-box {
+          background: #442a2a;
+          border-left-color: #e53e3e;
+        }
+        :global([data-theme="dark"]) .context-notes {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .context-label,
+        :global([data-theme="dark"]) .note-label {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .debrief-item-card {
+          background: #1e3a5f;
+          border-color: #2a4365;
+        }
+        :global([data-theme="dark"]) .debrief-item-notes {
+          background: var(--surface-secondary);
+        }
+        :global([data-theme="dark"]) .note-item {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .resolved-toggle {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .resolved-toggle:hover {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .resolved-content {
+          border-top-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .search-input,
+        :global([data-theme="dark"]) .type-filter {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .resolve-notes-input {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .resolve-notes-input:disabled {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .resolved-card {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .flagged-review-actions {
+          border-top-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .no-pending-reviews {
+          background: #22543d;
+          border-color: #276749;
+        }
+        :global([data-theme="dark"]) .alert-warning {
+          background: #744210;
+          border-color: #dd6b20;
+          color: #feebc8;
+        }
       `}</style>
     </>
   );

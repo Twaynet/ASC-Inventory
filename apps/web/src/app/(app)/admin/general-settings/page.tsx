@@ -178,6 +178,34 @@ export default function AdminGeneralSettingsPage() {
             font-size: 2rem;
           }
         }
+
+        :global([data-theme="dark"]) .page-description {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .settings-card {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .settings-card:hover {
+          border-color: var(--color-accent);
+          box-shadow: 0 4px 12px rgba(96, 165, 250, 0.15);
+        }
+        :global([data-theme="dark"]) .settings-card:focus {
+          border-color: var(--color-accent);
+          box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+        }
+        :global([data-theme="dark"]) .card-content h2 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .card-content p {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .card-arrow {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .settings-card:hover .card-arrow {
+          color: var(--color-accent);
+        }
       `}</style>
     </>
   );

@@ -718,6 +718,24 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
           padding: 1rem;
         }
 
+        :global([data-theme="dark"]) .unassigned-column {
+          background: var(--surface-tertiary);
+          border-color: var(--color-gray-400);
+        }
+        :global([data-theme="dark"]) .unassigned-header {
+          border-bottom-color: var(--color-gray-400);
+        }
+        :global([data-theme="dark"]) .unassigned-header h3 {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .unassigned-count {
+          background: var(--color-gray-400);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .unassigned-empty {
+          color: var(--text-muted);
+        }
+
         .rooms-container {
           display: flex;
           gap: 1rem;

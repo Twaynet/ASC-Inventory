@@ -784,6 +784,69 @@ export default function AdminInventoryPage() {
           margin-bottom: 1rem;
           cursor: pointer;
         }
+
+        :global([data-theme="dark"]) .summary-card,
+        :global([data-theme="dark"]) .form-card,
+        :global([data-theme="dark"]) .table-container {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .summary-card:hover {
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .summary-label,
+        :global([data-theme="dark"]) .empty-state {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .form-group input,
+        :global([data-theme="dark"]) .form-group select,
+        :global([data-theme="dark"]) .filters select {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-group input:disabled {
+          background: var(--surface-tertiary);
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .data-table th,
+        :global([data-theme="dark"]) .data-table td {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .data-table th {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .data-table tr:hover {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .modal {
+          background: var(--surface-secondary);
+        }
+        :global([data-theme="dark"]) .modal-header {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .modal-header h2 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .close-btn {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .history-item {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .history-time,
+        :global([data-theme="dark"]) .history-data {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .history-actor {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .alert-success {
+          background: #22543d;
+          border-color: #276749;
+          color: #c6f6d5;
+        }
       `}</style>
     </>
   );
