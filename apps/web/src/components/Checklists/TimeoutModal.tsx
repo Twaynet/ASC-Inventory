@@ -457,7 +457,7 @@ export function TimeoutModal({
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
+          background: var(--shadow-overlay);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -465,14 +465,14 @@ export function TimeoutModal({
         }
 
         .checklist-modal-content {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 12px;
           width: 100%;
           max-width: 700px;
           max-height: 90vh;
           display: flex;
           flex-direction: column;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 20px 40px var(--shadow-md);
         }
 
         .checklist-modal-header {
@@ -622,10 +622,10 @@ export function TimeoutModal({
           width: 20px;
           left: 3px;
           bottom: 3px;
-          background-color: white;
+          background-color: var(--surface-primary);
           transition: 0.3s;
           border-radius: 50%;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 1px 3px var(--shadow-md);
         }
 
         .toggle-switch.active .toggle-slider {
@@ -651,12 +651,12 @@ export function TimeoutModal({
 
         .flag-badge.pending {
           background: var(--color-orange);
-          color: white;
+          color: var(--text-on-primary);
         }
 
         .flag-badge.resolved {
           background: var(--color-green);
-          color: white;
+          color: var(--text-on-primary);
         }
 
         .flag-comment-section {

@@ -33,10 +33,10 @@ export function Header({ title }: HeaderProps) {
                 justifyContent: 'center',
                 width: '36px',
                 height: '36px',
-                background: '#3182ce',
+                background: 'var(--color-accent)',
                 border: 'none',
                 borderRadius: '6px',
-                color: 'white',
+                color: 'var(--text-on-primary)',
                 cursor: 'pointer',
               }}
             >
@@ -70,10 +70,10 @@ export function Header({ title }: HeaderProps) {
               justifyContent: 'center',
               width: '32px',
               height: '32px',
-              background: 'rgba(255,255,255,0.2)',
-              border: '2px solid rgba(255,255,255,0.8)',
+              background: 'rgba(255, 255, 255, 0.2)',
+              border: '2px solid rgba(255, 255, 255, 0.8)',
               borderRadius: '50%',
-              color: 'white',
+              color: 'var(--text-on-primary)',
               cursor: 'pointer',
               fontSize: '1rem',
               fontWeight: 700,
@@ -101,7 +101,7 @@ export function Header({ title }: HeaderProps) {
                   }}
                 >
                   {availablePersonas.map((p) => (
-                    <option key={p} value={p} style={{ color: '#333' }}>
+                    <option key={p} value={p} style={{ color: 'var(--text-primary)' }}>
                       {labelFor(p)}
                     </option>
                   ))}

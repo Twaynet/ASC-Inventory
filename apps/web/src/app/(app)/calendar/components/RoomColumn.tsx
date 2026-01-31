@@ -189,7 +189,7 @@ export function RoomColumn({
 
         .room-column.drop-target {
           border-color: var(--color-blue);
-          background: var(--color-blue-50, #EBF8FF);
+          background: var(--color-blue-50);
         }
 
         .room-column-header {

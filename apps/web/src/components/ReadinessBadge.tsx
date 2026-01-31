@@ -11,9 +11,9 @@ interface ReadinessBadgeProps {
 }
 
 const BADGE_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  READY:   { bg: '#c6f6d5', color: '#276749', label: 'Ready' },
-  BLOCKED: { bg: '#fefcbf', color: '#975a16', label: 'Blocked' },
-  UNKNOWN: { bg: '#e2e8f0', color: '#718096', label: 'Unknown' },
+  READY:   { bg: 'var(--color-green-bg)', color: 'var(--color-green-700)', label: 'Ready' },
+  BLOCKED: { bg: 'var(--color-orange-bg)', color: 'var(--color-orange-700)', label: 'Blocked' },
+  UNKNOWN: { bg: 'var(--color-gray-200)', color: 'var(--text-muted)', label: 'Unknown' },
 };
 
 export function ReadinessBadge({ overall, topBlockerLabel, size = 'sm' }: ReadinessBadgeProps) {
@@ -39,7 +39,7 @@ export function ReadinessBadge({ overall, topBlockerLabel, size = 'sm' }: Readin
       {topBlockerLabel && overall === 'BLOCKED' && (
         <span style={{
           fontSize: size === 'sm' ? '0.7rem' : '0.8rem',
-          color: '#975a16',
+          color: 'var(--color-orange-700)',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',

@@ -150,7 +150,7 @@ export function CaseProgressStrip({ dashboard, checklists }: CaseProgressStripPr
             width: `${(currentIdx / (PHASES.length - 1)) * 100}%`,
             maxWidth: 'calc(100% - 48px)',
             height: '2px',
-            background: '#3182ce',
+            background: 'var(--color-accent)',
             transform: 'translateY(-50%)',
             zIndex: 1,
           }} />
@@ -180,9 +180,9 @@ export function CaseProgressStrip({ dashboard, checklists }: CaseProgressStripPr
                 fontWeight: 700,
                 background: isPast ? '#3182ce'
                   : isCurrent ? '#3182ce'
-                  : 'white',
-                border: isFuture ? '2px solid var(--border)' : '2px solid #3182ce',
-                color: (isPast || isCurrent) ? 'white' : 'var(--text-muted)',
+                  : 'var(--surface-primary)',
+                border: isFuture ? '2px solid var(--border-default)' : '2px solid var(--color-accent)',
+                color: (isPast || isCurrent) ? 'var(--text-on-primary)' : 'var(--text-muted)',
               }}>
                 {isPast ? '✓' : idx + 1}
               </div>
@@ -190,7 +190,7 @@ export function CaseProgressStrip({ dashboard, checklists }: CaseProgressStripPr
                 marginTop: '0.25rem',
                 fontSize: '0.7rem',
                 fontWeight: isCurrent ? 700 : 500,
-                color: isCurrent ? '#3182ce' : isFuture ? 'var(--text-muted)' : '#2d3748',
+                color: isCurrent ? 'var(--color-accent)' : isFuture ? 'var(--text-muted)' : 'var(--text-primary)',
                 whiteSpace: 'nowrap',
               }}>
                 {p.label}

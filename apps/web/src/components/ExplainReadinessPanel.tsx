@@ -90,7 +90,7 @@ export function ExplainReadinessPanel({
 
   if (state === 'loading') {
     return (
-      <div className="ai-explain-panel" style={{ marginTop: '0.75rem', padding: '0.75rem', border: '1px solid var(--border-color, #ddd)', borderRadius: '6px' }}>
+      <div className="ai-explain-panel" style={{ marginTop: '0.75rem', padding: '0.75rem', border: '1px solid var(--border-default)', borderRadius: '6px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span className="status-icon">...</span>
           <span>Getting explanation...</span>
@@ -101,8 +101,8 @@ export function ExplainReadinessPanel({
 
   if (state === 'error') {
     return (
-      <div className="ai-explain-panel" style={{ marginTop: '0.75rem', padding: '0.75rem', border: '1px solid #dc3545', borderRadius: '6px', backgroundColor: '#fff5f5' }}>
-        <p style={{ margin: 0, color: '#dc3545' }}>{error}</p>
+      <div className="ai-explain-panel" style={{ marginTop: '0.75rem', padding: '0.75rem', border: '1px solid var(--color-red)', borderRadius: '6px', backgroundColor: 'var(--color-red-50)' }}>
+        <p style={{ margin: 0, color: 'var(--color-red)' }}>{error}</p>
         <button
           className="btn btn-secondary btn-sm"
           onClick={handleExplain}
@@ -117,7 +117,7 @@ export function ExplainReadinessPanel({
   if (!result) return null;
 
   return (
-    <div className="ai-explain-panel" style={{ marginTop: '0.75rem', padding: '0.75rem', border: '1px solid var(--border-color, #ddd)', borderRadius: '6px', backgroundColor: '#f8f9fa' }}>
+    <div className="ai-explain-panel" style={{ marginTop: '0.75rem', padding: '0.75rem', border: '1px solid var(--border-default)', borderRadius: '6px', backgroundColor: 'var(--surface-secondary)' }}>
       <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{result.title}</div>
       <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem' }}>{result.summary}</p>
 
@@ -138,9 +138,9 @@ export function ExplainReadinessPanel({
                 ) : (
                   <span style={{ fontWeight: 500 }}>{step.label}</span>
                 )}
-                {' '}<span style={{ color: '#666' }}>— {step.why}</span>
+                {' '}<span style={{ color: 'var(--text-muted)' }}>— {step.why}</span>
                 {step.requires && (
-                  <span style={{ color: '#888', fontSize: '0.8rem' }}> (requires {step.requires})</span>
+                  <span style={{ color: 'var(--color-gray-400)', fontSize: '0.8rem' }}> (requires {step.requires})</span>
                 )}
               </li>
             ))}
@@ -148,7 +148,7 @@ export function ExplainReadinessPanel({
         </div>
       )}
 
-      <div style={{ padding: '0.5rem', backgroundColor: '#e9ecef', borderRadius: '4px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ padding: '0.5rem', backgroundColor: 'var(--surface-tertiary)', borderRadius: '4px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: '0.9rem', fontStyle: 'italic' }}>{result.handoff}</span>
         <button
           className="btn btn-secondary btn-sm"
@@ -159,7 +159,7 @@ export function ExplainReadinessPanel({
         </button>
       </div>
 
-      <div style={{ fontSize: '0.75rem', color: '#888' }}>{result.safety_note}</div>
+      <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-400)' }}>{result.safety_note}</div>
     </div>
   );
 }

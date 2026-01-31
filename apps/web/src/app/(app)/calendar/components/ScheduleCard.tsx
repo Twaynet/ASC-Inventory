@@ -233,24 +233,24 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
           border-left-style: solid;
         }
         .schedule-card-case.active {
-          background: white;
+          background: var(--surface-primary);
         }
         .schedule-card-case.active:hover {
-          background: var(--color-blue-50, #EBF8FF);
+          background: var(--color-blue-50);
         }
         .schedule-card-case.inactive {
-          background: var(--color-gray-100, #F3F4F6);
+          background: var(--color-gray-100);
           opacity: 0.7;
         }
         .schedule-card-case.inactive:hover {
-          background: var(--color-gray-200, #E5E7EB);
+          background: var(--color-gray-200);
         }
         .schedule-card-case.inactive .schedule-card-title,
         .schedule-card-case.inactive .schedule-card-subtitle {
-          color: var(--color-gray-500, #6B7280);
+          color: var(--color-gray-500);
         }
         .schedule-card-case.dragging {
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 4px 12px var(--shadow-md);
         }
       `}</style>
     </div>
@@ -266,12 +266,12 @@ export const scheduleCardStyles = `
     border-radius: 6px;
     margin-bottom: 0.5rem;
     transition: background 0.15s, box-shadow 0.15s, opacity 0.15s;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px var(--shadow-sm);
     touch-action: none;
   }
 
   .schedule-card:hover {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 4px var(--shadow-md);
   }
 
   .schedule-card.dragging {
@@ -366,22 +366,22 @@ export const scheduleCardStyles = `
   }
 
   .checklist-badge.pending {
-    background: var(--color-gray-200, #E5E7EB);
-    color: var(--color-gray-500, #6B7280);
+    background: var(--color-gray-200);
+    color: var(--color-gray-500);
   }
 
   .checklist-badge.in-progress {
-    background: var(--color-orange, #F59E0B);
-    color: white;
+    background: var(--color-orange);
+    color: var(--text-on-primary);
   }
 
   .checklist-badge.completed {
-    background: var(--color-green, #10B981);
-    color: white;
+    background: var(--color-green);
+    color: var(--text-on-primary);
   }
 
   .checklist-badge.clickable:hover {
     transform: scale(1.15);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 3px var(--shadow-md);
   }
 `;

@@ -203,7 +203,7 @@ export function BlockTimeModal({
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
+            background: var(--shadow-overlay);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -211,11 +211,11 @@ export function BlockTimeModal({
           }
 
           .modal-content {
-            background: white;
+            background: var(--surface-primary);
             border-radius: 12px;
             width: 90%;
             max-width: 400px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 20px 40px var(--shadow-md);
           }
 
           .modal-header {
@@ -304,8 +304,8 @@ export function BlockTimeModal({
           }
 
           .form-error {
-            background: var(--color-red-50, #FEE2E2);
-            color: var(--color-red-700, #B91C1C);
+            background: var(--color-red-50);
+            color: var(--color-red-700);
             padding: 0.75rem;
             border-radius: 6px;
             font-size: 0.875rem;

@@ -30,9 +30,9 @@ export function CaseDashboardPrintView({
 
   const getStatusColor = () => {
     switch (dashboard.attestationState) {
-      case 'ATTESTED': return '#38a169';
-      case 'VOIDED': return '#e53e3e';
-      default: return '#718096';
+      case 'ATTESTED': return 'var(--color-green-700)';
+      case 'VOIDED': return 'var(--color-red)';
+      default: return 'var(--color-gray-500)';
     }
   };
 
