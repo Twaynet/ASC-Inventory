@@ -4,12 +4,11 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: asc-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: REPLACE_WITH_STRONG_PASSWORD
       POSTGRES_DB: asc_inventory
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,6 +20,7 @@ services:
   api:
     image: ghcr.io/twaynet/asc-inventory-api:1.4.0
     container_name: asc-api
+    restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -28,8 +28,8 @@ services:
       DB_PORT: 5432
       DB_NAME: asc_inventory
       DB_USER: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: dev-secret-change-in-production-abc123
+      DB_PASSWORD: REPLACE_WITH_STRONG_PASSWORD
+      JWT_SECRET: REPLACE_WITH_STRONG_SECRET
       CORS_ORIGIN: http://localhost:3000
     ports:
       - "3001:3001"
@@ -40,6 +40,7 @@ services:
   web:
     image: ghcr.io/twaynet/asc-inventory-web:1.4.0
     container_name: asc-web
+    restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001/api
     ports:
