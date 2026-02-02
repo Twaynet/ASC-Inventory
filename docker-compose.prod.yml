@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: REPLACE_WITH_STRONG_PASSWORD
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: asc_inventory
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -28,9 +28,9 @@ services:
       DB_PORT: 5432
       DB_NAME: asc_inventory
       DB_USER: postgres
-      DB_PASSWORD: REPLACE_WITH_STRONG_PASSWORD
-      JWT_SECRET: REPLACE_WITH_STRONG_SECRET
-      CORS_ORIGIN: http://REPLACE_WITH_DROPLET_IP:3000
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: http://${DROPLET_IP}:3000
     ports:
       - "3001:3001"
     depends_on:
@@ -42,7 +42,7 @@ services:
     container_name: asc-web
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://REPLACE_WITH_DROPLET_IP:3001/api
+      NEXT_PUBLIC_API_URL: http://${DROPLET_IP}:3001/api
     ports:
       - "3000:3000"
     depends_on:
