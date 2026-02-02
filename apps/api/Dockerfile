@@ -13,10 +13,12 @@ RUN npm ci
 
 # Copy source code
 COPY packages/domain ./packages/domain
+COPY packages/contract ./packages/contract
 COPY apps/api ./apps/api
 
-# Build domain package
+# Build workspace packages
 RUN cd packages/domain && npm run build
+RUN cd packages/contract && npm run build
 
 # Expose port
 EXPOSE 3001
