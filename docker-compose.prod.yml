@@ -30,7 +30,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: REPLACE_WITH_STRONG_PASSWORD
       JWT_SECRET: REPLACE_WITH_STRONG_SECRET
-      CORS_ORIGIN: http://localhost:3000
+      CORS_ORIGIN: http://REPLACE_WITH_DROPLET_IP:3000
     ports:
       - "3001:3001"
     depends_on:
@@ -42,7 +42,7 @@ services:
     container_name: asc-web
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+      NEXT_PUBLIC_API_URL: http://REPLACE_WITH_DROPLET_IP:3001/api
     ports:
       - "3000:3000"
     depends_on:
