@@ -34,7 +34,7 @@ services:
       - web
 
   api:
-    image: ghcr.io/twaynet/asc-inventory-api:1.5.2
+    image: ghcr.io/twaynet/asc-inventory-api:1.5.3
     container_name: asc-api
     restart: unless-stopped
     environment:
@@ -54,7 +54,7 @@ services:
         condition: service_healthy
 
   web:
-    image: ghcr.io/twaynet/asc-inventory-web:1.5.2
+    image: ghcr.io/twaynet/asc-inventory-web:1.5.3
     container_name: asc-web
     restart: unless-stopped
     environment:
