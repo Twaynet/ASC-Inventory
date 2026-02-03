@@ -349,86 +349,70 @@ docker pull ghcr.io/twaynet/asc-inventory-api:1.3.0
 docker pull ghcr.io/twaynet/asc-inventory-web:1.3.0
 ```
 
-### Production Docker Compose
+### Production Architecture
 
-Create a `docker-compose.prod.yml`:
+Production deployments use Caddy as a reverse proxy with Cloudflare in front.
 
-```yaml
-version: '3.8'
-
-services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-  api:
-    image: ghcr.io/twaynet/asc-inventory-api:1.3.0
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      CORS_ORIGIN: ${CORS_ORIGIN}
-      NODE_ENV: production
-    depends_on:
-      - postgres
-    restart: unless-stopped
-
-  web:
-    image: ghcr.io/twaynet/asc-inventory-web:1.3.0
-    environment:
-      NEXT_PUBLIC_API_URL: ${API_URL}
-    depends_on:
-      - api
-    ports:
-      - "3000:3000"
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
 ```
+Internet → Cloudflare (proxy) → Caddy (:443) → web/api (internal)
+```
+
+See `CLAUDE.md` for full architecture diagram and infrastructure guardrails.
+
+**Key points:**
+- Only ports 22, 80, 443 exposed publicly
+- Web and API are internal-only (not exposed to host)
+- Caddy terminates TLS using Cloudflare Origin Certificate
+- Secrets stored in `.env` (gitignored)
+
+### Production Files
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.prod.yml` | Production compose (committed) |
+| `caddy/Caddyfile` | Reverse proxy config (committed) |
+| `caddy/certs/` | TLS certificates (gitignored) |
+| `.env` | Secrets (gitignored) |
 
 ### Production Environment Variables
 
-Create a `.env.prod` file:
+Create a `.env` file on the server:
 
 ```bash
 # Database
-DB_NAME=asc_inventory
-DB_USER=asc_admin
-DB_PASSWORD=<strong-password-here>
+POSTGRES_PASSWORD=<strong-password-here>
 
 # API
 JWT_SECRET=<generate-with-openssl-rand-base64-32>
-CORS_ORIGIN=https://your-domain.com
 
-# Web
-API_URL=https://api.your-domain.com/api
+# Networking
+DROPLET_IP=<your-server-ip-or-domain>
 ```
 
 ### Deploy Steps
 
 ```bash
-# 1. Set environment variables
-export $(cat .env.prod | xargs)
+# 1. SSH to server
+ssh user@your-server
 
-# 2. Start services
-docker-compose -f docker-compose.prod.yml up -d
+# 2. Pull latest images
+docker compose -f docker-compose.prod.yml pull
 
-# 3. Run database migrations
-docker-compose -f docker-compose.prod.yml exec api npm run db:migrate
+# 3. Start/restart services
+docker compose -f docker-compose.prod.yml up -d
 
-# 4. (Optional) Seed initial data
-docker-compose -f docker-compose.prod.yml exec api npm run db:seed
+# 4. Verify
+curl -I https://your-domain.com
 ```
+
+### First-Time Setup
+
+1. Create `.env` with secrets
+2. Place Cloudflare Origin Certificate in `caddy/certs/`
+3. Configure Cloudflare DNS (A record, Proxy ON)
+4. Set Cloudflare SSL mode to "Full (Strict)"
+5. Run migrations: `docker compose -f docker-compose.prod.yml exec api npm run db:migrate`
+6. Seed data: `docker compose -f docker-compose.prod.yml exec api npm run db:seed`
 
 ### CI/CD
 
