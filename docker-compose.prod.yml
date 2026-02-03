@@ -17,6 +17,22 @@ services:
       timeout: 5s
       retries: 5
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: asc-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/certs:/etc/caddy/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+
   api:
     image: ghcr.io/twaynet/asc-inventory-api:1.5.2
     container_name: asc-api
@@ -30,9 +46,9 @@ services:
       DB_USER: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      CORS_ORIGIN: http://${DROPLET_IP}:3000
-    ports:
-      - "3001:3001"
+      CORS_ORIGIN: https://${DROPLET_IP}
+    expose:
+      - "3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,11 +58,13 @@ services:
     container_name: asc-web
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://${DROPLET_IP}:3001/api
-    ports:
-      - "3000:3000"
+      NEXT_PUBLIC_API_URL: https://${DROPLET_IP}/api
+    expose:
+      - "3000"
     depends_on:
       - api
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
