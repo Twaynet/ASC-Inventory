@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-const version = '1.4.0';
-const buildTime = process.env.BUILD_TIME || 'dev';
-const commitSha = process.env.COMMIT_SHA || 'dev';
+const version = process.env.NEXT_PUBLIC_VERSION || 'dev';
+const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME || 'dev';
+const commitSha = process.env.NEXT_PUBLIC_COMMIT_SHA || 'dev';
 
 export function Footer() {
   const [formattedTime, setFormattedTime] = useState<string>(buildTime);

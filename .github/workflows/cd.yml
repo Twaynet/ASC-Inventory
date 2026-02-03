@@ -82,6 +82,10 @@ jobs:
           labels: ${{ steps.meta-web.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.event.release.tag_name || github.event.inputs.tag || 'dev' }}
+            BUILD_TIME=${{ github.event.release.created_at || github.event.head_commit.timestamp || '' }}
+            COMMIT_SHA=${{ github.sha }}
 
       - name: Summary
         run: |

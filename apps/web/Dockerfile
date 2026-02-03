@@ -2,6 +2,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Build arguments (passed from CI)
+ARG VERSION=dev
+ARG BUILD_TIME=dev
+ARG COMMIT_SHA=dev
+
+# Set as env vars for Next.js build (NEXT_PUBLIC_ prefix exposes to client)
+ENV NEXT_PUBLIC_VERSION=$VERSION
+ENV NEXT_PUBLIC_BUILD_TIME=$BUILD_TIME
+ENV NEXT_PUBLIC_COMMIT_SHA=$COMMIT_SHA
+
 # Copy dependency manifests + lockfile (this layer caches until these files change)
 COPY package.json package-lock.json turbo.json ./
 COPY packages/domain/package.json ./packages/domain/
@@ -20,9 +30,12 @@ COPY apps/web ./apps/web
 RUN cd packages/domain && npm run build
 RUN cd packages/contract && npm run build
 
+# Build Next.js for production
+RUN cd apps/web && npm run build
+
 # Expose port
 EXPOSE 3000
 
-# Start in dev mode
+# Start in production mode
 WORKDIR /app/apps/web
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "start"]
