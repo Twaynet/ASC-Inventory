@@ -15,6 +15,7 @@ import {
   linkCaseCard,
   activateCase,
   deactivateCase,
+  checkInPreop,
   type CaseDashboardData,
   type CaseDashboardEventLogEntry,
   type AnesthesiaModality,
@@ -727,7 +728,7 @@ export function CaseDashboardContent({
       </section>
 
       {/* Section 2.5: Workflow — capability-gated workflow entry points */}
-      {(hasCapability('VERIFY_SCAN') || hasCapability('OR_TIMEOUT') || hasCapability('OR_DEBRIEF') || hasCapability('INVENTORY_CHECKIN') || hasCapability('INVENTORY_MANAGE')) && (
+      {(hasCapability('CASE_CHECKIN_PREOP') || hasCapability('VERIFY_SCAN') || hasCapability('OR_TIMEOUT') || hasCapability('OR_DEBRIEF') || hasCapability('INVENTORY_CHECKIN') || hasCapability('INVENTORY_MANAGE')) && (
         <section className="dashboard-section" style={{
           background: 'var(--surface)',
           borderRadius: '8px',
@@ -740,6 +741,67 @@ export function CaseDashboardContent({
           </h2>
           {!collapsedSections.has('orWorkflow') && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+
+              {/* Check In to PreOp Card */}
+              {hasCapability('CASE_CHECKIN_PREOP') && (() => {
+                const isScheduled = dashboard.status === 'SCHEDULED';
+                const isInPreop = dashboard.status === 'IN_PREOP';
+                const preopEnabled = isScheduled;
+                const preopStatus = isInPreop ? 'COMPLETED' : isScheduled ? null : 'COMPLETED';
+
+                // Don't show if case has moved past PreOp stage
+                if (!isScheduled && !isInPreop) return null;
+
+                const handleCheckIn = async () => {
+                  try {
+                    await checkInPreop(token, caseId);
+                    setSuccessMessage('Patient checked in to PreOp');
+                    onDataChange();
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : 'Failed to check in to PreOp');
+                  }
+                };
+
+                return (
+                  <div style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    background: preopStatus === 'COMPLETED' ? 'var(--color-green-bg)' : 'transparent',
+                    opacity: preopEnabled ? 1 : 0.6,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Check In to PreOp</h3>
+                      <span style={{
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        background: preopStatus === 'COMPLETED' ? 'var(--color-green)' : 'var(--color-gray-300)',
+                        color: preopStatus === 'COMPLETED' ? 'white' : 'var(--text-muted)',
+                      }}>
+                        {preopStatus === 'COMPLETED' ? 'Checked In' : 'Pending'}
+                      </span>
+                    </div>
+                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                      Check the patient in to the preoperative area.
+                    </p>
+                    {isInPreop && (
+                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        Patient is in PreOp.
+                      </p>
+                    )}
+                    <button
+                      onClick={handleCheckIn}
+                      className={preopStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
+                      style={{ width: '100%' }}
+                      disabled={!preopEnabled}
+                    >
+                      {preopStatus === 'COMPLETED' ? 'In PreOp' : 'Check In'}
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Verify Scanning Card */}
               {hasCapability('VERIFY_SCAN') && (() => {

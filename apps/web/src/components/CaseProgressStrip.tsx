@@ -5,9 +5,10 @@
  * Derives the current phase from existing data — no backend state machine.
  *
  * Mapping logic:
- *   Scheduled  — status=SCHEDULED, readiness is BLOCKED or UNKNOWN
- *   Ready      — status=SCHEDULED, readiness is READY (GREEN, no blockers)
- *   In OR      — isActive=true OR timeout/debrief started
+ *   Scheduled  — status=SCHEDULED
+ *   In PreOp   — status=IN_PREOP, readiness not GREEN
+ *   Ready      — status=IN_PREOP, readiness is GREEN
+ *   In OR      — timeout started/completed OR status=IN_PROGRESS
  *   Completed  — debrief completed (or checklists disabled + attestation)
  *   Cancelled  — status=CANCELLED or REJECTED
  */
@@ -15,10 +16,11 @@
 import { type CaseDashboardData, type CaseChecklistsResponse } from '@/lib/api';
 import { computeReadinessSummary } from '@/lib/readiness/summary';
 
-export type CasePhase = 'requested' | 'scheduled' | 'ready' | 'in-or' | 'completed' | 'cancelled';
+export type CasePhase = 'requested' | 'scheduled' | 'in-preop' | 'ready' | 'in-or' | 'completed' | 'cancelled';
 
 const PHASES: { key: CasePhase; label: string }[] = [
   { key: 'scheduled', label: 'Scheduled' },
+  { key: 'in-preop', label: 'In PreOp' },
   { key: 'ready', label: 'Ready' },
   { key: 'in-or', label: 'In OR' },
   { key: 'completed', label: 'Completed' },
@@ -26,8 +28,9 @@ const PHASES: { key: CasePhase; label: string }[] = [
 
 const NEXT_STEP: Record<CasePhase, string> = {
   requested: 'Case needs approval before scheduling.',
-  scheduled: 'Resolve blockers to mark this case ready.',
-  ready: 'Waiting for OR activation.',
+  scheduled: 'Check patient in to PreOp when they arrive.',
+  'in-preop': 'Resolve blockers to mark this case ready.',
+  ready: 'Start Timeout when entering OR.',
   'in-or': 'Complete Timeout and Debrief to finish.',
   completed: 'All steps complete.',
   cancelled: 'This case has been cancelled.',
@@ -57,33 +60,38 @@ export function deriveCasePhase(
     return 'completed';
   }
 
-  // In OR: case is active or any checklist work has started
+  // In OR: timeout started/completed or debrief in progress or status is IN_PROGRESS
+  // Note: We no longer use isActive alone to determine "In OR"
   if (
-    dashboard.isActive ||
     timeoutStatus === 'IN_PROGRESS' ||
     timeoutStatus === 'COMPLETED' ||
-    debriefStatus === 'IN_PROGRESS'
+    debriefStatus === 'IN_PROGRESS' ||
+    dashboard.status === 'IN_PROGRESS'
   ) {
     return 'in-or';
   }
 
-  // Ready vs Scheduled: use readiness summary
-  const readiness = computeReadinessSummary({
-    caseId: dashboard.caseId,
-    readinessState: dashboard.readinessState as 'GREEN' | 'ORANGE' | 'RED' | undefined,
-    missingItems: dashboard.missingItems,
-    status: dashboard.status,
-    isActive: dashboard.isActive,
-    orRoom: dashboard.orRoom,
-    scheduledDate: dashboard.scheduledDate,
-    timeoutStatus,
-    debriefStatus,
-  });
+  // IN_PREOP status: check if ready (GREEN readiness) or still in preop
+  if (dashboard.status === 'IN_PREOP') {
+    const readiness = computeReadinessSummary({
+      caseId: dashboard.caseId,
+      readinessState: dashboard.readinessState as 'GREEN' | 'ORANGE' | 'RED' | undefined,
+      missingItems: dashboard.missingItems,
+      status: dashboard.status,
+      isActive: dashboard.isActive,
+      orRoom: dashboard.orRoom,
+      scheduledDate: dashboard.scheduledDate,
+      timeoutStatus,
+      debriefStatus,
+    });
 
-  if (readiness.overall === 'READY') {
-    return 'ready';
+    if (readiness.overall === 'READY') {
+      return 'ready';
+    }
+    return 'in-preop';
   }
 
+  // SCHEDULED status: not yet checked into PreOp
   return 'scheduled';
 }
 

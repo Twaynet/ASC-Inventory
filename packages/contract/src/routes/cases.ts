@@ -219,6 +219,14 @@ export const caseRoutes = {
     response: CaseResponsePayload,
   }),
 
+  checkInPreop: defineRoute({
+    method: 'POST' as const,
+    path: '/cases/:caseId/check-in-preop',
+    summary: 'Check patient in to preoperative area',
+    params: caseIdParams,
+    response: CaseResponsePayload,
+  }),
+
   statusEvents: defineRoute({
     method: 'GET' as const,
     path: '/cases/:caseId/status-events',

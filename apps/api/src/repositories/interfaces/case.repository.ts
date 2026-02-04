@@ -15,7 +15,7 @@ export interface SurgicalCase {
   surgeonName?: string;
   procedureName: string;
   preferenceCardVersionId: string | null;
-  status: 'DRAFT' | 'REQUESTED' | 'SCHEDULED' | 'READY' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED';
+  status: 'DRAFT' | 'REQUESTED' | 'SCHEDULED' | 'IN_PREOP' | 'READY' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED';
   notes: string | null;
   isActive: boolean;
   activatedAt: Date | null;
@@ -26,6 +26,9 @@ export interface SurgicalCase {
   rejectedAt: Date | null;
   rejectedByUserId: string | null;
   rejectionReason: string | null;
+  // PreOp tracking
+  preopCheckedInAt: Date | null;
+  preopCheckedInByUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
   // Room scheduling fields
@@ -117,6 +120,7 @@ export interface ICaseRepository {
   reject(id: string, facilityId: string, userId: string, data: RejectCaseData): Promise<SurgicalCase | null>;
   deactivate(id: string, facilityId: string, userId: string): Promise<SurgicalCase | null>;
   cancel(id: string, facilityId: string, userId: string, reason?: string): Promise<SurgicalCase | null>;
+  checkInPreop(id: string, facilityId: string, userId: string): Promise<SurgicalCase | null>;
 
   // Requirement operations
   getRequirements(caseId: string): Promise<CaseRequirement[]>;

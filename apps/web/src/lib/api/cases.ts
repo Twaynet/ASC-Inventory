@@ -36,6 +36,8 @@ export interface Case {
   rejectedAt: string | null;
   rejectedByUserId: string | null;
   rejectionReason: string | null;
+  preopCheckedInAt: string | null;
+  preopCheckedInByUserId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,6 +91,13 @@ export async function cancelCase(token: string, caseId: string, reason?: string)
   return callContract(contract.cases.cancel, {
     params: { caseId },
     body: { reason },
+    token,
+  }) as Promise<{ case: Case }>;
+}
+
+export async function checkInPreop(token: string, caseId: string): Promise<{ case: Case }> {
+  return callContract(contract.cases.checkInPreop, {
+    params: { caseId },
     token,
   }) as Promise<{ case: Case }>;
 }

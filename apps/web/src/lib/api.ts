@@ -21,7 +21,7 @@ export { login, getMe } from './api/auth';
 export type { LoginResponse } from './api/auth';
 
 // Cases
-export { getCases, getCase, createCase, activateCase, deactivateCase, cancelCase, approveCase, rejectCase, updateCase, deleteCase, assignCaseRoom } from './api/cases';
+export { getCases, getCase, createCase, activateCase, deactivateCase, cancelCase, checkInPreop, approveCase, rejectCase, updateCase, deleteCase, assignCaseRoom } from './api/cases';
 export type { Case, ActivateCaseRequest } from './api/cases';
 
 // Readiness

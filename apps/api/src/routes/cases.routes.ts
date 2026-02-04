@@ -65,6 +65,8 @@ function formatCase(c: SurgicalCase) {
     rejectedAt: toISOOrNull(c.rejectedAt),
     rejectedByUserId: c.rejectedByUserId ?? null,
     rejectionReason: c.rejectionReason ?? null,
+    preopCheckedInAt: toISOOrNull(c.preopCheckedInAt),
+    preopCheckedInByUserId: c.preopCheckedInByUserId ?? null,
     createdAt: toISOOrNull(c.createdAt) ?? new Date().toISOString(),
     updatedAt: toISOOrNull(c.updatedAt) ?? new Date().toISOString(),
     // Room scheduling fields
@@ -450,6 +452,31 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     return ok(reply, { case: formatCase(cancelled) });
+    },
+  });
+
+  // ── [CONTRACT] POST /cases/:caseId/check-in-preop — Check in to PreOp ────
+  registerContractRoute(fastify, contract.cases.checkInPreop, PREFIX, {
+    preHandler: [requireCapabilities('CASE_CHECKIN_PREOP'), idempotent()],
+    handler: async (request, reply) => {
+      const { caseId } = request.contractData.params as { caseId: string };
+      const { facilityId, userId } = request.user;
+
+      const caseStatus = await caseRepo.getStatus(caseId, facilityId);
+      if (!caseStatus) {
+        return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
+      }
+
+      if (caseStatus.status !== 'SCHEDULED') {
+        return fail(reply, 'INVALID_STATE', 'Case must be in SCHEDULED status to check in to PreOp');
+      }
+
+      const checkedIn = await caseRepo.checkInPreop(caseId, facilityId, userId);
+      if (!checkedIn) {
+        return fail(reply, 'NOT_FOUND', 'Procedure not found or invalid status', 404);
+      }
+
+      return ok(reply, { case: formatCase(checkedIn) });
     },
   });
 

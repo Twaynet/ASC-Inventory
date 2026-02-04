@@ -40,6 +40,9 @@ interface CaseRow {
   rejected_at: Date | null;
   rejected_by_user_id: string | null;
   rejection_reason: string | null;
+  // PreOp tracking
+  preop_checked_in_at: Date | null;
+  preop_checked_in_by_user_id: string | null;
   created_at: Date;
   updated_at: Date;
   // Room scheduling fields
@@ -83,6 +86,8 @@ function mapCaseRow(row: CaseRow): SurgicalCase {
     rejectedAt: row.rejected_at,
     rejectedByUserId: row.rejected_by_user_id,
     rejectionReason: row.rejection_reason,
+    preopCheckedInAt: row.preop_checked_in_at,
+    preopCheckedInByUserId: row.preop_checked_in_by_user_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     // Room scheduling fields
@@ -433,6 +438,41 @@ export class PostgresCaseRepository implements ICaseRepository {
     await recordStatusEvent(id, fromStatus, 'CANCELLED', userId, {
       reason: reason ?? undefined,
       context: { source: 'case_cancel' },
+    });
+
+    return mapCaseRow(result.rows[0]);
+  }
+
+  async checkInPreop(
+    id: string,
+    facilityId: string,
+    userId: string
+  ): Promise<SurgicalCase | null> {
+    // Capture previous status for event
+    const prev = await query<{ status: string }>(`SELECT status FROM surgical_case WHERE id = $1 AND facility_id = $2`, [id, facilityId]);
+    const fromStatus = prev.rows[0]?.status ?? null;
+
+    // Only allow check-in from SCHEDULED status
+    if (fromStatus !== 'SCHEDULED') {
+      return null;
+    }
+
+    const result = await query<CaseRow>(`
+      UPDATE surgical_case
+      SET status = 'IN_PREOP',
+          preop_checked_in_at = NOW(),
+          preop_checked_in_by_user_id = $3,
+          updated_at = NOW()
+      WHERE id = $1 AND facility_id = $2 AND status = 'SCHEDULED'
+      RETURNING *,
+        (SELECT name FROM app_user WHERE id = surgeon_id) as surgeon_name,
+        (SELECT name FROM room WHERE id = room_id) as room_name
+    `, [id, facilityId, userId]);
+
+    if (result.rows.length === 0) return null;
+
+    await recordStatusEvent(id, fromStatus, 'IN_PREOP', userId, {
+      context: { source: 'case_preop_checkin' },
     });
 
     return mapCaseRow(result.rows[0]);
