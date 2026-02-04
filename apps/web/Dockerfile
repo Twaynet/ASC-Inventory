@@ -6,11 +6,13 @@ WORKDIR /app
 ARG VERSION=dev
 ARG BUILD_TIME=dev
 ARG COMMIT_SHA=dev
+ARG NEXT_PUBLIC_API_URL=https://beta.orthowise.dev/api
 
 # Set as env vars for Next.js build (NEXT_PUBLIC_ prefix exposes to client)
 ENV NEXT_PUBLIC_VERSION=$VERSION
 ENV NEXT_PUBLIC_BUILD_TIME=$BUILD_TIME
 ENV NEXT_PUBLIC_COMMIT_SHA=$COMMIT_SHA
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # Copy dependency manifests + lockfile (this layer caches until these files change)
 COPY package.json package-lock.json turbo.json ./

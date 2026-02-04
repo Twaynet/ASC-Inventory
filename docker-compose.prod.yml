@@ -46,7 +46,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      CORS_ORIGIN: https://${DROPLET_IP}
+      CORS_ORIGIN: https://beta.orthowise.dev
     expose:
       - "3001"
     depends_on:
@@ -58,7 +58,9 @@ services:
     container_name: asc-web
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: https://${DROPLET_IP}/api
+      # Note: NEXT_PUBLIC_API_URL is baked in at build time, not runtime
+      # This line is kept for documentation but has no effect
+      NEXT_PUBLIC_API_URL: https://beta.orthowise.dev/api
     expose:
       - "3000"
     depends_on:
