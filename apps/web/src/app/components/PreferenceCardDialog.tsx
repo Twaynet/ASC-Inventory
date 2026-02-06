@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   createCaseCard,
   updateCaseCard,
@@ -83,16 +83,7 @@ export function PreferenceCardDialog({
     { id: 'surgeonNotes', label: 'Surgeon Notes & Conditional Logic', expanded: false },
   ]);
 
-  // Load card data when dialog opens for edit or clone
-  useEffect(() => {
-    if (isOpen && card && (mode === 'edit' || mode === 'clone')) {
-      loadCardData();
-    } else if (isOpen && mode === 'create') {
-      resetForm();
-    }
-  }, [isOpen, card, mode]);
-
-  const loadCardData = async () => {
+  const loadCardData = useCallback(async () => {
     if (!token || !card) return;
     setIsLoading(true);
     try {
@@ -125,7 +116,16 @@ export function PreferenceCardDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, card, mode, onError, onClose]);
+
+  // Load card data when dialog opens for edit or clone
+  useEffect(() => {
+    if (isOpen && card && (mode === 'edit' || mode === 'clone')) {
+      loadCardData();
+    } else if (isOpen && mode === 'create') {
+      resetForm();
+    }
+  }, [isOpen, card, mode, loadCardData]);
 
   const resetForm = () => {
     setFormData({

@@ -109,7 +109,7 @@ export default function AdminPendingReviewsPage() {
     if (token && hasRole('ADMIN')) {
       loadData();
     }
-  }, [token, user, loadData]);
+  }, [token, hasRole, loadData]);
 
   // Only ADMIN can view this page
   if (!hasRole('ADMIN')) {

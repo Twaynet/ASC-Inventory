@@ -83,7 +83,7 @@ export default function AdminInventoryPage() {
     if (token && hasRole('ADMIN')) {
       loadData();
     }
-  }, [token, user, loadData]);
+  }, [token, hasRole, loadData]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -47,7 +47,7 @@ export default function RiskQueuePage() {
     if (token && hasRole('ADMIN')) {
       loadData();
     }
-  }, [token, user, loadData]);
+  }, [token, hasRole, loadData]);
 
   // Filter items
   const filteredItems = riskItems.filter(item => {

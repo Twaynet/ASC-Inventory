@@ -49,7 +49,7 @@ export default function AdminUsersPage() {
     if (token && hasRole('ADMIN')) {
       loadData();
     }
-  }, [token, user, loadData]);
+  }, [token, hasRole, loadData]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -91,7 +91,7 @@ export default function AdminCasesPage() {
     if (token && (hasRole('ADMIN') || hasRole('SCHEDULER'))) {
       loadData();
     }
-  }, [token, user, loadData]);
+  }, [token, hasRole, loadData]);
 
   const filteredCases = cases.filter((c) => {
     switch (filter) {
