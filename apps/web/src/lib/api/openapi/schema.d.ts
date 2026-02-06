@@ -151,6 +151,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/cases/{caseId}/check-in-preop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check patient in to preoperative area */
+        post: operations["cases.checkInPreop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cases/{caseId}/status-events": {
         parameters: {
             query?: never;
@@ -461,7 +478,7 @@ export interface operations {
                                 procedureName: string;
                                 preferenceCardVersionId: string | null;
                                 /** @enum {string} */
-                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                                 notes: string | null;
                                 isActive: boolean;
                                 activatedAt: string | null;
@@ -472,6 +489,8 @@ export interface operations {
                                 rejectedAt: string | null;
                                 rejectedByUserId: string | null;
                                 rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
                                 createdAt: string;
                                 updatedAt: string;
                                 roomId: string | null;
@@ -535,7 +554,7 @@ export interface operations {
                                 procedureName: string;
                                 preferenceCardVersionId: string | null;
                                 /** @enum {string} */
-                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                                 notes: string | null;
                                 isActive: boolean;
                                 activatedAt: string | null;
@@ -546,6 +565,8 @@ export interface operations {
                                 rejectedAt: string | null;
                                 rejectedByUserId: string | null;
                                 rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
                                 createdAt: string;
                                 updatedAt: string;
                                 roomId: string | null;
@@ -594,7 +615,7 @@ export interface operations {
                                 procedureName: string;
                                 preferenceCardVersionId: string | null;
                                 /** @enum {string} */
-                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                                 notes: string | null;
                                 isActive: boolean;
                                 activatedAt: string | null;
@@ -605,6 +626,8 @@ export interface operations {
                                 rejectedAt: string | null;
                                 rejectedByUserId: string | null;
                                 rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
                                 createdAt: string;
                                 updatedAt: string;
                                 roomId: string | null;
@@ -638,7 +661,7 @@ export interface operations {
                     /** Format: uuid */
                     preferenceCardVersionId?: string | null;
                     /** @enum {string} */
-                    status?: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                    status?: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                     notes?: string | null;
                 };
             };
@@ -668,7 +691,7 @@ export interface operations {
                                 procedureName: string;
                                 preferenceCardVersionId: string | null;
                                 /** @enum {string} */
-                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                                 notes: string | null;
                                 isActive: boolean;
                                 activatedAt: string | null;
@@ -679,6 +702,8 @@ export interface operations {
                                 rejectedAt: string | null;
                                 rejectedByUserId: string | null;
                                 rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
                                 createdAt: string;
                                 updatedAt: string;
                                 roomId: string | null;
@@ -737,7 +762,7 @@ export interface operations {
                                 procedureName: string;
                                 preferenceCardVersionId: string | null;
                                 /** @enum {string} */
-                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                                 notes: string | null;
                                 isActive: boolean;
                                 activatedAt: string | null;
@@ -748,6 +773,8 @@ export interface operations {
                                 rejectedAt: string | null;
                                 rejectedByUserId: string | null;
                                 rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
                                 createdAt: string;
                                 updatedAt: string;
                                 roomId: string | null;
@@ -802,7 +829,7 @@ export interface operations {
                                 procedureName: string;
                                 preferenceCardVersionId: string | null;
                                 /** @enum {string} */
-                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                                 notes: string | null;
                                 isActive: boolean;
                                 activatedAt: string | null;
@@ -813,6 +840,8 @@ export interface operations {
                                 rejectedAt: string | null;
                                 rejectedByUserId: string | null;
                                 rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
                                 createdAt: string;
                                 updatedAt: string;
                                 roomId: string | null;
@@ -870,7 +899,7 @@ export interface operations {
                                 procedureName: string;
                                 preferenceCardVersionId: string | null;
                                 /** @enum {string} */
-                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                                 notes: string | null;
                                 isActive: boolean;
                                 activatedAt: string | null;
@@ -881,6 +910,8 @@ export interface operations {
                                 rejectedAt: string | null;
                                 rejectedByUserId: string | null;
                                 rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
                                 createdAt: string;
                                 updatedAt: string;
                                 roomId: string | null;
@@ -936,7 +967,7 @@ export interface operations {
                                 procedureName: string;
                                 preferenceCardVersionId: string | null;
                                 /** @enum {string} */
-                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                                 notes: string | null;
                                 isActive: boolean;
                                 activatedAt: string | null;
@@ -947,6 +978,8 @@ export interface operations {
                                 rejectedAt: string | null;
                                 rejectedByUserId: string | null;
                                 rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
                                 createdAt: string;
                                 updatedAt: string;
                                 roomId: string | null;
@@ -995,7 +1028,7 @@ export interface operations {
                                 procedureName: string;
                                 preferenceCardVersionId: string | null;
                                 /** @enum {string} */
-                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                                 notes: string | null;
                                 isActive: boolean;
                                 activatedAt: string | null;
@@ -1006,6 +1039,8 @@ export interface operations {
                                 rejectedAt: string | null;
                                 rejectedByUserId: string | null;
                                 rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
                                 createdAt: string;
                                 updatedAt: string;
                                 roomId: string | null;
@@ -1060,7 +1095,7 @@ export interface operations {
                                 procedureName: string;
                                 preferenceCardVersionId: string | null;
                                 /** @enum {string} */
-                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
                                 notes: string | null;
                                 isActive: boolean;
                                 activatedAt: string | null;
@@ -1071,6 +1106,69 @@ export interface operations {
                                 rejectedAt: string | null;
                                 rejectedByUserId: string | null;
                                 rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                roomId: string | null;
+                                roomName: string | null;
+                                estimatedDurationMinutes: number | null;
+                                sortOrder: number | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "cases.checkInPreop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            case: {
+                                /** Format: uuid */
+                                id: string;
+                                caseNumber: string;
+                                /** Format: uuid */
+                                facilityId: string;
+                                scheduledDate: string | null;
+                                scheduledTime: string | null;
+                                requestedDate: string | null;
+                                requestedTime: string | null;
+                                /** Format: uuid */
+                                surgeonId: string;
+                                surgeonName: string;
+                                procedureName: string;
+                                preferenceCardVersionId: string | null;
+                                /** @enum {string} */
+                                status: "DRAFT" | "REQUESTED" | "SCHEDULED" | "IN_PREOP" | "READY" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "REJECTED";
+                                notes: string | null;
+                                isActive: boolean;
+                                activatedAt: string | null;
+                                activatedByUserId: string | null;
+                                isCancelled: boolean;
+                                cancelledAt: string | null;
+                                cancelledByUserId: string | null;
+                                rejectedAt: string | null;
+                                rejectedByUserId: string | null;
+                                rejectionReason: string | null;
+                                preopCheckedInAt: string | null;
+                                preopCheckedInByUserId: string | null;
                                 createdAt: string;
                                 updatedAt: string;
                                 roomId: string | null;

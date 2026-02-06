@@ -127,6 +127,7 @@
                                   "DRAFT",
                                   "REQUESTED",
                                   "SCHEDULED",
+                                  "IN_PREOP",
                                   "READY",
                                   "IN_PROGRESS",
                                   "COMPLETED",
@@ -188,6 +189,18 @@
                                   "null"
                                 ]
                               },
+                              "preopCheckedInAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "preopCheckedInByUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
                               "createdAt": {
                                 "type": "string"
                               },
@@ -242,6 +255,8 @@
                               "rejectedAt",
                               "rejectedByUserId",
                               "rejectionReason",
+                              "preopCheckedInAt",
+                              "preopCheckedInByUserId",
                               "createdAt",
                               "updatedAt",
                               "roomId",
@@ -394,6 +409,7 @@
                                 "DRAFT",
                                 "REQUESTED",
                                 "SCHEDULED",
+                                "IN_PREOP",
                                 "READY",
                                 "IN_PROGRESS",
                                 "COMPLETED",
@@ -455,6 +471,18 @@
                                 "null"
                               ]
                             },
+                            "preopCheckedInAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -509,6 +537,8 @@
                             "rejectedAt",
                             "rejectedByUserId",
                             "rejectionReason",
+                            "preopCheckedInAt",
+                            "preopCheckedInByUserId",
                             "createdAt",
                             "updatedAt",
                             "roomId",
@@ -619,6 +649,7 @@
                                 "DRAFT",
                                 "REQUESTED",
                                 "SCHEDULED",
+                                "IN_PREOP",
                                 "READY",
                                 "IN_PROGRESS",
                                 "COMPLETED",
@@ -680,6 +711,18 @@
                                 "null"
                               ]
                             },
+                            "preopCheckedInAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -734,6 +777,8 @@
                             "rejectedAt",
                             "rejectedByUserId",
                             "rejectionReason",
+                            "preopCheckedInAt",
+                            "preopCheckedInByUserId",
                             "createdAt",
                             "updatedAt",
                             "roomId",
@@ -810,6 +855,7 @@
                       "DRAFT",
                       "REQUESTED",
                       "SCHEDULED",
+                      "IN_PREOP",
                       "READY",
                       "IN_PROGRESS",
                       "COMPLETED",
@@ -899,6 +945,7 @@
                                 "DRAFT",
                                 "REQUESTED",
                                 "SCHEDULED",
+                                "IN_PREOP",
                                 "READY",
                                 "IN_PROGRESS",
                                 "COMPLETED",
@@ -960,6 +1007,18 @@
                                 "null"
                               ]
                             },
+                            "preopCheckedInAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -1014,6 +1073,8 @@
                             "rejectedAt",
                             "rejectedByUserId",
                             "rejectionReason",
+                            "preopCheckedInAt",
+                            "preopCheckedInByUserId",
                             "createdAt",
                             "updatedAt",
                             "roomId",
@@ -1158,6 +1219,7 @@
                                 "DRAFT",
                                 "REQUESTED",
                                 "SCHEDULED",
+                                "IN_PREOP",
                                 "READY",
                                 "IN_PROGRESS",
                                 "COMPLETED",
@@ -1219,6 +1281,18 @@
                                 "null"
                               ]
                             },
+                            "preopCheckedInAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -1273,6 +1347,8 @@
                             "rejectedAt",
                             "rejectedByUserId",
                             "rejectionReason",
+                            "preopCheckedInAt",
+                            "preopCheckedInByUserId",
                             "createdAt",
                             "updatedAt",
                             "roomId",
@@ -1402,6 +1478,7 @@
                                 "DRAFT",
                                 "REQUESTED",
                                 "SCHEDULED",
+                                "IN_PREOP",
                                 "READY",
                                 "IN_PROGRESS",
                                 "COMPLETED",
@@ -1463,6 +1540,18 @@
                                 "null"
                               ]
                             },
+                            "preopCheckedInAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -1517,6 +1606,8 @@
                             "rejectedAt",
                             "rejectedByUserId",
                             "rejectionReason",
+                            "preopCheckedInAt",
+                            "preopCheckedInByUserId",
                             "createdAt",
                             "updatedAt",
                             "roomId",
@@ -1657,6 +1748,7 @@
                                 "DRAFT",
                                 "REQUESTED",
                                 "SCHEDULED",
+                                "IN_PREOP",
                                 "READY",
                                 "IN_PROGRESS",
                                 "COMPLETED",
@@ -1718,6 +1810,18 @@
                                 "null"
                               ]
                             },
+                            "preopCheckedInAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -1772,6 +1876,8 @@
                             "rejectedAt",
                             "rejectedByUserId",
                             "rejectionReason",
+                            "preopCheckedInAt",
+                            "preopCheckedInByUserId",
                             "createdAt",
                             "updatedAt",
                             "roomId",
@@ -1904,6 +2010,7 @@
                                 "DRAFT",
                                 "REQUESTED",
                                 "SCHEDULED",
+                                "IN_PREOP",
                                 "READY",
                                 "IN_PROGRESS",
                                 "COMPLETED",
@@ -1965,6 +2072,18 @@
                                 "null"
                               ]
                             },
+                            "preopCheckedInAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -2019,6 +2138,8 @@
                             "rejectedAt",
                             "rejectedByUserId",
                             "rejectionReason",
+                            "preopCheckedInAt",
+                            "preopCheckedInByUserId",
                             "createdAt",
                             "updatedAt",
                             "roomId",
@@ -2129,6 +2250,7 @@
                                 "DRAFT",
                                 "REQUESTED",
                                 "SCHEDULED",
+                                "IN_PREOP",
                                 "READY",
                                 "IN_PROGRESS",
                                 "COMPLETED",
@@ -2190,6 +2312,18 @@
                                 "null"
                               ]
                             },
+                            "preopCheckedInAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -2244,6 +2378,8 @@
                             "rejectedAt",
                             "rejectedByUserId",
                             "rejectionReason",
+                            "preopCheckedInAt",
+                            "preopCheckedInByUserId",
                             "createdAt",
                             "updatedAt",
                             "roomId",
@@ -2368,6 +2504,7 @@
                                 "DRAFT",
                                 "REQUESTED",
                                 "SCHEDULED",
+                                "IN_PREOP",
                                 "READY",
                                 "IN_PROGRESS",
                                 "COMPLETED",
@@ -2429,6 +2566,18 @@
                                 "null"
                               ]
                             },
+                            "preopCheckedInAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -2483,6 +2632,248 @@
                             "rejectedAt",
                             "rejectedByUserId",
                             "rejectionReason",
+                            "preopCheckedInAt",
+                            "preopCheckedInByUserId",
+                            "createdAt",
+                            "updatedAt",
+                            "roomId",
+                            "roomName",
+                            "estimatedDurationMinutes",
+                            "sortOrder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "case"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cases/{caseId}/check-in-preop": {
+      "post": {
+        "operationId": "cases.checkInPreop",
+        "summary": "Check patient in to preoperative area",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "caseId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "case": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "caseNumber": {
+                              "type": "string"
+                            },
+                            "facilityId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "scheduledDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "scheduledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "requestedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "surgeonId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "surgeonName": {
+                              "type": "string"
+                            },
+                            "procedureName": {
+                              "type": "string"
+                            },
+                            "preferenceCardVersionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "DRAFT",
+                                "REQUESTED",
+                                "SCHEDULED",
+                                "IN_PREOP",
+                                "READY",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "REJECTED"
+                              ]
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            },
+                            "activatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "activatedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "isCancelled": {
+                              "type": "boolean"
+                            },
+                            "cancelledAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "rejectionReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "preopCheckedInByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            },
+                            "roomId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "roomName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "estimatedDurationMinutes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "sortOrder": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "caseNumber",
+                            "facilityId",
+                            "scheduledDate",
+                            "scheduledTime",
+                            "requestedDate",
+                            "requestedTime",
+                            "surgeonId",
+                            "surgeonName",
+                            "procedureName",
+                            "preferenceCardVersionId",
+                            "status",
+                            "notes",
+                            "isActive",
+                            "activatedAt",
+                            "activatedByUserId",
+                            "isCancelled",
+                            "cancelledAt",
+                            "cancelledByUserId",
+                            "rejectedAt",
+                            "rejectedByUserId",
+                            "rejectionReason",
+                            "preopCheckedInAt",
+                            "preopCheckedInByUserId",
                             "createdAt",
                             "updatedAt",
                             "roomId",
