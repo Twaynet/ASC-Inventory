@@ -8,7 +8,8 @@ import { query } from '../db/index.js';
 import {
   CreateDeviceEventRequestSchema,
 } from '../schemas/index.js';
-import { requireCapabilities } from '../plugins/auth.js';
+import { requireCapabilities, requireAdmin } from '../plugins/auth.js';
+import { getVendorRepository } from '../repositories/index.js';
 import { ok, fail, validated } from '../utils/reply.js';
 import { idempotent } from '../plugins/idempotency.js';
 import {
@@ -260,6 +261,178 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
       return ok(reply, { success: true, count: events.length }, 201);
     },
+  });
+
+  // ============================================================================
+  // Wave 1: Financial Attribution Event Endpoint
+  // ============================================================================
+
+  /**
+   * POST /inventory/events/financial
+   * Create inventory event with financial attribution (ADMIN only)
+   *
+   * This endpoint allows ADMIN users to:
+   * - Override catalog cost with a different actual cost
+   * - Mark items as gratis (free)
+   * - Attribute items to vendors/reps
+   *
+   * VALIDATION RULES (enforced at API level per Phase 1 constraints):
+   * - cost_override_cents requires cost_override_reason (cannot be null)
+   * - is_gratis=true requires gratis_reason (cannot be null)
+   * - provided_by_vendor_id must reference a valid active vendor
+   *
+   * LAW COMPLIANCE:
+   * - Only ADMIN role can create financial events
+   * - cost_snapshot_cents is auto-populated from catalog
+   * - All financial events are append-only
+   */
+  fastify.post<{
+    Body: {
+      inventoryItemId: string;
+      eventType: string;
+      caseId?: string;
+      locationId?: string;
+      sterilityStatus?: string;
+      notes?: string;
+      occurredAt?: string;
+      // Financial fields
+      costOverrideCents?: number;
+      costOverrideReason?: string;
+      costOverrideNote?: string;
+      providedByVendorId?: string;
+      providedByRepName?: string;
+      isGratis?: boolean;
+      gratisReason?: string;
+    };
+  }>('/events/financial', {
+    preHandler: [requireAdmin],
+  }, async (request: FastifyRequest<{
+    Body: {
+      inventoryItemId: string;
+      eventType: string;
+      caseId?: string;
+      locationId?: string;
+      sterilityStatus?: string;
+      notes?: string;
+      occurredAt?: string;
+      costOverrideCents?: number;
+      costOverrideReason?: string;
+      costOverrideNote?: string;
+      providedByVendorId?: string;
+      providedByRepName?: string;
+      isGratis?: boolean;
+      gratisReason?: string;
+    };
+  }>, reply: FastifyReply) => {
+    const { facilityId, userId } = request.user;
+    const data = request.body;
+
+    // Validate required fields
+    if (!data.inventoryItemId) {
+      return fail(reply, 'VALIDATION_ERROR', 'inventoryItemId is required');
+    }
+    if (!data.eventType) {
+      return fail(reply, 'VALIDATION_ERROR', 'eventType is required');
+    }
+
+    // Verify item exists
+    const item = await inventoryRepo.findById(data.inventoryItemId, facilityId);
+    if (!item) {
+      return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
+    }
+
+    // =========================================================================
+    // WAVE 1 FINANCIAL VALIDATION (enforced at API level)
+    // These constraints match Phase 1 DB constraints but are enforced here
+    // to provide clear error messages and reject bad requests early.
+    // =========================================================================
+
+    const VALID_OVERRIDE_REASONS = [
+      'CATALOG_ERROR', 'NEGOTIATED_DISCOUNT', 'VENDOR_CONCESSION',
+      'DAMAGE_CREDIT', 'EXPIRED_CREDIT', 'CONTRACT_ADJUSTMENT',
+      'GRATIS_CONVERSION', 'OTHER',
+    ];
+
+    const VALID_GRATIS_REASONS = [
+      'VENDOR_SAMPLE', 'VENDOR_SUPPORT', 'CLINICAL_TRIAL',
+      'GOODWILL', 'WARRANTY_REPLACEMENT', 'OTHER',
+    ];
+
+    // Constraint: cost_override_cents requires cost_override_reason
+    if (data.costOverrideCents !== undefined && data.costOverrideCents !== null) {
+      if (!data.costOverrideReason) {
+        return fail(reply, 'VALIDATION_ERROR',
+          'cost_override_cents requires cost_override_reason. Cannot override cost without a reason.',
+          400, { constraint: 'chk_event_override_requires_reason' });
+      }
+      if (!VALID_OVERRIDE_REASONS.includes(data.costOverrideReason)) {
+        return fail(reply, 'VALIDATION_ERROR',
+          `Invalid cost_override_reason. Must be one of: ${VALID_OVERRIDE_REASONS.join(', ')}`,
+          400, { validReasons: VALID_OVERRIDE_REASONS });
+      }
+      if (data.costOverrideCents < 0) {
+        return fail(reply, 'VALIDATION_ERROR',
+          'cost_override_cents cannot be negative');
+      }
+    }
+
+    // Constraint: is_gratis=true requires gratis_reason
+    if (data.isGratis === true) {
+      if (!data.gratisReason) {
+        return fail(reply, 'VALIDATION_ERROR',
+          'is_gratis=true requires gratis_reason. Cannot mark item as gratis without a reason.',
+          400, { constraint: 'chk_event_gratis_requires_reason' });
+      }
+      if (!VALID_GRATIS_REASONS.includes(data.gratisReason)) {
+        return fail(reply, 'VALIDATION_ERROR',
+          `Invalid gratis_reason. Must be one of: ${VALID_GRATIS_REASONS.join(', ')}`,
+          400, { validReasons: VALID_GRATIS_REASONS });
+      }
+    }
+
+    // Validate vendor if provided
+    if (data.providedByVendorId) {
+      const vendorRepo = getVendorRepository();
+      const vendor = await vendorRepo.findById(data.providedByVendorId, facilityId);
+      if (!vendor) {
+        return fail(reply, 'NOT_FOUND', 'Vendor not found', 404);
+      }
+      if (!vendor.isActive) {
+        return fail(reply, 'VALIDATION_ERROR', 'Vendor is inactive');
+      }
+    }
+
+    // =========================================================================
+
+    const occurredAt = data.occurredAt ? new Date(data.occurredAt) : new Date();
+    const itemUpdate = computeItemUpdate(data.eventType, data, userId);
+
+    await inventoryRepo.createEventWithItemUpdate(
+      {
+        facilityId,
+        inventoryItemId: data.inventoryItemId,
+        eventType: data.eventType as any,
+        caseId: data.caseId,
+        locationId: data.locationId,
+        previousLocationId: item.locationId,
+        sterilityStatus: data.sterilityStatus,
+        notes: data.notes,
+        performedByUserId: userId,
+        occurredAt,
+        // Financial fields
+        costOverrideCents: data.costOverrideCents ?? null,
+        costOverrideReason: data.costOverrideReason as any ?? null,
+        costOverrideNote: data.costOverrideNote ?? null,
+        providedByVendorId: data.providedByVendorId ?? null,
+        providedByRepName: data.providedByRepName ?? null,
+        isGratis: data.isGratis ?? false,
+        gratisReason: data.gratisReason as any ?? null,
+        financialAttestationUserId: userId, // ADMIN who made the financial decision
+      },
+      itemUpdate as any
+    );
+
+    return ok(reply, { success: true }, 201);
   });
 
   /**

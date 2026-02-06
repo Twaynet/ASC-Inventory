@@ -35,6 +35,9 @@ import { generalSettingsRoutes } from './routes/general-settings.routes.js';
 import { scheduleRoutes } from './routes/schedule.routes.js';
 import { adminSettingsRoutes } from './routes/admin-settings.routes.js';
 import { aiRoutes } from './routes/ai.routes.js';
+// Wave 1: Financial Attribution
+import { vendorsRoutes } from './routes/vendors.routes.js';
+import { loanerSetsRoutes } from './routes/loaner-sets.routes.js';
 import { personaPlugin } from './plugins/persona.js';
 import { requestIdPlugin } from './plugins/request-id.js';
 
@@ -149,6 +152,9 @@ async function main() {
   await fastify.register(scheduleRoutes, { prefix: '/api/schedule' });
   await fastify.register(adminSettingsRoutes, { prefix: '/api/admin/settings' });
   await fastify.register(aiRoutes, { prefix: '/api/ai' });
+  // Wave 1: Financial Attribution
+  await fastify.register(vendorsRoutes, { prefix: '/api/vendors' });
+  await fastify.register(loanerSetsRoutes, { prefix: '/api/loaner-sets' });
 
   // Start server
   try {

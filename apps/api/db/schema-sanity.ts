@@ -45,6 +45,10 @@ const CRITICAL_TABLES = [
   'catalog_item_image',
   'catalog_event',
   'catalog_identifier',
+  // Wave 1: Financial attribution
+  'vendor',
+  'loaner_set',
+  'catalog_cost_event',
 ];
 
 /** Specific columns that MUST exist */
@@ -57,6 +61,17 @@ const EXPECTED_COLUMNS: Array<{ table: string; column: string }> = [
   { table: 'surgical_case_status_event', column: 'to_status' },
   { table: 'surgical_case_status_event', column: 'actor_user_id' },
   { table: 'surgical_case_status_event', column: 'context' },
+  // Wave 1: Financial attribution columns
+  { table: 'vendor', column: 'vendor_type' },
+  { table: 'vendor', column: 'facility_id' },
+  { table: 'loaner_set', column: 'vendor_id' },
+  { table: 'loaner_set', column: 'set_identifier' },
+  { table: 'catalog_cost_event', column: 'catalog_id' },
+  { table: 'catalog_cost_event', column: 'new_cost_cents' },
+  { table: 'inventory_event', column: 'cost_snapshot_cents' },
+  { table: 'inventory_event', column: 'is_gratis' },
+  { table: 'item_catalog', column: 'unit_cost_cents' },
+  { table: 'item_catalog', column: 'ownership_type' },
 ];
 
 /** DB functions that MUST exist */
@@ -73,6 +88,8 @@ const APPEND_ONLY_TABLES = [
   'case_card_edit_log',
   'surgical_case_status_event',
   'catalog_event',
+  // Wave 1: Financial attribution
+  'catalog_cost_event',
 ];
 
 /** Tables that should have rows after seeding */

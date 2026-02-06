@@ -38,6 +38,8 @@ export const CaseApiSchema = z.object({
   rejectedAt: nullableString,
   rejectedByUserId: nullableString,
   rejectionReason: nullableString,
+  preopCheckedInAt: nullableString,
+  preopCheckedInByUserId: nullableString,
   createdAt: z.string(),
   updatedAt: z.string(),
   roomId: nullableString,

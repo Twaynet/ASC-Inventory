@@ -5,17 +5,21 @@
  * Future: can be configured to use SQLite/offline adapters based on environment.
  */
 
-import { IInventoryRepository, ICaseRepository, IDeviceRepository } from './interfaces/index.js';
+import { IInventoryRepository, ICaseRepository, IDeviceRepository, IVendorRepository, ILoanerSetRepository } from './interfaces/index.js';
 import {
   PostgresInventoryRepository,
   PostgresCaseRepository,
   PostgresDeviceRepository,
+  PostgresVendorRepository,
+  PostgresLoanerSetRepository,
 } from './postgres/index.js';
 
 // Singleton instances
 let inventoryRepository: IInventoryRepository | null = null;
 let caseRepository: ICaseRepository | null = null;
 let deviceRepository: IDeviceRepository | null = null;
+let vendorRepository: IVendorRepository | null = null;
+let loanerSetRepository: ILoanerSetRepository | null = null;
 
 /**
  * Get the inventory repository instance
@@ -48,12 +52,36 @@ export function getDeviceRepository(): IDeviceRepository {
 }
 
 /**
+ * Get the vendor repository instance
+ * Wave 1: Financial Attribution
+ */
+export function getVendorRepository(): IVendorRepository {
+  if (!vendorRepository) {
+    vendorRepository = new PostgresVendorRepository();
+  }
+  return vendorRepository;
+}
+
+/**
+ * Get the loaner set repository instance
+ * Wave 1: Financial Attribution
+ */
+export function getLoanerSetRepository(): ILoanerSetRepository {
+  if (!loanerSetRepository) {
+    loanerSetRepository = new PostgresLoanerSetRepository();
+  }
+  return loanerSetRepository;
+}
+
+/**
  * Reset all repository instances (useful for testing)
  */
 export function resetRepositories(): void {
   inventoryRepository = null;
   caseRepository = null;
   deviceRepository = null;
+  vendorRepository = null;
+  loanerSetRepository = null;
 }
 
 // Re-export interfaces for convenience

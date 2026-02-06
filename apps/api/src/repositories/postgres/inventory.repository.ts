@@ -54,6 +54,16 @@ interface InventoryEventRow {
   device_event_id: string | null;
   occurred_at: Date;
   created_at: Date;
+  // Wave 1: Financial attribution fields
+  cost_snapshot_cents: number | null;
+  cost_override_cents: number | null;
+  cost_override_reason: string | null;
+  cost_override_note: string | null;
+  provided_by_vendor_id: string | null;
+  provided_by_rep_name: string | null;
+  is_gratis: boolean;
+  gratis_reason: string | null;
+  financial_attestation_user_id: string | null;
 }
 
 function mapItemRow(row: InventoryItemRow): InventoryItem {
@@ -100,6 +110,16 @@ function mapEventRow(row: InventoryEventRow): InventoryEvent {
     deviceEventId: row.device_event_id,
     occurredAt: row.occurred_at,
     createdAt: row.created_at,
+    // Wave 1: Financial attribution fields
+    costSnapshotCents: row.cost_snapshot_cents,
+    costOverrideCents: row.cost_override_cents,
+    costOverrideReason: row.cost_override_reason as InventoryEvent['costOverrideReason'],
+    costOverrideNote: row.cost_override_note,
+    providedByVendorId: row.provided_by_vendor_id,
+    providedByRepName: row.provided_by_rep_name,
+    isGratis: row.is_gratis ?? false,
+    gratisReason: row.gratis_reason as InventoryEvent['gratisReason'],
+    financialAttestationUserId: row.financial_attestation_user_id,
   };
 }
 
@@ -297,20 +317,28 @@ export class PostgresInventoryRepository implements IInventoryRepository {
   }
 
   async createEvent(data: CreateInventoryEventData): Promise<InventoryEvent> {
-    // Get previous location for audit trail
-    const itemInfo = await query<{ location_id: string | null }>(`
-      SELECT location_id FROM inventory_item WHERE id = $1
+    // Get previous location and catalog cost for cost snapshot
+    const itemInfo = await query<{ location_id: string | null; unit_cost_cents: number | null }>(`
+      SELECT i.location_id, c.unit_cost_cents
+      FROM inventory_item i
+      JOIN item_catalog c ON i.catalog_id = c.id
+      WHERE i.id = $1
     `, [data.inventoryItemId]);
 
     const previousLocationId = data.previousLocationId ?? itemInfo.rows[0]?.location_id ?? null;
     const occurredAt = data.occurredAt ?? new Date();
+    // Wave 1: Snapshot catalog cost at event time
+    const costSnapshotCents = itemInfo.rows[0]?.unit_cost_cents ?? null;
 
     const result = await query<InventoryEventRow>(`
       INSERT INTO inventory_event (
         facility_id, inventory_item_id, event_type, case_id, location_id,
         previous_location_id, sterility_status, notes, performed_by_user_id,
-        device_event_id, occurred_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        device_event_id, occurred_at,
+        cost_snapshot_cents, cost_override_cents, cost_override_reason,
+        cost_override_note, provided_by_vendor_id, provided_by_rep_name,
+        is_gratis, gratis_reason, financial_attestation_user_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING *
     `, [
       data.facilityId,
@@ -324,6 +352,15 @@ export class PostgresInventoryRepository implements IInventoryRepository {
       data.performedByUserId,
       data.deviceEventId ?? null,
       occurredAt,
+      costSnapshotCents,
+      data.costOverrideCents ?? null,
+      data.costOverrideReason ?? null,
+      data.costOverrideNote ?? null,
+      data.providedByVendorId ?? null,
+      data.providedByRepName ?? null,
+      data.isGratis ?? false,
+      data.gratisReason ?? null,
+      data.financialAttestationUserId ?? null,
     ]);
 
     return mapEventRow(result.rows[0]);
@@ -334,21 +371,29 @@ export class PostgresInventoryRepository implements IInventoryRepository {
     itemUpdate: UpdateInventoryItemData
   ): Promise<InventoryEvent> {
     return transaction(async (client) => {
-      // Get previous location
-      const itemInfo = await client.query<{ location_id: string | null }>(`
-        SELECT location_id FROM inventory_item WHERE id = $1
+      // Get previous location and catalog cost for snapshot
+      const itemInfo = await client.query<{ location_id: string | null; unit_cost_cents: number | null }>(`
+        SELECT i.location_id, c.unit_cost_cents
+        FROM inventory_item i
+        JOIN item_catalog c ON i.catalog_id = c.id
+        WHERE i.id = $1
       `, [eventData.inventoryItemId]);
 
       const previousLocationId = eventData.previousLocationId ?? itemInfo.rows[0]?.location_id ?? null;
       const occurredAt = eventData.occurredAt ?? new Date();
+      // Wave 1: Snapshot catalog cost at event time
+      const costSnapshotCents = itemInfo.rows[0]?.unit_cost_cents ?? null;
 
-      // Insert event
+      // Insert event with financial fields
       const eventResult = await client.query<InventoryEventRow>(`
         INSERT INTO inventory_event (
           facility_id, inventory_item_id, event_type, case_id, location_id,
           previous_location_id, sterility_status, notes, performed_by_user_id,
-          device_event_id, occurred_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          device_event_id, occurred_at,
+          cost_snapshot_cents, cost_override_cents, cost_override_reason,
+          cost_override_note, provided_by_vendor_id, provided_by_rep_name,
+          is_gratis, gratis_reason, financial_attestation_user_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
         RETURNING *
       `, [
         eventData.facilityId,
@@ -362,6 +407,15 @@ export class PostgresInventoryRepository implements IInventoryRepository {
         eventData.performedByUserId,
         eventData.deviceEventId ?? null,
         occurredAt,
+        costSnapshotCents,
+        eventData.costOverrideCents ?? null,
+        eventData.costOverrideReason ?? null,
+        eventData.costOverrideNote ?? null,
+        eventData.providedByVendorId ?? null,
+        eventData.providedByRepName ?? null,
+        eventData.isGratis ?? false,
+        eventData.gratisReason ?? null,
+        eventData.financialAttestationUserId ?? null,
       ]);
 
       // Update item state

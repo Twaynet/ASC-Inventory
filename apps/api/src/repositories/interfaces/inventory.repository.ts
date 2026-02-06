@@ -30,7 +30,7 @@ export interface InventoryEvent {
   id: string;
   facilityId: string;
   inventoryItemId: string;
-  eventType: 'RECEIVED' | 'VERIFIED' | 'LOCATION_CHANGED' | 'RESERVED' | 'RELEASED' | 'CONSUMED' | 'EXPIRED' | 'RETURNED' | 'ADJUSTED';
+  eventType: 'RECEIVED' | 'VERIFIED' | 'LOCATION_CHANGED' | 'RESERVED' | 'RELEASED' | 'CONSUMED' | 'EXPIRED' | 'RETURNED' | 'ADJUSTED' | 'LOANER_RETURNED';
   caseId: string | null;
   caseName?: string | null;
   locationId: string | null;
@@ -44,6 +44,16 @@ export interface InventoryEvent {
   deviceEventId: string | null;
   occurredAt: Date;
   createdAt: Date;
+  // Wave 1: Financial attribution fields
+  costSnapshotCents: number | null;
+  costOverrideCents: number | null;
+  costOverrideReason: 'CATALOG_ERROR' | 'NEGOTIATED_DISCOUNT' | 'VENDOR_CONCESSION' | 'DAMAGE_CREDIT' | 'EXPIRED_CREDIT' | 'CONTRACT_ADJUSTMENT' | 'GRATIS_CONVERSION' | 'OTHER' | null;
+  costOverrideNote: string | null;
+  providedByVendorId: string | null;
+  providedByRepName: string | null;
+  isGratis: boolean;
+  gratisReason: 'VENDOR_SAMPLE' | 'VENDOR_SUPPORT' | 'CLINICAL_TRIAL' | 'GOODWILL' | 'WARRANTY_REPLACEMENT' | 'OTHER' | null;
+  financialAttestationUserId: string | null;
 }
 
 export interface CreateInventoryItemData {
@@ -91,6 +101,15 @@ export interface CreateInventoryEventData {
   performedByUserId: string;
   deviceEventId?: string | null;
   occurredAt?: Date;
+  // Wave 1: Financial attribution fields
+  costOverrideCents?: number | null;
+  costOverrideReason?: InventoryEvent['costOverrideReason'];
+  costOverrideNote?: string | null;
+  providedByVendorId?: string | null;
+  providedByRepName?: string | null;
+  isGratis?: boolean;
+  gratisReason?: InventoryEvent['gratisReason'];
+  financialAttestationUserId?: string | null;
 }
 
 export interface InventoryItemFilters {

@@ -52,6 +52,31 @@ const AVAILABLE_REPORTS: ReportDefinition[] = [
     filters: ['startDate', 'endDate', 'status', 'surgeonId'],
     exportFormats: ['csv', 'json'],
   },
+  // Wave 1: Financial Attribution Reports
+  {
+    id: 'vendor-concessions',
+    name: 'Vendor Concessions Report',
+    description: 'Cost overrides and gratis items by vendor and reason',
+    category: 'inventory',
+    filters: ['startDate', 'endDate', 'vendorId', 'overrideReason'],
+    exportFormats: ['csv', 'json'],
+  },
+  {
+    id: 'inventory-valuation',
+    name: 'Inventory Valuation Report',
+    description: 'Current inventory value by ownership type and category',
+    category: 'inventory',
+    filters: ['ownershipType', 'category'],
+    exportFormats: ['csv', 'json'],
+  },
+  {
+    id: 'loaner-exposure',
+    name: 'Loaner Exposure Report',
+    description: 'Open loaner sets with estimated values and due dates',
+    category: 'inventory',
+    filters: ['vendorId', 'isOverdue'],
+    exportFormats: ['csv', 'json'],
+  },
 ];
 
 // ============================================================================
@@ -607,6 +632,536 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="case-summary_${start}_${end}.csv"`)
+        .send(csv);
+    }
+
+    return reply.send({ rows, summary });
+  });
+
+  // ============================================================================
+  // Wave 1: Financial Attribution Reports
+  // ============================================================================
+
+  /**
+   * GET /reports/vendor-concessions
+   * Cost overrides and gratis items by vendor and reason
+   * Read-only reconcilable reporting endpoint
+   */
+  fastify.get<{
+    Querystring: {
+      startDate?: string;
+      endDate?: string;
+      vendorId?: string;
+      overrideReason?: string;
+      format?: 'json' | 'csv';
+    };
+  }>('/vendor-concessions', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { startDate, endDate, vendorId, overrideReason, format = 'json' } = request.query;
+
+    const end = endDate || new Date().toISOString().split('T')[0];
+    const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    let sql = `
+      SELECT
+        ie.id AS event_id,
+        ie.occurred_at,
+        ie.event_type,
+        ie.cost_snapshot_cents,
+        ie.cost_override_cents,
+        ie.cost_override_reason,
+        ie.cost_override_note,
+        ie.is_gratis,
+        ie.gratis_reason,
+        ie.provided_by_rep_name,
+        v.id AS vendor_id,
+        v.name AS vendor_name,
+        v.vendor_type,
+        ic.name AS catalog_name,
+        ic.category,
+        ii.serial_number,
+        ii.lot_number,
+        sc.procedure_name AS case_name,
+        sc.scheduled_date AS case_date,
+        u.name AS performed_by_name,
+        au.name AS attested_by_name
+      FROM inventory_event ie
+      JOIN inventory_item ii ON ie.inventory_item_id = ii.id
+      JOIN item_catalog ic ON ii.catalog_id = ic.id
+      LEFT JOIN vendor v ON ie.provided_by_vendor_id = v.id
+      LEFT JOIN surgical_case sc ON ie.case_id = sc.id
+      JOIN app_user u ON ie.performed_by_user_id = u.id
+      LEFT JOIN app_user au ON ie.financial_attestation_user_id = au.id
+      WHERE ie.facility_id = $1
+        AND ie.occurred_at >= $2::date
+        AND ie.occurred_at < ($3::date + interval '1 day')
+        AND (ie.cost_override_cents IS NOT NULL OR ie.is_gratis = true)
+    `;
+    const params: unknown[] = [facilityId, start, end];
+    let paramIndex = 4;
+
+    if (vendorId) {
+      sql += ` AND ie.provided_by_vendor_id = $${paramIndex++}`;
+      params.push(vendorId);
+    }
+
+    if (overrideReason) {
+      sql += ` AND ie.cost_override_reason = $${paramIndex++}`;
+      params.push(overrideReason);
+    }
+
+    sql += ` ORDER BY ie.occurred_at DESC`;
+
+    const result = await query<{
+      event_id: string;
+      occurred_at: Date;
+      event_type: string;
+      cost_snapshot_cents: number | null;
+      cost_override_cents: number | null;
+      cost_override_reason: string | null;
+      cost_override_note: string | null;
+      is_gratis: boolean;
+      gratis_reason: string | null;
+      provided_by_rep_name: string | null;
+      vendor_id: string | null;
+      vendor_name: string | null;
+      vendor_type: string | null;
+      catalog_name: string;
+      category: string;
+      serial_number: string | null;
+      lot_number: string | null;
+      case_name: string | null;
+      case_date: Date | null;
+      performed_by_name: string;
+      attested_by_name: string | null;
+    }>(sql, params);
+
+    const rows = result.rows.map(row => {
+      const catalogCostCents = row.cost_snapshot_cents || 0;
+      const actualCostCents = row.is_gratis ? 0 : (row.cost_override_cents ?? row.cost_snapshot_cents ?? 0);
+      const savingsCents = catalogCostCents - actualCostCents;
+
+      return {
+        eventId: row.event_id,
+        occurredAt: formatTimestampForCSV(row.occurred_at),
+        eventType: row.event_type,
+        vendorId: row.vendor_id || '',
+        vendorName: row.vendor_name || 'Unknown',
+        vendorType: row.vendor_type || '',
+        repName: row.provided_by_rep_name || '',
+        catalogName: row.catalog_name,
+        category: row.category,
+        serialNumber: row.serial_number || '',
+        lotNumber: row.lot_number || '',
+        caseName: row.case_name || '',
+        caseDate: formatDateForCSV(row.case_date),
+        catalogCostCents,
+        catalogCostDollars: (catalogCostCents / 100).toFixed(2),
+        actualCostCents,
+        actualCostDollars: (actualCostCents / 100).toFixed(2),
+        savingsCents,
+        savingsDollars: (savingsCents / 100).toFixed(2),
+        isGratis: row.is_gratis ? 'Yes' : 'No',
+        gratisReason: row.gratis_reason || '',
+        overrideReason: row.cost_override_reason || '',
+        overrideNote: row.cost_override_note || '',
+        performedBy: row.performed_by_name,
+        attestedBy: row.attested_by_name || '',
+      };
+    });
+
+    // Calculate summary
+    const totalCatalogCents = rows.reduce((sum, r) => sum + r.catalogCostCents, 0);
+    const totalActualCents = rows.reduce((sum, r) => sum + r.actualCostCents, 0);
+    const totalSavingsCents = rows.reduce((sum, r) => sum + r.savingsCents, 0);
+    const gratisCount = rows.filter(r => r.isGratis === 'Yes').length;
+
+    // Group by vendor
+    const byVendor: Record<string, { count: number; savingsCents: number }> = {};
+    rows.forEach(r => {
+      const vn = r.vendorName;
+      if (!byVendor[vn]) byVendor[vn] = { count: 0, savingsCents: 0 };
+      byVendor[vn].count++;
+      byVendor[vn].savingsCents += r.savingsCents;
+    });
+
+    // Group by reason
+    const byReason: Record<string, { count: number; savingsCents: number }> = {};
+    rows.forEach(r => {
+      const reason = r.isGratis === 'Yes' ? `GRATIS:${r.gratisReason || 'OTHER'}` : (r.overrideReason || 'NONE');
+      if (!byReason[reason]) byReason[reason] = { count: 0, savingsCents: 0 };
+      byReason[reason].count++;
+      byReason[reason].savingsCents += r.savingsCents;
+    });
+
+    const summary = {
+      totalEvents: rows.length,
+      totalCatalogValue: { cents: totalCatalogCents, dollars: (totalCatalogCents / 100).toFixed(2) },
+      totalActualCost: { cents: totalActualCents, dollars: (totalActualCents / 100).toFixed(2) },
+      totalSavings: { cents: totalSavingsCents, dollars: (totalSavingsCents / 100).toFixed(2) },
+      gratisCount,
+      byVendor: Object.entries(byVendor).map(([name, data]) => ({
+        vendorName: name,
+        count: data.count,
+        savingsCents: data.savingsCents,
+        savingsDollars: (data.savingsCents / 100).toFixed(2),
+      })),
+      byReason: Object.entries(byReason).map(([reason, data]) => ({
+        reason,
+        count: data.count,
+        savingsCents: data.savingsCents,
+        savingsDollars: (data.savingsCents / 100).toFixed(2),
+      })),
+      dateRange: { start, end },
+    };
+
+    if (format === 'csv') {
+      const headers = [
+        'occurredAt', 'vendorName', 'repName', 'catalogName', 'category',
+        'serialNumber', 'lotNumber', 'caseName', 'caseDate',
+        'catalogCostDollars', 'actualCostDollars', 'savingsDollars',
+        'isGratis', 'gratisReason', 'overrideReason', 'overrideNote',
+        'performedBy', 'attestedBy',
+      ];
+      const csv = generateCSV(headers, rows);
+      return reply
+        .header('Content-Type', 'text/csv')
+        .header('Content-Disposition', `attachment; filename="vendor-concessions_${start}_${end}.csv"`)
+        .send(csv);
+    }
+
+    return reply.send({ rows, summary });
+  });
+
+  /**
+   * GET /reports/inventory-valuation
+   * Current inventory value by ownership type and category
+   * Read-only reconcilable reporting endpoint
+   */
+  fastify.get<{
+    Querystring: {
+      ownershipType?: string;
+      category?: string;
+      format?: 'json' | 'csv';
+    };
+  }>('/inventory-valuation', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { ownershipType, category, format = 'json' } = request.query;
+
+    let sql = `
+      SELECT
+        ii.id AS item_id,
+        ii.serial_number,
+        ii.lot_number,
+        ii.barcode,
+        ii.sterility_expires_at,
+        ii.availability_status,
+        ii.ownership_type,
+        ic.id AS catalog_id,
+        ic.name AS catalog_name,
+        ic.category,
+        ic.manufacturer,
+        ic.unit_cost_cents,
+        ic.ownership_type AS catalog_ownership_type,
+        v.name AS consignment_vendor_name,
+        ls.set_identifier AS loaner_set_id,
+        lsv.name AS loaner_vendor_name
+      FROM inventory_item ii
+      JOIN item_catalog ic ON ii.catalog_id = ic.id
+      LEFT JOIN vendor v ON ic.consignment_vendor_id = v.id
+      LEFT JOIN loaner_set ls ON ii.loaner_set_id = ls.id
+      LEFT JOIN vendor lsv ON ls.vendor_id = lsv.id
+      WHERE ii.facility_id = $1
+        AND ii.availability_status NOT IN ('UNAVAILABLE', 'MISSING')
+    `;
+    const params: unknown[] = [facilityId];
+    let paramIndex = 2;
+
+    if (ownershipType) {
+      sql += ` AND (ii.ownership_type = $${paramIndex} OR ic.ownership_type = $${paramIndex})`;
+      params.push(ownershipType);
+      paramIndex++;
+    }
+
+    if (category) {
+      sql += ` AND ic.category = $${paramIndex++}`;
+      params.push(category);
+    }
+
+    sql += ` ORDER BY ic.category, ic.name, ii.created_at`;
+
+    const result = await query<{
+      item_id: string;
+      serial_number: string | null;
+      lot_number: string | null;
+      barcode: string | null;
+      sterility_expires_at: Date | null;
+      availability_status: string;
+      ownership_type: string | null;
+      catalog_id: string;
+      catalog_name: string;
+      category: string;
+      manufacturer: string | null;
+      unit_cost_cents: number | null;
+      catalog_ownership_type: string | null;
+      consignment_vendor_name: string | null;
+      loaner_set_id: string | null;
+      loaner_vendor_name: string | null;
+    }>(sql, params);
+
+    const rows = result.rows.map(row => {
+      const effectiveOwnership = row.ownership_type || row.catalog_ownership_type || 'OWNED';
+      const costCents = row.unit_cost_cents || 0;
+
+      return {
+        itemId: row.item_id,
+        catalogId: row.catalog_id,
+        catalogName: row.catalog_name,
+        category: row.category,
+        manufacturer: row.manufacturer || '',
+        serialNumber: row.serial_number || '',
+        lotNumber: row.lot_number || '',
+        barcode: row.barcode || '',
+        expiresAt: formatDateForCSV(row.sterility_expires_at),
+        availabilityStatus: row.availability_status,
+        ownershipType: effectiveOwnership,
+        unitCostCents: costCents,
+        unitCostDollars: (costCents / 100).toFixed(2),
+        consignmentVendor: row.consignment_vendor_name || '',
+        loanerSetId: row.loaner_set_id || '',
+        loanerVendor: row.loaner_vendor_name || '',
+      };
+    });
+
+    // Calculate summary by ownership type
+    const byOwnership: Record<string, { count: number; valueCents: number }> = {};
+    rows.forEach(r => {
+      const ot = r.ownershipType;
+      if (!byOwnership[ot]) byOwnership[ot] = { count: 0, valueCents: 0 };
+      byOwnership[ot].count++;
+      byOwnership[ot].valueCents += r.unitCostCents;
+    });
+
+    // Calculate summary by category
+    const byCategory: Record<string, { count: number; valueCents: number }> = {};
+    rows.forEach(r => {
+      const cat = r.category;
+      if (!byCategory[cat]) byCategory[cat] = { count: 0, valueCents: 0 };
+      byCategory[cat].count++;
+      byCategory[cat].valueCents += r.unitCostCents;
+    });
+
+    const totalValueCents = rows.reduce((sum, r) => sum + r.unitCostCents, 0);
+
+    const summary = {
+      totalItems: rows.length,
+      totalValue: { cents: totalValueCents, dollars: (totalValueCents / 100).toFixed(2) },
+      byOwnershipType: Object.entries(byOwnership).map(([type, data]) => ({
+        ownershipType: type,
+        itemCount: data.count,
+        valueCents: data.valueCents,
+        valueDollars: (data.valueCents / 100).toFixed(2),
+      })),
+      byCategory: Object.entries(byCategory).map(([cat, data]) => ({
+        category: cat,
+        itemCount: data.count,
+        valueCents: data.valueCents,
+        valueDollars: (data.valueCents / 100).toFixed(2),
+      })),
+      generatedAt: new Date().toISOString(),
+    };
+
+    if (format === 'csv') {
+      const headers = [
+        'catalogName', 'category', 'manufacturer', 'serialNumber', 'lotNumber',
+        'barcode', 'expiresAt', 'availabilityStatus', 'ownershipType',
+        'unitCostDollars', 'consignmentVendor', 'loanerSetId', 'loanerVendor',
+      ];
+      const csv = generateCSV(headers, rows);
+      return reply
+        .header('Content-Type', 'text/csv')
+        .header('Content-Disposition', `attachment; filename="inventory-valuation_${new Date().toISOString().split('T')[0]}.csv"`)
+        .send(csv);
+    }
+
+    return reply.send({ rows, summary });
+  });
+
+  /**
+   * GET /reports/loaner-exposure
+   * Open loaner sets with estimated values and due dates
+   * Read-only reconcilable reporting endpoint
+   */
+  fastify.get<{
+    Querystring: {
+      vendorId?: string;
+      isOverdue?: string;
+      format?: 'json' | 'csv';
+    };
+  }>('/loaner-exposure', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { vendorId, isOverdue, format = 'json' } = request.query;
+
+    let sql = `
+      SELECT
+        ls.id AS loaner_set_id,
+        ls.set_identifier,
+        ls.description,
+        ls.received_at,
+        ls.expected_return_date,
+        ls.item_count AS declared_item_count,
+        ls.notes,
+        v.id AS vendor_id,
+        v.name AS vendor_name,
+        v.contact_name AS vendor_contact,
+        v.contact_email AS vendor_email,
+        v.contact_phone AS vendor_phone,
+        sc.id AS case_id,
+        sc.procedure_name AS case_name,
+        sc.scheduled_date AS case_date,
+        ru.name AS received_by_name,
+        (
+          SELECT COUNT(*)
+          FROM inventory_item ii
+          WHERE ii.loaner_set_id = ls.id
+        ) AS actual_item_count,
+        (
+          SELECT COALESCE(SUM(ic.unit_cost_cents), 0)
+          FROM inventory_item ii
+          JOIN item_catalog ic ON ii.catalog_id = ic.id
+          WHERE ii.loaner_set_id = ls.id
+        ) AS estimated_value_cents
+      FROM loaner_set ls
+      JOIN vendor v ON ls.vendor_id = v.id
+      LEFT JOIN surgical_case sc ON ls.case_id = sc.id
+      JOIN app_user ru ON ls.received_by_user_id = ru.id
+      WHERE ls.facility_id = $1
+        AND ls.returned_at IS NULL
+    `;
+    const params: unknown[] = [facilityId];
+    let paramIndex = 2;
+
+    if (vendorId) {
+      sql += ` AND ls.vendor_id = $${paramIndex++}`;
+      params.push(vendorId);
+    }
+
+    if (isOverdue === 'true') {
+      sql += ` AND ls.expected_return_date < CURRENT_DATE`;
+    }
+
+    sql += ` ORDER BY ls.expected_return_date ASC NULLS LAST, ls.received_at ASC`;
+
+    const result = await query<{
+      loaner_set_id: string;
+      set_identifier: string;
+      description: string | null;
+      received_at: Date;
+      expected_return_date: Date | null;
+      declared_item_count: number | null;
+      notes: string | null;
+      vendor_id: string;
+      vendor_name: string;
+      vendor_contact: string | null;
+      vendor_email: string | null;
+      vendor_phone: string | null;
+      case_id: string | null;
+      case_name: string | null;
+      case_date: Date | null;
+      received_by_name: string;
+      actual_item_count: string;
+      estimated_value_cents: string;
+    }>(sql, params);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const rows = result.rows.map(row => {
+      const expectedReturn = row.expected_return_date ? new Date(row.expected_return_date) : null;
+      let daysOverdue: number | null = null;
+      let isSetOverdue = false;
+
+      if (expectedReturn) {
+        expectedReturn.setHours(0, 0, 0, 0);
+        const diffMs = today.getTime() - expectedReturn.getTime();
+        daysOverdue = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        isSetOverdue = daysOverdue > 0;
+      }
+
+      const valueCents = parseInt(row.estimated_value_cents) || 0;
+
+      return {
+        loanerSetId: row.loaner_set_id,
+        setIdentifier: row.set_identifier,
+        description: row.description || '',
+        vendorId: row.vendor_id,
+        vendorName: row.vendor_name,
+        vendorContact: row.vendor_contact || '',
+        vendorEmail: row.vendor_email || '',
+        vendorPhone: row.vendor_phone || '',
+        caseId: row.case_id || '',
+        caseName: row.case_name || '',
+        caseDate: formatDateForCSV(row.case_date),
+        receivedAt: formatDateForCSV(row.received_at),
+        receivedBy: row.received_by_name,
+        expectedReturnDate: formatDateForCSV(row.expected_return_date),
+        isOverdue: isSetOverdue ? 'Yes' : 'No',
+        daysOverdue: daysOverdue !== null && daysOverdue > 0 ? daysOverdue : 0,
+        declaredItemCount: row.declared_item_count || 0,
+        actualItemCount: parseInt(row.actual_item_count) || 0,
+        estimatedValueCents: valueCents,
+        estimatedValueDollars: (valueCents / 100).toFixed(2),
+        notes: row.notes || '',
+      };
+    });
+
+    // Calculate summary
+    const totalValueCents = rows.reduce((sum, r) => sum + r.estimatedValueCents, 0);
+    const overdueRows = rows.filter(r => r.isOverdue === 'Yes');
+    const overdueValueCents = overdueRows.reduce((sum, r) => sum + r.estimatedValueCents, 0);
+
+    // Group by vendor
+    const byVendor: Record<string, { count: number; valueCents: number; overdueCount: number }> = {};
+    rows.forEach(r => {
+      const vn = r.vendorName;
+      if (!byVendor[vn]) byVendor[vn] = { count: 0, valueCents: 0, overdueCount: 0 };
+      byVendor[vn].count++;
+      byVendor[vn].valueCents += r.estimatedValueCents;
+      if (r.isOverdue === 'Yes') byVendor[vn].overdueCount++;
+    });
+
+    const summary = {
+      totalOpenSets: rows.length,
+      totalEstimatedValue: { cents: totalValueCents, dollars: (totalValueCents / 100).toFixed(2) },
+      overdueCount: overdueRows.length,
+      overdueValue: { cents: overdueValueCents, dollars: (overdueValueCents / 100).toFixed(2) },
+      byVendor: Object.entries(byVendor).map(([name, data]) => ({
+        vendorName: name,
+        openSets: data.count,
+        overdueSets: data.overdueCount,
+        valueCents: data.valueCents,
+        valueDollars: (data.valueCents / 100).toFixed(2),
+      })),
+      generatedAt: new Date().toISOString(),
+    };
+
+    if (format === 'csv') {
+      const headers = [
+        'setIdentifier', 'vendorName', 'description', 'caseName', 'caseDate',
+        'receivedAt', 'receivedBy', 'expectedReturnDate', 'isOverdue', 'daysOverdue',
+        'declaredItemCount', 'actualItemCount', 'estimatedValueDollars',
+        'vendorContact', 'vendorEmail', 'vendorPhone', 'notes',
+      ];
+      const csv = generateCSV(headers, rows);
+      return reply
+        .header('Content-Type', 'text/csv')
+        .header('Content-Disposition', `attachment; filename="loaner-exposure_${new Date().toISOString().split('T')[0]}.csv"`)
         .send(csv);
     }
 
