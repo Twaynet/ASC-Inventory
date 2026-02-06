@@ -208,8 +208,8 @@ export async function getCaseSummaryReport(
 }
 
 export function getReportExportUrl(
-  reportType: 'inventory-readiness' | 'verification-activity' | 'checklist-compliance' | 'case-summary',
-  filters: ReportFilters = {}
+  reportType: 'inventory-readiness' | 'verification-activity' | 'checklist-compliance' | 'case-summary' | 'vendor-concessions' | 'inventory-valuation' | 'loaner-exposure',
+  filters: ReportFilters & FinancialReportFilters = {}
 ): string {
   const params = new URLSearchParams();
   params.set('format', 'csv');
@@ -221,5 +221,156 @@ export function getReportExportUrl(
   if (filters.userId) params.set('userId', filters.userId);
   if (filters.checklistType) params.set('checklistType', filters.checklistType);
   if (filters.status) params.set('status', filters.status);
+  if (filters.vendorId) params.set('vendorId', filters.vendorId);
+  if (filters.overrideReason) params.set('overrideReason', filters.overrideReason);
+  if (filters.ownershipType) params.set('ownershipType', filters.ownershipType);
+  if (filters.category) params.set('category', filters.category);
+  if (filters.isOverdue !== undefined) params.set('isOverdue', String(filters.isOverdue));
   return `${API_BASE}/reports/${reportType}?${params.toString()}`;
+}
+
+// ============================================================================
+// Wave 1: Financial Attribution Reports
+// ============================================================================
+
+export interface FinancialReportFilters {
+  vendorId?: string;
+  overrideReason?: string;
+  ownershipType?: string;
+  category?: string;
+  isOverdue?: boolean;
+}
+
+export interface VendorConcessionRow {
+  eventId: string;
+  occurredAt: string;
+  eventType: string;
+  vendorId: string;
+  vendorName: string;
+  vendorType: string;
+  repName: string;
+  catalogName: string;
+  category: string;
+  serialNumber: string;
+  lotNumber: string;
+  caseName: string;
+  caseDate: string;
+  catalogCostCents: number;
+  catalogCostDollars: string;
+  actualCostCents: number;
+  actualCostDollars: string;
+  savingsCents: number;
+  savingsDollars: string;
+  isGratis: string;
+  gratisReason: string;
+  overrideReason: string;
+  overrideNote: string;
+  performedBy: string;
+  attestedBy: string;
+}
+
+export interface VendorConcessionSummary {
+  totalEvents: number;
+  totalCatalogValue: { cents: number; dollars: string };
+  totalActualCost: { cents: number; dollars: string };
+  totalSavings: { cents: number; dollars: string };
+  gratisCount: number;
+  byVendor: Array<{ vendorName: string; count: number; savingsCents: number; savingsDollars: string }>;
+  byReason: Array<{ reason: string; count: number; savingsCents: number; savingsDollars: string }>;
+  dateRange: { start: string; end: string };
+}
+
+export interface InventoryValuationRow {
+  itemId: string;
+  catalogId: string;
+  catalogName: string;
+  category: string;
+  manufacturer: string;
+  serialNumber: string;
+  lotNumber: string;
+  barcode: string;
+  expiresAt: string;
+  availabilityStatus: string;
+  ownershipType: string;
+  unitCostCents: number;
+  unitCostDollars: string;
+  consignmentVendor: string;
+  loanerSetId: string;
+  loanerVendor: string;
+}
+
+export interface InventoryValuationSummary {
+  totalItems: number;
+  totalValue: { cents: number; dollars: string };
+  byOwnershipType: Array<{ ownershipType: string; itemCount: number; valueCents: number; valueDollars: string }>;
+  byCategory: Array<{ category: string; itemCount: number; valueCents: number; valueDollars: string }>;
+  generatedAt: string;
+}
+
+export interface LoanerExposureRow {
+  loanerSetId: string;
+  setIdentifier: string;
+  description: string;
+  vendorId: string;
+  vendorName: string;
+  vendorContact: string;
+  vendorEmail: string;
+  vendorPhone: string;
+  caseId: string;
+  caseName: string;
+  caseDate: string;
+  receivedAt: string;
+  receivedBy: string;
+  expectedReturnDate: string;
+  isOverdue: string;
+  daysOverdue: number;
+  declaredItemCount: number;
+  actualItemCount: number;
+  estimatedValueCents: number;
+  estimatedValueDollars: string;
+  notes: string;
+}
+
+export interface LoanerExposureSummary {
+  totalOpenSets: number;
+  totalEstimatedValue: { cents: number; dollars: string };
+  overdueCount: number;
+  overdueValue: { cents: number; dollars: string };
+  byVendor: Array<{ vendorName: string; openSets: number; overdueSets: number; valueCents: number; valueDollars: string }>;
+  generatedAt: string;
+}
+
+export async function getVendorConcessionsReport(
+  token: string,
+  filters: ReportFilters & FinancialReportFilters = {}
+): Promise<{ rows: VendorConcessionRow[]; summary: VendorConcessionSummary }> {
+  const params = new URLSearchParams();
+  if (filters.startDate) params.set('startDate', filters.startDate);
+  if (filters.endDate) params.set('endDate', filters.endDate);
+  if (filters.vendorId) params.set('vendorId', filters.vendorId);
+  if (filters.overrideReason) params.set('overrideReason', filters.overrideReason);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request(`/reports/vendor-concessions${query}`, { token });
+}
+
+export async function getInventoryValuationReport(
+  token: string,
+  filters: FinancialReportFilters = {}
+): Promise<{ rows: InventoryValuationRow[]; summary: InventoryValuationSummary }> {
+  const params = new URLSearchParams();
+  if (filters.ownershipType) params.set('ownershipType', filters.ownershipType);
+  if (filters.category) params.set('category', filters.category);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request(`/reports/inventory-valuation${query}`, { token });
+}
+
+export async function getLoanerExposureReport(
+  token: string,
+  filters: FinancialReportFilters = {}
+): Promise<{ rows: LoanerExposureRow[]; summary: LoanerExposureSummary }> {
+  const params = new URLSearchParams();
+  if (filters.vendorId) params.set('vendorId', filters.vendorId);
+  if (filters.isOverdue !== undefined) params.set('isOverdue', String(filters.isOverdue));
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request(`/reports/loaner-exposure${query}`, { token });
 }

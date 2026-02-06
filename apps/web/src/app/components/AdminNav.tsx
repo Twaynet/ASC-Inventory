@@ -14,6 +14,8 @@ const ADMIN_LINKS = [
   { href: '/admin/catalog', label: 'Catalog' },
   { href: '/admin/inventory', label: 'Inventory' },
   { href: '/admin/inventory/risk-queue', label: 'Risk Queue' },
+  { href: '/admin/vendors', label: 'Vendors' },
+  { href: '/admin/loaner-sets', label: 'Loaner Sets' },
   { href: '/preference-cards', label: 'Surgeon Preference Cards' },
   { href: '/admin/reports', label: 'Reports' },
   { href: '/admin/general-settings', label: 'General Settings' },

@@ -8,6 +8,9 @@ import {
   getVerificationActivityReport,
   getChecklistComplianceReport,
   getCaseSummaryReport,
+  getVendorConcessionsReport,
+  getInventoryValuationReport,
+  getLoanerExposureReport,
   getReportExportUrl,
   getSurgeons,
   type InventoryReadinessRow,
@@ -18,10 +21,18 @@ import {
   type ChecklistComplianceSummary,
   type CaseSummaryRow,
   type CaseSummarySummary,
+  type VendorConcessionRow,
+  type VendorConcessionSummary,
+  type InventoryValuationRow,
+  type InventoryValuationSummary,
+  type LoanerExposureRow,
+  type LoanerExposureSummary,
   type ReportFilters,
+  type FinancialReportFilters,
 } from '@/lib/api';
+import { getVendors, type Vendor } from '@/lib/api/vendors';
 
-type ReportType = 'inventory-readiness' | 'verification-activity' | 'checklist-compliance' | 'case-summary';
+type ReportType = 'inventory-readiness' | 'verification-activity' | 'checklist-compliance' | 'case-summary' | 'vendor-concessions' | 'inventory-valuation' | 'loaner-exposure';
 
 const REPORT_DEFINITIONS = [
   {
@@ -48,17 +59,36 @@ const REPORT_DEFINITIONS = [
     description: 'Cases by status, surgeon, and procedure',
     category: 'cases',
   },
+  {
+    id: 'vendor-concessions' as ReportType,
+    name: 'Vendor Concessions',
+    description: 'Cost overrides, gratis items, and savings by vendor',
+    category: 'financial',
+  },
+  {
+    id: 'inventory-valuation' as ReportType,
+    name: 'Inventory Valuation',
+    description: 'Current inventory value by ownership type and category',
+    category: 'financial',
+  },
+  {
+    id: 'loaner-exposure' as ReportType,
+    name: 'Loaner Exposure',
+    description: 'Open loaner sets and overdue returns by vendor',
+    category: 'financial',
+  },
 ];
 
 export default function AdminReportsPage() {
   const { user, token } = useAuth();
 
   const [selectedReport, setSelectedReport] = useState<ReportType>('inventory-readiness');
-  const [filters, setFilters] = useState<ReportFilters>({
+  const [filters, setFilters] = useState<ReportFilters & FinancialReportFilters>({
     startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
   });
   const [surgeons, setSurgeons] = useState<{ id: string; name: string }[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [error, setError] = useState('');
 
@@ -79,10 +109,23 @@ export default function AdminReportsPage() {
     rows: CaseSummaryRow[];
     summary: CaseSummarySummary;
   } | null>(null);
+  const [vendorConcessionsData, setVendorConcessionsData] = useState<{
+    rows: VendorConcessionRow[];
+    summary: VendorConcessionSummary;
+  } | null>(null);
+  const [inventoryValuationData, setInventoryValuationData] = useState<{
+    rows: InventoryValuationRow[];
+    summary: InventoryValuationSummary;
+  } | null>(null);
+  const [loanerExposureData, setLoanerExposureData] = useState<{
+    rows: LoanerExposureRow[];
+    summary: LoanerExposureSummary;
+  } | null>(null);
 
   useEffect(() => {
     if (token) {
       getSurgeons(token).then(result => setSurgeons(result.users)).catch(() => {});
+      getVendors(token).then(result => setVendors(result.vendors)).catch(() => {});
     }
   }, [token]);
 
@@ -108,6 +151,18 @@ export default function AdminReportsPage() {
         case 'case-summary':
           const csData = await getCaseSummaryReport(token, filters);
           setCaseSummaryData(csData);
+          break;
+        case 'vendor-concessions':
+          const vcData = await getVendorConcessionsReport(token, filters);
+          setVendorConcessionsData(vcData);
+          break;
+        case 'inventory-valuation':
+          const ivData = await getInventoryValuationReport(token, filters);
+          setInventoryValuationData(ivData);
+          break;
+        case 'loaner-exposure':
+          const leData = await getLoanerExposureReport(token, filters);
+          setLoanerExposureData(leData);
           break;
       }
     } catch (err) {
@@ -276,6 +331,86 @@ export default function AdminReportsPage() {
                   <option value="IN_PROGRESS">In Progress</option>
                   <option value="COMPLETED">Completed</option>
                   <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+            )}
+
+            {(selectedReport === 'vendor-concessions' || selectedReport === 'loaner-exposure') && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.25rem' }}>Vendor</label>
+                <select
+                  value={filters.vendorId || ''}
+                  onChange={(e) => setFilters({ ...filters, vendorId: e.target.value || undefined })}
+                  style={{ padding: '0.5rem' }}
+                >
+                  <option value="">All Vendors</option>
+                  {vendors.map(v => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {selectedReport === 'vendor-concessions' && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.25rem' }}>Override Reason</label>
+                <select
+                  value={filters.overrideReason || ''}
+                  onChange={(e) => setFilters({ ...filters, overrideReason: e.target.value || undefined })}
+                  style={{ padding: '0.5rem' }}
+                >
+                  <option value="">All Reasons</option>
+                  <option value="CATALOG_ERROR">Catalog Error</option>
+                  <option value="NEGOTIATED_DISCOUNT">Negotiated Discount</option>
+                  <option value="VENDOR_CREDIT">Vendor Credit</option>
+                  <option value="DAMAGED_ITEM">Damaged Item</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+            )}
+
+            {selectedReport === 'inventory-valuation' && (
+              <>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.25rem' }}>Ownership Type</label>
+                  <select
+                    value={filters.ownershipType || ''}
+                    onChange={(e) => setFilters({ ...filters, ownershipType: e.target.value || undefined })}
+                    style={{ padding: '0.5rem' }}
+                  >
+                    <option value="">All Types</option>
+                    <option value="OWNED">Owned</option>
+                    <option value="CONSIGNMENT">Consignment</option>
+                    <option value="LOANER">Loaner</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.25rem' }}>Category</label>
+                  <select
+                    value={filters.category || ''}
+                    onChange={(e) => setFilters({ ...filters, category: e.target.value || undefined })}
+                    style={{ padding: '0.5rem' }}
+                  >
+                    <option value="">All Categories</option>
+                    <option value="IMPLANT">Implants</option>
+                    <option value="INSTRUMENT">Instruments</option>
+                    <option value="CONSUMABLE">Consumables</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            {selectedReport === 'loaner-exposure' && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.25rem' }}>Status</label>
+                <select
+                  value={filters.isOverdue === undefined ? '' : String(filters.isOverdue)}
+                  onChange={(e) => setFilters({ ...filters, isOverdue: e.target.value === '' ? undefined : e.target.value === 'true' })}
+                  style={{ padding: '0.5rem' }}
+                >
+                  <option value="">All Sets</option>
+                  <option value="true">Overdue Only</option>
+                  <option value="false">Not Overdue</option>
                 </select>
               </div>
             )}
@@ -559,6 +694,262 @@ export default function AdminReportsPage() {
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'center' }}>{row.caseCardName ? 'Yes' : 'No'}</td>
                           <td style={{ padding: '0.75rem', textAlign: 'center' }}>{row.checklistsCompleted}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            {/* Vendor Concessions Report */}
+            {selectedReport === 'vendor-concessions' && vendorConcessionsData && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ background: 'var(--surface)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{vendorConcessionsData.summary.totalEvents}</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total Events</div>
+                  </div>
+                  <div style={{ background: '#c6f6d5', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#276749' }}>{vendorConcessionsData.summary.totalSavings.dollars}</div>
+                    <div style={{ fontSize: '0.875rem', color: '#276749' }}>Total Savings</div>
+                  </div>
+                  <div style={{ background: 'var(--surface)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{vendorConcessionsData.summary.totalCatalogValue.dollars}</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Catalog Value</div>
+                  </div>
+                  <div style={{ background: 'var(--surface)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{vendorConcessionsData.summary.totalActualCost.dollars}</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Actual Cost</div>
+                  </div>
+                  <div style={{ background: '#ebf8ff', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2b6cb0' }}>{vendorConcessionsData.summary.gratisCount}</div>
+                    <div style={{ fontSize: '0.875rem', color: '#2b6cb0' }}>Gratis Items</div>
+                  </div>
+                </div>
+
+                {/* Savings by Vendor */}
+                {vendorConcessionsData.summary.byVendor.length > 0 && (
+                  <div style={{ background: 'var(--surface)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem' }}>Savings by Vendor</h3>
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                      {vendorConcessionsData.summary.byVendor.map(v => (
+                        <div key={v.vendorName} style={{ padding: '0.5rem', background: '#f7fafc', borderRadius: '4px' }}>
+                          <div style={{ fontWeight: '500' }}>{v.vendorName}</div>
+                          <div style={{ color: '#38a169' }}>{v.savingsDollars} ({v.count} items)</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ background: 'var(--surface)', borderRadius: '8px', overflow: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f8f9fa' }}>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Date</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Vendor</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Item</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Case</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>Catalog</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>Actual</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>Savings</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vendorConcessionsData.rows.map((row) => (
+                        <tr key={row.eventId} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '0.75rem' }}>{row.occurredAt.split(' ')[0]}</td>
+                          <td style={{ padding: '0.75rem' }}>{row.vendorName}</td>
+                          <td style={{ padding: '0.75rem' }}>{row.catalogName}</td>
+                          <td style={{ padding: '0.75rem' }}>{row.caseName || '-'}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>{row.catalogCostDollars}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>{row.actualCostDollars}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right', color: '#38a169', fontWeight: '500' }}>{row.savingsDollars}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '0.25rem 0.5rem',
+                              borderRadius: '4px',
+                              background: row.isGratis === 'Yes' ? '#ebf8ff' : '#e2e8f0',
+                              fontSize: '0.75rem',
+                            }}>
+                              {row.isGratis === 'Yes' ? 'GRATIS' : row.overrideReason || '-'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            {/* Inventory Valuation Report */}
+            {selectedReport === 'inventory-valuation' && inventoryValuationData && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ background: 'var(--surface)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{inventoryValuationData.summary.totalItems}</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total Items</div>
+                  </div>
+                  <div style={{ background: '#c6f6d5', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#276749' }}>{inventoryValuationData.summary.totalValue.dollars}</div>
+                    <div style={{ fontSize: '0.875rem', color: '#276749' }}>Total Value</div>
+                  </div>
+                  {inventoryValuationData.summary.byOwnershipType.map(o => (
+                    <div key={o.ownershipType} style={{ background: 'var(--surface)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{o.valueDollars}</div>
+                      <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{o.ownershipType} ({o.itemCount})</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Value by Category */}
+                {inventoryValuationData.summary.byCategory.length > 0 && (
+                  <div style={{ background: 'var(--surface)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem' }}>Value by Category</h3>
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                      {inventoryValuationData.summary.byCategory.map(c => (
+                        <div key={c.category} style={{ padding: '0.5rem', background: '#f7fafc', borderRadius: '4px' }}>
+                          <div style={{ fontWeight: '500' }}>{c.category}</div>
+                          <div style={{ color: '#718096' }}>{c.valueDollars} ({c.itemCount} items)</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ background: 'var(--surface)', borderRadius: '8px', overflow: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f8f9fa' }}>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Item</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Category</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Manufacturer</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Barcode</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>Ownership</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>Status</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Expires</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inventoryValuationData.rows.map((row) => (
+                        <tr key={row.itemId} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '0.75rem' }}>{row.catalogName}</td>
+                          <td style={{ padding: '0.75rem' }}>{row.category}</td>
+                          <td style={{ padding: '0.75rem' }}>{row.manufacturer || '-'}</td>
+                          <td style={{ padding: '0.75rem', fontFamily: 'monospace', fontSize: '0.75rem' }}>{row.barcode}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '0.25rem 0.5rem',
+                              borderRadius: '4px',
+                              background: row.ownershipType === 'OWNED' ? '#c6f6d5' : row.ownershipType === 'CONSIGNMENT' ? '#feebc8' : '#e2e8f0',
+                              fontSize: '0.75rem',
+                            }}>
+                              {row.ownershipType}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.75rem', textAlign: 'center' }}>{row.availabilityStatus}</td>
+                          <td style={{ padding: '0.75rem' }}>{row.expiresAt || '-'}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: '500' }}>{row.unitCostDollars}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            {/* Loaner Exposure Report */}
+            {selectedReport === 'loaner-exposure' && loanerExposureData && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ background: 'var(--surface)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{loanerExposureData.summary.totalOpenSets}</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Open Sets</div>
+                  </div>
+                  <div style={{ background: '#feebc8', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#c05621' }}>{loanerExposureData.summary.totalEstimatedValue.dollars}</div>
+                    <div style={{ fontSize: '0.875rem', color: '#c05621' }}>Total Exposure</div>
+                  </div>
+                  <div style={{ background: '#fed7d7', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#c53030' }}>{loanerExposureData.summary.overdueCount}</div>
+                    <div style={{ fontSize: '0.875rem', color: '#c53030' }}>Overdue Sets</div>
+                  </div>
+                  <div style={{ background: '#fed7d7', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#c53030' }}>{loanerExposureData.summary.overdueValue.dollars}</div>
+                    <div style={{ fontSize: '0.875rem', color: '#c53030' }}>Overdue Value</div>
+                  </div>
+                </div>
+
+                {/* Exposure by Vendor */}
+                {loanerExposureData.summary.byVendor.length > 0 && (
+                  <div style={{ background: 'var(--surface)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem' }}>Exposure by Vendor</h3>
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                      {loanerExposureData.summary.byVendor.map(v => (
+                        <div key={v.vendorName} style={{ padding: '0.5rem', background: '#f7fafc', borderRadius: '4px' }}>
+                          <div style={{ fontWeight: '500' }}>{v.vendorName}</div>
+                          <div style={{ color: '#718096' }}>{v.valueDollars} ({v.openSets} open, {v.overdueSets} overdue)</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ background: 'var(--surface)', borderRadius: '8px', overflow: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f8f9fa' }}>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Set ID</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Vendor</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Case</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Received</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>Due</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>Items</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>Value</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loanerExposureData.rows.map((row) => (
+                        <tr key={row.loanerSetId} style={{ borderBottom: '1px solid var(--border)', background: row.isOverdue === 'Yes' ? '#fff5f5' : 'transparent' }}>
+                          <td style={{ padding: '0.75rem', fontFamily: 'monospace', fontSize: '0.75rem' }}>{row.setIdentifier}</td>
+                          <td style={{ padding: '0.75rem' }}>{row.vendorName}</td>
+                          <td style={{ padding: '0.75rem' }}>{row.caseName || '-'}</td>
+                          <td style={{ padding: '0.75rem' }}>{row.receivedAt?.split('T')[0] || '-'}</td>
+                          <td style={{ padding: '0.75rem' }}>{row.expectedReturnDate || '-'}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'center' }}>{row.actualItemCount || row.declaredItemCount || '-'}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: '500' }}>{row.estimatedValueDollars}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                            {row.isOverdue === 'Yes' ? (
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '0.25rem 0.5rem',
+                                borderRadius: '4px',
+                                background: '#fed7d7',
+                                color: '#c53030',
+                                fontSize: '0.75rem',
+                                fontWeight: '500',
+                              }}>
+                                {row.daysOverdue}d OVERDUE
+                              </span>
+                            ) : (
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '0.25rem 0.5rem',
+                                borderRadius: '4px',
+                                background: '#c6f6d5',
+                                fontSize: '0.75rem',
+                              }}>
+                                Open
+                              </span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

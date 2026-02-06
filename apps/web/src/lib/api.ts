@@ -57,8 +57,8 @@ export { getCaseDashboard, attestCaseReadiness, voidCaseAttestation, updateAnest
 export type { AnesthesiaModality, AttestationState, CaseEventType, CaseDashboardCaseCard, CaseDashboardAnesthesiaPlan, CaseDashboardOverride, CaseDashboardData, CaseDashboardEventLogEntry } from './api/case-dashboard';
 
 // Reports
-export { getAvailableReports, getInventoryReadinessReport, getVerificationActivityReport, getChecklistComplianceReport, getCaseSummaryReport, getReportExportUrl } from './api/reports';
-export type { ReportDefinition, ReportFilters, InventoryReadinessRow, InventoryReadinessSummary, VerificationActivityRow, VerificationActivitySummary, ChecklistComplianceRow, ChecklistComplianceSummary, CaseSummaryRow, CaseSummarySummary } from './api/reports';
+export { getAvailableReports, getInventoryReadinessReport, getVerificationActivityReport, getChecklistComplianceReport, getCaseSummaryReport, getVendorConcessionsReport, getInventoryValuationReport, getLoanerExposureReport, getReportExportUrl } from './api/reports';
+export type { ReportDefinition, ReportFilters, FinancialReportFilters, InventoryReadinessRow, InventoryReadinessSummary, VerificationActivityRow, VerificationActivitySummary, ChecklistComplianceRow, ChecklistComplianceSummary, CaseSummaryRow, CaseSummarySummary, VendorConcessionRow, VendorConcessionSummary, InventoryValuationRow, InventoryValuationSummary, LoanerExposureRow, LoanerExposureSummary } from './api/reports';
 
 // Preference Cards
 export { getPreferenceCards, getPreferenceCard, getPreferenceCardVersions, createPreferenceCard, updatePreferenceCard, createPreferenceCardVersion, deactivatePreferenceCard, activatePreferenceCard } from './api/preference-cards';
