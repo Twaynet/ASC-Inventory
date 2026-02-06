@@ -12,6 +12,7 @@
 
 import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
+import { ok, fail } from '../utils/reply.js';
 
 /**
  * Format a Date to YYYY-MM-DD string without timezone conversion.
@@ -148,7 +149,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
     }
 
     const caseData = caseResult.rows[0];
@@ -307,7 +308,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       missingItems: readinessResult.rows[0]?.missing_items || [],
     };
 
-    return reply.send({ dashboard });
+    return ok(reply, { dashboard });
   });
 
   /**
@@ -331,14 +332,14 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
     }
 
     const caseData = caseResult.rows[0];
 
     // Check if case card is linked
     if (!caseData.case_card_version_id) {
-      return reply.status(400).send({ error: 'Cannot attest: No Case Card linked' });
+      return fail(reply, 'VALIDATION_ERROR', 'Cannot attest: No Case Card linked');
     }
 
     // Check if anesthesia modality is selected
@@ -358,7 +359,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
     const modalities = parseArr(anesthesiaResult.rows[0]?.modalities);
     if (anesthesiaResult.rows.length === 0 || modalities.length === 0) {
-      return reply.status(400).send({ error: 'Cannot attest: Anesthesia modality not selected' });
+      return fail(reply, 'VALIDATION_ERROR', 'Cannot attest: Anesthesia modality not selected');
     }
 
     // Get current readiness state for attestation record
@@ -387,7 +388,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       VALUES ($1, $2, 'READINESS_ATTESTED', $3, $4, $5, $6)
     `, [caseId, facilityId, userId, userRole, userName, 'Case readiness attested']);
 
-    return reply.send({ success: true, attestationState: 'ATTESTED' });
+    return ok(reply, { success: true, attestationState: 'ATTESTED' });
   });
 
   /**
@@ -402,7 +403,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     const body = request.body as { reason?: string };
 
     if (!body.reason?.trim()) {
-      return reply.status(400).send({ error: 'Void reason is required' });
+      return fail(reply, 'VALIDATION_ERROR', 'Void reason is required');
     }
 
     // Verify case exists and is attested
@@ -411,11 +412,11 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
     }
 
     if (caseResult.rows[0].attestation_state !== 'ATTESTED') {
-      return reply.status(400).send({ error: 'Case is not currently attested' });
+      return fail(reply, 'VALIDATION_ERROR', 'Case is not currently attested');
     }
 
     // Void the latest attestation
@@ -438,7 +439,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       VALUES ($1, $2, 'READINESS_VOIDED', $3, $4, $5, $6)
     `, [caseId, facilityId, userId, userRole, userName, `Attestation voided: ${body.reason}`]);
 
-    return reply.send({ success: true, attestationState: 'VOIDED' });
+    return ok(reply, { success: true, attestationState: 'VOIDED' });
   });
 
   /**
@@ -463,7 +464,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
     }
 
     // Upsert anesthesia plan
@@ -491,7 +492,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       VALUES ($1, $2, 'ANESTHESIA_PLAN_CHANGED', $3, $4, $5, $6)
     `, [caseId, facilityId, userId, userRole, userName, 'Anesthesia plan updated']);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -506,7 +507,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     const body = request.body as { caseCardVersionId: string };
 
     if (!body.caseCardVersionId) {
-      return reply.status(400).send({ error: 'caseCardVersionId is required' });
+      return fail(reply, 'VALIDATION_ERROR', 'caseCardVersionId is required');
     }
 
     // Verify case exists
@@ -515,7 +516,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
     }
 
     const previousVersionId = caseResult.rows[0].case_card_version_id;
@@ -529,7 +530,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [body.caseCardVersionId, facilityId]);
 
     if (versionResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card version not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card version not found', 404);
     }
 
     // Update case
@@ -548,7 +549,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       body.caseCardVersionId,
     ]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -568,7 +569,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     };
 
     if (!body.target || !body.overrideValue || !body.reason) {
-      return reply.status(400).send({ error: 'target, overrideValue, and reason are required' });
+      return fail(reply, 'VALIDATION_ERROR', 'target, overrideValue, and reason are required');
     }
 
     // Verify case exists
@@ -577,7 +578,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
     }
 
     // Create override
@@ -595,7 +596,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       VALUES ($1, $2, 'OVERRIDE_ADDED', $3, $4, $5, $6, $7)
     `, [caseId, facilityId, userId, userRole, userName, `Override added: ${body.target}`, overrideId]);
 
-    return reply.status(201).send({ success: true, overrideId });
+    return ok(reply, { success: true, overrideId }, 201);
   });
 
   /**
@@ -619,7 +620,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [overrideId, caseId, facilityId]);
 
     if (overrideResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Override not found' });
+      return fail(reply, 'NOT_FOUND', 'Override not found', 404);
     }
 
     // Update override
@@ -636,7 +637,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       VALUES ($1, $2, 'OVERRIDE_MODIFIED', $3, $4, $5, $6, $7)
     `, [caseId, facilityId, userId, userRole, userName, `Override modified: ${overrideResult.rows[0].override_target}`, overrideId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -656,7 +657,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [overrideId, caseId, facilityId]);
 
     if (overrideResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Override not found' });
+      return fail(reply, 'NOT_FOUND', 'Override not found', 404);
     }
 
     // Mark as reverted
@@ -670,7 +671,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       VALUES ($1, $2, 'OVERRIDE_REMOVED', $3, $4, $5, $6, $7)
     `, [caseId, facilityId, userId, userRole, userName, `Override removed: ${overrideResult.rows[0].override_target}`, overrideId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -689,7 +690,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
     }
 
     const result = await query<{
@@ -707,7 +708,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       ORDER BY created_at DESC
     `, [caseId]);
 
-    return reply.send({
+    return ok(reply, {
       eventLog: result.rows.map(e => ({
         id: e.id,
         eventType: e.event_type,
@@ -757,7 +758,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
     }
 
     // Update case
@@ -790,7 +791,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       VALUES ($1, $2, 'SCHEDULING_CHANGED', $3, $4, $5, $6)
     `, [caseId, facilityId, userId, userRole, userName, 'Case summary updated']);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -809,7 +810,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     };
 
     if (!body.scheduledDate && body.scheduledTime === undefined && body.orRoom === undefined) {
-      return reply.status(400).send({ error: 'At least one field is required' });
+      return fail(reply, 'VALIDATION_ERROR', 'At least one field is required');
     }
 
     // Verify case exists and get current values
@@ -818,7 +819,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
     }
 
     const previousDate = formatDateLocal(caseResult.rows[0].scheduled_date);
@@ -867,6 +868,6 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       VALUES ($1, $2, 'SCHEDULING_CHANGED', $3, $4, $5, $6)
     `, [caseId, facilityId, userId, userRole, userName, changes.join('; ') || 'Scheduling updated']);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 }

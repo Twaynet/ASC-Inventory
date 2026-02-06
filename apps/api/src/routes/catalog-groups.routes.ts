@@ -14,8 +14,8 @@ import {
   UpdateCatalogGroupRequestSchema,
   AddGroupItemsRequestSchema,
 } from '../schemas/index.js';
-import { requireAdmin } from '../plugins/auth.js';
-// capability-guardrail-allowlist: requireAdmin used; target CATALOG_MANAGE (Wave 4)
+import { requireCapabilities } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
 
 interface GroupRow {
   id: string;
@@ -68,7 +68,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
 
     const result = await query<GroupWithCount>(sql, [facilityId]);
 
-    return reply.send({
+    return ok(reply, {
       groups: result.rows.map(row => ({
         id: row.id,
         facilityId: row.facility_id,
@@ -87,14 +87,11 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
    * Create new catalog group (ADMIN only)
    */
   fastify.post('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const parseResult = CreateCatalogGroupRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { facilityId } = request.user;
@@ -106,7 +103,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
     `, [facilityId, data.name]);
 
     if (nameCheck.rows.length > 0) {
-      return reply.status(400).send({ error: 'Group name already exists' });
+      return fail(reply, 'VALIDATION_ERROR', 'Group name already exists');
     }
 
     const result = await query<GroupRow>(`
@@ -116,7 +113,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
     `, [facilityId, data.name, data.description || null]);
 
     const row = result.rows[0];
-    return reply.status(201).send({
+    return ok(reply, {
       group: {
         id: row.id,
         facilityId: row.facility_id,
@@ -127,7 +124,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
       },
-    });
+    }, 201);
   });
 
   /**
@@ -135,17 +132,14 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
    * Update catalog group (ADMIN only)
    */
   fastify.patch<{ Params: { groupId: string } }>('/:groupId', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { groupId } = request.params;
     const { facilityId } = request.user;
 
     const parseResult = UpdateCatalogGroupRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const data = parseResult.data;
@@ -156,7 +150,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
     `, [groupId, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Group not found' });
+      return fail(reply, 'NOT_FOUND', 'Group not found', 404);
     }
 
     // Check name uniqueness if changing name
@@ -166,7 +160,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
       `, [facilityId, data.name, groupId]);
 
       if (nameCheck.rows.length > 0) {
-        return reply.status(400).send({ error: 'Group name already exists' });
+        return fail(reply, 'VALIDATION_ERROR', 'Group name already exists');
       }
     }
 
@@ -189,7 +183,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
     }
 
     if (updates.length === 0) {
-      return reply.status(400).send({ error: 'No updates provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No updates provided');
     }
 
     values.push(groupId, facilityId);
@@ -211,7 +205,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
     `, [groupId]);
 
     const row = result.rows[0];
-    return reply.send({
+    return ok(reply, {
       group: {
         id: row.id,
         facilityId: row.facility_id,
@@ -242,7 +236,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
     `, [groupId, facilityId]);
 
     if (groupCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Group not found' });
+      return fail(reply, 'NOT_FOUND', 'Group not found', 404);
     }
 
     let sql = `
@@ -261,7 +255,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
 
     const result = await query<CatalogItemRow>(sql, [groupId, facilityId]);
 
-    return reply.send({
+    return ok(reply, {
       items: result.rows.map(row => ({
         id: row.id,
         name: row.name,
@@ -278,17 +272,14 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
    * Add catalog items to group (ADMIN only)
    */
   fastify.post<{ Params: { groupId: string } }>('/:groupId/items', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { groupId } = request.params;
     const { facilityId } = request.user;
 
     const parseResult = AddGroupItemsRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { catalogIds } = parseResult.data;
@@ -299,7 +290,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
     `, [groupId, facilityId]);
 
     if (groupCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Group not found' });
+      return fail(reply, 'NOT_FOUND', 'Group not found', 404);
     }
 
     // Verify all catalog items exist and belong to same facility
@@ -310,10 +301,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
     if (catalogCheck.rows.length !== catalogIds.length) {
       const validIds = new Set(catalogCheck.rows.map(r => r.id));
       const invalidIds = catalogIds.filter(id => !validIds.has(id));
-      return reply.status(400).send({
-        error: 'Some catalog items not found',
-        invalidIds,
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Some catalog items not found', 400, { invalidIds });
     }
 
     // Insert memberships (ignore duplicates)
@@ -331,10 +319,10 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
       }
     }
 
-    return reply.status(201).send({
+    return ok(reply, {
       success: true,
       addedCount,
-    });
+    }, 201);
   });
 
   /**
@@ -342,7 +330,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
    * Remove catalog item from group (ADMIN only)
    */
   fastify.delete<{ Params: { groupId: string; catalogId: string } }>('/:groupId/items/:catalogId', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { groupId, catalogId } = request.params;
     const { facilityId } = request.user;
@@ -353,7 +341,7 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
     `, [groupId, facilityId]);
 
     if (groupCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Group not found' });
+      return fail(reply, 'NOT_FOUND', 'Group not found', 404);
     }
 
     // Delete membership (facility_id check ensures tenant safety)
@@ -363,9 +351,9 @@ export async function catalogGroupsRoutes(fastify: FastifyInstance): Promise<voi
     `, [groupId, catalogId, facilityId]);
 
     if (deleteResult.rowCount === 0) {
-      return reply.status(404).send({ error: 'Item not in group' });
+      return fail(reply, 'NOT_FOUND', 'Item not in group', 404);
     }
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 }

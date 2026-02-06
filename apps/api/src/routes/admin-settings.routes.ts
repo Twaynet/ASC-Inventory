@@ -8,10 +8,9 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { query } from '../db/index.js';
-import { requireAdmin } from '../plugins/auth.js';
+import { requireCapabilities } from '../plugins/auth.js';
 import { ok } from '../utils/reply.js';
 import {
-// capability-guardrail-allowlist: requireAdmin used; target SETTINGS_MANAGE (Wave 4)
   getFacilitySettings,
 } from '../services/checklists.service.js';
 
@@ -49,7 +48,7 @@ export async function adminSettingsRoutes(fastify: FastifyInstance): Promise<voi
    * Returns all settings categories in a stable structure.
    */
   fastify.get('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { facilityId } = request.user;
 
@@ -113,7 +112,7 @@ export async function adminSettingsRoutes(fastify: FastifyInstance): Promise<voi
    * Canonical alias for GET /facility/settings
    */
   fastify.get('/facility', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { facilityId } = request.user;
     const settings = await getFacilitySettings(facilityId);
@@ -128,7 +127,7 @@ export async function adminSettingsRoutes(fastify: FastifyInstance): Promise<voi
    * Canonical alias for GET /settings/rooms
    */
   fastify.get<{ Querystring: { includeInactive?: string } }>('/rooms', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const includeInactive = request.query.includeInactive === 'true';
@@ -158,7 +157,7 @@ export async function adminSettingsRoutes(fastify: FastifyInstance): Promise<voi
    * Canonical alias for GET /settings/surgeons
    */
   fastify.get('/surgeons', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { facilityId } = request.user;
     const result = await query<SurgeonRow>(`
@@ -182,7 +181,7 @@ export async function adminSettingsRoutes(fastify: FastifyInstance): Promise<voi
    * Canonical alias for GET /general-settings/config-items
    */
   fastify.get<{ Querystring: { itemType?: string; includeInactive?: string } }>('/config-items', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { itemType, includeInactive } = request.query;

@@ -6,6 +6,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { query } from '../db/index.js';
 import { CreateAttestationRequestSchema } from '../schemas/index.js';
+import { ok, fail } from '../utils/reply.js';
 import {
   getDayBeforeReadiness,
   computeSingleCaseReadiness,
@@ -124,7 +125,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       attested: cases.filter(c => c.hasAttestation).length,
     };
 
-    return reply.send({
+    return ok(reply, {
       facilityId,
       facilityName,
       targetDate: formatDateLocal(targetDate),
@@ -146,23 +147,23 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     const { startDate, endDate, granularity = 'day' } = request.query;
 
     if (!startDate || !endDate) {
-      return reply.status(400).send({ error: 'startDate and endDate are required' });
+      return fail(reply, 'VALIDATION_ERROR', 'startDate and endDate are required');
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return reply.status(400).send({ error: 'Invalid date format' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid date format');
     }
 
     if (granularity !== 'day' && granularity !== 'case') {
-      return reply.status(400).send({ error: 'granularity must be "day" or "case"' });
+      return fail(reply, 'VALIDATION_ERROR', 'granularity must be "day" or "case"');
     }
 
     const result = await getCalendarSummary(facilityId, start, end, granularity);
 
-    return reply.send(result);
+    return ok(reply, result);
   });
 
   /**
@@ -180,7 +181,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     const readiness = await computeSingleCaseReadiness(id, facilityId);
 
     if (!readiness) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     // Get additional case info
@@ -198,7 +199,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT name FROM app_user WHERE id = $1
     `, [caseResult.rows[0].surgeon_id]);
 
-    return reply.send({
+    return ok(reply, {
       ...readiness,
       facilityId,
       scheduledDate: formatDateLocal(caseResult.rows[0].scheduled_date),
@@ -218,10 +219,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const parseResult = CreateAttestationRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { caseId, type, notes } = parseResult.data;
@@ -234,38 +232,32 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Procedure not found' });
+      return fail(reply, 'NOT_FOUND', 'Procedure not found', 404);
     }
 
     // Role-based authorization
     if (type === 'SURGEON_ACKNOWLEDGMENT') {
       // Only surgeon assigned to case can acknowledge
       if (role !== 'SURGEON' || caseResult.rows[0].surgeon_id !== userId) {
-        return reply.status(403).send({
-          error: 'Only the assigned surgeon can acknowledge',
-        });
+        return fail(reply, 'FORBIDDEN', 'Only the assigned surgeon can acknowledge', 403);
       }
     } else if (type === 'CASE_READINESS') {
       // Only staff roles can attest readiness
       const allowedRoles = ['ADMIN', 'CIRCULATOR', 'INVENTORY_TECH'];
       if (!allowedRoles.includes(role)) {
-        return reply.status(403).send({
-          error: 'Only authorized staff can attest readiness',
-        });
+        return fail(reply, 'FORBIDDEN', 'Only authorized staff can attest readiness', 403);
       }
     }
 
     // Get current readiness state
     const readiness = await computeSingleCaseReadiness(caseId, facilityId);
     if (!readiness) {
-      return reply.status(500).send({ error: 'Failed to compute readiness' });
+      return fail(reply, 'INTERNAL_ERROR', 'Failed to compute readiness', 500);
     }
 
     // For surgeon acknowledgment, procedure must be RED
     if (type === 'SURGEON_ACKNOWLEDGMENT' && readiness.readinessState !== 'RED') {
-      return reply.status(400).send({
-        error: 'Surgeon acknowledgment only required when procedure has missing items',
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Surgeon acknowledgment only required when procedure has missing items');
     }
 
     // Insert attestation (append-only)
@@ -285,7 +277,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     // Update readiness cache
     await updateReadinessCache(facilityId, caseResult.rows[0].scheduled_date);
 
-    return reply.status(201).send({
+    return ok(reply, {
       id: result.rows[0].id,
       caseId,
       type,
@@ -294,7 +286,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       readinessStateAtTime: readiness.readinessState,
       notes,
       createdAt: result.rows[0].created_at.toISOString(),
-    });
+    }, 201);
   });
 
   /**
@@ -329,7 +321,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       ORDER BY a.created_at DESC
     `, [id, facilityId]);
 
-    return reply.send({
+    return ok(reply, {
       attestations: result.rows.map(row => ({
         id: row.id,
         caseId: id,
@@ -374,31 +366,27 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (attestationResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Attestation not found' });
+      return fail(reply, 'NOT_FOUND', 'Attestation not found', 404);
     }
 
     const attestation = attestationResult.rows[0];
 
     // Check if already voided
     if (attestation.voided_at) {
-      return reply.status(400).send({ error: 'Attestation already voided' });
+      return fail(reply, 'VALIDATION_ERROR', 'Attestation already voided');
     }
 
     // Role-based authorization (same roles that can create can void)
     if (attestation.type === 'SURGEON_ACKNOWLEDGMENT') {
       // Only the surgeon who created it or admin can void
       if (role !== 'ADMIN' && attestation.attested_by_user_id !== userId) {
-        return reply.status(403).send({
-          error: 'Only the attesting surgeon or admin can void this attestation',
-        });
+        return fail(reply, 'FORBIDDEN', 'Only the attesting surgeon or admin can void this attestation', 403);
       }
     } else if (attestation.type === 'CASE_READINESS') {
       // Only staff roles can void readiness attestations
       const allowedRoles = ['ADMIN', 'CIRCULATOR', 'INVENTORY_TECH'];
       if (!allowedRoles.includes(role)) {
-        return reply.status(403).send({
-          error: 'Only authorized staff can void readiness attestations',
-        });
+        return fail(reply, 'FORBIDDEN', 'Only authorized staff can void readiness attestations', 403);
       }
     }
 
@@ -423,7 +411,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT name FROM app_user WHERE id = $1
     `, [userId]);
 
-    return reply.send({
+    return ok(reply, {
       success: true,
       attestationId: id,
       voidedAt: new Date().toISOString(),
@@ -462,7 +450,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     `, [caseId, facilityId]);
 
     if (caseResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case not found' });
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
     }
 
     const caseData = caseResult.rows[0];
@@ -560,7 +548,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
     const totalVerified = requirements.reduce((sum, r) => sum + Math.min(r.verifiedCount, r.requiredQuantity), 0);
     const allSatisfied = requirements.every(r => r.isSatisfied);
 
-    return reply.send({
+    return ok(reply, {
       caseId,
       procedureName: caseData.procedure_name,
       surgeonName: caseData.surgeon_name,
@@ -601,7 +589,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
 
     await updateReadinessCache(facilityId, targetDate);
 
-    return reply.send({
+    return ok(reply, {
       success: true,
       date: formatDateLocal(targetDate),
     });

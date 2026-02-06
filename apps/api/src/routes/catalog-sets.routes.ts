@@ -18,8 +18,8 @@ import {
   CreateSetComponentRequestSchema,
   UpdateSetComponentRequestSchema,
 } from '../schemas/index.js';
-import { requireAdmin } from '../plugins/auth.js';
-// capability-guardrail-allowlist: requireAdmin used; target CATALOG_MANAGE (Wave 4)
+import { requireCapabilities } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
 
 interface CatalogSetRow {
   id: string;
@@ -87,7 +87,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
 
     const result = await query<CatalogSetRow>(sql, [facilityId]);
 
-    return reply.send({
+    return ok(reply, {
       sets: result.rows.map(row => ({
         id: row.id,
         facilityId: row.facility_id,
@@ -117,7 +117,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
     `, [catalogId, facilityId]);
 
     if (catalogCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Catalog item not found' });
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
     }
 
     const sql = `
@@ -141,7 +141,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
 
     const result = await query<SetComponentRow>(sql, [catalogId, facilityId]);
 
-    return reply.send({
+    return ok(reply, {
       setCatalogId: catalogId,
       components: result.rows.map(row => ({
         id: row.id,
@@ -164,17 +164,14 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
    * Add a component definition to a catalog set (ADMIN only)
    */
   fastify.post<{ Params: { catalogId: string } }>('/:catalogId/components', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { catalogId } = request.params;
     const { facilityId } = request.user;
 
     const parseResult = CreateSetComponentRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const data = parseResult.data;
@@ -185,7 +182,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
     `, [catalogId, facilityId]);
 
     if (setCatalogCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Set catalog item not found' });
+      return fail(reply, 'NOT_FOUND', 'Set catalog item not found', 404);
     }
 
     // Verify component catalog item exists and belongs to same facility
@@ -194,12 +191,12 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
     `, [data.componentCatalogId, facilityId]);
 
     if (componentCatalogCheck.rows.length === 0) {
-      return reply.status(400).send({ error: 'Component catalog item not found' });
+      return fail(reply, 'VALIDATION_ERROR', 'Component catalog item not found');
     }
 
     // Prevent self-reference
     if (catalogId === data.componentCatalogId) {
-      return reply.status(400).send({ error: 'A set cannot contain itself as a component' });
+      return fail(reply, 'VALIDATION_ERROR', 'A set cannot contain itself as a component');
     }
 
     // Check for duplicate
@@ -209,7 +206,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
     `, [catalogId, data.componentCatalogId]);
 
     if (dupCheck.rows.length > 0) {
-      return reply.status(400).send({ error: 'Component already exists in this set' });
+      return fail(reply, 'VALIDATION_ERROR', 'Component already exists in this set');
     }
 
     // Insert component
@@ -249,7 +246,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
     `, [insertResult.rows[0].id]);
 
     const row = componentResult.rows[0];
-    return reply.status(201).send({
+    return ok(reply, {
       component: {
         id: row.id,
         setCatalogId: row.set_catalog_id,
@@ -263,7 +260,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
         notes: row.notes,
         createdAt: row.created_at.toISOString(),
       },
-    });
+    }, 201);
   });
 
   /**
@@ -271,17 +268,14 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
    * Update a component definition (ADMIN only)
    */
   fastify.patch<{ Params: { catalogId: string; componentId: string } }>('/:catalogId/components/:componentId', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { catalogId, componentId } = request.params;
     const { facilityId } = request.user;
 
     const parseResult = UpdateSetComponentRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const data = parseResult.data;
@@ -293,7 +287,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
     `, [componentId, catalogId, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Component not found' });
+      return fail(reply, 'NOT_FOUND', 'Component not found', 404);
     }
 
     // Build update query
@@ -315,7 +309,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
     }
 
     if (updates.length === 0) {
-      return reply.status(400).send({ error: 'No updates provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No updates provided');
     }
 
     values.push(componentId);
@@ -346,7 +340,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
     `, [componentId]);
 
     const row = componentResult.rows[0];
-    return reply.send({
+    return ok(reply, {
       component: {
         id: row.id,
         setCatalogId: row.set_catalog_id,
@@ -368,7 +362,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
    * Remove a component definition from a set (ADMIN only)
    */
   fastify.delete<{ Params: { catalogId: string; componentId: string } }>('/:catalogId/components/:componentId', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { catalogId, componentId } = request.params;
     const { facilityId } = request.user;
@@ -380,7 +374,7 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
     `, [componentId, catalogId, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Component not found' });
+      return fail(reply, 'NOT_FOUND', 'Component not found', 404);
     }
 
     // Delete component
@@ -388,6 +382,6 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
       DELETE FROM catalog_set_component WHERE id = $1
     `, [componentId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 }

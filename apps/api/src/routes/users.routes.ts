@@ -10,9 +10,8 @@ import {
   CreateUserRequestSchema,
   UpdateUserRequestSchema,
 } from '../schemas/index.js';
-import { requireAdmin } from '../plugins/auth.js';
+import { requireCapabilities } from '../plugins/auth.js';
 import { ok, fail, validated } from '../utils/reply.js';
-// capability-guardrail-allowlist: requireAdmin used; target USER_MANAGE (Wave 4)
 
 interface UserRow {
   id: string;
@@ -44,7 +43,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
    * List all users in facility (ADMIN only)
    */
   fastify.get<{ Querystring: { includeInactive?: string } }>('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('USER_MANAGE')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const includeInactive = request.query.includeInactive === 'true';
@@ -112,7 +111,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
    * Get single user details (ADMIN only)
    */
   fastify.get<{ Params: { id: string } }>('/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('USER_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -124,7 +123,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'User not found' });
+      return fail(reply, 'NOT_FOUND', 'User not found', 404);
     }
 
     const row = result.rows[0];
@@ -149,14 +148,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
    * Create new user (onboard) - ADMIN only
    */
   fastify.post('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('USER_MANAGE')],
   }, async (request, reply) => {
     const parseResult = CreateUserRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { facilityId } = request.user;
@@ -169,7 +165,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     `, [facilityId, data.username]);
 
     if (existingUser.rows.length > 0) {
-      return reply.status(400).send({ error: 'Username already exists in this facility' });
+      return fail(reply, 'DUPLICATE', 'Username already exists in this facility');
     }
 
     // Hash password
@@ -208,7 +204,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
    * Update user - ADMIN only
    */
   fastify.patch<{ Params: { id: string } }>('/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('USER_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -316,7 +312,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
    * Deactivate user (offboard) - ADMIN only
    */
   fastify.post<{ Params: { id: string } }>('/:id/deactivate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('USER_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId } = request.user;
@@ -366,7 +362,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
    * Reactivate user - ADMIN only
    */
   fastify.post<{ Params: { id: string } }>('/:id/activate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('USER_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;

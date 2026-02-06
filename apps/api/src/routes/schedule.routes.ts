@@ -10,8 +10,8 @@ import {
   UpdateBlockTimeRequestSchema,
   SetRoomDayConfigRequestSchema,
 } from '../schemas/index.js';
-import { requireScheduler } from '../plugins/auth.js';
-// capability-guardrail-allowlist: requireScheduler used; target CASE_APPROVE / CASE_ASSIGN_ROOM (Wave 4)
+import { requireCapabilities } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
 
 interface CaseRow {
   id: string;
@@ -71,7 +71,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
     const { date } = request.query;
 
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return reply.status(400).send({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid date format. Use YYYY-MM-DD');
     }
 
     // Get all active rooms for the facility
@@ -270,7 +270,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
         };
       });
 
-    return reply.send({
+    return ok(reply, {
       date,
       facilityId,
       rooms,
@@ -324,7 +324,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
       isActive: c.is_active,
     }));
 
-    return reply.send({
+    return ok(reply, {
       unassignedCases,
       count: unassignedCases.length,
     });
@@ -335,16 +335,13 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
    * Create a new block time
    */
   fastify.post('/block-times', {
-    preHandler: [requireScheduler],
+    preHandler: [requireCapabilities('CASE_ASSIGN_ROOM')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { facilityId, userId } = request.user;
 
     const parseResult = CreateBlockTimeRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { roomId, blockDate, durationMinutes, notes, sortOrder } = parseResult.data;
@@ -355,7 +352,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
     `, [roomId, facilityId]);
 
     if (roomResult.rows.length === 0) {
-      return reply.status(400).send({ error: 'Invalid or inactive room' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid or inactive room');
     }
 
     // Get max sort order for the day if not provided
@@ -384,7 +381,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT name FROM room WHERE id = $1
     `, [roomId]);
 
-    return reply.status(201).send({
+    return ok(reply, {
       blockTime: {
         id: result.rows[0].id,
         facilityId,
@@ -397,7 +394,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
         createdAt: result.rows[0].created_at.toISOString(),
         createdByUserId: userId,
       },
-    });
+    }, 201);
   });
 
   /**
@@ -405,17 +402,14 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
    * Update a block time
    */
   fastify.patch<{ Params: { id: string } }>('/block-times/:id', {
-    preHandler: [requireScheduler],
+    preHandler: [requireCapabilities('CASE_ASSIGN_ROOM')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
 
     const parseResult = UpdateBlockTimeRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { durationMinutes, notes, sortOrder } = parseResult.data;
@@ -438,7 +432,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     if (updates.length === 0) {
-      return reply.status(400).send({ error: 'No updates provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No updates provided');
     }
 
     values.push(id, facilityId);
@@ -460,7 +454,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
     `, values);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Block time not found' });
+      return fail(reply, 'NOT_FOUND', 'Block time not found', 404);
     }
 
     const bt = result.rows[0];
@@ -468,7 +462,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT name FROM room WHERE id = $1
     `, [bt.room_id]);
 
-    return reply.send({
+    return ok(reply, {
       blockTime: {
         id: bt.id,
         facilityId,
@@ -489,7 +483,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
    * Delete a block time
    */
   fastify.delete<{ Params: { id: string } }>('/block-times/:id', {
-    preHandler: [requireScheduler],
+    preHandler: [requireCapabilities('CASE_ASSIGN_ROOM')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -501,10 +495,10 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rowCount === 0) {
-      return reply.status(404).send({ error: 'Block time not found' });
+      return fail(reply, 'NOT_FOUND', 'Block time not found', 404);
     }
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -512,22 +506,19 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
    * Set the start time for a room on a specific date
    */
   fastify.put<{ Params: { roomId: string }; Querystring: { date: string } }>('/rooms/:roomId/day-config', {
-    preHandler: [requireScheduler],
+    preHandler: [requireCapabilities('CASE_ASSIGN_ROOM')],
   }, async (request, reply) => {
     const { roomId } = request.params;
     const { date } = request.query;
     const { facilityId } = request.user;
 
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return reply.status(400).send({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid date format. Use YYYY-MM-DD');
     }
 
     const parseResult = SetRoomDayConfigRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { startTime } = parseResult.data;
@@ -538,7 +529,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
     `, [roomId, facilityId]);
 
     if (roomResult.rows.length === 0) {
-      return reply.status(400).send({ error: 'Invalid or inactive room' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid or inactive room');
     }
 
     const result = await query<{
@@ -557,7 +548,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
 
     const config = result.rows[0];
 
-    return reply.send({
+    return ok(reply, {
       config: {
         id: config.id,
         roomId,
@@ -580,17 +571,17 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
       orderedItems: Array<{ type: 'case' | 'block'; id: string }>;
     };
   }>('/reorder', {
-    preHandler: [requireScheduler],
+    preHandler: [requireCapabilities('CASE_ASSIGN_ROOM')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { roomId, date, orderedItems } = request.body;
 
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return reply.status(400).send({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid date format. Use YYYY-MM-DD');
     }
 
     if (!orderedItems || !Array.isArray(orderedItems)) {
-      return reply.status(400).send({ error: 'orderedItems array is required' });
+      return fail(reply, 'VALIDATION_ERROR', 'orderedItems array is required');
     }
 
     // Validate room if provided
@@ -600,7 +591,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
       `, [roomId, facilityId]);
 
       if (roomResult.rows.length === 0) {
-        return reply.status(400).send({ error: 'Invalid or inactive room' });
+        return fail(reply, 'VALIDATION_ERROR', 'Invalid or inactive room');
       }
     }
 
@@ -623,6 +614,6 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
       }
     });
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 }

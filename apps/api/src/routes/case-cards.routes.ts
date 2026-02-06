@@ -22,6 +22,7 @@
 import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
 import { composeCaseCardVersion } from '../services/compose-case-card.js';
+import { ok, fail } from '../utils/reply.js';
 
 // ============================================================================
 // Constants
@@ -210,7 +211,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
     const result = await query<CaseCardRow>(sql, params);
 
-    return reply.send({
+    return ok(reply, {
       cards: result.rows.map(row => {
         // Check if lock is expired
         const lockExpired = isLockExpired(row.lock_expires_at);
@@ -281,7 +282,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (cardResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     const card = cardResult.rows[0];
@@ -324,7 +325,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     const lockExpired = isLockExpired(card.lock_expires_at);
     const isLocked = card.locked_by_user_id && !lockExpired;
 
-    return reply.send({
+    return ok(reply, {
       card: {
         id: card.id,
         surgeonId: card.surgeon_id,
@@ -374,7 +375,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (cardCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     const result = await query<EditLogRow>(`
@@ -387,7 +388,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       ORDER BY edited_at DESC
     `, [id]);
 
-    return reply.send({
+    return ok(reply, {
       editLog: result.rows.map(row => ({
         id: row.id,
         editorUserId: row.editor_user_id,
@@ -418,7 +419,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (cardCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     const result = await query<CaseCardVersionRow>(`
@@ -431,7 +432,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       ORDER BY ccv.created_at DESC
     `, [id]);
 
-    return reply.send({
+    return ok(reply, {
       versions: result.rows.map(v => ({
         id: v.id,
         versionNumber: v.version_number,
@@ -456,12 +457,12 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Per governance doc: SCHEDULER is explicitly excluded from case-card editing
     if (!isRoleAllowed(userRoles)) {
-      return reply.status(403).send({ error: 'Your role does not have permission to create case cards' });
+      return fail(reply, 'FORBIDDEN', 'Your role does not have permission to create case cards', 403);
     }
 
     // Validate required fields
     if (!body.surgeonId || !body.procedureName) {
-      return reply.status(400).send({ error: 'surgeonId and procedureName are required' });
+      return fail(reply, 'VALIDATION_ERROR', 'surgeonId and procedureName are required');
     }
 
     // Verify surgeon exists
@@ -470,11 +471,11 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [body.surgeonId, facilityId]);
 
     if (surgeonCheck.rows.length === 0) {
-      return reply.status(400).send({ error: 'Surgeon not found' });
+      return fail(reply, 'VALIDATION_ERROR', 'Surgeon not found');
     }
 
     if (surgeonCheck.rows[0].role !== 'SURGEON') {
-      return reply.status(400).send({ error: 'Selected user is not a surgeon' });
+      return fail(reply, 'VALIDATION_ERROR', 'Selected user is not a surgeon');
     }
 
     // Check for duplicate procedure name for same surgeon
@@ -484,9 +485,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [body.surgeonId, body.procedureName, facilityId]);
 
     if (nameCheck.rows.length > 0) {
-      return reply.status(400).send({
-        error: 'Case card with this procedure name already exists for this surgeon',
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Case card with this procedure name already exists for this surgeon');
     }
 
     // Create card
@@ -560,7 +559,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       versionId,
     ]);
 
-    return reply.status(201).send({
+    return ok(reply, {
       card: {
         id: cardId,
         surgeonId: body.surgeonId,
@@ -570,7 +569,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
         version: '1.0.0',
         currentVersionId: versionId,
       },
-    });
+    }, 201);
   });
 
   /**
@@ -591,7 +590,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Per governance doc: SCHEDULER is explicitly excluded from case-card editing
     if (!isRoleAllowed(userRoles)) {
-      return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
+      return fail(reply, 'FORBIDDEN', 'Your role does not have permission to edit case cards', 403);
     }
 
     // Clear any expired lock first
@@ -613,26 +612,25 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     const existing = existingResult.rows[0];
 
     // Check status - DEPRECATED and DELETED are read-only
     if (existing.status === 'DEPRECATED') {
-      return reply.status(400).send({ error: 'Deprecated case cards are read-only' });
+      return fail(reply, 'VALIDATION_ERROR', 'Deprecated case cards are read-only');
     }
 
     if (existing.status === 'DELETED') {
-      return reply.status(400).send({ error: 'Deleted case cards are read-only' });
+      return fail(reply, 'VALIDATION_ERROR', 'Deleted case cards are read-only');
     }
 
     // Check soft-lock - must hold lock or lock must be expired
     if (existing.locked_by_user_id && existing.locked_by_user_id !== userId) {
       const lockExpired = isLockExpired(existing.lock_expires_at);
       if (!lockExpired) {
-        return reply.status(409).send({
-          error: 'Case card is locked by another user',
+        return fail(reply, 'CONFLICT', 'Case card is locked by another user', 409, {
           lockedByUserId: existing.locked_by_user_id,
           lockExpiresAt: existing.lock_expires_at?.toISOString(),
         });
@@ -640,7 +638,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     if (!body.changeSummary) {
-      return reply.status(400).send({ error: 'changeSummary is required for edits' });
+      return fail(reply, 'VALIDATION_ERROR', 'changeSummary is required for edits');
     }
 
     // Determine version bump
@@ -746,7 +744,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       newVersionId,
     ]);
 
-    return reply.send({
+    return ok(reply, {
       success: true,
       version: newVersionNumber,
       versionId: newVersionId,
@@ -768,15 +766,15 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     if (result.rows[0].status === 'ACTIVE') {
-      return reply.status(400).send({ error: 'Case card is already active' });
+      return fail(reply, 'VALIDATION_ERROR', 'Case card is already active');
     }
 
     if (result.rows[0].status === 'DEPRECATED') {
-      return reply.status(400).send({ error: 'Cannot activate deprecated case card' });
+      return fail(reply, 'VALIDATION_ERROR', 'Cannot activate deprecated case card');
     }
 
     // Deactivate any existing active card for same surgeon/procedure
@@ -798,7 +796,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [id, facilityId, userId, userName, userRole, 'Status changed to ACTIVE', 'Activated']);
 
-    return reply.send({ success: true, status: 'ACTIVE' });
+    return ok(reply, { success: true, status: 'ACTIVE' });
   });
 
   /**
@@ -819,7 +817,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     const card = result.rows[0];
@@ -829,22 +827,20 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     const isAdmin = userRoles.includes('ADMIN');
 
     if (!isOwnerSurgeon && !isAdmin) {
-      return reply.status(403).send({
-        error: 'Only the case card owner (surgeon) or an administrator can deactivate this card',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only the case card owner (surgeon) or an administrator can deactivate this card', 403);
     }
 
     if (card.status === 'DEPRECATED') {
-      return reply.status(400).send({ error: 'Case card is already deactivated' });
+      return fail(reply, 'VALIDATION_ERROR', 'Case card is already deactivated');
     }
 
     if (card.status === 'DELETED') {
-      return reply.status(400).send({ error: 'Cannot deactivate a deleted case card' });
+      return fail(reply, 'VALIDATION_ERROR', 'Cannot deactivate a deleted case card');
     }
 
     // Reason is required per governance doc
     if (!body.reason) {
-      return reply.status(400).send({ error: 'Reason is required for deactivation' });
+      return fail(reply, 'VALIDATION_ERROR', 'Reason is required for deactivation');
     }
 
     await query(`
@@ -869,7 +865,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       body.reason,
     ]);
 
-    return reply.send({ success: true, status: 'DEPRECATED' });
+    return ok(reply, { success: true, status: 'DEPRECATED' });
   });
 
   /**
@@ -889,7 +885,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     const card = result.rows[0];
@@ -898,18 +894,16 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     const isOwnerSurgeon = card.surgeon_id === userId;
 
     if (!isOwnerSurgeon) {
-      return reply.status(403).send({
-        error: 'Only the case card owner (surgeon) can delete this card',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only the case card owner (surgeon) can delete this card', 403);
     }
 
     if (card.status === 'DELETED') {
-      return reply.status(400).send({ error: 'Case card is already deleted' });
+      return fail(reply, 'VALIDATION_ERROR', 'Case card is already deleted');
     }
 
     // Reason is required per governance doc
     if (!body.reason) {
-      return reply.status(400).send({ error: 'Reason is required for deletion' });
+      return fail(reply, 'VALIDATION_ERROR', 'Reason is required for deletion');
     }
 
     // Soft-delete: set status and record deletion info
@@ -937,7 +931,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       body.reason,
     ]);
 
-    return reply.send({ success: true, status: 'DELETED' });
+    return ok(reply, { success: true, status: 'DELETED' });
   });
 
   /**
@@ -955,12 +949,12 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Per governance doc: SCHEDULER is explicitly excluded
     if (!isRoleAllowed(userRoles)) {
-      return reply.status(403).send({ error: 'Your role does not have permission to clone case cards' });
+      return fail(reply, 'FORBIDDEN', 'Your role does not have permission to clone case cards', 403);
     }
 
     // Validate required fields
     if (!body.targetSurgeonId) {
-      return reply.status(400).send({ error: 'targetSurgeonId is required' });
+      return fail(reply, 'VALIDATION_ERROR', 'targetSurgeonId is required');
     }
 
     // Get source card with current version
@@ -972,7 +966,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [sourceId, facilityId]);
 
     if (sourceResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Source case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Source case card not found', 404);
     }
 
     const source = sourceResult.rows[0];
@@ -983,11 +977,11 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [body.targetSurgeonId, facilityId]);
 
     if (surgeonCheck.rows.length === 0) {
-      return reply.status(400).send({ error: 'Target surgeon not found' });
+      return fail(reply, 'VALIDATION_ERROR', 'Target surgeon not found');
     }
 
     if (surgeonCheck.rows[0].role !== 'SURGEON') {
-      return reply.status(400).send({ error: 'Target user is not a surgeon' });
+      return fail(reply, 'VALIDATION_ERROR', 'Target user is not a surgeon');
     }
 
     // Determine procedure name (can override or inherit)
@@ -1000,9 +994,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [body.targetSurgeonId, newProcedureName, facilityId]);
 
     if (nameCheck.rows.length > 0) {
-      return reply.status(400).send({
-        error: 'Case card with this procedure name already exists for the target surgeon',
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Case card with this procedure name already exists for the target surgeon');
     }
 
     // Get source version data
@@ -1091,7 +1083,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       newVersionId,
     ]);
 
-    return reply.status(201).send({
+    return ok(reply, {
       card: {
         id: newCardId,
         surgeonId: body.targetSurgeonId,
@@ -1105,7 +1097,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
           surgeonName: source.surgeon_name,
         },
       },
-    });
+    }, 201);
   });
 
   /**
@@ -1122,7 +1114,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Per governance doc: SCHEDULER is explicitly excluded
     if (!isRoleAllowed(userRoles)) {
-      return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
+      return fail(reply, 'FORBIDDEN', 'Your role does not have permission to edit case cards', 403);
     }
 
     // Clear any expired lock first
@@ -1138,14 +1130,14 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     const card = result.rows[0];
 
     // Cannot lock read-only cards
     if (card.status === 'DEPRECATED' || card.status === 'DELETED') {
-      return reply.status(400).send({ error: 'Cannot lock a read-only case card' });
+      return fail(reply, 'VALIDATION_ERROR', 'Cannot lock a read-only case card');
     }
 
     // Check if already locked by someone else
@@ -1157,8 +1149,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
           SELECT name FROM app_user WHERE id = $1
         `, [card.locked_by_user_id]);
 
-        return reply.status(409).send({
-          error: 'Case card is already locked by another user',
+        return fail(reply, 'CONFLICT', 'Case card is already locked by another user', 409, {
           lockedByUserId: card.locked_by_user_id,
           lockedByName: holderResult.rows[0]?.name || 'Unknown',
           lockExpiresAt: card.lock_expires_at?.toISOString(),
@@ -1175,7 +1166,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       WHERE id = $3
     `, [userId, expiresAt, id]);
 
-    return reply.send({
+    return ok(reply, {
       success: true,
       lock: {
         lockedByUserId: userId,
@@ -1203,14 +1194,14 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     const card = result.rows[0];
 
     // Only lock holder can release (or anyone if expired)
     if (card.locked_by_user_id && card.locked_by_user_id !== userId) {
-      return reply.status(403).send({ error: 'Only the lock holder can release the lock' });
+      return fail(reply, 'FORBIDDEN', 'Only the lock holder can release the lock', 403);
     }
 
     await query(`
@@ -1219,7 +1210,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       WHERE id = $1
     `, [id]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -1237,7 +1228,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Per governance doc: SCHEDULER is explicitly excluded
     if (!isRoleAllowed(userRoles)) {
-      return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
+      return fail(reply, 'FORBIDDEN', 'Your role does not have permission to edit case cards', 403);
     }
 
     // Clear any expired lock first
@@ -1259,22 +1250,21 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (cardResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     const card = cardResult.rows[0];
 
     // Cannot revert read-only cards
     if (card.status === 'DEPRECATED' || card.status === 'DELETED') {
-      return reply.status(400).send({ error: 'Cannot revert a read-only case card' });
+      return fail(reply, 'VALIDATION_ERROR', 'Cannot revert a read-only case card');
     }
 
     // Check lock
     if (card.locked_by_user_id && card.locked_by_user_id !== userId) {
       const lockExpired = isLockExpired(card.lock_expires_at);
       if (!lockExpired) {
-        return reply.status(409).send({
-          error: 'Case card is locked by another user',
+        return fail(reply, 'CONFLICT', 'Case card is locked by another user', 409, {
           lockedByUserId: card.locked_by_user_id,
         });
       }
@@ -1286,14 +1276,14 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [versionId, id]);
 
     if (targetVersionResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Target version not found' });
+      return fail(reply, 'NOT_FOUND', 'Target version not found', 404);
     }
 
     const targetVersion = targetVersionResult.rows[0];
 
     // Reason is required per governance doc
     if (!body.reason) {
-      return reply.status(400).send({ error: 'Reason is required for revert' });
+      return fail(reply, 'VALIDATION_ERROR', 'Reason is required for revert');
     }
 
     // Per governance: Revert creates a NEW version with the old content
@@ -1359,7 +1349,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       newVersionId,
     ]);
 
-    return reply.send({
+    return ok(reply, {
       success: true,
       version: newVersionNumber,
       versionId: newVersionId,
@@ -1385,7 +1375,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       ORDER BY name ASC
     `, [facilityId]);
 
-    return reply.send({
+    return ok(reply, {
       surgeons: result.rows.map(row => ({
         id: row.id,
         name: row.name,
@@ -1424,7 +1414,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [caseCardId, facilityId]);
 
     if (cardCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     // Validate surgical case exists and is linked to this case card
@@ -1435,7 +1425,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [surgicalCaseId, facilityId]);
 
     if (caseCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Surgical case not found' });
+      return fail(reply, 'NOT_FOUND', 'Surgical case not found', 404);
     }
 
     // Check if feedback already exists for this case
@@ -1445,7 +1435,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [caseCardId, surgicalCaseId]);
 
     if (existingFeedback.rows.length > 0) {
-      return reply.status(400).send({ error: 'Feedback already submitted for this case' });
+      return fail(reply, 'VALIDATION_ERROR', 'Feedback already submitted for this case');
     }
 
     // Insert feedback
@@ -1469,10 +1459,10 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       userId,
     ]);
 
-    return reply.status(201).send({
+    return ok(reply, {
       feedbackId: result.rows[0].id,
       createdAt: result.rows[0].created_at.toISOString(),
-    });
+    }, 201);
   });
 
   /**
@@ -1495,7 +1485,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [caseCardId, facilityId]);
 
     if (cardCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Case card not found' });
+      return fail(reply, 'NOT_FOUND', 'Case card not found', 404);
     }
 
     let sql = `
@@ -1543,7 +1533,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       scheduled_date: Date;
     }>(sql, params);
 
-    return reply.send({
+    return ok(reply, {
       feedback: result.rows.map(row => ({
         id: row.id,
         surgicalCaseId: row.surgical_case_id,
@@ -1590,13 +1580,13 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Only ADMIN can review feedback
     if (role !== 'ADMIN') {
-      return reply.status(403).send({ error: 'Only administrators can review feedback' });
+      return fail(reply, 'FORBIDDEN', 'Only administrators can review feedback', 403);
     }
 
     // Validate action
     const validActions = ['ACKNOWLEDGED', 'APPLIED', 'DISMISSED'];
     if (!validActions.includes(action)) {
-      return reply.status(400).send({ error: 'Invalid action. Must be ACKNOWLEDGED, APPLIED, or DISMISSED' });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid action. Must be ACKNOWLEDGED, APPLIED, or DISMISSED');
     }
 
     // Check feedback exists and belongs to this case card
@@ -1606,11 +1596,11 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [feedbackId, caseCardId, facilityId]);
 
     if (feedbackCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Feedback not found' });
+      return fail(reply, 'NOT_FOUND', 'Feedback not found', 404);
     }
 
     if (feedbackCheck.rows[0].reviewed_at) {
-      return reply.status(400).send({ error: 'Feedback has already been reviewed' });
+      return fail(reply, 'VALIDATION_ERROR', 'Feedback has already been reviewed');
     }
 
     // Update feedback with review
@@ -1620,7 +1610,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       WHERE id = $4
     `, [userId, action, notes || null, feedbackId]);
 
-    return reply.send({
+    return ok(reply, {
       success: true,
       feedbackId,
       action,
@@ -1646,11 +1636,11 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       const body = request.body as { components?: unknown[] };
 
       if (!isRoleAllowed(userRoles)) {
-        return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
+        return fail(reply, 'FORBIDDEN', 'Your role does not have permission to edit case cards', 403);
       }
 
       if (!Array.isArray(body.components)) {
-        return reply.status(400).send({ error: 'components must be an array' });
+        return fail(reply, 'VALIDATION_ERROR', 'components must be an array');
       }
 
       // Verify card exists, belongs to facility, and is DRAFT
@@ -1661,10 +1651,10 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       `, [caseCardId, facilityId, versionId]);
 
       if (card.rows.length === 0) {
-        return reply.status(404).send({ error: 'Case card or version not found' });
+        return fail(reply, 'NOT_FOUND', 'Case card or version not found', 404);
       }
       if (card.rows[0].status !== 'DRAFT') {
-        return reply.status(400).send({ error: 'Only DRAFT case cards can be edited' });
+        return fail(reply, 'VALIDATION_ERROR', 'Only DRAFT case cards can be edited');
       }
 
       // Persist
@@ -1687,7 +1677,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
         versionId,
       ]);
 
-      return reply.send({ success: true, components: body.components });
+      return ok(reply, { success: true, components: body.components });
     },
   );
 
@@ -1705,11 +1695,11 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       const body = request.body as { overrides?: unknown[] };
 
       if (!isRoleAllowed(userRoles)) {
-        return reply.status(403).send({ error: 'Your role does not have permission to edit case cards' });
+        return fail(reply, 'FORBIDDEN', 'Your role does not have permission to edit case cards', 403);
       }
 
       if (!Array.isArray(body.overrides)) {
-        return reply.status(400).send({ error: 'overrides must be an array' });
+        return fail(reply, 'VALIDATION_ERROR', 'overrides must be an array');
       }
 
       const card = await query<{ status: string }>(`
@@ -1719,10 +1709,10 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       `, [caseCardId, facilityId, versionId]);
 
       if (card.rows.length === 0) {
-        return reply.status(404).send({ error: 'Case card or version not found' });
+        return fail(reply, 'NOT_FOUND', 'Case card or version not found', 404);
       }
       if (card.rows[0].status !== 'DRAFT') {
-        return reply.status(400).send({ error: 'Only DRAFT case cards can be edited' });
+        return fail(reply, 'VALIDATION_ERROR', 'Only DRAFT case cards can be edited');
       }
 
       await query(`
@@ -1743,7 +1733,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
         versionId,
       ]);
 
-      return reply.send({ success: true, overrides: body.overrides });
+      return ok(reply, { success: true, overrides: body.overrides });
     },
   );
 
@@ -1767,12 +1757,12 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
       `, [versionId, facilityId]);
 
       if (check.rows.length === 0) {
-        return reply.status(404).send({ error: 'Version not found' });
+        return fail(reply, 'NOT_FOUND', 'Version not found', 404);
       }
 
       // Return cache if available
       if (check.rows[0].composed_cache) {
-        return reply.send(check.rows[0].composed_cache);
+        return ok(reply, check.rows[0].composed_cache);
       }
 
       // Compose
@@ -1783,7 +1773,7 @@ export async function caseCardsRoutes(fastify: FastifyInstance): Promise<void> {
         UPDATE case_card_version SET composed_cache = $1 WHERE id = $2
       `, [JSON.stringify(result), versionId]).catch(() => { /* ignore cache write errors */ });
 
-      return reply.send(result);
+      return ok(reply, result);
     },
   );
 }

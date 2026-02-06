@@ -8,7 +8,7 @@ import { query } from '../db/index.js';
 import {
   CreateDeviceEventRequestSchema,
 } from '../schemas/index.js';
-import { requireCapabilities, requireAdmin } from '../plugins/auth.js';
+import { requireCapabilities } from '../plugins/auth.js';
 import { getVendorRepository } from '../repositories/index.js';
 import { ok, fail, validated } from '../utils/reply.js';
 import { idempotent } from '../plugins/idempotency.js';
@@ -305,7 +305,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       gratisReason?: string;
     };
   }>('/events/financial', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
   }, async (request: FastifyRequest<{
     Body: {
       inventoryItemId: string;

@@ -10,7 +10,7 @@
 
 import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
-import { requireAdmin } from '../plugins/auth.js';
+import { requireCapabilities } from '../plugins/auth.js';
 import { ok, fail } from '../utils/reply.js';
 import { contract } from '@asc/contract';
 import { registerContractRoute } from '../lib/contract-route.js';
@@ -19,7 +19,6 @@ import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
-// capability-guardrail-allowlist: requireAdmin used; target CATALOG_MANAGE (Wave 4)
 
 const MAX_IMAGES_PER_ITEM = 10;
 const MAX_CAPTION_LENGTH = 200;
@@ -72,7 +71,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
 
   // ── [CONTRACT] DELETE /catalog/:catalogId/images/:imageId ────────────
   registerContractRoute(fastify, contract.catalog.deleteImage, PREFIX, {
-    preHandler: [fastify.authenticate, requireAdmin],
+    preHandler: [fastify.authenticate, requireCapabilities('CATALOG_MANAGE')],
     handler: async (request, reply) => {
       const { facilityId } = request.user;
       const { catalogId, imageId } = request.contractData.params as {
@@ -135,7 +134,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
       [catalogId, facilityId]
     );
     if (catalogCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Catalog item not found' });
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
     }
 
     const result = await query<ImageRow>(
@@ -146,7 +145,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
       [catalogId, facilityId]
     );
 
-    return reply.send({ images: result.rows.map(mapImageRow) });
+    return ok(reply, { images: result.rows.map(mapImageRow) });
     },
   });
 
@@ -158,7 +157,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
     Params: { catalogId: string };
     Body: { assetUrl: string; kind?: string; caption?: string; sortOrder?: number };
   }>('/:catalogId/images', {
-    preHandler: [fastify.authenticate, requireAdmin],
+    preHandler: [fastify.authenticate, requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { catalogId } = request.params;
@@ -243,7 +242,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
    * - Re-encode as JPEG quality 80%
    */
   fastify.post<{ Params: { catalogId: string } }>('/:catalogId/images/upload', {
-    preHandler: [fastify.authenticate, requireAdmin],
+    preHandler: [fastify.authenticate, requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { catalogId } = request.params;
@@ -254,20 +253,18 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
       [catalogId, facilityId]
     );
     if (catalogCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Catalog item not found' });
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
     }
 
     // Parse multipart
     const data = await request.file();
     if (!data) {
-      return reply.status(400).send({ error: 'No file provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No file provided');
     }
 
     // Validate content type
     if (!ALLOWED_MIME_TYPES.includes(data.mimetype)) {
-      return reply.status(400).send({
-        error: `Invalid file type. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`
-      });
+      return fail(reply, 'VALIDATION_ERROR', `Invalid file type. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`);
     }
 
     // Collect file into buffer with size limit
@@ -277,9 +274,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
     for await (const chunk of data.file) {
       totalSize += chunk.length;
       if (totalSize > MAX_FILE_SIZE) {
-        return reply.status(400).send({
-          error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`
-        });
+        return fail(reply, 'VALIDATION_ERROR', `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`);
       }
       chunks.push(chunk);
     }
@@ -301,9 +296,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
         .jpeg({ quality: JPEG_QUALITY })
         .toBuffer();
     } catch (err) {
-      return reply.status(400).send({
-        error: 'Failed to process image. Ensure file is a valid image.'
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Failed to process image. Ensure file is a valid image.');
     }
 
     // Generate filename and save processed image
@@ -343,7 +336,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
       [facilityId, catalogId, kind, caption, sortOrder, assetUrl]
     );
 
-    return reply.status(201).send({ image: mapImageRow(result.rows[0]) });
+    return ok(reply, { image: mapImageRow(result.rows[0]) }, 201);
   });
 
   /**
@@ -354,7 +347,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
     Params: { catalogId: string; imageId: string };
     Body: { kind?: string; caption?: string; sortOrder?: number };
   }>('/:catalogId/images/:imageId', {
-    preHandler: [fastify.authenticate, requireAdmin],
+    preHandler: [fastify.authenticate, requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { catalogId, imageId } = request.params;
@@ -368,7 +361,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
       [imageId, catalogId, facilityId]
     );
     if (existing.rows.length === 0) {
-      return reply.status(404).send({ error: 'Image not found' });
+      return fail(reply, 'NOT_FOUND', 'Image not found', 404);
     }
 
     const updates: string[] = [];
@@ -377,7 +370,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
 
     if (kind !== undefined) {
       if (kind !== 'PRIMARY' && kind !== 'REFERENCE') {
-        return reply.status(400).send({ error: 'kind must be PRIMARY or REFERENCE' });
+        return fail(reply, 'VALIDATION_ERROR', 'kind must be PRIMARY or REFERENCE');
       }
       // If changing to PRIMARY, clear other PRIMARY
       if (kind === 'PRIMARY') {
@@ -402,7 +395,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
     }
 
     if (updates.length === 0) {
-      return reply.send({ image: mapImageRow(existing.rows[0]) });
+      return ok(reply, { image: mapImageRow(existing.rows[0]) });
     }
 
     params.push(imageId, catalogId, facilityId);
@@ -413,7 +406,7 @@ export async function catalogImagesRoutes(fastify: FastifyInstance): Promise<voi
       params
     );
 
-    return reply.send({ image: mapImageRow(result.rows[0]) });
+    return ok(reply, { image: mapImageRow(result.rows[0]) });
   });
 
 }

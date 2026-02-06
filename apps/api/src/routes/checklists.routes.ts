@@ -31,8 +31,8 @@ import {
   getSurgeonChecklists,
   updateSurgeonFeedback,
 } from '../services/checklists.service.js';
-import { requireAdmin } from '../plugins/auth.js';
-// capability-guardrail-allowlist: requireAdmin used; target SETTINGS_MANAGE (Wave 4)
+import { requireCapabilities } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
 
 export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> {
   // ============================================================================
@@ -52,7 +52,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     if (!settings) {
       // Return defaults if no settings exist
-      return reply.send({
+      return ok(reply, {
         facilityId,
         enableTimeoutDebrief: false,
         createdAt: new Date().toISOString(),
@@ -60,7 +60,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
       });
     }
 
-    return reply.send(settings);
+    return ok(reply, settings);
   });
 
   /**
@@ -68,21 +68,18 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
    * Update facility settings (Admin only)
    */
   fastify.patch('/facility/settings', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { facilityId } = request.user;
 
     const parseResult = UpdateFacilitySettingsRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const settings = await updateFacilitySettings(facilityId, parseResult.data);
 
-    return reply.send(settings);
+    return ok(reply, settings);
   });
 
   // ============================================================================
@@ -100,7 +97,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     const rooms = await getRooms(facilityId);
 
-    return reply.send({ rooms });
+    return ok(reply, { rooms });
   });
 
   // ============================================================================
@@ -118,14 +115,12 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     // Admin only
     if (role !== 'ADMIN') {
-      return reply.status(403).send({
-        error: 'Only administrators can view checklist templates',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only administrators can view checklist templates', 403);
     }
 
     const templates = await getChecklistTemplates(facilityId);
 
-    return reply.send({ templates });
+    return ok(reply, { templates });
   });
 
   /**
@@ -142,27 +137,21 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     // Admin only
     if (role !== 'ADMIN') {
-      return reply.status(403).send({
-        error: 'Only administrators can view checklist templates',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only administrators can view checklist templates', 403);
     }
 
     const upperType = type.toUpperCase() as 'TIMEOUT' | 'DEBRIEF';
     if (upperType !== 'TIMEOUT' && upperType !== 'DEBRIEF') {
-      return reply.status(400).send({
-        error: 'Invalid template type. Must be TIMEOUT or DEBRIEF',
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid template type. Must be TIMEOUT or DEBRIEF');
     }
 
     const template = await getChecklistTemplateByType(facilityId, upperType);
 
     if (!template) {
-      return reply.status(404).send({
-        error: `No ${upperType} template found`,
-      });
+      return fail(reply, 'NOT_FOUND', `No ${upperType} template found`, 404);
     }
 
-    return reply.send(template);
+    return ok(reply, template);
   });
 
   /**
@@ -193,16 +182,12 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     // Admin only
     if (role !== 'ADMIN') {
-      return reply.status(403).send({
-        error: 'Only administrators can update checklist templates',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only administrators can update checklist templates', 403);
     }
 
     const upperType = type.toUpperCase() as 'TIMEOUT' | 'DEBRIEF';
     if (upperType !== 'TIMEOUT' && upperType !== 'DEBRIEF') {
-      return reply.status(400).send({
-        error: 'Invalid template type. Must be TIMEOUT or DEBRIEF',
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid template type. Must be TIMEOUT or DEBRIEF');
     }
 
     const body = request.body as {
@@ -222,15 +207,11 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     };
 
     if (!body.items || !Array.isArray(body.items)) {
-      return reply.status(400).send({
-        error: 'Items array is required',
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Items array is required');
     }
 
     if (!body.requiredSignatures || !Array.isArray(body.requiredSignatures)) {
-      return reply.status(400).send({
-        error: 'Required signatures array is required',
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Required signatures array is required');
     }
 
     try {
@@ -242,11 +223,9 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
         userId
       );
 
-      return reply.send(updated);
+      return ok(reply, updated);
     } catch (err) {
-      return reply.status(500).send({
-        error: err instanceof Error ? err.message : 'Failed to update template',
-      });
+      return fail(reply, 'INTERNAL_ERROR', err instanceof Error ? err.message : 'Failed to update template', 500);
     }
   };
   fastify.put('/checklists/templates/:type', {
@@ -269,9 +248,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     const { facilityId, userId, roles } = request.user;
 
     if (!roles || !roles.includes('SURGEON')) {
-      return reply.status(403).send({
-        error: 'Only surgeons can update surgeon feedback',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only surgeons can update surgeon feedback', 403);
     }
 
     const body = request.body as { notes?: string; flagged?: boolean; flaggedComment?: string };
@@ -283,10 +260,10 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     });
 
     if (!result.success) {
-      return reply.status(400).send({ error: result.error });
+      return fail(reply, 'VALIDATION_ERROR', result.error || 'Failed to update feedback');
     }
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   };
   fastify.put('/surgeon/checklists/:instanceId/feedback', {
     preHandler: [fastify.authenticate],
@@ -313,7 +290,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     const result = await getChecklistsForCase(id, facilityId);
 
-    return reply.send({
+    return ok(reply, {
       caseId: id,
       ...result,
     });
@@ -334,27 +311,22 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     // Only staff roles can start checklists
     const allowedRoles = ['ADMIN', 'CIRCULATOR', 'SURGEON', 'SCRUB'];
     if (!allowedRoles.includes(role)) {
-      return reply.status(403).send({
-        error: 'Only authorized staff can start checklists',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only authorized staff can start checklists', 403);
     }
 
     const parseResult = StartChecklistRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { type, roomId } = parseResult.data;
 
     try {
       const instance = await startChecklist(id, facilityId, type, userId, roomId);
-      return reply.status(201).send(instance);
+      return ok(reply, instance, 201);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(400).send({ error: message });
+      return fail(reply, 'VALIDATION_ERROR', message);
     }
   });
 
@@ -373,17 +345,12 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     // Only staff roles can respond to checklists
     const allowedRoles = ['ADMIN', 'CIRCULATOR', 'SURGEON', 'SCRUB', 'ANESTHESIA'];
     if (!allowedRoles.includes(role)) {
-      return reply.status(403).send({
-        error: 'Only authorized staff can respond to checklists',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only authorized staff can respond to checklists', 403);
     }
 
     const parseResult = RespondChecklistRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { itemKey, value } = parseResult.data;
@@ -393,17 +360,15 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     const instance = type === 'TIMEOUT' ? checklistsResult.timeout : checklistsResult.debrief;
 
     if (!instance) {
-      return reply.status(404).send({
-        error: `${type} checklist not found. Please start the checklist first.`,
-      });
+      return fail(reply, 'NOT_FOUND', `${type} checklist not found. Please start the checklist first.`, 404);
     }
 
     try {
       const updated = await recordResponse(instance.id, itemKey, value, userId, facilityId);
-      return reply.send(updated);
+      return ok(reply, updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(400).send({ error: message });
+      return fail(reply, 'VALIDATION_ERROR', message);
     }
   });
 
@@ -421,10 +386,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     const parseResult = SignChecklistRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { method, flaggedForReview, flagComment } = parseResult.data;
@@ -434,9 +396,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     const instance = type === 'TIMEOUT' ? checklistsResult.timeout : checklistsResult.debrief;
 
     if (!instance) {
-      return reply.status(404).send({
-        error: `${type} checklist not found. Please start the checklist first.`,
-      });
+      return fail(reply, 'NOT_FOUND', `${type} checklist not found. Please start the checklist first.`, 404);
     }
 
     // Map user role to signature role
@@ -455,17 +415,15 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     const signatureRole = roleMapping[role];
     if (!signatureRole) {
-      return reply.status(403).send({
-        error: `Role ${role} cannot sign checklists`,
-      });
+      return fail(reply, 'FORBIDDEN', `Role ${role} cannot sign checklists`, 403);
     }
 
     try {
       const updated = await addSignature(instance.id, signatureRole, userId, method, facilityId, flaggedForReview, flagComment || null);
-      return reply.send(updated);
+      return ok(reply, updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(400).send({ error: message });
+      return fail(reply, 'VALIDATION_ERROR', message);
     }
   });
 
@@ -484,9 +442,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     // Only circulator or admin can complete checklists
     const allowedRoles = ['ADMIN', 'CIRCULATOR'];
     if (!allowedRoles.includes(role)) {
-      return reply.status(403).send({
-        error: 'Only circulator or admin can complete checklists',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only circulator or admin can complete checklists', 403);
     }
 
     // Get checklist instance ID
@@ -494,17 +450,15 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     const instance = type === 'TIMEOUT' ? checklistsResult.timeout : checklistsResult.debrief;
 
     if (!instance) {
-      return reply.status(404).send({
-        error: `${type} checklist not found. Please start the checklist first.`,
-      });
+      return fail(reply, 'NOT_FOUND', `${type} checklist not found. Please start the checklist first.`, 404);
     }
 
     try {
       const updated = await completeChecklist(instance.id, facilityId);
-      return reply.send(updated);
+      return ok(reply, updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(400).send({ error: message });
+      return fail(reply, 'VALIDATION_ERROR', message);
     }
   });
 
@@ -527,18 +481,14 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     // Only SCRUB or SURGEON can do async review
     if (role !== 'SCRUB' && role !== 'SURGEON') {
-      return reply.status(403).send({
-        error: 'Only SCRUB or SURGEON can perform async reviews',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only SCRUB or SURGEON can perform async reviews', 403);
     }
 
     const body = request.body as { notes?: string; method: string };
     const { notes, method } = body;
 
     if (!method) {
-      return reply.status(400).send({
-        error: 'Signature method is required',
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Signature method is required');
     }
 
     // Get checklist instance
@@ -546,9 +496,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     const instance = checklistsResult.debrief;
 
     if (!instance) {
-      return reply.status(404).send({
-        error: 'DEBRIEF checklist not found for this case',
-      });
+      return fail(reply, 'NOT_FOUND', 'DEBRIEF checklist not found for this case', 404);
     }
 
     try {
@@ -560,10 +508,10 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
         method,
         facilityId
       );
-      return reply.send(updated);
+      return ok(reply, updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(400).send({ error: message });
+      return fail(reply, 'VALIDATION_ERROR', message);
     }
   });
 
@@ -583,14 +531,12 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     // Only admin can view all pending reviews
     if (role !== 'ADMIN') {
-      return reply.status(403).send({
-        error: 'Only administrators can view pending reviews',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only administrators can view pending reviews', 403);
     }
 
     const pendingReviews = await getPendingReviews(facilityId);
 
-    return reply.send({
+    return ok(reply, {
       pendingReviews,
       total: pendingReviews.length,
     });
@@ -607,7 +553,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     // Only SCRUB or SURGEON have pending reviews
     if (role !== 'SCRUB' && role !== 'SURGEON') {
-      return reply.send({
+      return ok(reply, {
         pendingReviews: [],
         total: 0,
       });
@@ -622,7 +568,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
       return false;
     });
 
-    return reply.send({
+    return ok(reply, {
       pendingReviews: myPending,
       total: myPending.length,
     });
@@ -644,9 +590,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     // Admin only
     if (role !== 'ADMIN') {
-      return reply.status(403).send({
-        error: 'Only administrators can view flagged reviews',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only administrators can view flagged reviews', 403);
     }
 
     const [flaggedReviews, debriefItemsForReview] = await Promise.all([
@@ -658,7 +602,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
     const unresolved = flaggedReviews.filter(r => !r.resolved);
     const resolved = flaggedReviews.filter(r => r.resolved);
 
-    return reply.send({
+    return ok(reply, {
       flaggedReviews: unresolved,
       resolvedReviews: resolved,
       debriefItemsForReview,
@@ -682,9 +626,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     // Admin only (check roles array for multi-role support)
     if (!roles || !roles.includes('ADMIN')) {
-      return reply.status(403).send({
-        error: 'Only administrators can resolve flagged reviews',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only administrators can resolve flagged reviews', 403);
     }
 
     const body = request.body as { notes?: string } | undefined;
@@ -692,10 +634,10 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     try {
       await resolveFlaggedSignature(signatureId, userId, notes, facilityId);
-      return reply.send({ success: true });
+      return ok(reply, { success: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(400).send({ error: message });
+      return fail(reply, 'VALIDATION_ERROR', message);
     }
   });
 
@@ -714,9 +656,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     // Admin only (check roles array for multi-role support)
     if (!roles || !roles.includes('ADMIN')) {
-      return reply.status(403).send({
-        error: 'Only administrators can resolve surgeon-flagged reviews',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only administrators can resolve surgeon-flagged reviews', 403);
     }
 
     const body = request.body as { notes?: string } | undefined;
@@ -724,10 +664,10 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     try {
       await resolveSurgeonFlag(instanceId, userId, notes, facilityId);
-      return reply.send({ success: true });
+      return ok(reply, { success: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(400).send({ error: message });
+      return fail(reply, 'VALIDATION_ERROR', message);
     }
   });
 
@@ -746,14 +686,12 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
 
     // Only surgeons can access this (check roles array for multi-role support)
     if (!roles || !roles.includes('SURGEON')) {
-      return reply.status(403).send({
-        error: 'Only surgeons can access this endpoint',
-      });
+      return fail(reply, 'FORBIDDEN', 'Only surgeons can access this endpoint', 403);
     }
 
     const checklists = await getSurgeonChecklists(facilityId, userId);
 
-    return reply.send({
+    return ok(reply, {
       checklists,
       total: checklists.length,
     });

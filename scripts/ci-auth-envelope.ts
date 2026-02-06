@@ -38,22 +38,7 @@ const violations: Violation[] = [];
  * As routes are migrated to registerContractRoute / fail(), remove them here.
  */
 const ENVELOPE_ALLOWLIST: Record<string, { removeBy: string }> = {
-  'case-cards.routes.ts': { removeBy: 'Wave 4' },
-  'checklists.routes.ts': { removeBy: 'Wave 4' },
-  'general-settings.routes.ts': { removeBy: 'Wave 4' },
-  'locations.routes.ts': { removeBy: 'Wave 4' },
-  'preference-cards.routes.ts': { removeBy: 'Wave 4' },
-  'readiness.routes.ts': { removeBy: 'Wave 4' },
-  'schedule.routes.ts': { removeBy: 'Wave 4' },
-  'users.routes.ts': { removeBy: 'Wave 4' },
-  'admin-settings.routes.ts': { removeBy: 'Wave 4' },
-  'settings.routes.ts': { removeBy: 'Wave 4' },
-  'catalog-sets.routes.ts': { removeBy: 'Wave 4' },
-  'catalog-groups.routes.ts': { removeBy: 'Wave 4' },
-  'catalog-images.routes.ts': { removeBy: 'Wave 4' },
-  'case-dashboard.routes.ts': { removeBy: 'Wave 4' },
-  'or-workflow.routes.ts': { removeBy: 'Wave 4' },
-  'scanner.routes.ts': { removeBy: 'Wave 4' },
+  // Wave 4 complete — all routes now use ok() and fail() envelope helpers
 };
 
 function findFiles(dir: string, pattern: RegExp): string[] {

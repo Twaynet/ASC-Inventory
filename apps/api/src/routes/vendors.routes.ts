@@ -5,7 +5,7 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { requireAdmin } from '../plugins/auth.js';
+import { requireCapabilities } from '../plugins/auth.js';
 import { ok, fail } from '../utils/reply.js';
 import { getVendorRepository } from '../repositories/index.js';
 import { VendorType } from '../repositories/interfaces/vendor.repository.js';
@@ -53,7 +53,7 @@ export async function vendorsRoutes(fastify: FastifyInstance): Promise<void> {
       search?: string;
     };
   }>('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request: FastifyRequest<{
     Querystring: {
       vendorType?: string;
@@ -86,7 +86,7 @@ export async function vendorsRoutes(fastify: FastifyInstance): Promise<void> {
    * Get single vendor (ADMIN only)
    */
   fastify.get<{ Params: { vendorId: string } }>('/:vendorId', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request: FastifyRequest<{ Params: { vendorId: string } }>, reply: FastifyReply) => {
     const { facilityId } = request.user;
     const { vendorId } = request.params;
@@ -113,7 +113,7 @@ export async function vendorsRoutes(fastify: FastifyInstance): Promise<void> {
       notes?: string;
     };
   }>('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request: FastifyRequest<{
     Body: {
       name: string;
@@ -170,7 +170,7 @@ export async function vendorsRoutes(fastify: FastifyInstance): Promise<void> {
       notes?: string | null;
     };
   }>('/:vendorId', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request: FastifyRequest<{
     Params: { vendorId: string };
     Body: {

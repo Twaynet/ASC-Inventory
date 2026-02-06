@@ -49,61 +49,7 @@ interface AllowlistEntry {
  *   // capability-guardrail-allowlist: <reason>
  */
 const ROLE_MIDDLEWARE_ALLOWLIST: Record<string, AllowlistEntry> = {
-  'users.routes.ts': {
-    reason: 'USER_MANAGE capability not yet wired to route preHandlers',
-    targetCapability: 'USER_MANAGE',
-    removeBy: 'Wave 4',
-  },
-  'admin-settings.routes.ts': {
-    reason: 'SETTINGS_MANAGE capability not yet wired to route preHandlers',
-    targetCapability: 'SETTINGS_MANAGE',
-    removeBy: 'Wave 4',
-  },
-  'settings.routes.ts': {
-    reason: 'SETTINGS_MANAGE capability not yet wired to route preHandlers',
-    targetCapability: 'SETTINGS_MANAGE',
-    removeBy: 'Wave 4',
-  },
-  'general-settings.routes.ts': {
-    reason: 'SETTINGS_MANAGE capability not yet wired to route preHandlers',
-    targetCapability: 'SETTINGS_MANAGE',
-    removeBy: 'Wave 4',
-  },
-  'schedule.routes.ts': {
-    reason: 'Schedule route capabilities not yet wired to route preHandlers',
-    targetCapability: 'CASE_APPROVE / CASE_ASSIGN_ROOM',
-    removeBy: 'Wave 4',
-  },
-  'checklists.routes.ts': {
-    reason: 'Checklist template management not yet wired to capabilities',
-    targetCapability: 'SETTINGS_MANAGE',
-    removeBy: 'Wave 4',
-  },
-  'preference-cards.routes.ts': {
-    reason: 'Preference card management not yet wired to capabilities',
-    targetCapability: 'CATALOG_MANAGE',
-    removeBy: 'Wave 4',
-  },
-  'catalog-images.routes.ts': {
-    reason: 'Catalog image management not yet wired to capabilities',
-    targetCapability: 'CATALOG_MANAGE',
-    removeBy: 'Wave 4',
-  },
-  'locations.routes.ts': {
-    reason: 'Location management not yet wired to capabilities',
-    targetCapability: 'LOCATION_MANAGE',
-    removeBy: 'Wave 4',
-  },
-  'catalog-sets.routes.ts': {
-    reason: 'Catalog set management not yet wired to capabilities',
-    targetCapability: 'CATALOG_MANAGE',
-    removeBy: 'Wave 4',
-  },
-  'catalog-groups.routes.ts': {
-    reason: 'Catalog group management not yet wired to capabilities',
-    targetCapability: 'CATALOG_MANAGE',
-    removeBy: 'Wave 4',
-  },
+  // Wave 4 complete — all routes now use requireCapabilities()
 };
 
 const ROLE_MIDDLEWARE_PATTERN = /\b(requireAdmin|requireScheduler|requireInventoryTech|requireSurgeon)\b/;

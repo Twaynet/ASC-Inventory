@@ -10,8 +10,8 @@ import {
   UpdatePreferenceCardRequestSchema,
   CreatePreferenceCardVersionRequestSchema,
 } from '../schemas/index.js';
-import { requireAdmin } from '../plugins/auth.js';
-// capability-guardrail-allowlist: requireAdmin used; target CATALOG_MANAGE (Wave 4)
+import { requireCapabilities } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
 
 interface PreferenceCardRow {
   id: string;
@@ -74,7 +74,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
 
     const result = await query<PreferenceCardRow & { version_count: string; item_count: string }>(sql, params);
 
-    return reply.send({
+    return ok(reply, {
       cards: result.rows.map(row => ({
         id: row.id,
         surgeonId: row.surgeon_id,
@@ -112,7 +112,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     `, [id, facilityId]);
 
     if (cardResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Preference card not found' });
+      return fail(reply, 'NOT_FOUND', 'Preference card not found', 404);
     }
 
     const card = cardResult.rows[0];
@@ -158,7 +158,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
       }
     }
 
-    return reply.send({
+    return ok(reply, {
       card: {
         id: card.id,
         surgeonId: card.surgeon_id,
@@ -190,7 +190,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     `, [id, facilityId]);
 
     if (cardCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Preference card not found' });
+      return fail(reply, 'NOT_FOUND', 'Preference card not found', 404);
     }
 
     const result = await query<PreferenceCardVersionRow>(`
@@ -203,7 +203,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
       ORDER BY pcv.version_number DESC
     `, [id]);
 
-    return reply.send({
+    return ok(reply, {
       versions: result.rows.map(v => ({
         id: v.id,
         versionNumber: v.version_number,
@@ -220,14 +220,11 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
    * Create new preference card with initial version (ADMIN only)
    */
   fastify.post('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const parseResult = CreatePreferenceCardRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { facilityId, userId } = request.user;
@@ -239,11 +236,11 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     `, [data.surgeonId, facilityId]);
 
     if (surgeonCheck.rows.length === 0) {
-      return reply.status(400).send({ error: 'Surgeon not found' });
+      return fail(reply, 'VALIDATION_ERROR', 'Surgeon not found');
     }
 
     if (surgeonCheck.rows[0].role !== 'SURGEON') {
-      return reply.status(400).send({ error: 'Selected user is not a surgeon' });
+      return fail(reply, 'VALIDATION_ERROR', 'Selected user is not a surgeon');
     }
 
     // Verify all catalog items exist
@@ -253,7 +250,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     `, [catalogIds, facilityId]);
 
     if (catalogCheck.rows.length !== catalogIds.length) {
-      return reply.status(400).send({ error: 'One or more catalog items not found or inactive' });
+      return fail(reply, 'VALIDATION_ERROR', 'One or more catalog items not found or inactive');
     }
 
     // Check for duplicate procedure name for same surgeon
@@ -263,7 +260,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     `, [data.surgeonId, data.procedureName, facilityId]);
 
     if (nameCheck.rows.length > 0) {
-      return reply.status(400).send({ error: 'Preference card with this procedure name already exists for this surgeon' });
+      return fail(reply, 'DUPLICATE', 'Preference card with this procedure name already exists for this surgeon');
     }
 
     // Create card
@@ -294,7 +291,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
       SELECT name FROM app_user WHERE id = $1
     `, [data.surgeonId]);
 
-    return reply.status(201).send({
+    return ok(reply, {
       card: {
         id: cardId,
         surgeonId: data.surgeonId,
@@ -305,7 +302,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
         currentVersionId: versionId,
         itemCount: data.items.length,
       },
-    });
+    }, 201);
   });
 
   /**
@@ -313,17 +310,14 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
    * Update preference card metadata (ADMIN only)
    */
   fastify.patch<{ Params: { id: string } }>('/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
 
     const parseResult = UpdatePreferenceCardRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const data = parseResult.data;
@@ -334,7 +328,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     `, [id, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Preference card not found' });
+      return fail(reply, 'NOT_FOUND', 'Preference card not found', 404);
     }
 
     // Check name uniqueness if changing
@@ -345,7 +339,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
       `, [existingResult.rows[0].surgeon_id, data.procedureName, facilityId, id]);
 
       if (nameCheck.rows.length > 0) {
-        return reply.status(400).send({ error: 'Preference card with this procedure name already exists for this surgeon' });
+        return fail(reply, 'DUPLICATE', 'Preference card with this procedure name already exists for this surgeon');
       }
     }
 
@@ -364,7 +358,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     }
 
     if (updates.length === 0) {
-      return reply.status(400).send({ error: 'No updates provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No updates provided');
     }
 
     values.push(id, facilityId);
@@ -375,7 +369,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
       WHERE id = $${paramIndex++} AND facility_id = $${paramIndex}
     `, values);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -383,17 +377,14 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
    * Create new version with updated items (ADMIN only)
    */
   fastify.post<{ Params: { id: string } }>('/:id/versions', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId } = request.user;
 
     const parseResult = CreatePreferenceCardVersionRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const data = parseResult.data;
@@ -404,7 +395,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     `, [id, facilityId]);
 
     if (cardCheck.rows.length === 0) {
-      return reply.status(404).send({ error: 'Preference card not found or inactive' });
+      return fail(reply, 'NOT_FOUND', 'Preference card not found or inactive', 404);
     }
 
     // Verify all catalog items exist
@@ -414,7 +405,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     `, [catalogIds, facilityId]);
 
     if (catalogCheck.rows.length !== catalogIds.length) {
-      return reply.status(400).send({ error: 'One or more catalog items not found or inactive' });
+      return fail(reply, 'VALIDATION_ERROR', 'One or more catalog items not found or inactive');
     }
 
     // Get next version number
@@ -445,7 +436,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
       SELECT name FROM app_user WHERE id = $1
     `, [userId]);
 
-    return reply.status(201).send({
+    return ok(reply, {
       version: {
         id: newVersionId,
         versionNumber: nextVersion,
@@ -453,7 +444,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
         createdByUserId: userId,
         createdByName: userResult.rows[0].name,
       },
-    });
+    }, 201);
   });
 
   /**
@@ -461,7 +452,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
    * Deactivate preference card (ADMIN only)
    */
   fastify.post<{ Params: { id: string } }>('/:id/deactivate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -471,11 +462,11 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Preference card not found' });
+      return fail(reply, 'NOT_FOUND', 'Preference card not found', 404);
     }
 
     if (!result.rows[0].active) {
-      return reply.status(400).send({ error: 'Preference card is already inactive' });
+      return fail(reply, 'INVALID_STATE', 'Preference card is already inactive');
     }
 
     await query(`
@@ -483,7 +474,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 
   /**
@@ -491,7 +482,7 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
    * Activate preference card (ADMIN only)
    */
   fastify.post<{ Params: { id: string } }>('/:id/activate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -501,11 +492,11 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Preference card not found' });
+      return fail(reply, 'NOT_FOUND', 'Preference card not found', 404);
     }
 
     if (result.rows[0].active) {
-      return reply.status(400).send({ error: 'Preference card is already active' });
+      return fail(reply, 'INVALID_STATE', 'Preference card is already active');
     }
 
     await query(`
@@ -513,6 +504,6 @@ export async function preferenceCardsRoutes(fastify: FastifyInstance): Promise<v
       WHERE id = $1 AND facility_id = $2
     `, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 }

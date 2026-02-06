@@ -9,8 +9,8 @@ import {
   CreateLocationRequestSchema,
   UpdateLocationRequestSchema,
 } from '../schemas/index.js';
-import { requireAdmin } from '../plugins/auth.js';
-// capability-guardrail-allowlist: requireAdmin used; target LOCATION_MANAGE (Wave 4)
+import { requireCapabilities } from '../plugins/auth.js';
+import { ok, fail } from '../utils/reply.js';
 
 interface LocationRow {
   id: string;
@@ -51,7 +51,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
       ORDER BY l.name ASC
     `, [facilityId]);
 
-    return reply.send({
+    return ok(reply, {
       locations: result.rows.map(row => ({
         id: row.id,
         name: row.name,
@@ -89,11 +89,11 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Location not found' });
+      return fail(reply, 'NOT_FOUND', 'Location not found', 404);
     }
 
     const row = result.rows[0];
-    return reply.send({
+    return ok(reply, {
       location: {
         id: row.id,
         name: row.name,
@@ -113,14 +113,11 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
    * Create new location (ADMIN only)
    */
   fastify.post('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('LOCATION_MANAGE')],
   }, async (request, reply) => {
     const parseResult = CreateLocationRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const { facilityId } = request.user;
@@ -133,7 +130,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
       `, [data.parentLocationId, facilityId]);
 
       if (parentCheck.rows.length === 0) {
-        return reply.status(400).send({ error: 'Parent location not found' });
+        return fail(reply, 'NOT_FOUND', 'Parent location not found', 400);
       }
     }
 
@@ -143,7 +140,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [facilityId, data.name]);
 
     if (nameCheck.rows.length > 0) {
-      return reply.status(400).send({ error: 'Location name already exists' });
+      return fail(reply, 'DUPLICATE', 'Location name already exists');
     }
 
     const result = await query<LocationRow>(`
@@ -153,7 +150,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [facilityId, data.name, data.description || null, data.parentLocationId || null]);
 
     const row = result.rows[0];
-    return reply.status(201).send({
+    return ok(reply, {
       location: {
         id: row.id,
         name: row.name,
@@ -165,7 +162,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
       },
-    });
+    }, 201);
   });
 
   /**
@@ -173,17 +170,14 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
    * Update location (ADMIN only)
    */
   fastify.patch<{ Params: { id: string } }>('/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('LOCATION_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
 
     const parseResult = UpdateLocationRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation error',
-        details: parseResult.error.flatten(),
-      });
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
     }
 
     const data = parseResult.data;
@@ -194,13 +188,13 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (existingResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Location not found' });
+      return fail(reply, 'NOT_FOUND', 'Location not found', 404);
     }
 
     // Verify parent location if changing
     if (data.parentLocationId !== undefined) {
       if (data.parentLocationId === id) {
-        return reply.status(400).send({ error: 'Location cannot be its own parent' });
+        return fail(reply, 'VALIDATION_ERROR', 'Location cannot be its own parent');
       }
       if (data.parentLocationId) {
         const parentCheck = await query(`
@@ -208,7 +202,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
         `, [data.parentLocationId, facilityId]);
 
         if (parentCheck.rows.length === 0) {
-          return reply.status(400).send({ error: 'Parent location not found' });
+          return fail(reply, 'NOT_FOUND', 'Parent location not found', 400);
         }
       }
     }
@@ -220,7 +214,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
       `, [facilityId, data.name, id]);
 
       if (nameCheck.rows.length > 0) {
-        return reply.status(400).send({ error: 'Location name already exists' });
+        return fail(reply, 'DUPLICATE', 'Location name already exists');
       }
     }
 
@@ -243,7 +237,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     if (updates.length === 0) {
-      return reply.status(400).send({ error: 'No updates provided' });
+      return fail(reply, 'VALIDATION_ERROR', 'No updates provided');
     }
 
     values.push(id, facilityId);
@@ -269,7 +263,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id]);
 
     const row = fullResult.rows[0];
-    return reply.send({
+    return ok(reply, {
       location: {
         id: row.id,
         name: row.name,
@@ -289,7 +283,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
    * Delete location (ADMIN only) - only if no children or items
    */
   fastify.delete<{ Params: { id: string } }>('/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('LOCATION_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -305,19 +299,19 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return reply.status(404).send({ error: 'Location not found' });
+      return fail(reply, 'NOT_FOUND', 'Location not found', 404);
     }
 
     const row = result.rows[0];
     if (parseInt(row.child_count) > 0) {
-      return reply.status(400).send({ error: 'Cannot delete location with child locations' });
+      return fail(reply, 'INVALID_STATE', 'Cannot delete location with child locations');
     }
     if (parseInt(row.item_count) > 0) {
-      return reply.status(400).send({ error: 'Cannot delete location with inventory items' });
+      return fail(reply, 'INVALID_STATE', 'Cannot delete location with inventory items');
     }
 
     await query(`DELETE FROM location WHERE id = $1 AND facility_id = $2`, [id, facilityId]);
 
-    return reply.send({ success: true });
+    return ok(reply, { success: true });
   });
 }

@@ -10,9 +10,8 @@ import {
   UpdateConfigItemRequestSchema,
   ReorderConfigItemsRequestSchema,
 } from '../schemas/index.js';
-import { requireAdmin } from '../plugins/auth.js';
+import { requireCapabilities } from '../plugins/auth.js';
 import { ok, fail } from '../utils/reply.js';
-// capability-guardrail-allowlist: requireAdmin used; target SETTINGS_MANAGE (Wave 4)
 
 interface ConfigItemRow {
   id: string;
@@ -82,7 +81,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
    * Create new config item (ADMIN only)
    */
   fastify.post('/config-items', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const parseResult = CreateConfigItemRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -126,7 +125,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
    * Update config item (ADMIN only)
    */
   fastify.patch<{ Params: { id: string } }>('/config-items/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -185,7 +184,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
    * Deactivate config item (ADMIN only)
    */
   fastify.post<{ Params: { id: string } }>('/config-items/:id/deactivate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -215,7 +214,7 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
    * Activate config item (ADMIN only)
    */
   fastify.post<{ Params: { id: string } }>('/config-items/:id/activate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -275,6 +274,6 @@ export async function generalSettingsRoutes(fastify: FastifyInstance): Promise<v
 
     return ok(reply, { success: true });
   };
-  fastify.put('/config-items/reorder', { preHandler: [requireAdmin] }, reorderHandler);
-  fastify.patch('/config-items/reorder', { preHandler: [requireAdmin] }, reorderHandler);
+  fastify.put('/config-items/reorder', { preHandler: [requireCapabilities('SETTINGS_MANAGE')] }, reorderHandler);
+  fastify.patch('/config-items/reorder', { preHandler: [requireCapabilities('SETTINGS_MANAGE')] }, reorderHandler);
 }

@@ -10,7 +10,7 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { requireAdmin } from '../plugins/auth.js';
+import { requireCapabilities } from '../plugins/auth.js';
 import { ok, fail } from '../utils/reply.js';
 import { getLoanerSetRepository, getVendorRepository, getInventoryRepository } from '../repositories/index.js';
 import { query } from '../db/index.js';
@@ -75,7 +75,7 @@ export async function loanerSetsRoutes(fastify: FastifyInstance): Promise<void> 
       isOverdue?: string;
     };
   }>('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
   }, async (request: FastifyRequest<{
     Querystring: {
       vendorId?: string;
@@ -109,7 +109,7 @@ export async function loanerSetsRoutes(fastify: FastifyInstance): Promise<void> 
    * List all open (unreturned) loaner sets (ADMIN only)
    */
   fastify.get('/open', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { facilityId } = request.user;
 
@@ -123,7 +123,7 @@ export async function loanerSetsRoutes(fastify: FastifyInstance): Promise<void> 
    * List all overdue loaner sets (ADMIN only)
    */
   fastify.get('/overdue', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { facilityId } = request.user;
 
@@ -137,7 +137,7 @@ export async function loanerSetsRoutes(fastify: FastifyInstance): Promise<void> 
    * Get single loaner set (ADMIN only)
    */
   fastify.get<{ Params: { loanerSetId: string } }>('/:loanerSetId', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
   }, async (request: FastifyRequest<{ Params: { loanerSetId: string } }>, reply: FastifyReply) => {
     const { facilityId } = request.user;
     const { loanerSetId } = request.params;
@@ -166,7 +166,7 @@ export async function loanerSetsRoutes(fastify: FastifyInstance): Promise<void> 
       notes?: string;
     };
   }>('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
   }, async (request: FastifyRequest<{
     Body: {
       vendorId: string;
@@ -241,7 +241,7 @@ export async function loanerSetsRoutes(fastify: FastifyInstance): Promise<void> 
       notes?: string;
     };
   }>('/:loanerSetId/return', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
   }, async (request: FastifyRequest<{
     Params: { loanerSetId: string };
     Body: {

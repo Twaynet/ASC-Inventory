@@ -9,9 +9,8 @@ import {
   CreateRoomRequestSchema,
   UpdateRoomRequestSchema,
 } from '../schemas/index.js';
-import { requireAdmin } from '../plugins/auth.js';
+import { requireCapabilities } from '../plugins/auth.js';
 import { ok, fail } from '../utils/reply.js';
-// capability-guardrail-allowlist: requireAdmin used; target SETTINGS_MANAGE (Wave 4)
 
 interface RoomRow {
   id: string;
@@ -65,7 +64,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
    * Create new room (ADMIN only)
    */
   fastify.post('/rooms', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const parseResult = CreateRoomRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -114,7 +113,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
    * Update room (ADMIN only)
    */
   fastify.patch<{ Params: { id: string } }>('/rooms/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -174,7 +173,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
    * Deactivate room (ADMIN only)
    */
   fastify.post<{ Params: { id: string } }>('/rooms/:id/deactivate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -204,7 +203,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
    * Activate room (ADMIN only)
    */
   fastify.post<{ Params: { id: string } }>('/rooms/:id/activate', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -235,7 +234,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
    * Body: { orderedIds: string[] } - array of room IDs in desired order
    */
   fastify.post<{ Body: { orderedIds: string[] } }>('/rooms/reorder', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { orderedIds } = request.body;
@@ -290,7 +289,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
    * List all surgeons with their display settings
    */
   fastify.get('/surgeons', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
 
@@ -316,7 +315,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
    * Update surgeon settings (ADMIN only)
    */
   fastify.patch<{ Params: { id: string }; Body: { displayColor?: string | null } }>('/surgeons/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireCapabilities('SETTINGS_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
