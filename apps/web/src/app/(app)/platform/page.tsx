@@ -216,7 +216,8 @@ export default function PlatformAdminPage() {
 
   // Start editing a config key
   const startEditKey = (key: ConfigKey) => {
-    const currentValue = key.defaultValue || '';
+    // Use the actual saved platform value, or fall back to default
+    const currentValue = key.platformValue ?? key.defaultValue ?? '';
     setEditingKey(key);
     setFormValue(currentValue);
     setFormReason('');
@@ -340,7 +341,8 @@ export default function PlatformAdminPage() {
                             {key.isSensitive ? (
                               <span className="redacted">[REDACTED]</span>
                             ) : (
-                              key.defaultValue || <span className="null-value">null</span>
+                              // Show platform value if set, otherwise show default
+                              (key.platformValue ?? key.defaultValue) || <span className="null-value">null</span>
                             )}
                           </td>
                           <td>

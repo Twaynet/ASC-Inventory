@@ -78,20 +78,29 @@ export async function platformConfigRoutes(fastify: FastifyInstance): Promise<vo
   }, async (request, reply) => {
     const keys = await getAllConfigKeys();
 
-    return ok(reply, {
-      keys: keys.map(k => ({
+    // Fetch platform values for each key
+    const keysWithValues = await Promise.all(keys.map(async (k) => {
+      const platformValue = await getPlatformConfigValue(k.key);
+      return {
         id: k.id,
         key: k.key,
         valueType: k.valueType,
         defaultValue: k.isSensitive ? '[REDACTED]' : k.defaultValue,
+        // The actual saved platform value (or null if not set)
+        platformValue: platformValue
+          ? (k.isSensitive ? '[REDACTED]' : platformValue.value)
+          : null,
+        platformVersion: platformValue?.version ?? null,
         allowFacilityOverride: k.allowFacilityOverride,
         riskClass: k.riskClass,
         displayName: k.displayName,
         description: k.description,
         category: k.category,
         isSensitive: k.isSensitive,
-      })),
-    });
+      };
+    }));
+
+    return ok(reply, { keys: keysWithValues });
   });
 
   // ─────────────────────────────────────────────────────────────────────────

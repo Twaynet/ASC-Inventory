@@ -23,6 +23,10 @@ export interface ConfigKey {
   key: string;
   valueType: 'STRING' | 'BOOLEAN' | 'NUMBER' | 'JSON';
   defaultValue: string | null;
+  /** The actual saved platform value (null if not set, falls back to defaultValue) */
+  platformValue: string | null;
+  /** Version number of the saved platform value */
+  platformVersion: number | null;
   allowFacilityOverride: boolean;
   riskClass: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   displayName: string;
