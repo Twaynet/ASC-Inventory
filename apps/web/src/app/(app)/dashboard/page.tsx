@@ -9,12 +9,15 @@ import type { FeatureDefinition, AccessDecision } from '@/lib/access-control';
 
 export default function SystemDashboard() {
   const { user, token } = useAuth();
-  const { features, debugInfo } = useAccessControl();
+  const { features, debugInfo, hasRole } = useAccessControl();
   const router = useRouter();
   const [debugExpanded, setDebugExpanded] = useState(false);
   const [pendingCaseCount, setPendingCaseCount] = useState<number>(0);
   const [unassignedCaseCount, setUnassignedCaseCount] = useState<number>(0);
   const [adminPendingReviewsCount, setAdminPendingReviewsCount] = useState<number>(0);
+
+  // LAW §3.1: PLATFORM_ADMIN is no-tenant identity - redirect to platform UI
+  const isPlatformAdmin = hasRole('PLATFORM_ADMIN');
 
   // Fetch pending case requests count
   useEffect(() => {
@@ -83,6 +86,22 @@ export default function SystemDashboard() {
       <Header title="System Dashboard" />
 
       <main className="container-full dashboard-page">
+        {/* Platform Admin Section - LAW §3.1 */}
+        {isPlatformAdmin && (
+          <section className="platform-admin-section">
+            <h2>Platform Control Plane</h2>
+            <p className="platform-description">
+              You are logged in as a Platform Administrator. Access the Platform Administration console to manage system-wide configuration.
+            </p>
+            <button
+              className="platform-btn"
+              onClick={() => router.push('/platform')}
+            >
+              Open Platform Administration
+            </button>
+          </section>
+        )}
+
         {/* Core Features */}
         <FeatureSection
           title="Core"
@@ -175,6 +194,43 @@ export default function SystemDashboard() {
       <style jsx>{`
         .dashboard-page {
           padding: 2rem 1.5rem;
+        }
+
+        .platform-admin-section {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 2rem;
+          border-radius: 12px;
+          margin-bottom: 2rem;
+        }
+
+        .platform-admin-section h2 {
+          margin: 0 0 0.5rem 0;
+          font-size: 1.5rem;
+          border: none;
+          padding: 0;
+          color: white;
+        }
+
+        .platform-description {
+          margin: 0 0 1.5rem 0;
+          opacity: 0.9;
+        }
+
+        .platform-btn {
+          background: white;
+          color: #667eea;
+          font-weight: 600;
+          padding: 0.75rem 1.5rem;
+          border-radius: 6px;
+          border: none;
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .platform-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .debug-panel {

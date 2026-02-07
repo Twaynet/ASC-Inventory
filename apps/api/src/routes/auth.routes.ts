@@ -34,6 +34,75 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const { facilityKey, username, password } = parseResult.data;
 
+    // LAW §3.1: PLATFORM_ADMIN login - use "PLATFORM" as special facility key
+    if (facilityKey.toUpperCase() === 'PLATFORM') {
+      // Find platform admin user (no facility)
+      const result = await query<{
+        id: string;
+        facility_id: string | null;
+        username: string;
+        email: string | null;
+        name: string;
+        role: string;
+        roles: string[];
+        password_hash: string;
+        active: boolean;
+      }>(`
+        SELECT u.id, u.facility_id, u.username, u.email, u.name, u.role, u.roles, u.password_hash, u.active
+        FROM app_user u
+        WHERE u.facility_id IS NULL AND LOWER(u.username) = LOWER($1)
+      `, [username]);
+
+      if (result.rows.length === 0) {
+        request.log.warn({ code: 'LOGIN_FAILED', username, reason: 'platform_user_not_found', requestId: request.requestId }, 'Login failed: platform user not found');
+        return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Invalid credentials', requestId: request.requestId } });
+      }
+
+      const user = result.rows[0];
+
+      if (!user.active) {
+        request.log.warn({ code: 'LOGIN_FAILED', username, userId: user.id, reason: 'account_disabled', requestId: request.requestId }, 'Login failed: account disabled');
+        return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Account is disabled', requestId: request.requestId } });
+      }
+
+      const validPassword = await bcrypt.compare(password, user.password_hash);
+      if (!validPassword) {
+        request.log.warn({ code: 'LOGIN_FAILED', username, userId: user.id, reason: 'bad_password', requestId: request.requestId }, 'Login failed: invalid password');
+        return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Invalid credentials', requestId: request.requestId } });
+      }
+
+      const userRoles = normalizeRoles(user.roles, user.role);
+
+      const payload: JwtPayload = {
+        userId: user.id,
+        facilityId: null, // LAW §3.1: No-tenant identity
+        username: user.username,
+        email: user.email,
+        name: user.name,
+        role: userRoles[0] as JwtPayload['role'],
+        roles: userRoles as JwtPayload['roles'],
+      };
+
+      const token = fastify.jwt.sign(payload);
+
+      request.log.info({ code: 'LOGIN_SUCCESS', userId: user.id, username: user.username, plane: 'control', requestId: request.requestId }, 'Platform admin login successful');
+
+      return reply.send({
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          name: user.name,
+          role: userRoles[0],
+          roles: userRoles,
+          facilityId: null,
+          facilityName: 'Platform',
+        },
+      });
+    }
+
+    // Standard tenant login flow
     // Find facility by key first
     const facilityResult = await query<{
       id: string;
@@ -130,12 +199,17 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/me', {
     preHandler: [fastify.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const facilityResult = await query<{ name: string }>(`
-      SELECT name FROM facility WHERE id = $1
-    `, [request.user.facilityId]);
-
     // Get roles (normalize to array)
     const userRoles = normalizeRoles(request.user.roles, request.user.role);
+
+    // LAW §3.1: PLATFORM_ADMIN has no facility
+    let facilityName = 'Platform';
+    if (request.user.facilityId) {
+      const facilityResult = await query<{ name: string }>(`
+        SELECT name FROM facility WHERE id = $1
+      `, [request.user.facilityId]);
+      facilityName = facilityResult.rows[0]?.name || 'Unknown';
+    }
 
     return reply.send({
       user: {
@@ -146,7 +220,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         role: userRoles[0], // Primary role (backward compat)
         roles: userRoles,
         facilityId: request.user.facilityId,
-        facilityName: facilityResult.rows[0]?.name || 'Unknown',
+        facilityName,
       },
     });
   });

@@ -10,6 +10,8 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { requirePlatformAdmin } from '../plugins/auth.js';
 import { platformConfigRoutes } from './platform-config.routes.js';
+import { query } from '../db/index.js';
+import { ok } from '../utils/reply.js';
 
 export async function platformRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -26,6 +28,24 @@ export async function platformRoutes(fastify: FastifyInstance): Promise<void> {
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
       plane: 'control',
+    });
+  });
+
+  /**
+   * GET /api/platform/facilities
+   *
+   * List all facilities for the Platform Admin UI facility selector.
+   * LAW §3.3: Explicit targetFacilityId required for cross-tenant operations.
+   */
+  fastify.get('/facilities', {
+    preHandler: [requirePlatformAdmin()],
+  }, async (request: FastifyRequest, reply) => {
+    const result = await query('SELECT id, name FROM facility ORDER BY name');
+    return ok(reply, {
+      facilities: result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+      })),
     });
   });
 
