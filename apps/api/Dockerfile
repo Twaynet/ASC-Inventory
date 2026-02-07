@@ -42,7 +42,7 @@ COPY --from=builder /app/packages/domain/dist ./packages/domain/dist
 COPY --from=builder /app/packages/contract/dist ./packages/contract/dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
-# Copy database migrations (needed at runtime for db:migrate)
+# Copy database scripts and migrations (tsx is in prod deps for runtime migration)
 COPY --from=builder /app/apps/api/db ./apps/api/db
 
 # Set production environment
