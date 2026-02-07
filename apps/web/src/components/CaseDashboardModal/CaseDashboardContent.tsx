@@ -388,12 +388,30 @@ export function CaseDashboardContent({
     router.push(`/case/${caseId}/verify?returnTo=${encodeURIComponent(pathname || '/calendar')}&openModal=true`);
   };
 
+  // Compute readiness summary once for consistent status across the dashboard
+  const readiness: ReadinessSummary = computeReadinessSummary({
+    caseId,
+    readinessState: dashboard.readinessState as 'GREEN' | 'ORANGE' | 'RED' | undefined,
+    missingItems: dashboard.missingItems,
+    status: dashboard.status,
+    isActive: dashboard.isActive,
+    orRoom: dashboard.orRoom,
+    scheduledDate: dashboard.scheduledDate,
+    timeoutStatus: checklists?.timeout?.status || null,
+    debriefStatus: checklists?.debrief?.status || null,
+  });
+
   const getStatusColor = () => {
     if (!dashboard.isActive) return 'var(--text-muted)';
     if (dashboard.attestationState === 'VOIDED') return 'var(--red)';
     if (dashboard.attestationState === 'ATTESTED') return 'var(--green)';
-    if (dashboard.readinessState === 'RED') return 'var(--red)';
-    if (dashboard.readinessState === 'ORANGE') return 'var(--orange)';
+    // Use computed readiness to determine color
+    if (readiness.overall === 'BLOCKED') {
+      // Check if any blockers are critical
+      const hasCritical = readiness.blockers.some(b => b.severity === 'critical');
+      return hasCritical ? 'var(--red)' : 'var(--orange)';
+    }
+    if (readiness.overall === 'READY') return 'var(--green)';
     return 'var(--text-muted)';
   };
 
@@ -401,16 +419,21 @@ export function CaseDashboardContent({
     if (!dashboard.isActive) return 'Inactive';
     if (dashboard.attestationState === 'VOIDED') return 'Voided';
     if (dashboard.attestationState === 'ATTESTED') return 'Ready (Attested)';
-    if (dashboard.readinessState === 'RED') return 'Needs Attention';
-    if (dashboard.readinessState === 'ORANGE') return 'Needs Attention';
+    // Use computed readiness to determine label
+    if (readiness.overall === 'BLOCKED') return 'Needs Attention';
+    if (readiness.overall === 'READY') return 'Ready';
     return 'Scheduled';
   };
 
   const getPrintStatusColor = () => {
     if (dashboard.attestationState === 'VOIDED') return '#e53e3e';
     if (dashboard.attestationState === 'ATTESTED') return '#38a169';
-    if (dashboard.readinessState === 'RED') return '#e53e3e';
-    if (dashboard.readinessState === 'ORANGE') return '#dd6b20';
+    // Use computed readiness for consistent status
+    if (readiness.overall === 'BLOCKED') {
+      const hasCritical = readiness.blockers.some(b => b.severity === 'critical');
+      return hasCritical ? '#e53e3e' : '#dd6b20';
+    }
+    if (readiness.overall === 'READY') return '#38a169';
     return '#718096';
   };
 
@@ -592,80 +615,65 @@ export function CaseDashboardContent({
       <CaseProgressStrip dashboard={dashboard} checklists={checklists} />
 
       {/* Section 1.5: Readiness Summary Panel */}
-      {(() => {
-        const readiness: ReadinessSummary = computeReadinessSummary({
-          caseId,
-          readinessState: dashboard.readinessState as 'GREEN' | 'ORANGE' | 'RED' | undefined,
-          missingItems: dashboard.missingItems,
-          status: dashboard.status,
-          isActive: dashboard.isActive,
-          orRoom: dashboard.orRoom,
-          scheduledDate: dashboard.scheduledDate,
-          timeoutStatus: checklists?.timeout?.status || null,
-          debriefStatus: checklists?.debrief?.status || null,
-        });
-        return (
-          <section className="dashboard-section" style={{
-            background: readiness.overall === 'READY' ? '#f0fff4' : readiness.overall === 'BLOCKED' ? '#fffbeb' : 'var(--surface)',
-            borderRadius: '8px',
-            padding: '1rem',
-            marginBottom: '1rem',
-            border: `1px solid ${readiness.overall === 'READY' ? '#c6f6d5' : readiness.overall === 'BLOCKED' ? '#fde68a' : 'var(--border)'}`,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: readiness.blockers.length > 0 ? '0.75rem' : 0 }}>
-              <ReadinessBadge overall={readiness.overall} size="md" />
-              <span style={{ fontSize: '1rem', fontWeight: 600 }}>
-                {readiness.overall === 'READY' ? 'All clear — this case is ready.'
-                  : readiness.overall === 'BLOCKED' ? `${readiness.blockers.length} blocker${readiness.blockers.length !== 1 ? 's' : ''} found`
-                  : 'Readiness status unavailable.'}
-              </span>
-            </div>
-            {readiness.blockers.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {readiness.blockers.map((blocker) => (
-                  <div key={blocker.code} style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '0.5rem 0.75rem',
-                    background: 'white',
-                    borderRadius: '6px',
-                    border: `1px solid ${blocker.severity === 'critical' ? '#fc8181' : '#fbd38d'}`,
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{
-                        width: '8px', height: '8px', borderRadius: '50%',
-                        background: blocker.severity === 'critical' ? '#e53e3e' : '#dd6b20',
-                        flexShrink: 0,
-                      }} />
-                      <span style={{ fontSize: '0.875rem' }}>{blocker.label}</span>
-                    </div>
-                    {blocker.capability && !hasCapability(blocker.capability as any) ? (
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                        Requires {capabilityLabel(blocker.capability)}
-                      </span>
-                    ) : (
-                      <button
-                        className="btn-small btn-primary"
-                        style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
-                        onClick={() => router.push(blocker.href)}
-                      >
-                        {blocker.actionLabel}
-                      </button>
-                    )}
-                  </div>
-                ))}
+      <section className="dashboard-section" style={{
+        background: readiness.overall === 'READY' ? '#f0fff4' : readiness.overall === 'BLOCKED' ? '#fffbeb' : 'var(--surface)',
+        borderRadius: '8px',
+        padding: '1rem',
+        marginBottom: '1rem',
+        border: `1px solid ${readiness.overall === 'READY' ? '#c6f6d5' : readiness.overall === 'BLOCKED' ? '#fde68a' : 'var(--border)'}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: readiness.blockers.length > 0 ? '0.75rem' : 0 }}>
+          <ReadinessBadge overall={readiness.overall} size="md" />
+          <span style={{ fontSize: '1rem', fontWeight: 600 }}>
+            {readiness.overall === 'READY' ? 'All clear — this case is ready.'
+              : readiness.overall === 'BLOCKED' ? `${readiness.blockers.length} blocker${readiness.blockers.length !== 1 ? 's' : ''} found`
+              : 'Readiness status unavailable.'}
+          </span>
+        </div>
+        {readiness.blockers.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {readiness.blockers.map((blocker) => (
+              <div key={blocker.code} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.5rem 0.75rem',
+                background: 'white',
+                borderRadius: '6px',
+                border: `1px solid ${blocker.severity === 'critical' ? '#fc8181' : '#fbd38d'}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: blocker.severity === 'critical' ? '#e53e3e' : '#dd6b20',
+                    flexShrink: 0,
+                  }} />
+                  <span style={{ fontSize: '0.875rem' }}>{blocker.label}</span>
+                </div>
+                {blocker.capability && !hasCapability(blocker.capability as any) ? (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    Requires {capabilityLabel(blocker.capability)}
+                  </span>
+                ) : (
+                  <button
+                    className="btn-small btn-primary"
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
+                    onClick={() => router.push(blocker.href)}
+                  >
+                    {blocker.actionLabel}
+                  </button>
+                )}
               </div>
-            )}
-            <ExplainReadinessPanel
-              token={token}
-              caseId={caseId}
-              dashboard={dashboard}
-              readiness={readiness}
-            />
-          </section>
-        );
-      })()}
+            ))}
+          </div>
+        )}
+        <ExplainReadinessPanel
+          token={token}
+          caseId={caseId}
+          dashboard={dashboard}
+          readiness={readiness}
+        />
+      </section>
 
       {/* Section 2: Readiness Attestation Panel */}
       <section className="dashboard-section" style={{
