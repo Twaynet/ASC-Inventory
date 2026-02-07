@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import { query } from '../db/index.js';
 import { LoginRequestSchema } from '../schemas/index.js';
 import type { JwtPayload } from '../plugins/auth.js';
+import { logAuthEvent } from '../services/auth-audit.service.js';
 
 // Helper to normalize roles to always be an array
 function normalizeRoles(roles: string[] | string | undefined, fallbackRole: string): string[] {
@@ -55,6 +56,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
       if (result.rows.length === 0) {
         request.log.warn({ code: 'LOGIN_FAILED', username, reason: 'platform_user_not_found', requestId: request.requestId }, 'Login failed: platform user not found');
+        await logAuthEvent({
+          eventType: 'LOGIN_FAILED',
+          facilityId: null,
+          userId: null,
+          username,
+          userRoles: null,
+          success: false,
+          failureReason: 'user_not_found',
+          requestId: request.requestId,
+          ipAddress: request.ip,
+          userAgent: request.headers['user-agent'],
+        });
         return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Invalid credentials', requestId: request.requestId } });
       }
 
@@ -62,12 +75,36 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
       if (!user.active) {
         request.log.warn({ code: 'LOGIN_FAILED', username, userId: user.id, reason: 'account_disabled', requestId: request.requestId }, 'Login failed: account disabled');
+        await logAuthEvent({
+          eventType: 'LOGIN_FAILED',
+          facilityId: null,
+          userId: user.id,
+          username,
+          userRoles: normalizeRoles(user.roles, user.role),
+          success: false,
+          failureReason: 'account_disabled',
+          requestId: request.requestId,
+          ipAddress: request.ip,
+          userAgent: request.headers['user-agent'],
+        });
         return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Account is disabled', requestId: request.requestId } });
       }
 
       const validPassword = await bcrypt.compare(password, user.password_hash);
       if (!validPassword) {
         request.log.warn({ code: 'LOGIN_FAILED', username, userId: user.id, reason: 'bad_password', requestId: request.requestId }, 'Login failed: invalid password');
+        await logAuthEvent({
+          eventType: 'LOGIN_FAILED',
+          facilityId: null,
+          userId: user.id,
+          username,
+          userRoles: normalizeRoles(user.roles, user.role),
+          success: false,
+          failureReason: 'bad_password',
+          requestId: request.requestId,
+          ipAddress: request.ip,
+          userAgent: request.headers['user-agent'],
+        });
         return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Invalid credentials', requestId: request.requestId } });
       }
 
@@ -86,6 +123,17 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       const token = fastify.jwt.sign(payload);
 
       request.log.info({ code: 'LOGIN_SUCCESS', userId: user.id, username: user.username, plane: 'control', requestId: request.requestId }, 'Platform admin login successful');
+      await logAuthEvent({
+        eventType: 'LOGIN_SUCCESS',
+        facilityId: null,
+        userId: user.id,
+        username: user.username,
+        userRoles,
+        success: true,
+        requestId: request.requestId,
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'],
+      });
 
       return reply.send({
         token,
@@ -116,6 +164,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     if (facilityResult.rows.length === 0) {
       request.log.warn({ code: 'LOGIN_FAILED', username, reason: 'facility_not_found', requestId: request.requestId }, 'Login failed: facility not found');
+      await logAuthEvent({
+        eventType: 'LOGIN_FAILED',
+        facilityId: null,
+        userId: null,
+        username,
+        userRoles: null,
+        success: false,
+        failureReason: 'facility_not_found',
+        requestId: request.requestId,
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'],
+      });
       return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Invalid credentials', requestId: request.requestId } });
     }
 
@@ -140,6 +200,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     if (result.rows.length === 0) {
       request.log.warn({ code: 'LOGIN_FAILED', username, reason: 'user_not_found', requestId: request.requestId }, 'Login failed: user not found');
+      await logAuthEvent({
+        eventType: 'LOGIN_FAILED',
+        facilityId: facility.id,
+        userId: null,
+        username,
+        userRoles: null,
+        success: false,
+        failureReason: 'user_not_found',
+        requestId: request.requestId,
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'],
+      });
       return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Invalid credentials', requestId: request.requestId } });
     }
 
@@ -147,6 +219,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     if (!user.active) {
       request.log.warn({ code: 'LOGIN_FAILED', username, userId: user.id, reason: 'account_disabled', requestId: request.requestId }, 'Login failed: account disabled');
+      await logAuthEvent({
+        eventType: 'LOGIN_FAILED',
+        facilityId: facility.id,
+        userId: user.id,
+        username,
+        userRoles: normalizeRoles(user.roles, user.role),
+        success: false,
+        failureReason: 'account_disabled',
+        requestId: request.requestId,
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'],
+      });
       return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Account is disabled', requestId: request.requestId } });
     }
 
@@ -154,6 +238,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
       request.log.warn({ code: 'LOGIN_FAILED', username, userId: user.id, reason: 'bad_password', requestId: request.requestId }, 'Login failed: invalid password');
+      await logAuthEvent({
+        eventType: 'LOGIN_FAILED',
+        facilityId: facility.id,
+        userId: user.id,
+        username,
+        userRoles: normalizeRoles(user.roles, user.role),
+        success: false,
+        failureReason: 'bad_password',
+        requestId: request.requestId,
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'],
+      });
       return reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Invalid credentials', requestId: request.requestId } });
     }
 
@@ -176,6 +272,17 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const token = fastify.jwt.sign(payload);
 
     request.log.info({ code: 'LOGIN_SUCCESS', userId: user.id, username: user.username, facilityId: user.facility_id, requestId: request.requestId }, 'Login successful');
+    await logAuthEvent({
+      eventType: 'LOGIN_SUCCESS',
+      facilityId: user.facility_id,
+      userId: user.id,
+      username: user.username,
+      userRoles,
+      success: true,
+      requestId: request.requestId,
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
 
     return reply.send({
       token,
@@ -223,5 +330,31 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         facilityName,
       },
     });
+  });
+
+  /**
+   * POST /auth/logout
+   * Log the logout event and invalidate session
+   */
+  fastify.post('/logout', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userRoles = normalizeRoles(request.user.roles, request.user.role);
+
+    await logAuthEvent({
+      eventType: 'LOGOUT',
+      facilityId: request.user.facilityId || null,
+      userId: request.user.userId,
+      username: request.user.username,
+      userRoles,
+      success: true,
+      requestId: request.requestId,
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
+
+    request.log.info({ code: 'LOGOUT', userId: request.user.userId, username: request.user.username, requestId: request.requestId }, 'User logged out');
+
+    return reply.send({ success: true });
   });
 }

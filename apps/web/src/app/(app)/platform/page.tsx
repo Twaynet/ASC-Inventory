@@ -20,6 +20,7 @@ import {
   getFacilities,
   getFacilityOverrides,
   getAuditLog,
+  getAuthAuditLog,
   setConfigKey,
   setFacilityOverride,
   clearFacilityOverride,
@@ -27,9 +28,11 @@ import {
   type Facility,
   type FacilityOverride,
   type AuditLogEntry,
+  type AuthAuditLogEntry,
+  type AuthEventType,
 } from '@/lib/api/platform';
 
-type TabId = 'keys' | 'overrides' | 'audit';
+type TabId = 'keys' | 'overrides' | 'audit' | 'auth-audit';
 
 export default function PlatformAdminPage() {
   const { token } = useAuth();
@@ -43,6 +46,7 @@ export default function PlatformAdminPage() {
   const [selectedFacilityId, setSelectedFacilityId] = useState<string>('');
   const [overrides, setOverrides] = useState<FacilityOverride[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [authAuditLog, setAuthAuditLog] = useState<AuthAuditLogEntry[]>([]);
 
   // Loading/error state
   const [isLoading, setIsLoading] = useState(true);
@@ -53,6 +57,8 @@ export default function PlatformAdminPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [auditKeyFilter, setAuditKeyFilter] = useState<string>('');
   const [auditFacilityFilter, setAuditFacilityFilter] = useState<string>('');
+  const [authAuditFacilityFilter, setAuthAuditFacilityFilter] = useState<string>('');
+  const [authAuditEventFilter, setAuthAuditEventFilter] = useState<AuthEventType | ''>('');
 
   // Edit modal state
   const [editingKey, setEditingKey] = useState<ConfigKey | null>(null);
@@ -112,6 +118,22 @@ export default function PlatformAdminPage() {
     }
   }, [token, auditKeyFilter, auditFacilityFilter]);
 
+  // Load auth audit log
+  const loadAuthAuditLog = useCallback(async () => {
+    if (!token) return;
+    try {
+      const result = await getAuthAuditLog(token, {
+        facilityId: authAuditFacilityFilter === 'platform' ? null :
+                    authAuditFacilityFilter || undefined,
+        eventType: authAuditEventFilter || undefined,
+        limit: 100,
+      });
+      setAuthAuditLog(result.entries);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load auth audit log');
+    }
+  }, [token, authAuditFacilityFilter, authAuditEventFilter]);
+
   // Initial load
   useEffect(() => {
     if (!token) return;
@@ -139,6 +161,13 @@ export default function PlatformAdminPage() {
       loadAuditLog();
     }
   }, [activeTab, loadAuditLog]);
+
+  // Load auth audit log when tab is active or filters change
+  useEffect(() => {
+    if (activeTab === 'auth-audit') {
+      loadAuthAuditLog();
+    }
+  }, [activeTab, loadAuthAuditLog]);
 
   // Get unique categories for filter
   const categories = ['all', ...new Set(configKeys.map(k => k.category))];
@@ -290,7 +319,13 @@ export default function PlatformAdminPage() {
             className={`tab ${activeTab === 'audit' ? 'active' : ''}`}
             onClick={() => setActiveTab('audit')}
           >
-            Audit Log
+            Config Audit
+          </button>
+          <button
+            className={`tab ${activeTab === 'auth-audit' ? 'active' : ''}`}
+            onClick={() => setActiveTab('auth-audit')}
+          >
+            Auth Log
           </button>
         </div>
 
@@ -462,7 +497,7 @@ export default function PlatformAdminPage() {
               </div>
             )}
 
-            {/* Audit Log Tab */}
+            {/* Config Audit Log Tab */}
             {activeTab === 'audit' && (
               <div className="tab-content">
                 <div className="filters">
@@ -537,6 +572,93 @@ export default function PlatformAdminPage() {
                             </td>
                             <td>{entry.actorName}</td>
                             <td className="reason-cell">{entry.changeReason || '—'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Auth Audit Log Tab */}
+            {activeTab === 'auth-audit' && (
+              <div className="tab-content">
+                <div className="filters">
+                  <label>
+                    Facility:
+                    <select
+                      value={authAuditFacilityFilter}
+                      onChange={(e) => setAuthAuditFacilityFilter(e.target.value)}
+                    >
+                      <option value="">All</option>
+                      <option value="platform">Platform Only</option>
+                      {facilities.map(f => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Event Type:
+                    <select
+                      value={authAuditEventFilter}
+                      onChange={(e) => setAuthAuditEventFilter(e.target.value as AuthEventType | '')}
+                    >
+                      <option value="">All Events</option>
+                      <option value="LOGIN_SUCCESS">Login Success</option>
+                      <option value="LOGIN_FAILED">Login Failed</option>
+                      <option value="LOGOUT">Logout</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>Event</th>
+                        <th>User</th>
+                        <th>Facility</th>
+                        <th>IP Address</th>
+                        <th>Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {authAuditLog.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="empty-row">
+                            No authentication events found.
+                          </td>
+                        </tr>
+                      ) : (
+                        authAuditLog.map((entry) => (
+                          <tr key={entry.id}>
+                            <td className="timestamp-cell">
+                              {formatTime(entry.createdAt)}
+                            </td>
+                            <td>
+                              <span className={`event-badge event-${entry.eventType.toLowerCase().replace('_', '-')}`}>
+                                {entry.eventType.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="key-name">{entry.username}</div>
+                              {entry.userRoles && (
+                                <div className="key-path">{entry.userRoles.join(', ')}</div>
+                              )}
+                            </td>
+                            <td>
+                              {entry.facilityName || (entry.facilityId ? 'Unknown' : 'Platform')}
+                            </td>
+                            <td className="ip-cell">{entry.ipAddress || '—'}</td>
+                            <td className="reason-cell">
+                              {entry.failureReason ? (
+                                <span className="failure-reason">{entry.failureReason.replace('_', ' ')}</span>
+                              ) : entry.success ? (
+                                <span className="success-text">OK</span>
+                              ) : '—'}
+                            </td>
                           </tr>
                         ))
                       )}
@@ -808,6 +930,42 @@ export default function PlatformAdminPage() {
         }
         .action-badge.action-clear {
           background: var(--color-orange);
+        }
+
+        .event-badge {
+          display: inline-block;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: white;
+          text-transform: capitalize;
+        }
+        .event-badge.event-login-success {
+          background: var(--color-green);
+        }
+        .event-badge.event-login-failed {
+          background: var(--color-red);
+        }
+        .event-badge.event-logout {
+          background: var(--color-orange);
+        }
+
+        .ip-cell {
+          font-family: monospace;
+          font-size: 0.8125rem;
+          color: var(--text-secondary);
+        }
+
+        .failure-reason {
+          color: var(--color-red);
+          font-size: 0.8125rem;
+          text-transform: capitalize;
+        }
+
+        .success-text {
+          color: var(--color-green);
+          font-weight: 500;
         }
 
         .actions-cell {

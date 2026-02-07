@@ -25,6 +25,7 @@ import {
   getAuditLog,
   type AuditContext,
 } from '../services/config.service.js';
+import { getAuthAuditLog, type AuthEventType } from '../services/auth-audit.service.js';
 
 // ============================================================================
 // Request Schemas
@@ -335,5 +336,43 @@ export async function platformConfigRoutes(fastify: FastifyInstance): Promise<vo
     });
 
     return ok(reply, { entries });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // GET /auth-audit - Get authentication audit log
+  // ─────────────────────────────────────────────────────────────────────────
+
+  fastify.get<{
+    Querystring: {
+      facilityId?: string;
+      eventType?: string;
+      success?: string;
+      userId?: string;
+      limit?: string;
+      offset?: string;
+    }
+  }>('/auth-audit', {
+    preHandler: [requirePlatformAdmin()],
+  }, async (request, reply) => {
+    const { facilityId, eventType, success, userId, limit, offset } = request.query;
+
+    // Handle special "platform" filter for platform-only logins
+    let facilityFilter: string | null | undefined;
+    if (facilityId === 'platform') {
+      facilityFilter = null; // NULL facility = platform admin logins
+    } else if (facilityId) {
+      facilityFilter = facilityId;
+    }
+
+    const result = await getAuthAuditLog({
+      facilityId: facilityFilter,
+      eventType: eventType as AuthEventType | undefined,
+      success: success !== undefined ? success === 'true' : undefined,
+      userId,
+      limit: limit ? parseInt(limit, 10) : 100,
+      offset: offset ? parseInt(offset, 10) : 0,
+    });
+
+    return ok(reply, result);
   });
 }

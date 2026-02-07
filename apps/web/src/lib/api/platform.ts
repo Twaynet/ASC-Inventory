@@ -86,6 +86,24 @@ export interface SetConfigInput {
   note?: string;
 }
 
+export type AuthEventType = 'LOGIN_SUCCESS' | 'LOGIN_FAILED' | 'LOGOUT';
+
+export interface AuthAuditLogEntry {
+  id: string;
+  eventType: AuthEventType;
+  facilityId: string | null;
+  facilityName: string | null;
+  userId: string | null;
+  username: string;
+  userRoles: string[] | null;
+  success: boolean;
+  failureReason: string | null;
+  requestId: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
 // ============================================================================
 // Health Check
 // ============================================================================
@@ -176,4 +194,32 @@ export async function getAuditLog(
   if (options?.offset) params.set('offset', String(options.offset));
   const query = params.toString();
   return request(`/platform/config/audit${query ? `?${query}` : ''}`, { token });
+}
+
+// ============================================================================
+// Auth Audit Log
+// ============================================================================
+
+export async function getAuthAuditLog(
+  token: string,
+  options?: {
+    facilityId?: string | null;  // 'platform' for platform-only, null for all
+    eventType?: AuthEventType;
+    success?: boolean;
+    userId?: string;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<{ entries: AuthAuditLogEntry[]; total: number }> {
+  const params = new URLSearchParams();
+  if (options?.facilityId !== undefined) {
+    params.set('facilityId', options.facilityId === null ? 'platform' : options.facilityId);
+  }
+  if (options?.eventType) params.set('eventType', options.eventType);
+  if (options?.success !== undefined) params.set('success', String(options.success));
+  if (options?.userId) params.set('userId', options.userId);
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.offset) params.set('offset', String(options.offset));
+  const query = params.toString();
+  return request(`/platform/config/auth-audit${query ? `?${query}` : ''}`, { token });
 }

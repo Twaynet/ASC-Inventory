@@ -35,3 +35,7 @@ export async function login(facilityKey: string, username: string, password: str
 export async function getMe(token: string): Promise<{ user: LoginResponse['user'] }> {
   return request('/auth/me', { token });
 }
+
+export async function logout(token: string): Promise<{ success: boolean }> {
+  return request('/auth/logout', { method: 'POST', token });
+}

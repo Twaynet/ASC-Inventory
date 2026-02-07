@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import { login as apiLogin, getMe, type LoginResponse } from './api';
+import { login as apiLogin, logout as apiLogout, getMe, type LoginResponse } from './api';
 import {
   type Role,
   type Capability,
@@ -19,7 +19,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (facilityKey: string, username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -56,7 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('asc_token', response.token);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Log the logout event before clearing state
+    if (token) {
+      try {
+        await apiLogout(token);
+      } catch {
+        // Ignore errors - still clear local state even if API call fails
+      }
+    }
     setUser(null);
     setToken(null);
     localStorage.removeItem('asc_token');
