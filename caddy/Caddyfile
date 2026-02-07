@@ -3,7 +3,7 @@ beta.orthowise.dev {
 
 	header * X-Origin droplet
 
-	handle /api/* {
+	handle_path /api/* {
 		reverse_proxy api:3001
 	}
 
