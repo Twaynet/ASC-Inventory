@@ -23,6 +23,7 @@ export type DeviceEventId = string & { readonly __brand: 'DeviceEventId' };
 // ============================================================================
 
 export const UserRole = z.enum([
+  'PLATFORM_ADMIN',  // LAW §3.1: No-tenant identity for platform operations
   'ADMIN',
   'SCHEDULER',
   'INVENTORY_TECH',
@@ -32,6 +33,22 @@ export const UserRole = z.enum([
   'ANESTHESIA',
 ]);
 export type UserRole = z.infer<typeof UserRole>;
+
+// ============================================================================
+// CONFIGURATION REGISTRY (LAW §5)
+// ============================================================================
+
+// LAW §5.3: Configuration scopes
+export const ConfigScope = z.enum(['PLATFORM', 'FACILITY']);
+export type ConfigScope = z.infer<typeof ConfigScope>;
+
+// LAW §5.2: Configuration value types
+export const ConfigValueType = z.enum(['STRING', 'BOOLEAN', 'NUMBER', 'JSON']);
+export type ConfigValueType = z.infer<typeof ConfigValueType>;
+
+// LAW §4.3, §6.4: Risk classification for configuration keys
+export const ConfigRiskClass = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
+export type ConfigRiskClass = z.infer<typeof ConfigRiskClass>;
 
 // ============================================================================
 // CAPABILITY SYSTEM — single canonical source for role → capability mapping
@@ -60,7 +77,11 @@ export type Capability =
   | 'LOCATION_MANAGE'
   | 'CATALOG_MANAGE'
   | 'REPORTS_VIEW'
-  | 'SETTINGS_MANAGE';
+  | 'SETTINGS_MANAGE'
+  // Platform capabilities (LAW §4.2: distinct from tenant capabilities)
+  | 'PLATFORM_ADMIN'          // Access to Control Plane
+  | 'PLATFORM_CONFIG_VIEW'    // View platform configuration
+  | 'PLATFORM_CONFIG_MANAGE'; // Modify platform configuration
 
 /**
  * Role → capability mapping. This is the SINGLE SOURCE OF TRUTH.
@@ -70,6 +91,14 @@ export type Capability =
  * CASE_VIEW by default — it must be explicitly added here after review.
  */
 export const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
+  // LAW §3.1-3.2: PLATFORM_ADMIN is no-tenant identity for Control Plane operations
+  // LAW §4.2: Platform capabilities are distinct from tenant capabilities
+  PLATFORM_ADMIN: [
+    'PLATFORM_ADMIN',
+    'PLATFORM_CONFIG_VIEW',
+    'PLATFORM_CONFIG_MANAGE',
+    // Note: NO tenant capabilities - PLATFORM_ADMIN cannot access tenant data directly
+  ],
   SCRUB: ['CASE_VIEW', 'VERIFY_SCAN', 'CHECKLIST_ATTEST'],
   CIRCULATOR: ['CASE_VIEW', 'CHECKLIST_ATTEST', 'OR_DEBRIEF', 'OR_TIMEOUT', 'CASE_CHECKIN_PREOP'],
   INVENTORY_TECH: ['CASE_VIEW', 'INVENTORY_READ', 'INVENTORY_CHECKIN'],

@@ -80,6 +80,7 @@ export function getDefaultPersona(roles: UserRole[]): Persona {
  * Human-readable label for a persona (for UI display).
  */
 const PERSONA_LABELS: Record<UserRole, string> = {
+  PLATFORM_ADMIN: 'Platform Admin',  // LAW §3.1: No-tenant identity
   ADMIN: 'Administrator',
   SCHEDULER: 'Scheduler',
   INVENTORY_TECH: 'Inventory Tech',

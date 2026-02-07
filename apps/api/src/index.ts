@@ -35,6 +35,8 @@ import { generalSettingsRoutes } from './routes/general-settings.routes.js';
 import { scheduleRoutes } from './routes/schedule.routes.js';
 import { adminSettingsRoutes } from './routes/admin-settings.routes.js';
 import { aiRoutes } from './routes/ai.routes.js';
+// Platform Control Plane (LAW §2.3: Separation is mandatory)
+import { platformRoutes } from './routes/platform.routes.js';
 // Wave 1: Financial Attribution
 import { vendorsRoutes } from './routes/vendors.routes.js';
 import { loanerSetsRoutes } from './routes/loaner-sets.routes.js';
@@ -152,6 +154,8 @@ async function main() {
   await fastify.register(scheduleRoutes, { prefix: '/api/schedule' });
   await fastify.register(adminSettingsRoutes, { prefix: '/api/admin/settings' });
   await fastify.register(aiRoutes, { prefix: '/api/ai' });
+  // Platform Control Plane (LAW §2.3: Separation at routing layer)
+  await fastify.register(platformRoutes, { prefix: '/api/platform' });
   // Wave 1: Financial Attribution
   await fastify.register(vendorsRoutes, { prefix: '/api/vendors' });
   await fastify.register(loanerSetsRoutes, { prefix: '/api/loaner-sets' });
