@@ -466,6 +466,7 @@ export const CreateCatalogItemRequestSchema = z.object({
   catalogNumber: z.string().max(100).optional(),
   requiresSterility: z.boolean().optional(),
   isLoaner: z.boolean().optional(),
+  isContainer: z.boolean().optional(), // True for Sets/Trays/Kits
   // v1.1 Risk-Intent Extensions
   requiresLotTracking: z.boolean().optional(),
   requiresSerialTracking: z.boolean().optional(),
@@ -485,6 +486,7 @@ export const UpdateCatalogItemRequestSchema = z.object({
   catalogNumber: z.string().max(100).nullable().optional(),
   requiresSterility: z.boolean().optional(),
   isLoaner: z.boolean().optional(),
+  isContainer: z.boolean().optional(), // True for Sets/Trays/Kits
   // v1.1 Risk-Intent Extensions
   requiresLotTracking: z.boolean().optional(),
   requiresSerialTracking: z.boolean().optional(),
@@ -577,10 +579,22 @@ export const CatalogSetResponseSchema = z.object({
   category: ItemCategory,
   manufacturer: z.string().nullable(),
   catalogNumber: z.string().nullable(),
+  isContainer: z.boolean(),
   active: z.boolean(),
   componentCount: z.number().int().nonnegative(),
 });
 export type CatalogSetResponse = z.infer<typeof CatalogSetResponseSchema>;
+
+// Create Container Request (for POST /catalog/sets - Sets/Trays/Kits only)
+// LAW: Only INSTRUMENT or EQUIPMENT allowed as containers
+export const CreateContainerRequestSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().max(500).optional(),
+  category: z.enum(['INSTRUMENT', 'EQUIPMENT']), // No IMPLANT, CONSUMABLE, MEDICATION, PPE
+  manufacturer: z.string().max(255).optional(),
+  catalogNumber: z.string().max(100).optional(),
+});
+export type CreateContainerRequest = z.infer<typeof CreateContainerRequestSchema>;
 
 // ============================================================================
 // PREFERENCE CARD SCHEMAS

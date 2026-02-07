@@ -17,6 +17,7 @@ import { query } from '../db/index.js';
 import {
   CreateSetComponentRequestSchema,
   UpdateSetComponentRequestSchema,
+  CreateContainerRequestSchema,
 } from '../schemas/index.js';
 import { requireCapabilities } from '../plugins/auth.js';
 import { ok, fail } from '../utils/reply.js';
@@ -28,6 +29,7 @@ interface CatalogSetRow {
   category: string;
   manufacturer: string | null;
   catalog_number: string | null;
+  is_container: boolean;
   active: boolean;
   component_count: string;
 }
@@ -49,8 +51,11 @@ interface SetComponentRow {
 export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /catalog/sets
-   * List all catalog items that have defined components (are Sets)
-   * Returns catalog items with at least one component definition
+   * List all container catalog items (Sets/Trays/Kits)
+   * Only returns items where is_container = true
+   *
+   * Query params:
+   *   includeEmpty=true: Include containers with no contents defined yet
    */
   fastify.get<{ Querystring: { includeEmpty?: string } }>('/', {
     preHandler: [fastify.authenticate],
@@ -58,28 +63,31 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
     const { facilityId } = request.user;
     const { includeEmpty } = request.query;
 
-    // If includeEmpty=true, return all catalog items that COULD be sets
-    // Otherwise, only return items that already have components defined
+    // Only return container items (is_container = true)
+    // If includeEmpty=true, return all containers
+    // Otherwise, only return containers that already have contents defined
     let sql: string;
 
     if (includeEmpty === 'true') {
-      // Return all active catalog items with component count
+      // Return all active container items with component count
       sql = `
         SELECT
-          c.id, c.facility_id, c.name, c.category, c.manufacturer, c.catalog_number, c.active,
+          c.id, c.facility_id, c.name, c.category, c.manufacturer, c.catalog_number,
+          c.is_container, c.active,
           (SELECT COUNT(*) FROM catalog_set_component csc WHERE csc.set_catalog_id = c.id) as component_count
         FROM item_catalog c
-        WHERE c.facility_id = $1 AND c.active = true
+        WHERE c.facility_id = $1 AND c.active = true AND c.is_container = true
         ORDER BY c.name ASC
       `;
     } else {
-      // Return only items with components
+      // Return only containers with contents
       sql = `
         SELECT
-          c.id, c.facility_id, c.name, c.category, c.manufacturer, c.catalog_number, c.active,
+          c.id, c.facility_id, c.name, c.category, c.manufacturer, c.catalog_number,
+          c.is_container, c.active,
           (SELECT COUNT(*) FROM catalog_set_component csc WHERE csc.set_catalog_id = c.id) as component_count
         FROM item_catalog c
-        WHERE c.facility_id = $1 AND c.active = true
+        WHERE c.facility_id = $1 AND c.active = true AND c.is_container = true
           AND EXISTS (SELECT 1 FROM catalog_set_component csc WHERE csc.set_catalog_id = c.id)
         ORDER BY c.name ASC
       `;
@@ -95,10 +103,77 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
         category: row.category,
         manufacturer: row.manufacturer,
         catalogNumber: row.catalog_number,
+        isContainer: row.is_container,
         active: row.active,
         componentCount: parseInt(row.component_count),
       })),
     });
+  });
+
+  /**
+   * POST /catalog/sets
+   * Create a new container catalog item (Set/Tray/Kit) - ADMIN only
+   *
+   * LAW NOTICE:
+   * - Only INSTRUMENT or EQUIPMENT categories allowed for containers
+   * - IMPLANT, CONSUMABLE, MEDICATION, PPE cannot be containers
+   * - This creates a catalog entry with is_container = true
+   */
+  fastify.post('/', {
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+
+    const parseResult = CreateContainerRequestSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, parseResult.error.flatten());
+    }
+
+    const data = parseResult.data;
+
+    // Insert container catalog item with is_container = true
+    const insertResult = await query<{
+      id: string;
+      name: string;
+      description: string | null;
+      category: string;
+      manufacturer: string | null;
+      catalog_number: string | null;
+      is_container: boolean;
+      active: boolean;
+      created_at: Date;
+      updated_at: Date;
+    }>(`
+      INSERT INTO item_catalog (
+        facility_id, name, description, category, manufacturer, catalog_number,
+        is_container, active
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, true, true)
+      RETURNING id, name, description, category, manufacturer, catalog_number,
+                is_container, active, created_at, updated_at
+    `, [
+      facilityId,
+      data.name,
+      data.description || null,
+      data.category,
+      data.manufacturer || null,
+      data.catalogNumber || null,
+    ]);
+
+    const row = insertResult.rows[0];
+    return ok(reply, {
+      set: {
+        id: row.id,
+        facilityId: facilityId,
+        name: row.name,
+        category: row.category,
+        manufacturer: row.manufacturer,
+        catalogNumber: row.catalog_number,
+        isContainer: row.is_container,
+        active: row.active,
+        componentCount: 0,
+      },
+    }, 201);
   });
 
   /**
@@ -176,13 +251,20 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
 
     const data = parseResult.data;
 
-    // Verify set catalog item exists and belongs to facility
-    const setCatalogCheck = await query(`
-      SELECT id FROM item_catalog WHERE id = $1 AND facility_id = $2
+    // Verify set catalog item exists, belongs to facility, AND is a container
+    const setCatalogCheck = await query<{ id: string; is_container: boolean }>(`
+      SELECT id, is_container FROM item_catalog WHERE id = $1 AND facility_id = $2
     `, [catalogId, facilityId]);
 
     if (setCatalogCheck.rows.length === 0) {
       return fail(reply, 'NOT_FOUND', 'Set catalog item not found', 404);
+    }
+
+    // Server-side enforcement: Only containers can have expected contents
+    if (!setCatalogCheck.rows[0].is_container) {
+      return fail(reply, 'VALIDATION_ERROR',
+        'Only container items (Sets/Trays/Kits) can have expected contents. Mark this item as a container first.',
+        400);
     }
 
     // Verify component catalog item exists and belongs to same facility
@@ -194,9 +276,37 @@ export async function catalogSetsRoutes(fastify: FastifyInstance): Promise<void>
       return fail(reply, 'VALIDATION_ERROR', 'Component catalog item not found');
     }
 
-    // Prevent self-reference
+    // Prevent self-reference (A → A)
     if (catalogId === data.componentCatalogId) {
       return fail(reply, 'VALIDATION_ERROR', 'A set cannot contain itself as a component');
+    }
+
+    // Prevent cycles: Check if the component (or any of its nested components) already contains this set
+    // This uses a recursive CTE to detect cycles at any depth (A → B → A, A → B → C → A, etc.)
+    const cycleCheck = await query<{ creates_cycle: boolean }>(`
+      WITH RECURSIVE component_tree AS (
+        -- Base case: direct components of the item we're trying to add
+        SELECT component_catalog_id, set_catalog_id, 1 as depth
+        FROM catalog_set_component
+        WHERE set_catalog_id = $1
+
+        UNION ALL
+
+        -- Recursive case: components of components (up to depth 10 to prevent infinite loops)
+        SELECT csc.component_catalog_id, csc.set_catalog_id, ct.depth + 1
+        FROM catalog_set_component csc
+        INNER JOIN component_tree ct ON csc.set_catalog_id = ct.component_catalog_id
+        WHERE ct.depth < 10
+      )
+      SELECT EXISTS (
+        SELECT 1 FROM component_tree WHERE component_catalog_id = $2
+      ) as creates_cycle
+    `, [data.componentCatalogId, catalogId]);
+
+    if (cycleCheck.rows[0]?.creates_cycle) {
+      return fail(reply, 'VALIDATION_ERROR',
+        'Adding this component would create a circular reference. The component (or one of its nested contents) already contains this set.',
+        400);
     }
 
     // Check for duplicate

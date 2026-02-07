@@ -4238,6 +4238,9 @@
                               "isLoaner": {
                                 "type": "boolean"
                               },
+                              "isContainer": {
+                                "type": "boolean"
+                              },
                               "active": {
                                 "type": "boolean"
                               },
@@ -4295,6 +4298,7 @@
                               "catalogNumber",
                               "requiresSterility",
                               "isLoaner",
+                              "isContainer",
                               "active",
                               "requiresLotTracking",
                               "requiresSerialTracking",
@@ -4367,6 +4371,9 @@
                     "type": "boolean"
                   },
                   "isLoaner": {
+                    "type": "boolean"
+                  },
+                  "isContainer": {
                     "type": "boolean"
                   },
                   "requiresLotTracking": {
@@ -4464,6 +4471,9 @@
                             "isLoaner": {
                               "type": "boolean"
                             },
+                            "isContainer": {
+                              "type": "boolean"
+                            },
                             "active": {
                               "type": "boolean"
                             },
@@ -4521,6 +4531,7 @@
                             "catalogNumber",
                             "requiresSterility",
                             "isLoaner",
+                            "isContainer",
                             "active",
                             "requiresLotTracking",
                             "requiresSerialTracking",
@@ -4623,6 +4634,9 @@
                             "isLoaner": {
                               "type": "boolean"
                             },
+                            "isContainer": {
+                              "type": "boolean"
+                            },
                             "active": {
                               "type": "boolean"
                             },
@@ -4680,6 +4694,7 @@
                             "catalogNumber",
                             "requiresSterility",
                             "isLoaner",
+                            "isContainer",
                             "active",
                             "requiresLotTracking",
                             "requiresSerialTracking",
@@ -4773,6 +4788,9 @@
                   "isLoaner": {
                     "type": "boolean"
                   },
+                  "isContainer": {
+                    "type": "boolean"
+                  },
                   "requiresLotTracking": {
                     "type": "boolean"
                   },
@@ -4864,6 +4882,9 @@
                             "isLoaner": {
                               "type": "boolean"
                             },
+                            "isContainer": {
+                              "type": "boolean"
+                            },
                             "active": {
                               "type": "boolean"
                             },
@@ -4921,6 +4942,7 @@
                             "catalogNumber",
                             "requiresSterility",
                             "isLoaner",
+                            "isContainer",
                             "active",
                             "requiresLotTracking",
                             "requiresSerialTracking",

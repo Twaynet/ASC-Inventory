@@ -1652,6 +1652,7 @@ export interface operations {
                                 catalogNumber: string | null;
                                 requiresSterility: boolean;
                                 isLoaner: boolean;
+                                isContainer: boolean;
                                 active: boolean;
                                 requiresLotTracking: boolean;
                                 requiresSerialTracking: boolean;
@@ -1691,6 +1692,7 @@ export interface operations {
                     catalogNumber?: string;
                     requiresSterility?: boolean;
                     isLoaner?: boolean;
+                    isContainer?: boolean;
                     requiresLotTracking?: boolean;
                     requiresSerialTracking?: boolean;
                     requiresExpirationTracking?: boolean;
@@ -1722,6 +1724,7 @@ export interface operations {
                                 catalogNumber: string | null;
                                 requiresSterility: boolean;
                                 isLoaner: boolean;
+                                isContainer: boolean;
                                 active: boolean;
                                 requiresLotTracking: boolean;
                                 requiresSerialTracking: boolean;
@@ -1773,6 +1776,7 @@ export interface operations {
                                 catalogNumber: string | null;
                                 requiresSterility: boolean;
                                 isLoaner: boolean;
+                                isContainer: boolean;
                                 active: boolean;
                                 requiresLotTracking: boolean;
                                 requiresSerialTracking: boolean;
@@ -1814,6 +1818,7 @@ export interface operations {
                     catalogNumber?: string | null;
                     requiresSterility?: boolean;
                     isLoaner?: boolean;
+                    isContainer?: boolean;
                     requiresLotTracking?: boolean;
                     requiresSerialTracking?: boolean;
                     requiresExpirationTracking?: boolean;
@@ -1845,6 +1850,7 @@ export interface operations {
                                 catalogNumber: string | null;
                                 requiresSterility: boolean;
                                 isLoaner: boolean;
+                                isContainer: boolean;
                                 active: boolean;
                                 requiresLotTracking: boolean;
                                 requiresSerialTracking: boolean;

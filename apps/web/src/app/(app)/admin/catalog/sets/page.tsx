@@ -13,10 +13,12 @@ import {
   addSetComponent,
   updateSetComponent,
   removeSetComponent,
+  createCatalogSet,
   type CatalogSet,
   type SetComponent,
   type CatalogItem,
   type ItemCategory,
+  type CreateContainerRequest,
 } from '@/lib/api';
 
 /**
@@ -49,6 +51,7 @@ export default function CatalogSetsPage() {
   const [components, setComponents] = useState<SetComponent[]>([]);
   const [loadingComponents, setLoadingComponents] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showCreateSetModal, setShowCreateSetModal] = useState(false);
   const [editingComponent, setEditingComponent] = useState<SetComponent | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [allCatalogItems, setAllCatalogItems] = useState<CatalogItem[]>([]);
@@ -58,6 +61,11 @@ export default function CatalogSetsPage() {
     optionalQuantity: 0,
     notes: '',
   });
+  const [createSetForm, setCreateSetForm] = useState<CreateContainerRequest>({
+    name: '',
+    category: 'INSTRUMENT',
+  });
+  const [isCreatingSet, setIsCreatingSet] = useState(false);
 
   const {
     data,
@@ -189,6 +197,24 @@ export default function CatalogSetsPage() {
     });
   };
 
+  const handleCreateSet = async () => {
+    if (!token || !createSetForm.name.trim()) return;
+
+    setIsCreatingSet(true);
+    await withErrorHandling(
+      () => createCatalogSet(token, createSetForm),
+      setError,
+      (result) => {
+        setSuccessMessage('Set/Tray created');
+        setShowCreateSetModal(false);
+        setCreateSetForm({ name: '', category: 'INSTRUMENT' });
+        setSelectedSetId(result.set.id);
+        refetch();
+      }
+    );
+    setIsCreatingSet(false);
+  };
+
   // Filter available catalog items (exclude already in set)
   const existingComponentIds = new Set(components.map(c => c.componentCatalogId));
   const availableItems = allCatalogItems
@@ -240,12 +266,20 @@ export default function CatalogSetsPage() {
         </div>
 
         <div className="page-header">
-          <Breadcrumbs items={[
-            { label: 'Catalog', href: '/admin/catalog' },
-            { label: 'Set Definitions' },
-          ]} />
+          <div className="header-row">
+            <Breadcrumbs items={[
+              { label: 'Catalog', href: '/admin/catalog' },
+              { label: 'Set Definitions' },
+            ]} />
+            <button
+              className="btn btn-create"
+              onClick={() => setShowCreateSetModal(true)}
+            >
+              + Create Set / Tray
+            </button>
+          </div>
           <p className="description">
-            Define expected components for kits, trays, and composite items.
+            Define expected contents for sets, trays, and kits.
             <br />
             <strong>Note:</strong> Set definitions declare expectations only — they do not verify physical presence or readiness.
           </p>
@@ -254,11 +288,11 @@ export default function CatalogSetsPage() {
         <div className="sets-layout">
           {/* Left: Set List */}
           <div className="sets-list-panel">
-            <h3>Catalog Items</h3>
-            <p className="helper-text">Select an item to define its components</p>
+            <h3>Sets / Trays</h3>
+            <p className="helper-text">Select a container to define its expected contents</p>
             <div className="sets-list">
               {sets.length === 0 ? (
-                <p className="empty-message">No catalog items found.</p>
+                <p className="empty-message">No sets or trays found. Click &quot;Create Set / Tray&quot; to add one.</p>
               ) : (
                 sets.map(set => (
                   <div
@@ -278,7 +312,7 @@ export default function CatalogSetsPage() {
                         {CATEGORY_LABELS[set.category] || set.category}
                       </span>
                       {set.componentCount > 0 && (
-                        <span className="component-count">{set.componentCount} components</span>
+                        <span className="component-count">{set.componentCount} items</span>
                       )}
                     </div>
                   </div>
@@ -287,11 +321,11 @@ export default function CatalogSetsPage() {
             </div>
           </div>
 
-          {/* Right: Components Panel */}
+          {/* Right: Expected Contents Panel */}
           <div className="components-panel">
             {!selectedSet ? (
               <div className="empty-panel">
-                <p>Select a catalog item to view or define its components</p>
+                <p>Select a set or tray to view or define its expected contents</p>
               </div>
             ) : (
               <>
@@ -317,14 +351,14 @@ export default function CatalogSetsPage() {
                       resetForm();
                     }}
                   >
-                    + Add Component
+                    + Add Item to Set
                   </button>
                 </div>
 
-                {/* Add Component Form */}
+                {/* Add Item Form */}
                 {showAddForm && (
                   <div className="add-form-card">
-                    <h4>Add Component to Set</h4>
+                    <h4>Add Item to Set</h4>
                     <div className="search-box">
                       <input
                         type="text"
@@ -399,7 +433,7 @@ export default function CatalogSetsPage() {
                         onClick={handleAddComponent}
                         disabled={!selectedCatalogId}
                       >
-                        Add Component
+                        Add to Set
                       </button>
                       <button
                         className="btn btn-secondary"
@@ -464,15 +498,15 @@ export default function CatalogSetsPage() {
                   </div>
                 )}
 
-                {/* Components Table */}
+                {/* Expected Contents Table */}
                 {loadingComponents ? (
-                  <div className="loading">Loading components...</div>
+                  <div className="loading">Loading expected contents...</div>
                 ) : (
                   <div className="table-container">
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th>Component</th>
+                          <th>Expected Item</th>
                           <th>Category</th>
                           <th>Required</th>
                           <th>Optional</th>
@@ -484,7 +518,7 @@ export default function CatalogSetsPage() {
                         {components.length === 0 ? (
                           <tr>
                             <td colSpan={6} className="empty-state">
-                              No components defined. Click &quot;Add Component&quot; to define expected items.
+                              No expected contents defined. Click &quot;Add Item to Set&quot; to define what this set should contain.
                             </td>
                           </tr>
                         ) : (
@@ -535,6 +569,87 @@ export default function CatalogSetsPage() {
             )}
           </div>
         </div>
+
+        {/* Create Set/Tray Modal */}
+        {showCreateSetModal && (
+          <div className="modal-overlay" onClick={() => setShowCreateSetModal(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <h3>Create Set / Tray</h3>
+              <p className="modal-description">
+                Create a new container catalog item. Only Instrument or Equipment categories
+                are allowed for sets and trays.
+              </p>
+              <div className="modal-form">
+                <div className="field">
+                  <label>Name *</label>
+                  <input
+                    type="text"
+                    value={createSetForm.name}
+                    onChange={(e) => setCreateSetForm({ ...createSetForm, name: e.target.value })}
+                    placeholder="e.g., Spine Instrument Tray"
+                    autoFocus
+                  />
+                </div>
+                <div className="field">
+                  <label>Category *</label>
+                  <select
+                    value={createSetForm.category}
+                    onChange={(e) => setCreateSetForm({ ...createSetForm, category: e.target.value as 'INSTRUMENT' | 'EQUIPMENT' })}
+                  >
+                    <option value="INSTRUMENT">Instrument</option>
+                    <option value="EQUIPMENT">Equipment</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Manufacturer</label>
+                  <input
+                    type="text"
+                    value={createSetForm.manufacturer || ''}
+                    onChange={(e) => setCreateSetForm({ ...createSetForm, manufacturer: e.target.value || undefined })}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="field">
+                  <label>Catalog Number</label>
+                  <input
+                    type="text"
+                    value={createSetForm.catalogNumber || ''}
+                    onChange={(e) => setCreateSetForm({ ...createSetForm, catalogNumber: e.target.value || undefined })}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="field">
+                  <label>Description</label>
+                  <input
+                    type="text"
+                    value={createSetForm.description || ''}
+                    onChange={(e) => setCreateSetForm({ ...createSetForm, description: e.target.value || undefined })}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={handleCreateSet}
+                  disabled={!createSetForm.name.trim() || isCreatingSet}
+                >
+                  {isCreatingSet ? 'Creating...' : 'Create Set'}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowCreateSetModal(false);
+                    setCreateSetForm({ name: '', category: 'INSTRUMENT' });
+                  }}
+                  disabled={isCreatingSet}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       <style jsx>{`
@@ -570,6 +685,13 @@ export default function CatalogSetsPage() {
 
         .page-header {
           margin-bottom: 1.5rem;
+        }
+
+        .header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 1rem;
         }
 
         .breadcrumb {
@@ -885,6 +1007,85 @@ export default function CatalogSetsPage() {
             max-height: 300px;
             overflow-y: auto;
           }
+
+          .header-row {
+            flex-direction: column;
+          }
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .modal {
+          background: white;
+          border-radius: 8px;
+          padding: 1.5rem;
+          max-width: 500px;
+          width: 90%;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal h3 {
+          margin: 0 0 0.5rem 0;
+        }
+
+        .modal-description {
+          color: #718096;
+          font-size: 0.875rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .modal-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .modal-form .field {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .modal-form .field label {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #4a5568;
+        }
+
+        .modal-form .field input,
+        .modal-form .field select {
+          padding: 0.5rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          font-size: 1rem;
+        }
+
+        .modal-form .field input:focus,
+        .modal-form .field select:focus {
+          outline: none;
+          border-color: #4299e1;
+          box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 0.5rem;
+          justify-content: flex-end;
         }
       `}</style>
     </>

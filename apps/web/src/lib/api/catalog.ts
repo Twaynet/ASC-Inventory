@@ -27,6 +27,7 @@ export interface CatalogItem {
   catalogNumber: string | null;
   requiresSterility: boolean;
   isLoaner: boolean;
+  isContainer: boolean; // True for Sets/Trays/Kits
   active: boolean;
   requiresLotTracking: boolean;
   requiresSerialTracking: boolean;
@@ -50,6 +51,7 @@ export interface CreateCatalogItemRequest {
   catalogNumber?: string;
   requiresSterility?: boolean;
   isLoaner?: boolean;
+  isContainer?: boolean; // True for Sets/Trays/Kits
   requiresLotTracking?: boolean;
   requiresSerialTracking?: boolean;
   requiresExpirationTracking?: boolean;
@@ -67,6 +69,7 @@ export interface UpdateCatalogItemRequest {
   catalogNumber?: string | null;
   requiresSterility?: boolean;
   isLoaner?: boolean;
+  isContainer?: boolean; // True for Sets/Trays/Kits
   requiresLotTracking?: boolean;
   requiresSerialTracking?: boolean;
   requiresExpirationTracking?: boolean;
@@ -139,8 +142,18 @@ export interface CatalogSet {
   category: ItemCategory;
   manufacturer: string | null;
   catalogNumber: string | null;
+  isContainer: boolean;
   active: boolean;
   componentCount: number;
+}
+
+// Create Container Request (Sets/Trays/Kits only)
+export interface CreateContainerRequest {
+  name: string;
+  description?: string;
+  category: 'INSTRUMENT' | 'EQUIPMENT'; // Only these allowed for containers
+  manufacturer?: string;
+  catalogNumber?: string;
 }
 
 export interface SetComponent {
@@ -416,6 +429,14 @@ export async function getCatalogSets(
 ): Promise<{ sets: CatalogSet[] }> {
   const query = includeEmpty ? '?includeEmpty=true' : '';
   return request(`/catalog/sets${query}`, { token });
+}
+
+// TODO(api-schema): needs Zod request + response schema
+export async function createCatalogSet(
+  token: string,
+  data: CreateContainerRequest
+): Promise<{ set: CatalogSet }> {
+  return request('/catalog/sets', { method: 'POST', body: data, token });
 }
 
 // TODO(api-schema): needs Zod response schema

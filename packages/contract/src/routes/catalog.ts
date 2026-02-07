@@ -23,6 +23,7 @@ export const CatalogItemApiSchema = z.object({
   catalogNumber: nullableString,
   requiresSterility: z.boolean(),
   isLoaner: z.boolean(),
+  isContainer: z.boolean(), // True for Sets/Trays/Kits
   active: z.boolean(),
   requiresLotTracking: z.boolean(),
   requiresSerialTracking: z.boolean(),
@@ -91,6 +92,7 @@ export const CreateCatalogItemBodySchema = z.object({
   catalogNumber: z.string().max(100).optional(),
   requiresSterility: z.boolean().optional(),
   isLoaner: z.boolean().optional(),
+  isContainer: z.boolean().optional(), // True for Sets/Trays/Kits
   requiresLotTracking: z.boolean().optional(),
   requiresSerialTracking: z.boolean().optional(),
   requiresExpirationTracking: z.boolean().optional(),
@@ -108,6 +110,7 @@ export const UpdateCatalogItemBodySchema = z.object({
   catalogNumber: z.string().max(100).nullable().optional(),
   requiresSterility: z.boolean().optional(),
   isLoaner: z.boolean().optional(),
+  isContainer: z.boolean().optional(), // True for Sets/Trays/Kits
   requiresLotTracking: z.boolean().optional(),
   requiresSerialTracking: z.boolean().optional(),
   requiresExpirationTracking: z.boolean().optional(),

@@ -22,6 +22,7 @@ interface CatalogRow {
   catalog_number: string | null;
   requires_sterility: boolean;
   is_loaner: boolean;
+  is_container: boolean;
   active: boolean;
   // v1.1 Risk-Intent Extensions
   requires_lot_tracking: boolean;
@@ -57,7 +58,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT
         c.id, c.facility_id, c.name, c.description, c.category,
         c.manufacturer, c.catalog_number, c.requires_sterility, c.is_loaner,
-        c.active,
+        c.is_container, c.active,
         c.requires_lot_tracking, c.requires_serial_tracking, c.requires_expiration_tracking,
         c.criticality, c.readiness_required, c.expiration_warning_days, c.substitutable,
         c.created_at, c.updated_at,
@@ -93,6 +94,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         catalogNumber: row.catalog_number,
         requiresSterility: row.requires_sterility,
         isLoaner: row.is_loaner,
+        isContainer: row.is_container,
         active: row.active,
         // v1.1 Risk-Intent Extensions
         requiresLotTracking: row.requires_lot_tracking,
@@ -123,7 +125,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT
         c.id, c.facility_id, c.name, c.description, c.category,
         c.manufacturer, c.catalog_number, c.requires_sterility, c.is_loaner,
-        c.active,
+        c.is_container, c.active,
         c.requires_lot_tracking, c.requires_serial_tracking, c.requires_expiration_tracking,
         c.criticality, c.readiness_required, c.expiration_warning_days, c.substitutable,
         c.created_at, c.updated_at,
@@ -147,6 +149,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         catalogNumber: row.catalog_number,
         requiresSterility: row.requires_sterility,
         isLoaner: row.is_loaner,
+        isContainer: row.is_container,
         active: row.active,
         // v1.1 Risk-Intent Extensions
         requiresLotTracking: row.requires_lot_tracking,
@@ -184,11 +187,11 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
     const result = await query<CatalogRow>(`
       INSERT INTO item_catalog (
         facility_id, name, description, category, manufacturer,
-        catalog_number, requires_sterility, is_loaner, active,
+        catalog_number, requires_sterility, is_loaner, is_container, active,
         requires_lot_tracking, requires_serial_tracking, requires_expiration_tracking,
         criticality, readiness_required, expiration_warning_days, substitutable
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, $10, $11, $12, $13, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `, [
       facilityId,
@@ -199,6 +202,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       data.catalogNumber || null,
       data.requiresSterility ?? true,
       data.isLoaner ?? false,
+      data.isContainer ?? false,
       // v1.1 fields with defaults
       data.requiresLotTracking ?? false,
       data.requiresSerialTracking ?? false,
@@ -220,6 +224,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         catalogNumber: row.catalog_number,
         requiresSterility: row.requires_sterility,
         isLoaner: row.is_loaner,
+        isContainer: row.is_container,
         active: row.active,
         // v1.1 Risk-Intent Extensions
         requiresLotTracking: row.requires_lot_tracking,
@@ -299,6 +304,10 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       updates.push(`is_loaner = $${paramIndex++}`);
       values.push(data.isLoaner);
     }
+    if (data.isContainer !== undefined) {
+      updates.push(`is_container = $${paramIndex++}`);
+      values.push(data.isContainer);
+    }
     // v1.1 Risk-Intent Extensions
     if (data.requiresLotTracking !== undefined) {
       updates.push(`requires_lot_tracking = $${paramIndex++}`);
@@ -346,7 +355,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT
         c.id, c.facility_id, c.name, c.description, c.category,
         c.manufacturer, c.catalog_number, c.requires_sterility, c.is_loaner,
-        c.active,
+        c.is_container, c.active,
         c.requires_lot_tracking, c.requires_serial_tracking, c.requires_expiration_tracking,
         c.criticality, c.readiness_required, c.expiration_warning_days, c.substitutable,
         c.created_at, c.updated_at,
@@ -366,6 +375,7 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
         catalogNumber: row.catalog_number,
         requiresSterility: row.requires_sterility,
         isLoaner: row.is_loaner,
+        isContainer: row.is_container,
         active: row.active,
         // v1.1 Risk-Intent Extensions
         requiresLotTracking: row.requires_lot_tracking,
