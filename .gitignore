@@ -36,3 +36,9 @@ coverage/
 case-card-spec.md
 case-dashboard.md
 apps/web/tsconfig.tsbuildinfo
+
+# API/Uploads
+apps/api/uploads/
+
+# nul
+nul
