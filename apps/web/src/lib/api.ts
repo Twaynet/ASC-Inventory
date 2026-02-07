@@ -17,7 +17,7 @@
 export { ApiError, resolveAssetUrl } from './api/client';
 
 // Auth
-export { login, getMe } from './api/auth';
+export { login, getMe, logout } from './api/auth';
 export type { LoginResponse } from './api/auth';
 
 // Cases
