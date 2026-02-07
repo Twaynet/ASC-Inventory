@@ -1,5 +1,20 @@
 version: '3.8'
 
+# =============================================================================
+# ASC Inventory Production Stack
+# =============================================================================
+#
+# REQUIRED environment variables (set in .env file on droplet):
+#   - POSTGRES_PASSWORD: Database password
+#   - JWT_SECRET: JWT signing secret
+#   - IMAGE_TAG: Docker image version (e.g., 1.5.5)
+#
+# Deploy commands:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# =============================================================================
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -34,7 +49,7 @@ services:
       - web
 
   api:
-    image: ghcr.io/twaynet/asc-inventory-api:1.5.5
+    image: ghcr.io/twaynet/asc-inventory-api:${IMAGE_TAG}
     container_name: asc-api
     restart: unless-stopped
     environment:
@@ -54,7 +69,7 @@ services:
         condition: service_healthy
 
   web:
-    image: ghcr.io/twaynet/asc-inventory-web:1.5.5
+    image: ghcr.io/twaynet/asc-inventory-web:${IMAGE_TAG}
     container_name: asc-web
     restart: unless-stopped
     environment:

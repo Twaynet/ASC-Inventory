@@ -2,7 +2,7 @@
 #
 # ASC Inventory Release Helper
 # Usage: ./scripts/release.sh <version>
-# Example: ./scripts/release.sh 1.5.5
+# Example: ./scripts/release.sh 1.5.6
 #
 
 set -e
@@ -11,7 +11,7 @@ VERSION=${1:-}
 
 if [ -z "$VERSION" ]; then
   echo "Usage: $0 <version>"
-  echo "Example: $0 1.5.5"
+  echo "Example: $0 1.5.6"
   echo ""
   echo "Current tags:"
   git tag --list 'v*' | sort -V | tail -5
@@ -20,7 +20,7 @@ fi
 
 # Validate version format
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Error: Version must be in format X.Y.Z (e.g., 1.5.5)"
+  echo "Error: Version must be in format X.Y.Z (e.g., 1.5.6)"
   exit 1
 fi
 
@@ -70,25 +70,18 @@ gh release create "$TAG" \
   --generate-notes
 
 echo ""
-echo "5. Updating docker-compose.prod.yml..."
-sed -i "s|asc-inventory-api:[0-9.]*|asc-inventory-api:$VERSION|g" docker-compose.prod.yml
-sed -i "s|asc-inventory-web:[0-9.]*|asc-inventory-web:$VERSION|g" docker-compose.prod.yml
-
-echo ""
-echo "6. Committing version bump..."
-git add docker-compose.prod.yml
-git commit -m "chore(docker): bump prod images to v$VERSION"
-git push origin master
-
-echo ""
 echo "============================================"
 echo "Release $TAG created successfully!"
 echo "============================================"
 echo ""
-echo "Next steps:"
-echo "  1. Wait for CD workflow: gh run list --limit 3"
-echo "  2. SSH to droplet and deploy:"
-echo "     ssh root@<DROPLET_IP>"
-echo "     cd /opt/asc-inventory"
-echo "     git pull && docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d"
+echo "CD workflow will build and push images to GHCR."
+echo "Check status: gh run list --workflow=cd.yml --limit 3"
+echo ""
+echo "Once complete, deploy to droplet:"
+echo ""
+echo "  ssh root@<DROPLET_IP>"
+echo "  cd /home/tim/asc-inventory"
+echo "  sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=$VERSION/' .env"
+echo "  docker compose -f docker-compose.prod.yml pull"
+echo "  docker compose -f docker-compose.prod.yml up -d"
 echo ""
