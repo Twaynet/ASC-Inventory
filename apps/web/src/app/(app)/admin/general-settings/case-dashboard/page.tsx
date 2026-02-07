@@ -368,7 +368,7 @@ export default function CaseDashboardSettingsPage() {
     <>
       <Header title="Case Dashboard Settings" />
 
-      <main className="container case-dashboard-settings-page">
+      <main className="container py-8">
         <Breadcrumbs items={[
           { label: 'General Settings', href: '/admin/general-settings' },
           { label: 'Case Dashboard' },
@@ -377,16 +377,16 @@ export default function CaseDashboardSettingsPage() {
 
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && (
-          <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
+          <div className="alert alert-success cursor-pointer" onClick={() => setSuccessMessage('')}>
             {successMessage}
           </div>
         )}
 
-        <div className="page-header">
-          <p className="page-description">
+        <div className="flex justify-between items-start mb-6 flex-wrap gap-4">
+          <p className="m-0 text-text-muted max-w-[600px]">
             Configure options that appear on the Case Dashboard. These settings affect how cases are managed and documented.
           </p>
-          <label className="checkbox-label">
+          <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap text-text-primary">
             <input
               type="checkbox"
               checked={showInactive}
@@ -397,21 +397,21 @@ export default function CaseDashboardSettingsPage() {
         </div>
 
         {isLoadingData ? (
-          <div className="loading">Loading settings...</div>
+          <div className="text-text-muted">Loading settings...</div>
         ) : (
-          <div className="collapsible-sections">
+          <div className="flex flex-col gap-4">
             {/* Time Out & Debrief Feature Toggle Section */}
-            <div className="collapsible-section">
+            <div className="bg-surface-primary rounded-lg shadow-[0_1px_3px_var(--shadow-sm)] overflow-hidden">
               <button
-                className={`section-header ${expandedSections.has('FEATURE_TOGGLES') ? 'expanded' : ''}`}
+                className={`w-full flex items-center py-4 px-6 bg-surface-primary border-none cursor-pointer text-left transition-colors hover:bg-surface-secondary ${expandedSections.has('FEATURE_TOGGLES') ? 'border-b border-border' : ''}`}
                 onClick={() => toggleSection('FEATURE_TOGGLES')}
                 aria-expanded={expandedSections.has('FEATURE_TOGGLES')}
               >
-                <div className="section-header-content">
-                  <span className="section-arrow">{expandedSections.has('FEATURE_TOGGLES') ? '▼' : '▶'}</span>
-                  <div className="section-title-block">
-                    <h2>Time Out & Debrief Checklists</h2>
-                    <span className={`feature-status ${settings?.enableTimeoutDebrief ? 'enabled' : 'disabled'}`}>
+                <div className="flex items-center gap-4 w-full">
+                  <span className="text-xs text-text-muted shrink-0 w-4">{expandedSections.has('FEATURE_TOGGLES') ? '\u25BC' : '\u25B6'}</span>
+                  <div className="flex items-center gap-4 flex-1">
+                    <h2 className="m-0 text-lg text-text-primary">Time Out & Debrief Checklists</h2>
+                    <span className={`text-xs py-1 px-2 rounded font-semibold ${settings?.enableTimeoutDebrief ? 'bg-[var(--color-green-bg)] text-[var(--color-green-700)]' : 'bg-[var(--color-red-bg)] text-[var(--color-red)]'}`}>
                       {settings?.enableTimeoutDebrief ? 'Enabled' : 'Disabled'}
                     </span>
                   </div>
@@ -419,23 +419,23 @@ export default function CaseDashboardSettingsPage() {
               </button>
 
               {expandedSections.has('FEATURE_TOGGLES') && (
-                <div className="section-content">
-                  <div className="feature-toggle">
-                    <div className="feature-info">
-                      <p className="section-description">
+                <div className="p-6 bg-surface-secondary">
+                  <div className="flex justify-between items-start gap-8">
+                    <div className="flex-1">
+                      <p className="m-0 mb-4 text-text-muted text-sm">
                         Enable surgical safety checklists for case time out (before surgery)
                         and post-operative debrief with role-based signatures.
                       </p>
                     </div>
-                    <div className="toggle-control">
+                    <div className="flex items-center gap-3 shrink-0">
                       <button
-                        className={`toggle-btn ${settings?.enableTimeoutDebrief ? 'active' : ''}`}
+                        className={`relative w-[50px] h-[26px] border-none rounded-[13px] cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${settings?.enableTimeoutDebrief ? 'bg-[var(--color-green)]' : 'bg-[var(--color-gray-400)]'}`}
                         onClick={handleToggleFeature}
                         disabled={isSavingSettings}
                       >
-                        <span className="toggle-slider"></span>
+                        <span className={`absolute top-[3px] left-[3px] w-5 h-5 bg-surface-primary rounded-full transition-transform shadow-[0_1px_3px_var(--shadow-sm)] ${settings?.enableTimeoutDebrief ? 'translate-x-6' : ''}`}></span>
                       </button>
-                      <span className="toggle-label">
+                      <span className="text-sm text-text-secondary">
                         {settings?.enableTimeoutDebrief ? 'Enabled' : 'Disabled'}
                       </span>
                     </div>
@@ -443,18 +443,18 @@ export default function CaseDashboardSettingsPage() {
 
                   {/* Template Management */}
                   {settings?.enableTimeoutDebrief && templates.length > 0 && (
-                    <div className="template-management">
-                      <h3 style={{ margin: '1.5rem 0 1rem 0', fontSize: '1rem', color: '#2d3748' }}>
+                    <div className="mt-4 border-t border-border pt-4">
+                      <h3 className="my-6 mb-4 text-base text-text-primary">
                         Checklist Templates
                       </h3>
 
                       {templates.map(template => (
-                        <div key={template.id} className="template-card">
-                          <div className="template-header">
+                        <div key={template.id} className="bg-surface-primary border border-border rounded-lg mb-4 overflow-hidden">
+                          <div className="flex justify-between items-center p-4 bg-surface-secondary border-b border-border">
                             <div>
-                              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>{template.name}</h4>
-                              <span className="template-meta">
-                                {template.items.length} items · Version {template.versionNumber || 1}
+                              <h4 className="m-0 text-[0.95rem] text-text-primary">{template.name}</h4>
+                              <span className="text-xs text-text-muted">
+                                {template.items.length} items &middot; Version {template.versionNumber || 1}
                               </span>
                             </div>
                             {editingTemplateType !== template.type && (
@@ -468,47 +468,47 @@ export default function CaseDashboardSettingsPage() {
                           </div>
 
                           {editingTemplateType === template.type ? (
-                            <div className="template-editor">
-                              <div className="editor-items">
+                            <div className="p-4">
+                              <div className="flex flex-col gap-3">
                                 {editingItems.map((item, index) => (
-                                  <div key={item.key} className="editor-item">
-                                    <div className="item-reorder">
+                                  <div key={item.key} className="flex items-start gap-3 p-3 bg-surface-secondary border border-border rounded-md">
+                                    <div className="flex flex-col gap-[2px]">
                                       <button
-                                        className="btn-icon"
+                                        className="w-6 h-6 p-0 border border-border bg-surface-primary rounded text-xs text-text-primary cursor-pointer hover:enabled:bg-surface-tertiary disabled:opacity-30 disabled:cursor-not-allowed"
                                         onClick={() => moveItem(index, 'up')}
                                         disabled={index === 0}
                                         title="Move up"
-                                      >↑</button>
+                                      >&uarr;</button>
                                       <button
-                                        className="btn-icon"
+                                        className="w-6 h-6 p-0 border border-border bg-surface-primary rounded text-xs text-text-primary cursor-pointer hover:enabled:bg-surface-tertiary disabled:opacity-30 disabled:cursor-not-allowed"
                                         onClick={() => moveItem(index, 'down')}
                                         disabled={index === editingItems.length - 1}
                                         title="Move down"
-                                      >↓</button>
+                                      >&darr;</button>
                                     </div>
-                                    <div className="item-details">
+                                    <div className="flex-1 flex flex-col gap-2">
                                       <input
                                         type="text"
                                         value={item.label}
                                         onChange={(e) => updateItem(index, { label: e.target.value })}
                                         placeholder="Label"
-                                        className="item-label-input"
+                                        className="text-[0.9rem] font-medium p-[0.4rem] border border-border rounded bg-surface-primary text-text-primary"
                                       />
-                                      <div className="item-config">
+                                      <div className="flex gap-4 items-center">
                                         <select
                                           value={item.type}
                                           onChange={(e) => updateItem(index, {
                                             type: e.target.value as ChecklistTemplateItem['type'],
                                             options: e.target.value === 'select' ? (item.options || ['option1', 'option2']) : undefined,
                                           })}
-                                          className="item-type-select"
+                                          className="py-1 px-2 border border-border rounded text-[0.8rem] bg-surface-primary text-text-primary"
                                         >
                                           <option value="checkbox">Checkbox</option>
                                           <option value="select">Dropdown</option>
                                           <option value="text">Text</option>
                                           <option value="readonly">Read-only</option>
                                         </select>
-                                        <label className="checkbox-label-inline">
+                                        <label className="flex items-center gap-1 text-[0.8rem] cursor-pointer text-text-primary">
                                           <input
                                             type="checkbox"
                                             checked={item.required}
@@ -518,8 +518,8 @@ export default function CaseDashboardSettingsPage() {
                                         </label>
                                       </div>
                                       {item.type === 'select' && (
-                                        <div className="item-options">
-                                          <label>Options (comma-separated):</label>
+                                        <div className="flex flex-col gap-1">
+                                          <label className="text-xs text-text-muted">Options (comma-separated):</label>
                                           <input
                                             type="text"
                                             value={(item.options || []).join(', ')}
@@ -527,47 +527,50 @@ export default function CaseDashboardSettingsPage() {
                                               options: e.target.value.split(',').map(o => o.trim()).filter(o => o),
                                             })}
                                             placeholder="option1, option2, option3"
+                                            className="p-[0.3rem] border border-border rounded text-[0.8rem] bg-surface-primary text-text-primary"
                                           />
                                         </div>
                                       )}
-                                      <span className="item-key-display">Key: {item.key}</span>
+                                      <span className="text-[0.7rem] text-text-muted font-mono">Key: {item.key}</span>
                                     </div>
                                     <button
-                                      className="btn-icon btn-danger-icon"
+                                      className="w-6 h-6 p-0 border border-border bg-surface-primary rounded cursor-pointer text-[var(--color-red)] text-xl font-bold hover:bg-[var(--color-red-bg)]"
                                       onClick={() => removeItem(index)}
                                       title="Remove item"
-                                    >×</button>
+                                    >&times;</button>
                                   </div>
                                 ))}
                               </div>
 
                               {showAddItemForm ? (
-                                <div className="add-item-form">
-                                  <h5>Add New Item</h5>
-                                  <div className="form-row">
+                                <div className="mt-4 p-4 bg-[var(--color-orange-bg)] border border-[var(--color-orange)] rounded-md">
+                                  <h5 className="m-0 mb-3 text-[0.9rem] text-text-primary">Add New Item</h5>
+                                  <div className="grid grid-cols-2 gap-4 max-[600px]:grid-cols-1">
                                     <div className="form-group">
-                                      <label>Key *</label>
+                                      <label className="block mb-2 font-medium text-text-primary">Key *</label>
                                       <input
                                         type="text"
                                         value={newItem.key || ''}
                                         onChange={(e) => setNewItem({ ...newItem, key: e.target.value.replace(/\s+/g, '_').toLowerCase() })}
                                         placeholder="e.g., blood_type_confirmed"
                                         pattern="^[a-z][a-z0-9_]*$"
+                                        className="w-full p-2 border border-border rounded bg-surface-primary text-text-primary"
                                       />
                                     </div>
                                     <div className="form-group">
-                                      <label>Label *</label>
+                                      <label className="block mb-2 font-medium text-text-primary">Label *</label>
                                       <input
                                         type="text"
                                         value={newItem.label || ''}
                                         onChange={(e) => setNewItem({ ...newItem, label: e.target.value })}
                                         placeholder="e.g., Blood type confirmed"
+                                        className="w-full p-2 border border-border rounded bg-surface-primary text-text-primary"
                                       />
                                     </div>
                                   </div>
-                                  <div className="form-row">
+                                  <div className="grid grid-cols-2 gap-4 max-[600px]:grid-cols-1">
                                     <div className="form-group">
-                                      <label>Type</label>
+                                      <label className="block mb-2 font-medium text-text-primary">Type</label>
                                       <select
                                         value={newItem.type || 'checkbox'}
                                         onChange={(e) => setNewItem({
@@ -575,6 +578,7 @@ export default function CaseDashboardSettingsPage() {
                                           type: e.target.value as ChecklistTemplateItem['type'],
                                           options: e.target.value === 'select' ? ['option1', 'option2'] : undefined,
                                         })}
+                                        className="w-full p-2 border border-border rounded bg-surface-primary text-text-primary"
                                       >
                                         <option value="checkbox">Checkbox</option>
                                         <option value="select">Dropdown</option>
@@ -583,8 +587,8 @@ export default function CaseDashboardSettingsPage() {
                                       </select>
                                     </div>
                                     <div className="form-group">
-                                      <label>&nbsp;</label>
-                                      <label className="checkbox-label">
+                                      <label className="block mb-2 font-medium text-text-primary">&nbsp;</label>
+                                      <label className="flex items-center gap-2 cursor-pointer text-text-primary">
                                         <input
                                           type="checkbox"
                                           checked={newItem.required ?? true}
@@ -596,7 +600,7 @@ export default function CaseDashboardSettingsPage() {
                                   </div>
                                   {newItem.type === 'select' && (
                                     <div className="form-group">
-                                      <label>Options (comma-separated)</label>
+                                      <label className="block mb-2 font-medium text-text-primary">Options (comma-separated)</label>
                                       <input
                                         type="text"
                                         value={(newItem.options || []).join(', ')}
@@ -605,10 +609,11 @@ export default function CaseDashboardSettingsPage() {
                                           options: e.target.value.split(',').map(o => o.trim()).filter(o => o),
                                         })}
                                         placeholder="option1, option2, option3"
+                                        className="w-full p-2 border border-border rounded bg-surface-primary text-text-primary"
                                       />
                                     </div>
                                   )}
-                                  <div className="form-actions">
+                                  <div className="flex gap-4">
                                     <button
                                       className="btn btn-primary btn-sm"
                                       onClick={addNewItem}
@@ -629,15 +634,14 @@ export default function CaseDashboardSettingsPage() {
                                 </div>
                               ) : (
                                 <button
-                                  className="btn btn-create btn-sm"
+                                  className="btn btn-create btn-sm mt-2"
                                   onClick={() => setShowAddItemForm(true)}
-                                  style={{ marginTop: '0.5rem' }}
                                 >
                                   + Add Item
                                 </button>
                               )}
 
-                              <div className="editor-actions">
+                              <div className="flex gap-3 mt-4 pt-4 border-t border-border">
                                 <button
                                   className="btn btn-primary"
                                   onClick={saveTemplate}
@@ -655,14 +659,14 @@ export default function CaseDashboardSettingsPage() {
                               </div>
                             </div>
                           ) : (
-                            <div className="template-items-preview">
+                            <div className="p-4">
                               {template.items.map(item => (
-                                <div key={item.key} className="preview-item">
-                                  <span className="preview-type">{item.type === 'checkbox' ? '☑' : item.type === 'select' ? '▼' : item.type === 'text' ? '✎' : '○'}</span>
-                                  <span className="preview-label">{item.label}</span>
-                                  {item.required && <span className="preview-required">*</span>}
+                                <div key={item.key} className="flex items-center gap-2 py-[0.4rem] border-b border-border last:border-b-0">
+                                  <span className="text-[0.85rem] text-text-muted w-[1.2rem]">{item.type === 'checkbox' ? '\u2611' : item.type === 'select' ? '\u25BC' : item.type === 'text' ? '\u270E' : '\u25CB'}</span>
+                                  <span className="flex-1 text-sm text-text-primary">{item.label}</span>
+                                  {item.required && <span className="text-[var(--color-red)] font-bold">*</span>}
                                   {item.type === 'select' && item.options && (
-                                    <span className="preview-options">({item.options.join(', ')})</span>
+                                    <span className="text-xs text-text-muted">({item.options.join(', ')})</span>
                                   )}
                                 </div>
                               ))}
@@ -683,26 +687,26 @@ export default function CaseDashboardSettingsPage() {
               const isEditing = editingItem?.itemType === section.type;
 
               return (
-                <div key={section.type} className="collapsible-section">
+                <div key={section.type} className="bg-surface-primary rounded-lg shadow-[0_1px_3px_var(--shadow-sm)] overflow-hidden">
                   <button
-                    className={`section-header ${isExpanded ? 'expanded' : ''}`}
+                    className={`w-full flex items-center py-4 px-6 bg-surface-primary border-none cursor-pointer text-left transition-colors hover:bg-surface-secondary ${isExpanded ? 'border-b border-border' : ''}`}
                     onClick={() => toggleSection(section.type)}
                     aria-expanded={isExpanded}
                   >
-                    <div className="section-header-content">
-                      <span className="section-arrow">{isExpanded ? '▼' : '▶'}</span>
-                      <div className="section-title-block">
-                        <h2>{section.title}</h2>
-                        <span className="item-count">{sectionItems.filter(i => i.active).length} active items</span>
+                    <div className="flex items-center gap-4 w-full">
+                      <span className="text-xs text-text-muted shrink-0 w-4">{isExpanded ? '\u25BC' : '\u25B6'}</span>
+                      <div className="flex items-center gap-4 flex-1">
+                        <h2 className="m-0 text-lg text-text-primary">{section.title}</h2>
+                        <span className="text-xs text-text-muted bg-surface-tertiary py-1 px-2 rounded">{sectionItems.filter(i => i.active).length} active items</span>
                       </div>
                     </div>
                   </button>
 
                   {isExpanded && (
-                    <div className="section-content">
-                      <p className="section-description">{section.description}</p>
+                    <div className="p-6 bg-surface-secondary">
+                      <p className="m-0 mb-4 text-text-muted text-sm">{section.description}</p>
 
-                      <div className="section-actions">
+                      <div className="mb-4">
                         <button
                           className="btn btn-create"
                           onClick={(e) => {
@@ -718,12 +722,12 @@ export default function CaseDashboardSettingsPage() {
 
                       {/* Create Form */}
                       {isCreating && (
-                        <div className="form-card">
-                          <h3>Add New Item</h3>
+                        <div className="bg-surface-primary border border-border rounded-lg p-4 mb-4">
+                          <h3 className="mt-0 mb-4 text-base text-text-primary">Add New Item</h3>
                           <form onSubmit={handleCreate}>
-                            <div className="form-row">
+                            <div className="grid grid-cols-2 gap-4 max-[600px]:grid-cols-1">
                               <div className="form-group">
-                                <label>Key * <small>(cannot be changed later)</small></label>
+                                <label className="block mb-2 font-medium text-text-primary">Key * <small className="font-normal text-text-muted">(cannot be changed later)</small></label>
                                 <input
                                   type="text"
                                   value={formData.itemKey || ''}
@@ -732,29 +736,32 @@ export default function CaseDashboardSettingsPage() {
                                   pattern="^[a-zA-Z][a-zA-Z0-9_]*$"
                                   title="Must start with a letter, only letters, numbers, and underscores"
                                   placeholder={section.keyPlaceholder}
+                                  className="w-full p-2 border border-border rounded bg-surface-primary text-text-primary"
                                 />
                               </div>
                               <div className="form-group">
-                                <label>Display Label *</label>
+                                <label className="block mb-2 font-medium text-text-primary">Display Label *</label>
                                 <input
                                   type="text"
                                   value={formData.displayLabel || ''}
                                   onChange={(e) => setFormData({ ...formData, displayLabel: e.target.value })}
                                   required
                                   placeholder={section.labelPlaceholder}
+                                  className="w-full p-2 border border-border rounded bg-surface-primary text-text-primary"
                                 />
                               </div>
                             </div>
                             <div className="form-group">
-                              <label>Description <small>(optional)</small></label>
+                              <label className="block mb-2 font-medium text-text-primary">Description <small className="font-normal text-text-muted">(optional)</small></label>
                               <input
                                 type="text"
                                 value={formData.description || ''}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 placeholder="Optional help text or notes"
+                                className="w-full p-2 border border-border rounded bg-surface-primary text-text-primary"
                               />
                             </div>
-                            <div className="form-actions">
+                            <div className="flex gap-4">
                               <button type="submit" className="btn btn-primary">Create Item</button>
                               <button
                                 type="button"
@@ -773,39 +780,41 @@ export default function CaseDashboardSettingsPage() {
 
                       {/* Edit Form */}
                       {isEditing && editingItem && (
-                        <div className="form-card">
-                          <h3>Edit Item</h3>
+                        <div className="bg-surface-primary border border-border rounded-lg p-4 mb-4">
+                          <h3 className="mt-0 mb-4 text-base text-text-primary">Edit Item</h3>
                           <form onSubmit={handleUpdate}>
-                            <div className="form-row">
+                            <div className="grid grid-cols-2 gap-4 max-[600px]:grid-cols-1">
                               <div className="form-group">
-                                <label>Key</label>
+                                <label className="block mb-2 font-medium text-text-primary">Key</label>
                                 <input
                                   type="text"
                                   value={editingItem.itemKey}
                                   disabled
-                                  className="disabled-input"
+                                  className="w-full p-2 border border-border rounded bg-surface-tertiary text-text-muted cursor-not-allowed"
                                 />
                               </div>
                               <div className="form-group">
-                                <label>Display Label *</label>
+                                <label className="block mb-2 font-medium text-text-primary">Display Label *</label>
                                 <input
                                   type="text"
                                   value={formData.displayLabel || ''}
                                   onChange={(e) => setFormData({ ...formData, displayLabel: e.target.value })}
                                   required
+                                  className="w-full p-2 border border-border rounded bg-surface-primary text-text-primary"
                                 />
                               </div>
                             </div>
                             <div className="form-group">
-                              <label>Description <small>(optional)</small></label>
+                              <label className="block mb-2 font-medium text-text-primary">Description <small className="font-normal text-text-muted">(optional)</small></label>
                               <input
                                 type="text"
                                 value={formData.description || ''}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 placeholder="Optional help text or notes"
+                                className="w-full p-2 border border-border rounded bg-surface-primary text-text-primary"
                               />
                             </div>
-                            <div className="form-actions">
+                            <div className="flex gap-4">
                               <button type="submit" className="btn btn-primary">Save Changes</button>
                               <button
                                 type="button"
@@ -823,16 +832,16 @@ export default function CaseDashboardSettingsPage() {
                       )}
 
                       {/* Sortable List */}
-                      <div className="sortable-list">
+                      <div className="flex flex-col gap-2">
                         {sectionItems.length === 0 ? (
-                          <div className="empty-state">
+                          <div className="text-center text-text-muted py-8 bg-surface-primary border border-dashed border-border rounded-md">
                             No items configured. Add your first item to get started.
                           </div>
                         ) : (
                           sectionItems.map((item) => (
                             <div
                               key={item.id}
-                              className={`sortable-item ${!item.active ? 'inactive' : ''} ${dragOverItem === item.id ? 'drag-over' : ''} ${draggedItem === item.id ? 'dragging' : ''}`}
+                              className={`flex items-center gap-4 py-3 px-4 bg-surface-primary border border-border rounded-md transition-all hover:bg-surface-secondary ${!item.active ? 'opacity-60' : ''} ${dragOverItem === item.id ? 'border-[var(--color-blue-500)] bg-[var(--color-blue-50)]' : ''} ${draggedItem === item.id ? 'opacity-50 scale-[0.98]' : ''}`}
                               draggable={item.active}
                               onDragStart={(e) => handleDragStart(e, item.id)}
                               onDragOver={(e) => handleDragOver(e, item.id)}
@@ -840,22 +849,22 @@ export default function CaseDashboardSettingsPage() {
                               onDrop={(e) => handleDrop(e, item.id, section.type)}
                               onDragEnd={handleDragEnd}
                             >
-                              <div className="drag-handle" title="Drag to reorder">
-                                <span></span>
-                                <span></span>
-                                <span></span>
+                              <div className={`flex flex-col gap-[2px] p-2 opacity-40 hover:opacity-80 ${item.active ? 'cursor-grab' : 'cursor-not-allowed !opacity-20'}`} title="Drag to reorder">
+                                <span className="block w-4 h-[2px] bg-text-muted rounded-[1px]"></span>
+                                <span className="block w-4 h-[2px] bg-text-muted rounded-[1px]"></span>
+                                <span className="block w-4 h-[2px] bg-text-muted rounded-[1px]"></span>
                               </div>
-                              <div className="item-content">
-                                <div className="item-label">{item.displayLabel}</div>
-                                <div className="item-key">{item.itemKey}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-text-primary">{item.displayLabel}</div>
+                                <div className="text-xs text-text-muted font-mono">{item.itemKey}</div>
                                 {item.description && (
-                                  <div className="item-description">{item.description}</div>
+                                  <div className="text-[0.8125rem] text-text-muted mt-1">{item.description}</div>
                                 )}
                               </div>
-                              <div className="item-status">
-                                {!item.active && <span className="status-badge inactive">Inactive</span>}
+                              <div className="shrink-0">
+                                {!item.active && <span className="inline-block py-1 px-2 rounded text-xs font-semibold bg-[var(--color-red-bg)] text-[var(--color-red)]">Inactive</span>}
                               </div>
-                              <div className="item-actions">
+                              <div className="flex gap-2 shrink-0">
                                 <button
                                   className="btn btn-secondary btn-sm"
                                   onClick={() => startEdit(item)}
@@ -890,819 +899,6 @@ export default function CaseDashboardSettingsPage() {
           </div>
         )}
       </main>
-
-      <style jsx>{`
-        .case-dashboard-settings-page {
-          padding: 2rem 0;
-        }
-
-        .back-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: none;
-          border: none;
-          color: #3182ce;
-          font-size: 0.875rem;
-          cursor: pointer;
-          padding: 0;
-          margin-bottom: 1.5rem;
-        }
-
-        .back-link:hover {
-          text-decoration: underline;
-        }
-
-        .page-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 1.5rem;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        .page-description {
-          margin: 0;
-          color: #718096;
-          max-width: 600px;
-        }
-
-        .checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
-          white-space: nowrap;
-        }
-
-        .collapsible-sections {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .collapsible-section {
-          background: white;
-          border-radius: 8px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-        }
-
-        .section-header {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          padding: 1rem 1.5rem;
-          background: white;
-          border: none;
-          cursor: pointer;
-          text-align: left;
-          transition: background 0.15s;
-        }
-
-        .section-header:hover {
-          background: #f7fafc;
-        }
-
-        .section-header.expanded {
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .section-header-content {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          width: 100%;
-        }
-
-        .section-arrow {
-          font-size: 0.75rem;
-          color: #718096;
-          flex-shrink: 0;
-          width: 1rem;
-        }
-
-        .section-title-block {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          flex: 1;
-        }
-
-        .section-title-block h2 {
-          margin: 0;
-          font-size: 1.125rem;
-          color: #2d3748;
-        }
-
-        .item-count {
-          font-size: 0.75rem;
-          color: #a0aec0;
-          background: #f7fafc;
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-        }
-
-        .section-content {
-          padding: 1.5rem;
-          background: #fafbfc;
-        }
-
-        .feature-status {
-          font-size: 0.75rem;
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-weight: 600;
-        }
-
-        .feature-status.enabled {
-          background: #c6f6d5;
-          color: #276749;
-        }
-
-        .feature-status.disabled {
-          background: #fed7d7;
-          color: #c53030;
-        }
-
-        .feature-toggle {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 2rem;
-        }
-
-        .feature-info {
-          flex: 1;
-        }
-
-        .toggle-control {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          flex-shrink: 0;
-        }
-
-        .toggle-btn {
-          position: relative;
-          width: 50px;
-          height: 26px;
-          background: #cbd5e0;
-          border: none;
-          border-radius: 13px;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-
-        .toggle-btn.active {
-          background: #38a169;
-        }
-
-        .toggle-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .toggle-slider {
-          position: absolute;
-          top: 3px;
-          left: 3px;
-          width: 20px;
-          height: 20px;
-          background: white;
-          border-radius: 50%;
-          transition: transform 0.2s;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-
-        .toggle-btn.active .toggle-slider {
-          transform: translateX(24px);
-        }
-
-        .toggle-label {
-          font-size: 0.875rem;
-          color: #4a5568;
-        }
-
-        .section-description {
-          margin: 0 0 1rem 0;
-          color: #718096;
-          font-size: 0.875rem;
-        }
-
-        .section-actions {
-          margin-bottom: 1rem;
-        }
-
-        .form-card {
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          padding: 1rem;
-          margin-bottom: 1rem;
-        }
-
-        .form-card h3 {
-          margin-top: 0;
-          margin-bottom: 1rem;
-          font-size: 1rem;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        @media (max-width: 600px) {
-          .form-row {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-        }
-
-        .form-group label small {
-          font-weight: normal;
-          color: #718096;
-        }
-
-        .form-group input {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          font-size: 1rem;
-        }
-
-        .disabled-input {
-          background: #edf2f7;
-          color: #718096;
-          cursor: not-allowed;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 1rem;
-        }
-
-        .sortable-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .sortable-item {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 0.75rem 1rem;
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 6px;
-          transition: all 0.15s;
-        }
-
-        .sortable-item:hover {
-          background: #f7fafc;
-        }
-
-        .sortable-item.inactive {
-          opacity: 0.6;
-        }
-
-        .sortable-item.dragging {
-          opacity: 0.5;
-          transform: scale(0.98);
-        }
-
-        .sortable-item.drag-over {
-          border-color: var(--color-blue-500, #3182ce);
-          background: #ebf8ff;
-        }
-
-        .drag-handle {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          padding: 0.5rem;
-          cursor: grab;
-          opacity: 0.4;
-        }
-
-        .drag-handle:hover {
-          opacity: 0.8;
-        }
-
-        .drag-handle span {
-          display: block;
-          width: 16px;
-          height: 2px;
-          background: #718096;
-          border-radius: 1px;
-        }
-
-        .sortable-item.inactive .drag-handle {
-          cursor: not-allowed;
-          opacity: 0.2;
-        }
-
-        .item-content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .item-label {
-          font-weight: 500;
-          color: #2d3748;
-        }
-
-        .item-key {
-          font-size: 0.75rem;
-          color: #718096;
-          font-family: monospace;
-        }
-
-        .item-description {
-          font-size: 0.8125rem;
-          color: #a0aec0;
-          margin-top: 0.25rem;
-        }
-
-        .item-status {
-          flex-shrink: 0;
-        }
-
-        .status-badge {
-          display: inline-block;
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-
-        .status-badge.inactive {
-          background: #fed7d7;
-          color: #c53030;
-        }
-
-        .item-actions {
-          display: flex;
-          gap: 0.5rem;
-          flex-shrink: 0;
-        }
-
-        .empty-state {
-          text-align: center;
-          color: #718096;
-          padding: 2rem;
-          background: white;
-          border: 1px dashed #e2e8f0;
-          border-radius: 6px;
-        }
-
-        .btn-danger {
-          background: #e53e3e;
-          color: white;
-        }
-
-        .btn-danger:hover {
-          background: #c53030;
-        }
-
-        .btn-success {
-          background: #38a169;
-          color: white;
-        }
-
-        .btn-success:hover {
-          background: #2f855a;
-        }
-
-        .alert-success {
-          background: #c6f6d5;
-          border: 1px solid #9ae6b4;
-          color: #276749;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1rem;
-          cursor: pointer;
-        }
-
-        /* Template Editor Styles */
-        .template-management {
-          margin-top: 1rem;
-          border-top: 1px solid #e2e8f0;
-          padding-top: 1rem;
-        }
-
-        .template-card {
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          margin-bottom: 1rem;
-          overflow: hidden;
-        }
-
-        .template-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem;
-          background: #f7fafc;
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .template-meta {
-          font-size: 0.75rem;
-          color: #718096;
-        }
-
-        .template-editor {
-          padding: 1rem;
-        }
-
-        .editor-items {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .editor-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.75rem;
-          padding: 0.75rem;
-          background: #f7fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 6px;
-        }
-
-        .item-reorder {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .btn-icon {
-          width: 24px;
-          height: 24px;
-          padding: 0;
-          border: 1px solid #e2e8f0;
-          background: white;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 0.75rem;
-        }
-
-        .btn-icon:hover:not(:disabled) {
-          background: #edf2f7;
-        }
-
-        .btn-icon:disabled {
-          opacity: 0.3;
-          cursor: not-allowed;
-        }
-
-        .btn-danger-icon {
-          color: #e53e3e;
-          font-size: 1.25rem;
-          font-weight: bold;
-        }
-
-        .btn-danger-icon:hover {
-          background: #fed7d7;
-        }
-
-        .item-details {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .item-label-input {
-          font-size: 0.9rem;
-          font-weight: 500;
-          padding: 0.4rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-        }
-
-        .item-config {
-          display: flex;
-          gap: 1rem;
-          align-items: center;
-        }
-
-        .item-type-select {
-          padding: 0.25rem 0.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          font-size: 0.8rem;
-        }
-
-        .checkbox-label-inline {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          font-size: 0.8rem;
-          cursor: pointer;
-        }
-
-        .item-options {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .item-options label {
-          font-size: 0.75rem;
-          color: #718096;
-        }
-
-        .item-options input {
-          padding: 0.3rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          font-size: 0.8rem;
-        }
-
-        .item-key-display {
-          font-size: 0.7rem;
-          color: #a0aec0;
-          font-family: monospace;
-        }
-
-        .add-item-form {
-          margin-top: 1rem;
-          padding: 1rem;
-          background: #fffbeb;
-          border: 1px solid #fcd34d;
-          border-radius: 6px;
-        }
-
-        .add-item-form h5 {
-          margin: 0 0 0.75rem 0;
-          font-size: 0.9rem;
-        }
-
-        .editor-actions {
-          display: flex;
-          gap: 0.75rem;
-          margin-top: 1rem;
-          padding-top: 1rem;
-          border-top: 1px solid #e2e8f0;
-        }
-
-        .template-items-preview {
-          padding: 1rem;
-        }
-
-        .preview-item {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.4rem 0;
-          border-bottom: 1px solid #f0f0f0;
-        }
-
-        .preview-item:last-child {
-          border-bottom: none;
-        }
-
-        .preview-type {
-          font-size: 0.85rem;
-          color: #718096;
-          width: 1.2rem;
-        }
-
-        .preview-label {
-          flex: 1;
-          font-size: 0.875rem;
-        }
-
-        .preview-required {
-          color: #e53e3e;
-          font-weight: bold;
-        }
-
-        .preview-options {
-          font-size: 0.75rem;
-          color: #a0aec0;
-        }
-
-        .form-group select {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          font-size: 1rem;
-          background: white;
-        }
-
-        /* Dark mode overrides */
-        :global([data-theme="dark"]) .back-link {
-          color: var(--color-accent);
-        }
-        :global([data-theme="dark"]) .page-description {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .checkbox-label {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .collapsible-section {
-          background: var(--surface-secondary);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .section-header {
-          background: var(--surface-secondary);
-        }
-        :global([data-theme="dark"]) .section-header:hover {
-          background: var(--surface-tertiary);
-        }
-        :global([data-theme="dark"]) .section-header.expanded {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .section-arrow {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .section-title-block h2 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .item-count {
-          color: var(--text-muted);
-          background: var(--surface-tertiary);
-        }
-        :global([data-theme="dark"]) .section-content {
-          background: var(--surface-tertiary);
-        }
-        :global([data-theme="dark"]) .feature-status.enabled {
-          background: var(--color-green-bg);
-          color: var(--color-green-700);
-        }
-        :global([data-theme="dark"]) .feature-status.disabled {
-          background: var(--color-red-bg);
-          color: var(--color-red);
-        }
-        :global([data-theme="dark"]) .toggle-btn {
-          background: var(--color-gray-400);
-        }
-        :global([data-theme="dark"]) .toggle-label {
-          color: var(--text-secondary);
-        }
-        :global([data-theme="dark"]) .section-description {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .form-card {
-          background: var(--surface-secondary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .form-card h3 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .form-group label {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .form-group label small {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .form-group input,
-        :global([data-theme="dark"]) .form-group select {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .disabled-input {
-          background: var(--color-gray-400);
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .sortable-item {
-          background: var(--surface-secondary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .sortable-item:hover {
-          background: var(--surface-tertiary);
-        }
-        :global([data-theme="dark"]) .sortable-item.drag-over {
-          border-color: var(--color-blue-500);
-          background: var(--color-blue-50);
-        }
-        :global([data-theme="dark"]) .drag-handle span {
-          background: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .item-label {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .item-key {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .item-description {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .status-badge.inactive {
-          background: var(--color-red-bg);
-          color: var(--color-red);
-        }
-        :global([data-theme="dark"]) .empty-state {
-          color: var(--text-muted);
-          background: var(--surface-secondary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .alert-success {
-          background: var(--color-green-bg);
-          border-color: var(--color-green-700);
-          color: var(--color-green-700);
-        }
-        :global([data-theme="dark"]) .alert-error {
-          background: var(--color-red-bg);
-          border-color: var(--color-red);
-          color: var(--color-red);
-        }
-        :global([data-theme="dark"]) .loading {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .btn-secondary {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .btn-secondary:hover {
-          background: var(--color-gray-400);
-        }
-        :global([data-theme="dark"]) .template-card {
-          background: var(--surface-secondary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .template-header {
-          background: var(--surface-tertiary);
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .template-header h4 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .template-meta {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .editor-item {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .btn-icon {
-          background: var(--surface-secondary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .btn-icon:hover:not(:disabled) {
-          background: var(--color-gray-400);
-        }
-        :global([data-theme="dark"]) .item-label-input,
-        :global([data-theme="dark"]) .item-type-select,
-        :global([data-theme="dark"]) .item-options input {
-          background: var(--surface-secondary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .item-options label {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .item-key-display {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .add-item-form {
-          background: var(--color-yellow-bg);
-          border-color: var(--color-yellow);
-        }
-        :global([data-theme="dark"]) .add-item-form h5 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .editor-actions {
-          border-top-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .preview-item {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .preview-type {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .preview-label {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .preview-options {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .template-management {
-          border-top-color: var(--border-default);
-        }
-      `}</style>
     </>
   );
 }

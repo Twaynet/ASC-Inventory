@@ -108,25 +108,25 @@ export function CreateCaseModal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]">
+      <div className="bg-surface-primary rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.15)] w-full max-w-[500px] max-h-[90vh] overflow-y-auto">
         {showSuccess ? (
           <>
-            <div className="modal-header">
-              <h2>Request Submitted</h2>
-              <button className="modal-close" onClick={handleClose}>
+            <div className="flex justify-between items-center px-6 py-4 border-b border-border">
+              <h2 className="m-0 text-xl font-semibold text-text-primary">Request Submitted</h2>
+              <button className="bg-transparent border-none text-2xl cursor-pointer text-text-muted p-0 leading-none hover:text-text-primary" onClick={handleClose}>
                 &times;
               </button>
             </div>
-            <div className="success-content">
-              <div className="success-icon">
+            <div className="py-8 px-6 text-center">
+              <div className="mb-4">
                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" />
                   <path d="M9 12l2 2 4-4" />
                 </svg>
               </div>
-              <h3>Sent to Admin Case Request</h3>
-              <p>Your case request has been submitted and is awaiting admin review.</p>
+              <h3 className="m-0 mb-2 text-xl text-text-primary">Sent to Admin Case Request</h3>
+              <p className="m-0 mb-6 text-text-muted text-[0.9375rem]">Your case request has been submitted and is awaiting admin review.</p>
               <button className="btn btn-primary" onClick={handleClose}>
                 Done
               </button>
@@ -134,16 +134,16 @@ export function CreateCaseModal({
           </>
         ) : (
           <>
-            <div className="modal-header">
-              <h2>Create Case</h2>
-              <button className="modal-close" onClick={handleClose}>
+            <div className="flex justify-between items-center px-6 py-4 border-b border-border">
+              <h2 className="m-0 text-xl font-semibold text-text-primary">Create Case</h2>
+              <button className="bg-transparent border-none text-2xl cursor-pointer text-text-muted p-0 leading-none hover:text-text-primary" onClick={handleClose}>
                 &times;
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="form">
+            <form onSubmit={handleSubmit} className="p-6">
           {error && (
-            <div className="form-error" style={{ marginBottom: '1rem' }}>
+            <div className="bg-[var(--color-red-50)] border border-[var(--color-red-200)] text-[var(--color-red-700)] p-3 rounded-md mb-4">
               {error}
             </div>
           )}
@@ -151,7 +151,7 @@ export function CreateCaseModal({
           <div className="form-group">
             <label htmlFor="surgeonId">Surgeon*</label>
             {isLoadingSurgeons ? (
-              <div style={{ padding: '0.5rem', color: '#6b7280' }}>Loading surgeons...</div>
+              <div className="p-2 text-text-muted">Loading surgeons...</div>
             ) : (
               <select
                 id="surgeonId"
@@ -181,7 +181,7 @@ export function CreateCaseModal({
             />
           </div>
 
-          <div className="form-row">
+          <div className="grid grid-cols-2 gap-4">
             <div className="form-group">
               <label htmlFor="requestedDate">Requested Date</label>
               <input
@@ -215,7 +215,7 @@ export function CreateCaseModal({
             />
           </div>
 
-          <div className="modal-actions">
+          <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
             <button type="button" className="btn btn-secondary" onClick={handleClose}>
               Cancel
             </button>
@@ -227,170 +227,6 @@ export function CreateCaseModal({
           </>
         )}
       </div>
-
-      <style jsx>{`
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .modal {
-          background: white;
-          border-radius: 8px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-          width: 100%;
-          max-width: 500px;
-          max-height: 90vh;
-          overflow-y: auto;
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem 1.5rem;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .modal-header h2 {
-          margin: 0;
-          font-size: 1.25rem;
-          font-weight: 600;
-        }
-
-        .modal-close {
-          background: none;
-          border: none;
-          font-size: 1.5rem;
-          cursor: pointer;
-          color: #6b7280;
-          padding: 0;
-          line-height: 1;
-        }
-
-        .modal-close:hover {
-          color: #111827;
-        }
-
-        .form {
-          padding: 1.5rem;
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-          color: #374151;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-          width: 100%;
-          padding: 0.5rem 0.75rem;
-          border: 1px solid #d1d5db;
-          border-radius: 6px;
-          font-size: 1rem;
-          background: white;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-          outline: none;
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        .form-error {
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #991b1b;
-          padding: 0.75rem;
-          border-radius: 6px;
-        }
-
-        .modal-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          padding-top: 1rem;
-          border-top: 1px solid #e5e7eb;
-          margin-top: 1rem;
-        }
-
-        .btn {
-          padding: 0.5rem 1rem;
-          border-radius: 6px;
-          font-weight: 500;
-          cursor: pointer;
-          border: none;
-          font-size: 0.875rem;
-        }
-
-        .btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .btn-primary {
-          background: #3b82f6;
-          color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-          background: #2563eb;
-        }
-
-        .btn-secondary {
-          background: #f3f4f6;
-          color: #374151;
-          border: 1px solid #d1d5db;
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-          background: #e5e7eb;
-        }
-
-        .success-content {
-          padding: 2rem 1.5rem;
-          text-align: center;
-        }
-
-        .success-icon {
-          margin-bottom: 1rem;
-        }
-
-        .success-content h3 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.25rem;
-          color: #111827;
-        }
-
-        .success-content p {
-          margin: 0 0 1.5rem 0;
-          color: #6b7280;
-          font-size: 0.9375rem;
-        }
-      `}</style>
     </div>
   );
 }

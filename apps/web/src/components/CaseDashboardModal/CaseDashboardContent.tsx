@@ -438,83 +438,75 @@ export function CaseDashboardContent({
   };
 
   return (
-    <div className="case-dashboard-content">
+    <div>
       {/* Messages */}
       {error && (
-        <div className="error-message" style={{ marginBottom: '1rem' }}>
+        <div className="error-message mb-4">
           {error}
-          <button onClick={() => setError('')} style={{ marginLeft: '1rem' }}>Dismiss</button>
+          <button onClick={() => setError('')} className="ml-4">Dismiss</button>
         </div>
       )}
       {successMessage && (
-        <div className="success-message" style={{ marginBottom: '1rem' }}>
+        <div className="success-message mb-4">
           {successMessage}
-          <button onClick={() => setSuccessMessage('')} style={{ marginLeft: '1rem' }}>Dismiss</button>
+          <button onClick={() => setSuccessMessage('')} className="ml-4">Dismiss</button>
         </div>
       )}
 
       {/* Section 1: Case Identity & Status Banner */}
-      <section className="dashboard-section" style={{
-        background: 'var(--surface)',
-        border: `3px solid ${getStatusColor()}`,
-        borderRadius: '8px',
-        padding: '1.5rem',
-        marginBottom: '1rem',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+      <section className="dashboard-section" style={{ padding: '1.5rem', border: `3px solid ${getStatusColor()}` }}>
+        <div className="flex justify-between items-start flex-wrap gap-4">
           <div>
             {/* Procedure Name - Editable */}
             {isEditingProcedure ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <div className="flex items-center gap-2 mb-2">
                 <input
                   type="text"
                   value={editProcedureName}
                   onChange={e => setEditProcedureName(e.target.value)}
-                  style={{ padding: '0.5rem', fontSize: '1.25rem', fontWeight: 'bold', width: '300px' }}
+                  className="p-2 text-xl font-bold w-[300px]"
                   autoFocus
                 />
                 <button onClick={handleUpdateProcedure} className="btn-small btn-primary">Save</button>
                 <button onClick={handleCancelProcedureEdit} className="btn-small btn-secondary">Cancel</button>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setIsEditingProcedure(true)}
-                  className="btn-primary"
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  className="btn-primary py-1 px-2 text-xs"
                 >
                   <span>&#9998;</span> Edit
                 </button>
-                <h1 style={{ margin: 0, fontSize: '1.5rem' }}>{dashboard.procedureName}</h1>
+                <h1 className="text-2xl">{dashboard.procedureName}</h1>
               </div>
             )}
 
             {/* Surgeon - Editable */}
             {isEditingSurgeon ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.5rem 0' }}>
+              <div className="flex items-center gap-2 my-2">
                 <select
                   value={editSurgeonId}
                   onChange={e => setEditSurgeonId(e.target.value)}
-                  style={{ padding: '0.375rem', fontSize: '0.9rem' }}
+                  className="py-1.5 text-sm"
                 >
                   {surgeons.map(s => (
                     <option key={s.id} value={s.id}>Dr. {s.name}</option>
                   ))}
                 </select>
-                <span style={{ color: 'var(--text-muted)' }}>| {dashboard.facility}</span>
+                <span className="text-text-muted">| {dashboard.facility}</span>
                 <button onClick={handleUpdateSurgeon} className="btn-small btn-primary">Save</button>
                 <button onClick={handleCancelSurgeonEdit} className="btn-small btn-secondary">Cancel</button>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.5rem 0' }}>
+              <div className="flex items-center gap-2 my-2">
                 <button
                   onClick={() => setIsEditingSurgeon(true)}
-                  className="btn-primary"
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  className="btn-primary py-1 px-2 text-xs"
                 >
                   <span>&#9998;</span> Edit
                 </button>
-                <p style={{ margin: 0, color: 'var(--text-muted)' }}>
+                <p className="text-text-muted">
                   {dashboard.surgeon} | {dashboard.facility}
                 </p>
               </div>
@@ -522,20 +514,20 @@ export function CaseDashboardContent({
 
             {/* Scheduling - Editable */}
             {isEditingScheduling ? (
-              <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div className="my-2 flex items-center gap-2 flex-wrap">
                 <strong>Scheduled:</strong>
                 <input
                   type="date"
                   value={schedulingForm.scheduledDate}
                   onChange={e => setSchedulingForm(f => ({ ...f, scheduledDate: e.target.value }))}
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.9rem' }}
+                  className="py-1 px-2 text-sm"
                 />
                 <span>at</span>
                 <input
                   type="time"
                   value={schedulingForm.scheduledTime}
                   onChange={e => setSchedulingForm(f => ({ ...f, scheduledTime: e.target.value }))}
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.9rem' }}
+                  className="py-1 px-2 text-sm"
                 />
                 <span>| OR:</span>
                 <input
@@ -543,68 +535,61 @@ export function CaseDashboardContent({
                   value={schedulingForm.orRoom}
                   onChange={e => setSchedulingForm(f => ({ ...f, orRoom: e.target.value }))}
                   placeholder="OR Room"
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.9rem', width: '80px' }}
+                  className="py-1 px-2 text-sm w-20"
                 />
-                <button onClick={handleUpdateScheduling} className="btn-small btn-primary" style={{ padding: '0.25rem 0.5rem' }}>
+                <button onClick={handleUpdateScheduling} className="btn-small btn-primary">
                   Save
                 </button>
-                <button onClick={handleCancelSchedulingEdit} className="btn-small btn-secondary" style={{ padding: '0.25rem 0.5rem' }}>
+                <button onClick={handleCancelSchedulingEdit} className="btn-small btn-secondary">
                   Cancel
                 </button>
               </div>
             ) : (
-              <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div className="my-2 flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setIsEditingScheduling(true)}
-                  className="btn-primary"
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  className="btn-primary py-1 px-2 text-xs"
                 >
                   <span>&#9998;</span> Edit
                 </button>
-                <p style={{ margin: 0 }}>
+                <p>
                   <strong>Scheduled:</strong> {new Date(dashboard.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                   {dashboard.scheduledTime && ` at ${dashboard.scheduledTime}`}
                   {dashboard.orRoom && ` | OR: ${dashboard.orRoom}`}
                 </p>
               </div>
             )}
-            <p style={{ margin: '0.5rem 0', fontSize: '0.95rem' }}>
-              <strong style={{ fontFamily: 'monospace', fontSize: '1.1rem' }}>{dashboard.caseNumber}</strong>
-              <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <p className="my-2 text-[0.95rem]">
+              <strong className="font-mono text-[1.1rem]">{dashboard.caseNumber}</strong>
+              <span className="ml-2 text-xs text-text-muted">
                 (ID: {dashboard.caseId.slice(0, 8)}...)
               </span>
             </p>
             {/* Deactivate/Reactivate button for ADMIN and SCHEDULER */}
             {((user.roles || [user.role]).includes('ADMIN') || (user.roles || [user.role]).includes('SCHEDULER')) && (
-              <div style={{ margin: '0.5rem 0' }}>
+              <div className="my-2">
                 <button
                   onClick={handleToggleActive}
-                  className={dashboard.isActive ? 'btn-secondary' : 'btn-primary'}
-                  style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem' }}
+                  className={`text-sm py-1.5 px-3 ${dashboard.isActive ? 'btn-secondary' : 'btn-primary'}`}
                 >
                   {dashboard.isActive ? 'Deactivate Case' : 'Reactivate Case'}
                 </button>
                 {!dashboard.isActive && (
-                  <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  <span className="ml-2 text-xs text-text-muted">
                     Case is currently inactive
                   </span>
                 )}
               </div>
             )}
           </div>
-          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-            <div style={{
-              display: 'inline-block',
-              padding: '0.5rem 1rem',
-              borderRadius: '4px',
-              background: getStatusColor(),
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '1.1rem',
-            }}>
+          <div className="text-right flex flex-col items-end gap-2">
+            <div
+              className="inline-block py-2 px-4 rounded font-bold text-[1.1rem] text-white"
+              style={{ background: getStatusColor() }}
+            >
               {getStatusLabel()}
             </div>
-            <button onClick={handlePrint} className="btn-secondary" style={{ fontSize: '0.875rem', padding: '0.375rem 0.75rem' }}>
+            <button onClick={handlePrint} className="btn-secondary text-sm py-1.5 px-3">
               Print Case Dashboard
             </button>
           </div>
@@ -615,49 +600,43 @@ export function CaseDashboardContent({
       <CaseProgressStrip dashboard={dashboard} checklists={checklists} />
 
       {/* Section 1.5: Readiness Summary Panel */}
-      <section className="dashboard-section" style={{
-        background: readiness.overall === 'READY' ? '#f0fff4' : readiness.overall === 'BLOCKED' ? '#fffbeb' : 'var(--surface)',
-        borderRadius: '8px',
-        padding: '1rem',
-        marginBottom: '1rem',
-        border: `1px solid ${readiness.overall === 'READY' ? '#c6f6d5' : readiness.overall === 'BLOCKED' ? '#fde68a' : 'var(--border)'}`,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: readiness.blockers.length > 0 ? '0.75rem' : 0 }}>
+      <section
+        className="dashboard-section"
+        style={{
+          background: readiness.overall === 'READY' ? '#f0fff4' : readiness.overall === 'BLOCKED' ? '#fffbeb' : undefined,
+          borderColor: readiness.overall === 'READY' ? '#c6f6d5' : readiness.overall === 'BLOCKED' ? '#fde68a' : undefined,
+        }}
+      >
+        <div className={`flex items-center gap-3 ${readiness.blockers.length > 0 ? 'mb-3' : ''}`}>
           <ReadinessBadge overall={readiness.overall} size="md" />
-          <span style={{ fontSize: '1rem', fontWeight: 600 }}>
+          <span className="text-base font-semibold">
             {readiness.overall === 'READY' ? 'All clear — this case is ready.'
               : readiness.overall === 'BLOCKED' ? `${readiness.blockers.length} blocker${readiness.blockers.length !== 1 ? 's' : ''} found`
               : 'Readiness status unavailable.'}
           </span>
         </div>
         {readiness.blockers.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div className="flex flex-col gap-2">
             {readiness.blockers.map((blocker) => (
-              <div key={blocker.code} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '0.5rem 0.75rem',
-                background: 'white',
-                borderRadius: '6px',
-                border: `1px solid ${blocker.severity === 'critical' ? '#fc8181' : '#fbd38d'}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{
-                    width: '8px', height: '8px', borderRadius: '50%',
-                    background: blocker.severity === 'critical' ? '#e53e3e' : '#dd6b20',
-                    flexShrink: 0,
-                  }} />
-                  <span style={{ fontSize: '0.875rem' }}>{blocker.label}</span>
+              <div
+                key={blocker.code}
+                className={`flex justify-between items-center py-2 px-3 bg-white rounded-md border ${
+                  blocker.severity === 'critical' ? 'border-[#fc8181]' : 'border-[#fbd38d]'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                    blocker.severity === 'critical' ? 'bg-[#e53e3e]' : 'bg-[#dd6b20]'
+                  }`} />
+                  <span className="text-sm">{blocker.label}</span>
                 </div>
                 {blocker.capability && !hasCapability(blocker.capability as any) ? (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  <span className="text-xs text-text-muted italic">
                     Requires {capabilityLabel(blocker.capability)}
                   </span>
                 ) : (
                   <button
-                    className="btn-small btn-primary"
-                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
+                    className="btn-small btn-primary text-xs whitespace-nowrap"
                     onClick={() => router.push(blocker.href)}
                   >
                     {blocker.actionLabel}
@@ -676,19 +655,13 @@ export function CaseDashboardContent({
       </section>
 
       {/* Section 2: Readiness Attestation Panel */}
-      <section className="dashboard-section" style={{
-        background: 'var(--surface)',
-        borderRadius: '8px',
-        padding: '1rem',
-        marginBottom: '1rem',
-        border: '1px solid var(--border)',
-      }}>
-        <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('attestation')}>
+      <section className="dashboard-section">
+        <h2 className="mb-4 cursor-pointer" onClick={() => toggleSection('attestation')}>
           {collapsedSections.has('attestation') ? '+ ' : '- '}Readiness Attestation
         </h2>
         {!collapsedSections.has('attestation') && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-4">
               <div>
                 <strong>State:</strong> {dashboard.attestationState.replace('_', ' ')}
               </div>
@@ -708,7 +681,7 @@ export function CaseDashboardContent({
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div className="flex gap-2">
               <button
                 onClick={handleVerifyItems}
                 className="btn-secondary"
@@ -737,18 +710,12 @@ export function CaseDashboardContent({
 
       {/* Section 2.5: Workflow — capability-gated workflow entry points */}
       {(hasCapability('CASE_CHECKIN_PREOP') || hasCapability('VERIFY_SCAN') || hasCapability('OR_TIMEOUT') || hasCapability('OR_DEBRIEF') || hasCapability('INVENTORY_CHECKIN') || hasCapability('INVENTORY_MANAGE')) && (
-        <section className="dashboard-section" style={{
-          background: 'var(--surface)',
-          borderRadius: '8px',
-          padding: '1rem',
-          marginBottom: '1rem',
-          border: '1px solid var(--border)',
-        }}>
-          <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('orWorkflow')}>
+        <section className="dashboard-section">
+          <h2 className="mb-4 cursor-pointer" onClick={() => toggleSection('orWorkflow')}>
             {collapsedSections.has('orWorkflow') ? '+ ' : '- '}Workflow
           </h2>
           {!collapsedSections.has('orWorkflow') && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
 
               {/* Check In to PreOp Card */}
               {hasCapability('CASE_CHECKIN_PREOP') && (() => {
@@ -771,38 +738,30 @@ export function CaseDashboardContent({
                 };
 
                 return (
-                  <div style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    padding: '1rem',
-                    background: preopStatus === 'COMPLETED' ? 'var(--color-green-bg)' : 'transparent',
-                    opacity: preopEnabled ? 1 : 0.6,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Check In to PreOp</h3>
-                      <span style={{
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold',
-                        background: preopStatus === 'COMPLETED' ? 'var(--color-green)' : 'var(--color-gray-300)',
-                        color: preopStatus === 'COMPLETED' ? 'white' : 'var(--text-muted)',
-                      }}>
+                  <div className={`border border-border rounded-lg p-4 ${
+                    preopStatus === 'COMPLETED' ? 'bg-[var(--color-green-bg)]' : ''
+                  } ${preopEnabled ? '' : 'opacity-60'}`}>
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-[1.1rem]">Check In to PreOp</h3>
+                      <span className={`py-1 px-2 rounded text-xs font-bold ${
+                        preopStatus === 'COMPLETED'
+                          ? 'bg-[var(--color-green)] text-white'
+                          : 'bg-[var(--color-gray-300)] text-text-muted'
+                      }`}>
                         {preopStatus === 'COMPLETED' ? 'Checked In' : 'Pending'}
                       </span>
                     </div>
-                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    <p className="mb-4 text-sm text-text-muted">
                       Check the patient in to the preoperative area.
                     </p>
                     {isInPreop && (
-                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      <p className="mb-2 text-xs text-text-muted">
                         Patient is in PreOp.
                       </p>
                     )}
                     <button
                       onClick={handleCheckIn}
-                      className={preopStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
-                      style={{ width: '100%' }}
+                      className={`w-full ${preopStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}`}
                       disabled={!preopEnabled}
                     >
                       {preopStatus === 'COMPLETED' ? 'In PreOp' : 'Check In'}
@@ -820,40 +779,31 @@ export function CaseDashboardContent({
                   : verifyStatus === 'IN_PROGRESS' ? 'Continue Verification' : 'Start Verification';
                 const verifyPillLabel = statusLabel(verifyStatus);
                 return (
-                  <div style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    padding: '1rem',
-                    background: verifyStatus === 'COMPLETED' ? 'var(--color-green-bg)' :
-                               verifyStatus === 'IN_PROGRESS' ? 'var(--color-orange-bg)' : 'transparent',
-                    opacity: verifyEnabled ? 1 : 0.6,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Verify Scanning</h3>
-                      <span style={{
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold',
-                        background: verifyStatus === 'COMPLETED' ? 'var(--color-green)' :
-                                   verifyStatus === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
-                        color: verifyStatus ? 'white' : 'var(--text-muted)',
-                      }}>
+                  <div className={`border border-border rounded-lg p-4 ${
+                    verifyStatus === 'COMPLETED' ? 'bg-[var(--color-green-bg)]' :
+                    verifyStatus === 'IN_PROGRESS' ? 'bg-[var(--color-orange-bg)]' : ''
+                  } ${verifyEnabled ? '' : 'opacity-60'}`}>
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-[1.1rem]">Verify Scanning</h3>
+                      <span className={`py-1 px-2 rounded text-xs font-bold ${
+                        verifyStatus === 'COMPLETED' ? 'bg-[var(--color-green)] text-white' :
+                        verifyStatus === 'IN_PROGRESS' ? 'bg-[var(--color-orange)] text-white' :
+                        'bg-[var(--color-gray-300)] text-text-muted'
+                      }`}>
                         {verifyPillLabel}
                       </span>
                     </div>
-                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    <p className="mb-4 text-sm text-text-muted">
                       Scan and verify items required for this case.
                     </p>
                     {!verifyEnabled && (
-                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--color-orange)' }}>
+                      <p className="mb-2 text-xs text-[var(--color-orange)]">
                         Case must be active to verify items.
                       </p>
                     )}
                     <button
                       onClick={handleVerifyItems}
-                      className={verifyStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
-                      style={{ width: '100%' }}
+                      className={`w-full ${verifyStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}`}
                       disabled={!verifyEnabled}
                     >
                       {verifyLabel}
@@ -869,45 +819,36 @@ export function CaseDashboardContent({
                 const timeoutLabel = timeoutStatus === 'COMPLETED' ? 'View Timeout'
                   : timeoutStatus === 'IN_PROGRESS' ? 'Continue Timeout' : 'Start Timeout';
                 return (
-                  <div style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    padding: '1rem',
-                    background: timeoutStatus === 'COMPLETED' ? 'var(--color-green-bg)' :
-                               timeoutStatus === 'IN_PROGRESS' ? 'var(--color-orange-bg)' : 'transparent',
-                    opacity: timeoutEnabled ? 1 : 0.6,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>OR Timeout</h3>
-                      <span style={{
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold',
-                        background: timeoutStatus === 'COMPLETED' ? 'var(--color-green)' :
-                                   timeoutStatus === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
-                        color: timeoutStatus ? 'white' : 'var(--text-muted)',
-                      }}>
+                  <div className={`border border-border rounded-lg p-4 ${
+                    timeoutStatus === 'COMPLETED' ? 'bg-[var(--color-green-bg)]' :
+                    timeoutStatus === 'IN_PROGRESS' ? 'bg-[var(--color-orange-bg)]' : ''
+                  } ${timeoutEnabled ? '' : 'opacity-60'}`}>
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-[1.1rem]">OR Timeout</h3>
+                      <span className={`py-1 px-2 rounded text-xs font-bold ${
+                        timeoutStatus === 'COMPLETED' ? 'bg-[var(--color-green)] text-white' :
+                        timeoutStatus === 'IN_PROGRESS' ? 'bg-[var(--color-orange)] text-white' :
+                        'bg-[var(--color-gray-300)] text-text-muted'
+                      }`}>
                         {statusLabel(timeoutStatus)}
                       </span>
                     </div>
-                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    <p className="mb-4 text-sm text-text-muted">
                       Pre-surgery safety checklist to verify patient, procedure, and site.
                     </p>
                     {checklists.timeout?.completedAt && (
-                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      <p className="mb-2 text-xs text-text-muted">
                         Completed: {new Date(checklists.timeout.completedAt).toLocaleString()}
                       </p>
                     )}
                     {!timeoutEnabled && (
-                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--color-orange)' }}>
+                      <p className="mb-2 text-xs text-[var(--color-orange)]">
                         Case must be active to start timeout.
                       </p>
                     )}
                     <button
                       onClick={() => router.push(`/or/timeout/${caseId}`)}
-                      className={timeoutStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
-                      style={{ width: '100%' }}
+                      className={`w-full ${timeoutStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}`}
                       disabled={!timeoutEnabled}
                     >
                       {timeoutLabel}
@@ -925,45 +866,36 @@ export function CaseDashboardContent({
                 const disabledReason = !dashboard.isActive ? 'Case must be active to start debrief.'
                   : checklists.timeout?.status !== 'COMPLETED' ? 'Complete Timeout first.' : '';
                 return (
-                  <div style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    padding: '1rem',
-                    background: debriefStatus === 'COMPLETED' ? 'var(--color-green-bg)' :
-                               debriefStatus === 'IN_PROGRESS' ? 'var(--color-orange-bg)' : 'transparent',
-                    opacity: debriefEnabled ? 1 : 0.6,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{TERMS.DEBRIEF}</h3>
-                      <span style={{
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold',
-                        background: debriefStatus === 'COMPLETED' ? 'var(--color-green)' :
-                                   debriefStatus === 'IN_PROGRESS' ? 'var(--color-orange)' : 'var(--color-gray-300)',
-                        color: debriefStatus ? 'white' : 'var(--text-muted)',
-                      }}>
+                  <div className={`border border-border rounded-lg p-4 ${
+                    debriefStatus === 'COMPLETED' ? 'bg-[var(--color-green-bg)]' :
+                    debriefStatus === 'IN_PROGRESS' ? 'bg-[var(--color-orange-bg)]' : ''
+                  } ${debriefEnabled ? '' : 'opacity-60'}`}>
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-[1.1rem]">{TERMS.DEBRIEF}</h3>
+                      <span className={`py-1 px-2 rounded text-xs font-bold ${
+                        debriefStatus === 'COMPLETED' ? 'bg-[var(--color-green)] text-white' :
+                        debriefStatus === 'IN_PROGRESS' ? 'bg-[var(--color-orange)] text-white' :
+                        'bg-[var(--color-gray-300)] text-text-muted'
+                      }`}>
                         {statusLabel(debriefStatus)}
                       </span>
                     </div>
-                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    <p className="mb-4 text-sm text-text-muted">
                       Post-surgery review of counts, specimens, and improvement notes.
                     </p>
                     {checklists.debrief?.completedAt && (
-                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      <p className="mb-2 text-xs text-text-muted">
                         Completed: {new Date(checklists.debrief.completedAt).toLocaleString()}
                       </p>
                     )}
                     {disabledReason && (
-                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--color-orange)' }}>
+                      <p className="mb-2 text-xs text-[var(--color-orange)]">
                         {disabledReason}
                       </p>
                     )}
                     <button
                       onClick={() => router.push(`/or/debrief/${caseId}`)}
-                      className={debriefStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}
-                      style={{ width: '100%' }}
+                      className={`w-full ${debriefStatus === 'COMPLETED' ? 'btn-secondary' : 'btn-primary'}`}
                       disabled={!debriefEnabled}
                     >
                       {debriefLabel}
@@ -983,40 +915,31 @@ export function CaseDashboardContent({
                 const inventoryPillLabel = inventoryStatus === 'READY' ? 'Ready'
                   : inventoryStatus === 'ITEMS_NEEDED' ? `${dashboard.missingItems.length} Needed` : statusLabel(null);
                 return (
-                  <div style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    padding: '1rem',
-                    background: inventoryStatus === 'READY' ? 'var(--color-green-bg)' :
-                               inventoryStatus === 'ITEMS_NEEDED' ? 'var(--color-orange-bg)' : 'transparent',
-                    opacity: inventoryEnabled ? 1 : 0.6,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Inventory Check-In</h3>
-                      <span style={{
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold',
-                        background: inventoryStatus === 'READY' ? 'var(--color-green)' :
-                                   inventoryStatus === 'ITEMS_NEEDED' ? 'var(--color-orange)' : 'var(--color-gray-300)',
-                        color: inventoryStatus ? 'white' : 'var(--text-muted)',
-                      }}>
+                  <div className={`border border-border rounded-lg p-4 ${
+                    inventoryStatus === 'READY' ? 'bg-[var(--color-green-bg)]' :
+                    inventoryStatus === 'ITEMS_NEEDED' ? 'bg-[var(--color-orange-bg)]' : ''
+                  } ${inventoryEnabled ? '' : 'opacity-60'}`}>
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-[1.1rem]">Inventory Check-In</h3>
+                      <span className={`py-1 px-2 rounded text-xs font-bold ${
+                        inventoryStatus === 'READY' ? 'bg-[var(--color-green)] text-white' :
+                        inventoryStatus === 'ITEMS_NEEDED' ? 'bg-[var(--color-orange)] text-white' :
+                        'bg-[var(--color-gray-300)] text-text-muted'
+                      }`}>
                         {inventoryPillLabel}
                       </span>
                     </div>
-                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    <p className="mb-4 text-sm text-text-muted">
                       Scan and check in inventory items for this case.
                     </p>
                     {!inventoryEnabled && (
-                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: 'var(--color-orange)' }}>
+                      <p className="mb-2 text-xs text-[var(--color-orange)]">
                         Case must be active to check in items.
                       </p>
                     )}
                     <button
                       onClick={() => router.push(`/admin/inventory/check-in?caseId=${caseId}`)}
-                      className={inventoryStatus === 'READY' ? 'btn-secondary' : 'btn-primary'}
-                      style={{ width: '100%' }}
+                      className={`w-full ${inventoryStatus === 'READY' ? 'btn-secondary' : 'btn-primary'}`}
                       disabled={!inventoryEnabled}
                     >
                       {inventoryLabel}
@@ -1031,19 +954,13 @@ export function CaseDashboardContent({
       )}
 
       {/* Section 3: Case Summary */}
-      <section className="dashboard-section" style={{
-        background: 'var(--surface)',
-        borderRadius: '8px',
-        padding: '1rem',
-        marginBottom: '1rem',
-        border: '1px solid var(--border)',
-      }}>
-        <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('summary')}>
+      <section className="dashboard-section">
+        <h2 className="mb-4 cursor-pointer" onClick={() => toggleSection('summary')}>
           {collapsedSections.has('summary') ? '+ ' : '- '}Case Summary
         </h2>
         {!collapsedSections.has('summary') && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-4">
               <div className="form-group">
                 <label>Case Type</label>
                 <select
@@ -1078,7 +995,7 @@ export function CaseDashboardContent({
                 </select>
               </div>
             </div>
-            <div className="form-group" style={{ marginBottom: '1rem' }}>
+            <div className="form-group mb-4">
               <label>Procedure Codes (CPT) - comma separated</label>
               <input
                 type="text"
@@ -1087,8 +1004,8 @@ export function CaseDashboardContent({
                 placeholder="e.g., 27130, 27447"
               />
             </div>
-            <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label>Admission Type <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply – ADMIN edit in General Settings → Case Dashboard Settings)</span></label>
+            <div className="form-group mb-4">
+              <label>Admission Type <span className="font-normal text-text-muted">(select all that apply – ADMIN edit in General Settings → Case Dashboard Settings)</span></label>
               <div className="pill-toggle-group">
                 {[
                   { key: 'outpatient', label: 'Outpatient' },
@@ -1106,8 +1023,8 @@ export function CaseDashboardContent({
                 ))}
               </div>
             </div>
-            <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label>Patient-Specific Flags (Non-PHI) <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply – ADMIN edit in General Settings → Case Dashboard Settings)</span></label>
+            <div className="form-group mb-4">
+              <label>Patient-Specific Flags (Non-PHI) <span className="font-normal text-text-muted">(select all that apply – ADMIN edit in General Settings → Case Dashboard Settings)</span></label>
               <div className="pill-toggle-group">
                 {patientFlagOptions.map(flag => (
                   <label key={flag.itemKey} className="pill-toggle">
@@ -1138,20 +1055,14 @@ export function CaseDashboardContent({
       </section>
 
       {/* Section 4: Anesthesia Plan */}
-      <section className="dashboard-section" style={{
-        background: 'var(--surface)',
-        borderRadius: '8px',
-        padding: '1rem',
-        marginBottom: '1rem',
-        border: '1px solid var(--border)',
-      }}>
-        <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('anesthesia')}>
+      <section className="dashboard-section">
+        <h2 className="mb-4 cursor-pointer" onClick={() => toggleSection('anesthesia')}>
           {collapsedSections.has('anesthesia') ? '+ ' : '- '}Anesthesia Plan
         </h2>
         {!collapsedSections.has('anesthesia') && (
           <div>
-            <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label>Modality * <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(select all that apply – ADMIN edit in General Settings → Case Dashboard Settings)</span></label>
+            <div className="form-group mb-4">
+              <label>Modality * <span className="font-normal text-text-muted">(select all that apply – ADMIN edit in General Settings → Case Dashboard Settings)</span></label>
               <div className="pill-toggle-group">
                 {anesthesiaModalities.map(m => (
                   <label key={m.itemKey} className="pill-toggle">
@@ -1165,7 +1076,7 @@ export function CaseDashboardContent({
                 ))}
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-4">
               <div className="form-group">
                 <label>Airway Notes</label>
                 <input
@@ -1193,30 +1104,24 @@ export function CaseDashboardContent({
       </section>
 
       {/* Section 5: Linked Case Card */}
-      <section className="dashboard-section" style={{
-        background: 'var(--surface)',
-        borderRadius: '8px',
-        padding: '1rem',
-        marginBottom: '1rem',
-        border: '1px solid var(--border)',
-      }}>
-        <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('caseCard')}>
+      <section className="dashboard-section">
+        <h2 className="mb-4 cursor-pointer" onClick={() => toggleSection('caseCard')}>
           {collapsedSections.has('caseCard') ? '+ ' : '- '}Linked {TERMS.PREFERENCE_CARD}
         </h2>
         {!collapsedSections.has('caseCard') && (
           <div>
             {dashboard.caseCard ? (
-              <div style={{ marginBottom: '1rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+              <div className="mb-4">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4">
                   <div><strong>Name:</strong> {dashboard.caseCard.name}</div>
                   <div><strong>Version:</strong> {dashboard.caseCard.version}</div>
                   <div><strong>Status:</strong> {dashboard.caseCard.status}</div>
                 </div>
               </div>
             ) : (
-              <p style={{ color: 'var(--red)', marginBottom: '1rem' }}>No {TERMS.PREFERENCE_CARD} linked. Link a {TERMS.PREFERENCE_CARD} to enable attestation.</p>
+              <p className="text-[var(--red)] mb-4">No {TERMS.PREFERENCE_CARD} linked. Link a {TERMS.PREFERENCE_CARD} to enable attestation.</p>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div className="flex gap-2">
               <button onClick={() => setShowLinkCaseCardModal(true)} className="btn-secondary">
                 {dashboard.caseCard ? `Change ${TERMS.PREFERENCE_CARD}` : `Link ${TERMS.PREFERENCE_CARD}`}
               </button>
@@ -1234,20 +1139,14 @@ export function CaseDashboardContent({
       </section>
 
       {/* Section 6: Case-Specific Overrides */}
-      <section className="dashboard-section" style={{
-        background: 'var(--surface)',
-        borderRadius: '8px',
-        padding: '1rem',
-        marginBottom: '1rem',
-        border: '1px solid var(--border)',
-      }}>
-        <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('overrides')}>
+      <section className="dashboard-section">
+        <h2 className="mb-4 cursor-pointer" onClick={() => toggleSection('overrides')}>
           {collapsedSections.has('overrides') ? '+ ' : '- '}Case-Specific Overrides ({dashboard.overrides.length})
         </h2>
         {!collapsedSections.has('overrides') && (
           <div>
             {dashboard.overrides.length > 0 ? (
-              <table className="data-table" style={{ marginBottom: '1rem' }}>
+              <table className="data-table mb-4">
                 <thead>
                   <tr>
                     <th>Target</th>
@@ -1279,7 +1178,7 @@ export function CaseDashboardContent({
                 </tbody>
               </table>
             ) : (
-              <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>No overrides applied.</p>
+              <p className="mb-4 text-text-muted">No overrides applied.</p>
             )}
             <button onClick={() => setShowOverrideModal(true)} className="btn-secondary">
               Add Override
@@ -1289,25 +1188,15 @@ export function CaseDashboardContent({
       </section>
 
       {/* Section 7: Event Log */}
-      <section className="dashboard-section" style={{
-        background: 'var(--surface)',
-        borderRadius: '8px',
-        padding: '1rem',
-        marginBottom: '1rem',
-        border: '1px solid var(--border)',
-      }}>
-        <h2 style={{ margin: '0 0 1rem 0', cursor: 'pointer' }} onClick={() => toggleSection('eventLog')}>
+      <section className="dashboard-section">
+        <h2 className="mb-4 cursor-pointer" onClick={() => toggleSection('eventLog')}>
           {collapsedSections.has('eventLog') ? '+ ' : '- '}Event Log
         </h2>
         {!collapsedSections.has('eventLog') && (
           <div>
             {eventLog.slice(0, 5).map(e => (
-              <div key={e.id} style={{
-                padding: '0.5rem',
-                borderBottom: '1px solid var(--border)',
-                fontSize: '0.9rem',
-              }}>
-                <span style={{ color: 'var(--text-muted)' }}>
+              <div key={e.id} className="p-2 border-b border-border text-sm">
+                <span className="text-text-muted">
                   {new Date(e.createdAt).toLocaleString()}
                 </span>
                 {' | '}
@@ -1319,21 +1208,20 @@ export function CaseDashboardContent({
             {eventLog.length > 5 && (
               <button
                 onClick={() => setShowEventLogModal(true)}
-                className="btn-link"
-                style={{ marginTop: '0.5rem' }}
+                className="btn-link mt-2"
               >
                 View all {eventLog.length} events
               </button>
             )}
             {eventLog.length === 0 && (
-              <p style={{ color: 'var(--text-muted)' }}>No events recorded yet.</p>
+              <p className="text-text-muted">No events recorded yet.</p>
             )}
           </div>
         )}
       </section>
 
       {/* Close button */}
-      <div style={{ marginTop: '2rem', display: 'flex', gap: '0.5rem' }}>
+      <div className="mt-8 flex gap-2">
         <button onClick={onClose} className="btn-secondary">
           Close
         </button>
@@ -1345,7 +1233,7 @@ export function CaseDashboardContent({
       {/* Void Modal */}
       {showVoidModal && (
         <div className="modal-overlay nested-modal" onClick={() => setShowVoidModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+          <div className="modal-content max-w-[500px]" onClick={e => e.stopPropagation()}>
             <h3>Void Attestation</h3>
             <p>This will void the current attestation. A reason is required.</p>
             <div className="form-group">
@@ -1358,7 +1246,7 @@ export function CaseDashboardContent({
                 required
               />
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <div className="flex gap-2 justify-end">
               <button onClick={() => setShowVoidModal(false)} className="btn-secondary">Cancel</button>
               <button onClick={handleVoid} className="btn-danger" disabled={!voidReason.trim()}>
                 Void Attestation
@@ -1371,7 +1259,7 @@ export function CaseDashboardContent({
       {/* Override Modal */}
       {showOverrideModal && (
         <div className="modal-overlay nested-modal" onClick={() => setShowOverrideModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+          <div className="modal-content max-w-[500px]" onClick={e => e.stopPropagation()}>
             <h3>Add Override</h3>
             <div className="form-group">
               <label>Target *</label>
@@ -1409,7 +1297,7 @@ export function CaseDashboardContent({
                 placeholder="Why is this override needed?"
               />
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <div className="flex gap-2 justify-end">
               <button onClick={() => setShowOverrideModal(false)} className="btn-secondary">Cancel</button>
               <button onClick={handleAddOverride} className="btn-primary">Add Override</button>
             </div>
@@ -1420,43 +1308,38 @@ export function CaseDashboardContent({
       {/* Link Case Card Modal */}
       {showLinkCaseCardModal && (
         <div className="modal-overlay nested-modal" onClick={() => setShowLinkCaseCardModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+          <div className="modal-content max-w-[600px]" onClick={e => e.stopPropagation()}>
             <h3>Link {TERMS.PREFERENCE_CARD}</h3>
             <p>Select an active preference card to link to this case:</p>
             {availableCaseCards.length > 0 ? (
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              <div className="max-h-[400px] overflow-y-auto">
                 {availableCaseCards
                   .filter(c => c.surgeonId === dashboard.surgeonId)
                   .map(card => (
                     <div
                       key={card.currentVersionId}
-                      style={{
-                        padding: '1rem',
-                        border: '1px solid var(--border)',
-                        borderRadius: '4px',
-                        marginBottom: '0.5rem',
-                        cursor: 'pointer',
-                        background: card.currentVersionId === dashboard.caseCard?.versionId ? 'var(--surface-hover)' : 'transparent',
-                      }}
+                      className={`p-4 border border-border rounded mb-2 cursor-pointer ${
+                        card.currentVersionId === dashboard.caseCard?.versionId ? 'bg-[var(--surface-hover)]' : ''
+                      }`}
                       onClick={() => handleLinkCaseCard(card.currentVersionId!)}
                     >
                       <strong>{card.procedureName}</strong>
                       <br />
-                      <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                      <span className="text-sm text-text-muted">
                         v{card.version} | {card.surgeonName}
                       </span>
                     </div>
                   ))}
                 {availableCaseCards.filter(c => c.surgeonId === dashboard.surgeonId).length === 0 && (
-                  <p style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-text-muted">
                     No active preference cards found for this surgeon.
                   </p>
                 )}
               </div>
             ) : (
-              <p style={{ color: 'var(--text-muted)' }}>No active preference cards available.</p>
+              <p className="text-text-muted">No active preference cards available.</p>
             )}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+            <div className="flex justify-end mt-4">
               <button onClick={() => setShowLinkCaseCardModal(false)} className="btn-secondary">Cancel</button>
             </div>
           </div>
@@ -1466,31 +1349,21 @@ export function CaseDashboardContent({
       {/* Full Event Log Modal */}
       {showEventLogModal && (
         <div className="modal-overlay nested-modal" onClick={() => setShowEventLogModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+          <div className="modal-content max-w-[800px]" onClick={e => e.stopPropagation()}>
             <h3>Event Log</h3>
-            <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            <div className="max-h-[500px] overflow-y-auto">
               {eventLog.map(e => (
-                <div key={e.id} style={{
-                  padding: '0.75rem',
-                  borderBottom: '1px solid var(--border)',
-                  fontSize: '0.9rem',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div key={e.id} className="py-3 px-0 border-b border-border text-sm">
+                  <div className="flex justify-between">
                     <span>
                       <strong>{e.userName}</strong> ({e.userRole})
                     </span>
-                    <span style={{ color: 'var(--text-muted)' }}>
+                    <span className="text-text-muted">
                       {new Date(e.createdAt).toLocaleString()}
                     </span>
                   </div>
-                  <div style={{ marginTop: '0.25rem' }}>
-                    <span style={{
-                      background: 'var(--surface-hover)',
-                      padding: '0.125rem 0.5rem',
-                      borderRadius: '4px',
-                      fontSize: '0.8rem',
-                      marginRight: '0.5rem',
-                    }}>
+                  <div className="mt-1">
+                    <span className="bg-[var(--surface-hover)] py-0.5 px-2 rounded text-xs mr-2">
                       {e.eventType.replace(/_/g, ' ')}
                     </span>
                     {e.description}
@@ -1498,7 +1371,7 @@ export function CaseDashboardContent({
                 </div>
               ))}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+            <div className="flex justify-end mt-4">
               <button onClick={() => setShowEventLogModal(false)} className="btn-secondary">Close</button>
             </div>
           </div>
@@ -1519,24 +1392,24 @@ export function CaseDashboardContent({
       {/* Print Preference Card Modal */}
       {printingCard && (
         <div className="modal-overlay print-modal-overlay" onClick={() => setPrintingCard(null)}>
-          <div className="modal-content print-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh', overflow: 'auto' }}>
-            <div className="modal-header no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0 }}>Print Preference Card</h3>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="modal-content print-modal max-w-[900px] max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header no-print flex justify-between items-center mb-4">
+              <h3>Print Preference Card</h3>
+              <div className="flex gap-2">
                 <button className="btn-primary" onClick={executePrint}>Print</button>
                 <button className="btn-secondary" onClick={() => setPrintingCard(null)}>Close</button>
               </div>
             </div>
             <div className="print-content">
-              <div className="print-header" style={{ borderBottom: '2px solid #3182ce', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-                <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.75rem' }}>{printingCard.card.procedureName}</h1>
-                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem' }}>
+              <div className="print-header border-b-2 border-[#3182ce] pb-4 mb-6">
+                <h1 className="mb-2 text-[1.75rem]">{printingCard.card.procedureName}</h1>
+                <div className="flex gap-6 flex-wrap text-sm">
                   <span><strong>Surgeon:</strong> {printingCard.card.surgeonName}</span>
                   <span><strong>Version:</strong> v{printingCard.card.version}</span>
                   <span><strong>Status:</strong> {printingCard.card.status}</span>
                 </div>
                 {printingCard.card.turnoverNotes && (
-                  <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#f7fafc', borderRadius: '4px', fontSize: '0.875rem' }}>
+                  <div className="mt-2 p-2 bg-[#f7fafc] rounded text-sm">
                     <strong>Turnover Notes:</strong> {printingCard.card.turnoverNotes}
                   </div>
                 )}
@@ -1550,96 +1423,96 @@ export function CaseDashboardContent({
                 const setup = printingCard.currentVersion.setupPositioning as Record<string, unknown> | undefined;
                 const notes = printingCard.currentVersion.surgeonNotes as Record<string, unknown> | undefined;
                 return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="flex flex-col gap-4">
                     {/* Instrumentation */}
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Instrumentation</h3>
+                    <div className="border border-[#e2e8f0] rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Instrumentation</h3>
                       {inst && Object.values(inst).some(v => v) ? (
                         <>
-                          {Boolean(inst.primaryTrays) && <div style={{ marginBottom: '0.5rem' }}><strong>Primary Trays:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(inst.primaryTrays)}</pre></div>}
-                          {Boolean(inst.supplementalTrays) && <div style={{ marginBottom: '0.5rem' }}><strong>Supplemental Trays:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(inst.supplementalTrays)}</pre></div>}
-                          {Boolean(inst.looseInstruments) && <div style={{ marginBottom: '0.5rem' }}><strong>Loose Instruments:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(inst.looseInstruments)}</pre></div>}
-                          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                            {Boolean(inst.flashAllowed) && <span style={{ background: '#bee3f8', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>Flash Sterilization Allowed</span>}
-                            {Boolean(inst.peelPackOnly) && <span style={{ background: '#bee3f8', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>Peel Pack Only</span>}
+                          {Boolean(inst.primaryTrays) && <div className="mb-2"><strong>Primary Trays:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(inst.primaryTrays)}</pre></div>}
+                          {Boolean(inst.supplementalTrays) && <div className="mb-2"><strong>Supplemental Trays:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(inst.supplementalTrays)}</pre></div>}
+                          {Boolean(inst.looseInstruments) && <div className="mb-2"><strong>Loose Instruments:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(inst.looseInstruments)}</pre></div>}
+                          <div className="flex gap-4 flex-wrap">
+                            {Boolean(inst.flashAllowed) && <span className="bg-[#bee3f8] py-1 px-2 rounded text-xs">Flash Sterilization Allowed</span>}
+                            {Boolean(inst.peelPackOnly) && <span className="bg-[#bee3f8] py-1 px-2 rounded text-xs">Peel Pack Only</span>}
                           </div>
                         </>
-                      ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No instrumentation documented</p>}
+                      ) : <p className="text-[#718096] italic">No instrumentation documented</p>}
                     </div>
 
                     {/* Equipment */}
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Equipment</h3>
+                    <div className="border border-[#e2e8f0] rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Equipment</h3>
                       {equip && Object.values(equip).some(v => v) ? (
                         <>
-                          {Boolean(equip.energyDevices) && <div style={{ marginBottom: '0.5rem' }}><strong>Energy Devices:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(equip.energyDevices)}</pre></div>}
-                          {Boolean(equip.tourniquetLocation || equip.tourniquetPressure) && <div style={{ marginBottom: '0.5rem' }}><strong>Tourniquet:</strong> {String(equip.tourniquetLocation || '')} {equip.tourniquetPressure ? `@ ${equip.tourniquetPressure}` : ''}</div>}
-                          {Boolean(equip.imaging) && <div style={{ marginBottom: '0.5rem' }}><strong>Imaging:</strong> {String(equip.imaging)}</div>}
-                          {Boolean(equip.specializedDevices) && <div style={{ marginBottom: '0.5rem' }}><strong>Specialized Devices:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(equip.specializedDevices)}</pre></div>}
+                          {Boolean(equip.energyDevices) && <div className="mb-2"><strong>Energy Devices:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(equip.energyDevices)}</pre></div>}
+                          {Boolean(equip.tourniquetLocation || equip.tourniquetPressure) && <div className="mb-2"><strong>Tourniquet:</strong> {String(equip.tourniquetLocation || '')} {equip.tourniquetPressure ? `@ ${equip.tourniquetPressure}` : ''}</div>}
+                          {Boolean(equip.imaging) && <div className="mb-2"><strong>Imaging:</strong> {String(equip.imaging)}</div>}
+                          {Boolean(equip.specializedDevices) && <div className="mb-2"><strong>Specialized Devices:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(equip.specializedDevices)}</pre></div>}
                         </>
-                      ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No equipment documented</p>}
+                      ) : <p className="text-[#718096] italic">No equipment documented</p>}
                     </div>
 
                     {/* Supplies */}
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Supplies</h3>
+                    <div className="border border-[#e2e8f0] rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Supplies</h3>
                       {supp && Object.values(supp).some(v => v) ? (
                         <>
-                          {Boolean(supp.gloves) && <div style={{ marginBottom: '0.5rem' }}><strong>Gloves:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(supp.gloves)}</pre></div>}
-                          {Boolean(supp.drapes) && <div style={{ marginBottom: '0.5rem' }}><strong>Drapes:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(supp.drapes)}</pre></div>}
-                          {Boolean(supp.implants) && <div style={{ marginBottom: '0.5rem' }}><strong>Implants:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(supp.implants)}</pre></div>}
-                          {Boolean(supp.sutures) && <div style={{ marginBottom: '0.5rem' }}><strong>Sutures:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(supp.sutures)}</pre></div>}
-                          {Boolean(supp.disposables) && <div style={{ marginBottom: '0.5rem' }}><strong>Disposables:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(supp.disposables)}</pre></div>}
+                          {Boolean(supp.gloves) && <div className="mb-2"><strong>Gloves:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(supp.gloves)}</pre></div>}
+                          {Boolean(supp.drapes) && <div className="mb-2"><strong>Drapes:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(supp.drapes)}</pre></div>}
+                          {Boolean(supp.implants) && <div className="mb-2"><strong>Implants:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(supp.implants)}</pre></div>}
+                          {Boolean(supp.sutures) && <div className="mb-2"><strong>Sutures:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(supp.sutures)}</pre></div>}
+                          {Boolean(supp.disposables) && <div className="mb-2"><strong>Disposables:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(supp.disposables)}</pre></div>}
                         </>
-                      ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No supplies documented</p>}
+                      ) : <p className="text-[#718096] italic">No supplies documented</p>}
                     </div>
 
                     {/* Medications */}
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Medications & Solutions</h3>
+                    <div className="border border-[#e2e8f0] rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Medications & Solutions</h3>
                       {meds && Object.values(meds).some(v => v) ? (
                         <>
-                          {Boolean(meds.localAnesthetic) && <div style={{ marginBottom: '0.5rem' }}><strong>Local Anesthetic:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(meds.localAnesthetic)}</pre></div>}
-                          {Boolean(meds.antibiotics) && <div style={{ marginBottom: '0.5rem' }}><strong>Antibiotics:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(meds.antibiotics)}</pre></div>}
-                          {Boolean(meds.irrigation) && <div style={{ marginBottom: '0.5rem' }}><strong>Irrigation:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(meds.irrigation)}</pre></div>}
-                          {Boolean(meds.topicalAgents) && <div style={{ marginBottom: '0.5rem' }}><strong>Topical Agents:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(meds.topicalAgents)}</pre></div>}
+                          {Boolean(meds.localAnesthetic) && <div className="mb-2"><strong>Local Anesthetic:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(meds.localAnesthetic)}</pre></div>}
+                          {Boolean(meds.antibiotics) && <div className="mb-2"><strong>Antibiotics:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(meds.antibiotics)}</pre></div>}
+                          {Boolean(meds.irrigation) && <div className="mb-2"><strong>Irrigation:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(meds.irrigation)}</pre></div>}
+                          {Boolean(meds.topicalAgents) && <div className="mb-2"><strong>Topical Agents:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(meds.topicalAgents)}</pre></div>}
                         </>
-                      ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No medications/solutions documented</p>}
+                      ) : <p className="text-[#718096] italic">No medications/solutions documented</p>}
                     </div>
 
                     {/* Setup & Positioning */}
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Setup & Positioning</h3>
+                    <div className="border border-[#e2e8f0] rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Setup & Positioning</h3>
                       {setup && Object.values(setup).some(v => v) ? (
                         <>
-                          {Boolean(setup.patientPosition) && <div style={{ marginBottom: '0.5rem' }}><strong>Patient Position:</strong> {String(setup.patientPosition)}</div>}
-                          {Boolean(setup.tableConfiguration) && <div style={{ marginBottom: '0.5rem' }}><strong>Table Configuration:</strong> {String(setup.tableConfiguration)}</div>}
-                          {Boolean(setup.paddingRequirements) && <div style={{ marginBottom: '0.5rem' }}><strong>Padding:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(setup.paddingRequirements)}</pre></div>}
-                          {Boolean(setup.mayoStandCount || setup.mayoStandPlacement) && <div style={{ marginBottom: '0.5rem' }}><strong>Mayo Stand:</strong> {setup.mayoStandCount ? `${setup.mayoStandCount}x` : ''} {String(setup.mayoStandPlacement || '')}</div>}
-                          {Boolean(setup.backTableNotes) && <div style={{ marginBottom: '0.5rem' }}><strong>Back Table:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(setup.backTableNotes)}</pre></div>}
-                          {Boolean(setup.orFlowNotes) && <div style={{ marginBottom: '0.5rem' }}><strong>OR Flow Notes:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(setup.orFlowNotes)}</pre></div>}
+                          {Boolean(setup.patientPosition) && <div className="mb-2"><strong>Patient Position:</strong> {String(setup.patientPosition)}</div>}
+                          {Boolean(setup.tableConfiguration) && <div className="mb-2"><strong>Table Configuration:</strong> {String(setup.tableConfiguration)}</div>}
+                          {Boolean(setup.paddingRequirements) && <div className="mb-2"><strong>Padding:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(setup.paddingRequirements)}</pre></div>}
+                          {Boolean(setup.mayoStandCount || setup.mayoStandPlacement) && <div className="mb-2"><strong>Mayo Stand:</strong> {setup.mayoStandCount ? `${setup.mayoStandCount}x` : ''} {String(setup.mayoStandPlacement || '')}</div>}
+                          {Boolean(setup.backTableNotes) && <div className="mb-2"><strong>Back Table:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(setup.backTableNotes)}</pre></div>}
+                          {Boolean(setup.orFlowNotes) && <div className="mb-2"><strong>OR Flow Notes:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(setup.orFlowNotes)}</pre></div>}
                         </>
-                      ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No setup/positioning documented</p>}
+                      ) : <p className="text-[#718096] italic">No setup/positioning documented</p>}
                     </div>
 
                     {/* Surgeon Notes */}
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '1rem' }}>
-                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Surgeon Notes & Preferences</h3>
+                    <div className="border border-[#e2e8f0] rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Surgeon Notes & Preferences</h3>
                       {notes && Object.values(notes).some(v => v) ? (
                         <>
-                          {Boolean(notes.preferences) && <div style={{ marginBottom: '0.5rem' }}><strong>Preferences:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(notes.preferences)}</pre></div>}
-                          {Boolean(notes.holdPrnItems) && <div style={{ marginBottom: '0.5rem' }}><strong>Hold / PRN Items:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(notes.holdPrnItems)}</pre></div>}
-                          {Boolean(notes.decisionTriggers) && <div style={{ marginBottom: '0.5rem' }}><strong>Decision Triggers:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(notes.decisionTriggers)}</pre></div>}
-                          {Boolean(notes.teachingModifiers) && <div style={{ marginBottom: '0.5rem' }}><strong>Teaching Case Modifiers:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(notes.teachingModifiers)}</pre></div>}
-                          {Boolean(notes.revisionAddOns) && <div style={{ marginBottom: '0.5rem' }}><strong>Revision-Only Add-Ons:</strong><pre style={{ margin: '0.25rem 0', whiteSpace: 'pre-wrap', background: '#f7fafc', padding: '0.5rem', borderRadius: '4px' }}>{String(notes.revisionAddOns)}</pre></div>}
+                          {Boolean(notes.preferences) && <div className="mb-2"><strong>Preferences:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(notes.preferences)}</pre></div>}
+                          {Boolean(notes.holdPrnItems) && <div className="mb-2"><strong>Hold / PRN Items:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(notes.holdPrnItems)}</pre></div>}
+                          {Boolean(notes.decisionTriggers) && <div className="mb-2"><strong>Decision Triggers:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(notes.decisionTriggers)}</pre></div>}
+                          {Boolean(notes.teachingModifiers) && <div className="mb-2"><strong>Teaching Case Modifiers:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(notes.teachingModifiers)}</pre></div>}
+                          {Boolean(notes.revisionAddOns) && <div className="mb-2"><strong>Revision-Only Add-Ons:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(notes.revisionAddOns)}</pre></div>}
                         </>
-                      ) : <p style={{ color: '#718096', fontStyle: 'italic' }}>No surgeon notes/preferences documented</p>}
+                      ) : <p className="text-[#718096] italic">No surgeon notes/preferences documented</p>}
                     </div>
                   </div>
                 );
               })()}
 
-              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#718096' }}>
+              <div className="mt-6 pt-4 border-t border-[#e2e8f0] flex justify-between text-xs text-[#718096]">
                 <span>Printed: {new Date().toLocaleString()}</span>
                 <span>Facility: {user?.facilityName}</span>
               </div>
@@ -1648,15 +1521,8 @@ export function CaseDashboardContent({
         </div>
       )}
 
-      <style jsx>{`
-        .case-dashboard-content {
-          padding: 0;
-        }
-
-        .nested-modal {
-          z-index: 1100;
-        }
-
+      {/* Print styles - must use global style jsx for body * selectors */}
+      <style jsx global>{`
         @media print {
           body * {
             visibility: hidden;

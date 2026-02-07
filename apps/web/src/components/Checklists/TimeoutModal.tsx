@@ -279,7 +279,7 @@ export function TimeoutModal({
 
   return (
     <div
-      className="checklist-modal-overlay"
+      className="fixed inset-0 bg-[var(--shadow-overlay)] flex items-center justify-center p-4"
       style={{ zIndex }}
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSubmitting) {
@@ -287,11 +287,11 @@ export function TimeoutModal({
         }
       }}
     >
-      <div className="checklist-modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="checklist-modal-header">
-          <h2>OR Time Out</h2>
+      <div className="bg-surface-primary rounded-xl w-full max-w-[700px] max-h-[90vh] flex flex-col shadow-[0_20px_40px_var(--shadow-md)]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center px-6 py-4 border-b border-border">
+          <h2 className="m-0 text-xl font-semibold">OR Time Out</h2>
           <button
-            className="checklist-modal-close"
+            className="bg-transparent border-none text-2xl cursor-pointer text-text-muted p-1 leading-none hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onClose}
             disabled={isSubmitting}
           >
@@ -299,9 +299,9 @@ export function TimeoutModal({
           </button>
         </div>
 
-        <div className="checklist-modal-body">
+        <div className="p-6 overflow-y-auto flex-1">
           {isLoading ? (
-            <div className="checklist-loading">Loading checklist...</div>
+            <div className="text-center p-8 text-text-muted">Loading checklist...</div>
           ) : (
             <>
               {!checklistData?.featureEnabled && (
@@ -337,8 +337,8 @@ export function TimeoutModal({
                   <ReadinessBanner readinessState={localResponses['inventory_readiness'] || 'GREEN'} />
 
                   {!isStarted ? (
-                    <div className="checklist-start-section">
-                      <p>Start the Time Out checklist to verify patient safety before the procedure begins.</p>
+                    <div className="text-center p-8">
+                      <p className="mb-6 text-text-secondary">Start the Time Out checklist to verify patient safety before the procedure begins.</p>
                       <button
                         className="btn btn-primary btn-lg"
                         onClick={handleStart}
@@ -349,8 +349,8 @@ export function TimeoutModal({
                     </div>
                   ) : (
                     <>
-                      <div className="checklist-section">
-                        <h3>Checklist Items</h3>
+                      <div className="mb-6">
+                        <h3 className="text-base font-semibold mb-4 text-text-secondary">Checklist Items</h3>
                         <div className="checklist-items">
                           {checklist?.items.map((item) => (
                             <div key={item.key} className="checklist-item">
@@ -365,8 +365,8 @@ export function TimeoutModal({
                         </div>
                       </div>
 
-                      <div className="checklist-section">
-                        <h3>Signatures</h3>
+                      <div className="mb-6">
+                        <h3 className="text-base font-semibold mb-4 text-text-secondary">Signatures</h3>
                         <div className="signatures-list">
                           {checklist?.requiredSignatures.map((sig) => {
                             const existingSig = checklist.signatures.find((s) => s.role === sig.role);
@@ -380,13 +380,13 @@ export function TimeoutModal({
                                   {sig.required && <span className="required-marker">*</span>}
                                 </span>
                                 {existingSig ? (
-                                  <div className="signature-details">
+                                  <div className="flex flex-col gap-1">
                                     <span className="signature-info">
                                       Signed by {existingSig.signedByName} at{' '}
                                       {new Date(existingSig.signedAt).toLocaleTimeString()}
                                     </span>
                                     {existingSig.flaggedForReview && (
-                                      <span className={`flag-badge ${existingSig.resolved ? 'resolved' : 'pending'}`}>
+                                      <span className={`inline-block text-xs py-0.5 px-2 rounded font-medium ${existingSig.resolved ? 'bg-[var(--color-green)] text-white' : 'bg-[var(--color-orange)] text-white'}`}>
                                         {existingSig.resolved ? '✓ Reviewed' : '⚑ Flagged for Review'}
                                       </span>
                                     )}
@@ -400,23 +400,24 @@ export function TimeoutModal({
                         </div>
 
                         {canSign && (
-                          <div className="sign-section">
-                            <label className="flag-toggle">
-                              <span className="flag-toggle-label">Flag for Admin Review</span>
-                              <div className={`toggle-switch ${flagForReview ? 'active' : ''}`}>
+                          <div className="flex flex-col items-center gap-3 mt-4 pt-4 border-t border-border">
+                            <label className="flex flex-col items-center gap-2 cursor-pointer">
+                              <span className="font-bold text-[0.9rem] text-text-primary">Flag for Admin Review</span>
+                              <div className="relative w-[50px] h-[26px]">
                                 <input
                                   type="checkbox"
+                                  className="opacity-0 w-0 h-0"
                                   checked={flagForReview}
                                   onChange={(e) => setFlagForReview(e.target.checked)}
                                   disabled={isSubmitting}
                                 />
-                                <span className="toggle-slider"></span>
+                                <span className={`absolute cursor-pointer inset-0 ${flagForReview ? 'bg-[var(--color-orange)]' : 'bg-[var(--color-gray-300)]'} transition-all duration-300 rounded-[26px] before:absolute before:content-[''] before:h-5 before:w-5 before:left-[3px] before:bottom-[3px] before:bg-surface-primary before:transition-all before:duration-300 before:rounded-full before:shadow-[0_1px_3px_var(--shadow-md)] ${flagForReview ? 'before:translate-x-6' : ''}`}></span>
                               </div>
                             </label>
                             {flagForReview && (
-                              <div className="flag-comment-section">
+                              <div className="w-full max-w-[400px]">
                                 <textarea
-                                  className="flag-comment-input"
+                                  className="w-full p-3 border border-border rounded-md text-[0.9rem] resize-y font-[inherit] focus:outline-none focus:border-[var(--color-orange)] focus:shadow-[0_0_0_2px_rgba(237,137,54,0.2)] disabled:bg-surface-tertiary"
                                   placeholder="Any further comments for admin review..."
                                   value={flagComment}
                                   onChange={(e) => setFlagComment(e.target.value)}
@@ -426,7 +427,7 @@ export function TimeoutModal({
                               </div>
                             )}
                             <button
-                              className="btn btn-primary btn-lg sign-btn"
+                              className="btn btn-primary btn-lg mt-2"
                               onClick={handleSignAndComplete}
                               disabled={isSubmitting}
                             >
@@ -436,7 +437,7 @@ export function TimeoutModal({
                         )}
 
                         {isCompleted && (
-                          <p className="completion-message">
+                          <p className="text-[var(--color-green)] font-medium mb-4">
                             Time Out completed. The procedure may now be started.
                           </p>
                         )}
@@ -449,241 +450,6 @@ export function TimeoutModal({
           )}
         </div>
       </div>
-
-      <style jsx>{`
-        .checklist-modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: var(--shadow-overlay);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1rem;
-        }
-
-        .checklist-modal-content {
-          background: var(--surface-primary);
-          border-radius: 12px;
-          width: 100%;
-          max-width: 700px;
-          max-height: 90vh;
-          display: flex;
-          flex-direction: column;
-          box-shadow: 0 20px 40px var(--shadow-md);
-        }
-
-        .checklist-modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem 1.5rem;
-          border-bottom: 1px solid var(--color-gray-200);
-        }
-
-        .checklist-modal-header h2 {
-          margin: 0;
-          font-size: 1.25rem;
-          font-weight: 600;
-        }
-
-        .checklist-modal-close {
-          background: none;
-          border: none;
-          font-size: 1.5rem;
-          cursor: pointer;
-          color: var(--color-gray-500);
-          padding: 0.25rem;
-          line-height: 1;
-        }
-
-        .checklist-modal-close:hover {
-          color: var(--color-gray-700);
-        }
-
-        .checklist-modal-close:disabled {
-          cursor: not-allowed;
-          opacity: 0.5;
-        }
-
-        .checklist-modal-body {
-          padding: 1.5rem;
-          overflow-y: auto;
-          flex: 1;
-        }
-
-        .checklist-loading {
-          text-align: center;
-          padding: 2rem;
-          color: var(--color-gray-500);
-        }
-
-        .checklist-start-section {
-          text-align: center;
-          padding: 2rem;
-        }
-
-        .checklist-start-section p {
-          margin-bottom: 1.5rem;
-          color: var(--color-gray-600);
-        }
-
-        .checklist-section {
-          margin-bottom: 1.5rem;
-        }
-
-        .checklist-section h3 {
-          font-size: 1rem;
-          font-weight: 600;
-          margin-bottom: 1rem;
-          color: var(--color-gray-700);
-        }
-
-        .checklist-items {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .checklist-actions {
-          margin-top: 1.5rem;
-          text-align: center;
-        }
-
-        .checklist-completed-actions {
-          margin-top: 1.5rem;
-          text-align: center;
-        }
-
-        .completion-message {
-          color: var(--color-green);
-          font-weight: 500;
-          margin-bottom: 1rem;
-        }
-
-        .sign-btn {
-          margin-top: 0.5rem;
-        }
-
-        .sign-section {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.75rem;
-          margin-top: 1rem;
-          padding-top: 1rem;
-          border-top: 1px solid var(--color-gray-200);
-        }
-
-        .flag-toggle {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
-        }
-
-        .flag-toggle-label {
-          font-weight: 700;
-          font-size: 0.9rem;
-          color: var(--color-gray-800);
-        }
-
-        .toggle-switch {
-          position: relative;
-          width: 50px;
-          height: 26px;
-        }
-
-        .toggle-switch input {
-          opacity: 0;
-          width: 0;
-          height: 0;
-        }
-
-        .toggle-slider {
-          position: absolute;
-          cursor: pointer;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: var(--color-gray-300);
-          transition: 0.3s;
-          border-radius: 26px;
-        }
-
-        .toggle-slider:before {
-          position: absolute;
-          content: "";
-          height: 20px;
-          width: 20px;
-          left: 3px;
-          bottom: 3px;
-          background-color: var(--surface-primary);
-          transition: 0.3s;
-          border-radius: 50%;
-          box-shadow: 0 1px 3px var(--shadow-md);
-        }
-
-        .toggle-switch.active .toggle-slider {
-          background-color: var(--color-orange);
-        }
-
-        .toggle-switch.active .toggle-slider:before {
-          transform: translateX(24px);
-        }
-
-        .signature-details {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .flag-badge {
-          font-size: 0.75rem;
-          padding: 0.125rem 0.5rem;
-          border-radius: 4px;
-          font-weight: 500;
-        }
-
-        .flag-badge.pending {
-          background: var(--color-orange);
-          color: var(--text-on-primary);
-        }
-
-        .flag-badge.resolved {
-          background: var(--color-green);
-          color: var(--text-on-primary);
-        }
-
-        .flag-comment-section {
-          width: 100%;
-          max-width: 400px;
-        }
-
-        .flag-comment-input {
-          width: 100%;
-          padding: 0.75rem;
-          border: 1px solid var(--color-gray-300);
-          border-radius: 6px;
-          font-size: 0.9rem;
-          resize: vertical;
-          font-family: inherit;
-        }
-
-        .flag-comment-input:focus {
-          outline: none;
-          border-color: var(--color-orange);
-          box-shadow: 0 0 0 2px rgba(237, 137, 54, 0.2);
-        }
-
-        .flag-comment-input:disabled {
-          background: var(--color-gray-100);
-        }
-      `}</style>
     </div>
   );
 }

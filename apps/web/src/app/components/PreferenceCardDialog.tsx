@@ -229,11 +229,11 @@ export function PreferenceCardDialog({
   };
 
   return (
-    <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal preference-card-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{getDialogTitle()}</h2>
-          <div className="header-actions">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" onClick={handleClose}>
+      <div className="bg-surface-secondary rounded-lg w-[90%] max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center px-6 py-4 border-b border-border shrink-0">
+          <h2 className="m-0 text-xl text-text-primary">{getDialogTitle()}</h2>
+          <div className="flex items-center gap-3">
             <button
               type="submit"
               form="preference-card-form"
@@ -242,23 +242,23 @@ export function PreferenceCardDialog({
             >
               {getSubmitButtonText()}
             </button>
-            <button className="close-btn" onClick={handleClose} type="button">
+            <button className="bg-transparent border-none text-2xl cursor-pointer text-text-muted p-0 leading-none hover:text-text-primary" onClick={handleClose} type="button">
               &times;
             </button>
           </div>
         </div>
-        <div className="modal-body">
+        <div className="p-6 overflow-y-auto flex-1">
           {isLoading && (mode === 'edit' || mode === 'clone') && !editingCard ? (
-            <div className="loading">Loading preference card...</div>
+            <div className="text-center p-8 text-text-muted">Loading preference card...</div>
           ) : (
             <form id="preference-card-form" onSubmit={handleSubmit} autoComplete="off">
               {/* Clone mode: simplified form with just Surgeon and Procedure Name */}
               {mode === 'clone' ? (
-                <div className="form-section">
-                  <p className="clone-info">
+                <div className="mb-6 pb-4 border-b border-border">
+                  <p className="bg-[var(--color-blue-50)] border border-[var(--color-blue-500)] rounded py-3 px-4 mb-4 text-sm text-[var(--color-blue-500)]">
                     Select a surgeon and update the procedure name. All other card details will be copied from the original.
                   </p>
-                  <div className="form-row">
+                  <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                     <div className="form-group">
                       <label>Surgeon *</label>
                       <select
@@ -287,9 +287,9 @@ export function PreferenceCardDialog({
                 </div>
               ) : (
               /* Create/Edit mode: full form */
-              <div className="form-section">
-                <h3>Header Information</h3>
-                <div className="form-row">
+              <div className="mb-6 pb-4 border-b border-border">
+                <h3 className="m-0 mb-4 text-base text-text-secondary">Header Information</h3>
+                <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                   <div className="form-group">
                     <label>Surgeon *</label>
                     <select
@@ -330,17 +330,17 @@ export function PreferenceCardDialog({
 
               {/* Collapsible Sections - only show for create/edit modes */}
               {mode !== 'clone' && sections.map(section => (
-                <div key={section.id} className="collapsible-section">
+                <div key={section.id} className="mb-2 border border-border rounded overflow-hidden">
                   <button
                     type="button"
-                    className="section-header"
+                    className="flex justify-between items-center w-full py-3 px-4 bg-surface-tertiary border-none cursor-pointer text-sm font-semibold text-left text-text-primary hover:brightness-95 transition-colors"
                     onClick={() => toggleSection(section.id)}
                   >
                     <span>{section.label}</span>
-                    <span className="toggle-icon">{section.expanded ? '−' : '+'}</span>
+                    <span className="text-xl text-text-muted">{section.expanded ? '−' : '+'}</span>
                   </button>
                   {section.expanded && (
-                    <div className="section-content">
+                    <div className="p-4 bg-surface-secondary">
                       {section.id === 'instrumentation' && (
                         <>
                           <div className="form-group">
@@ -370,18 +370,20 @@ export function PreferenceCardDialog({
                               rows={3}
                             />
                           </div>
-                          <div className="checkbox-grid">
-                            <label className="checkbox-item">
+                          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+                            <label className="flex items-center gap-2 cursor-pointer text-sm text-text-primary">
                               <input
                                 type="checkbox"
+                                className="w-auto"
                                 checked={!!getNestedValue('instrumentation', 'flashAllowed')}
                                 onChange={(e) => updateNestedField('instrumentation', 'flashAllowed', e.target.checked)}
                               />
                               Flash Sterilization Allowed
                             </label>
-                            <label className="checkbox-item">
+                            <label className="flex items-center gap-2 cursor-pointer text-sm text-text-primary">
                               <input
                                 type="checkbox"
+                                className="w-auto"
                                 checked={!!getNestedValue('instrumentation', 'peelPackOnly')}
                                 onChange={(e) => updateNestedField('instrumentation', 'peelPackOnly', e.target.checked)}
                               />
@@ -402,7 +404,7 @@ export function PreferenceCardDialog({
                               rows={3}
                             />
                           </div>
-                          <div className="form-row">
+                          <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                             <div className="form-group">
                               <label>Tourniquet Location</label>
                               <input
@@ -445,7 +447,7 @@ export function PreferenceCardDialog({
 
                       {section.id === 'supplies' && (
                         <>
-                          <div className="form-row">
+                          <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                             <div className="form-group">
                               <label>Gloves/Gown Sizes</label>
                               <textarea
@@ -497,7 +499,7 @@ export function PreferenceCardDialog({
 
                       {section.id === 'medications' && (
                         <>
-                          <div className="form-row">
+                          <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                             <div className="form-group">
                               <label>Local Anesthetic</label>
                               <textarea
@@ -540,7 +542,7 @@ export function PreferenceCardDialog({
 
                       {section.id === 'setupPositioning' && (
                         <>
-                          <div className="form-row">
+                          <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                             <div className="form-group">
                               <label>Patient Position</label>
                               <input
@@ -569,7 +571,7 @@ export function PreferenceCardDialog({
                               rows={2}
                             />
                           </div>
-                          <div className="form-row">
+                          <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                             <div className="form-group">
                               <label>Mayo Stand Count</label>
                               <input
@@ -611,7 +613,7 @@ export function PreferenceCardDialog({
 
                       {section.id === 'surgeonNotes' && (
                         <>
-                          <p className="section-note">Free text allowed in this section only.</p>
+                          <p className="text-xs text-text-muted italic m-0 mb-4">Free text allowed in this section only.</p>
                           <div className="form-group">
                             <label>Surgeon Preferences</label>
                             <textarea
@@ -666,8 +668,8 @@ export function PreferenceCardDialog({
 
               {/* Edit-specific fields */}
               {mode === 'edit' && (
-                <div className="form-section edit-metadata">
-                  <h3>Change Details (Required)</h3>
+                <div className="mb-6 pb-4 border-b border-border bg-[var(--color-orange-bg)] border-l-4 border-l-[var(--color-orange)] pl-4">
+                  <h3 className="m-0 mb-4 text-base text-text-secondary">Change Details (Required)</h3>
                   <div className="form-group">
                     <label>Change Summary *</label>
                     <input
@@ -690,7 +692,7 @@ export function PreferenceCardDialog({
                 </div>
               )}
 
-              <div className="form-actions">
+              <div className="flex gap-4 mt-6 pt-4 border-t border-border">
                 <button type="submit" className="btn btn-primary" disabled={isLoading}>
                   {isLoading ? 'Saving...' : mode === 'edit' ? 'Save Changes' : mode === 'clone' ? 'Clone Card' : 'Create Preference Card'}
                 </button>
@@ -711,340 +713,6 @@ export function PreferenceCardDialog({
           )}
         </div>
       </div>
-
-      <style jsx>{`
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .preference-card-dialog {
-          background: white;
-          border-radius: 8px;
-          width: 90%;
-          max-width: 800px;
-          max-height: 90vh;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem 1.5rem;
-          border-bottom: 1px solid #e2e8f0;
-          flex-shrink: 0;
-        }
-
-        .modal-header h2 {
-          margin: 0;
-          font-size: 1.25rem;
-        }
-
-        .header-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .header-actions .btn-sm {
-          padding: 0.375rem 0.75rem;
-          font-size: 0.875rem;
-        }
-
-        .close-btn {
-          background: none;
-          border: none;
-          font-size: 1.5rem;
-          cursor: pointer;
-          color: #718096;
-          padding: 0;
-          line-height: 1;
-        }
-
-        .close-btn:hover {
-          color: #4a5568;
-        }
-
-        .modal-body {
-          padding: 1.5rem;
-          overflow-y: auto;
-          flex: 1;
-        }
-
-        .loading {
-          text-align: center;
-          padding: 2rem;
-          color: #718096;
-        }
-
-        .form-section {
-          margin-bottom: 1.5rem;
-          padding-bottom: 1rem;
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .form-section h3 {
-          margin: 0 0 1rem 0;
-          font-size: 1rem;
-          color: #4a5568;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        @media (max-width: 768px) {
-          .form-row {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-          font-size: 0.875rem;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          font-size: 0.875rem;
-          font-family: inherit;
-        }
-
-        .form-group input:disabled,
-        .form-group select:disabled {
-          background: #f7fafc;
-          color: #718096;
-        }
-
-        .form-group textarea {
-          resize: vertical;
-          min-height: 60px;
-        }
-
-        .collapsible-section {
-          margin-bottom: 0.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          overflow: hidden;
-        }
-
-        .section-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          width: 100%;
-          padding: 0.75rem 1rem;
-          background: #f8f9fa;
-          border: none;
-          cursor: pointer;
-          font-size: 0.875rem;
-          font-weight: 600;
-          text-align: left;
-        }
-
-        .section-header:hover {
-          background: #edf2f7;
-        }
-
-        .toggle-icon {
-          font-size: 1.25rem;
-          color: #718096;
-        }
-
-        .section-content {
-          padding: 1rem;
-          background: white;
-        }
-
-        .section-note {
-          font-size: 0.75rem;
-          color: #718096;
-          font-style: italic;
-          margin: 0 0 1rem 0;
-        }
-
-        .clone-info {
-          background: #ebf8ff;
-          border: 1px solid #90cdf4;
-          border-radius: 4px;
-          padding: 0.75rem 1rem;
-          margin-bottom: 1rem;
-          font-size: 0.875rem;
-          color: #2c5282;
-        }
-
-        .checkbox-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 0.75rem;
-        }
-
-        .checkbox-item {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
-          font-size: 0.875rem;
-        }
-
-        .checkbox-item input {
-          width: auto;
-        }
-
-        .edit-metadata {
-          background: #fffbeb;
-          border-left: 4px solid #f59e0b;
-          padding-left: 1rem;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 1rem;
-          margin-top: 1.5rem;
-          padding-top: 1rem;
-          border-top: 1px solid #e2e8f0;
-        }
-
-        .btn {
-          padding: 0.5rem 1rem;
-          border-radius: 4px;
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-          border: none;
-          transition: background 0.2s;
-        }
-
-        .btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .btn-primary {
-          background: #3b82f6;
-          color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-          background: #2563eb;
-        }
-
-        .btn-secondary {
-          background: #e2e8f0;
-          color: #4a5568;
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-          background: #cbd5e0;
-        }
-
-        /* Dark mode overrides */
-        :global([data-theme="dark"]) .preference-card-dialog {
-          background: var(--surface-secondary);
-        }
-        :global([data-theme="dark"]) .modal-header {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .modal-header h2 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .close-btn {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .close-btn:hover {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .loading {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .form-section {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .form-section h3 {
-          color: var(--text-secondary);
-        }
-        :global([data-theme="dark"]) .form-group label {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .form-group input,
-        :global([data-theme="dark"]) .form-group select,
-        :global([data-theme="dark"]) .form-group textarea {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .form-group input:disabled,
-        :global([data-theme="dark"]) .form-group select:disabled {
-          background: var(--surface-tertiary);
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .collapsible-section {
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .section-header {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .section-header:hover {
-          background: var(--color-gray-400);
-        }
-        :global([data-theme="dark"]) .toggle-icon {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .section-content {
-          background: var(--surface-secondary);
-        }
-        :global([data-theme="dark"]) .section-note {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .clone-info {
-          background: var(--color-blue-50);
-          border-color: var(--color-blue-500);
-          color: var(--color-blue-500);
-        }
-        :global([data-theme="dark"]) .checkbox-item {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .edit-metadata {
-          background: #744210;
-          border-left-color: #dd6b20;
-          color: #feebc8;
-        }
-        :global([data-theme="dark"]) .form-actions {
-          border-top-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .btn-secondary {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .btn-secondary:hover:not(:disabled) {
-          background: var(--color-gray-400);
-        }
-      `}</style>
     </div>
   );
 }

@@ -41,24 +41,26 @@ function formatDateTime(isoStr: string | null): string {
   });
 }
 
+const statusBadgeBase = 'py-1 px-3 rounded-full text-sm font-medium inline-block';
+
 function getStatusBadgeClass(status: string): string {
   switch (status) {
     case 'REQUESTED':
-      return 'status-badge requested';
+      return `${statusBadgeBase} bg-[var(--color-blue-100)] text-[var(--color-blue-600)]`;
     case 'SCHEDULED':
-      return 'status-badge scheduled';
+      return `${statusBadgeBase} bg-[var(--color-green-bg)] text-[var(--color-green-700)]`;
     case 'READY':
-      return 'status-badge ready';
+      return `${statusBadgeBase} bg-[var(--color-orange-bg)] text-[var(--color-orange-700)]`;
     case 'IN_PROGRESS':
-      return 'status-badge in-progress';
+      return `${statusBadgeBase} bg-[var(--color-blue-50)] text-[var(--color-blue-600)]`;
     case 'COMPLETED':
-      return 'status-badge completed';
+      return `${statusBadgeBase} bg-[var(--color-gray-200)] text-[var(--color-gray-700)]`;
     case 'REJECTED':
-      return 'status-badge rejected';
+      return `${statusBadgeBase} bg-[var(--color-red-bg)] text-[var(--color-red)]`;
     case 'CANCELLED':
-      return 'status-badge cancelled';
+      return `${statusBadgeBase} bg-[var(--color-gray-100)] text-text-muted`;
     default:
-      return 'status-badge';
+      return statusBadgeBase;
   }
 }
 
@@ -260,11 +262,11 @@ export default function CasesPage() {
   };
 
   return (
-    <div className="page-container">
+    <div>
       <Header title="My Case Requests" />
 
-      <main className="container-full" style={{ padding: '2rem 1.5rem' }}>
-        <div className="content-wrapper">
+      <main className="container-full py-8 px-6">
+        <div>
           <div className="page-header">
             <h1>My Case Requests</h1>
             <button className="btn btn-create" onClick={() => setShowCreateForm(true)}>
@@ -275,38 +277,38 @@ export default function CasesPage() {
           {error && (
             <div className="alert alert-error">
               <strong>Error:</strong> {error}
-              <button className="alert-close" onClick={() => setError('')}>×</button>
+              <button className="bg-transparent border-none text-xl cursor-pointer text-inherit opacity-70 hover:opacity-100" onClick={() => setError('')}>&times;</button>
             </div>
           )}
 
           {successMessage && (
             <div className="alert alert-success">
               {successMessage}
-              <button className="alert-close" onClick={() => setSuccessMessage('')}>×</button>
+              <button className="bg-transparent border-none text-xl cursor-pointer text-inherit opacity-70 hover:opacity-100" onClick={() => setSuccessMessage('')}>&times;</button>
             </div>
           )}
 
           {/* Search and Sort Controls */}
-          <div className="search-sort-controls">
-            <div className="search-box">
+          <div className="flex gap-4 mb-6 flex-wrap items-center">
+            <div className="flex-1 min-w-[200px] max-w-[400px] relative">
               <input
                 type="text"
                 placeholder="Search by case #, surgeon, or procedure..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
+                className="w-full py-[0.625rem] pr-8 pl-3 border border-border rounded-md text-[0.9375rem] bg-surface-primary text-text-primary focus:outline-none focus:border-[var(--color-blue-500)] focus:ring-[3px] focus:ring-blue-500/10"
               />
               {searchTerm && (
-                <button className="search-clear" onClick={() => setSearchTerm('')}>×</button>
+                <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-xl text-text-muted cursor-pointer p-1 leading-none hover:text-text-primary" onClick={() => setSearchTerm('')}>&times;</button>
               )}
             </div>
-            <div className="sort-box">
-              <label htmlFor="sortBy">Sort by:</label>
+            <div className="flex items-center gap-2">
+              <label htmlFor="sortBy" className="font-medium text-text-secondary text-sm whitespace-nowrap">Sort by:</label>
               <select
                 id="sortBy"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                className="sort-select"
+                className="py-2 px-3 border border-border rounded-md text-sm bg-surface-primary text-text-primary cursor-pointer focus:outline-none focus:border-[var(--color-blue-500)] focus:ring-[3px] focus:ring-blue-500/10"
               >
                 <option value="date-desc">Date (Newest First)</option>
                 <option value="date-asc">Date (Oldest First)</option>
@@ -319,20 +321,21 @@ export default function CasesPage() {
           {/* Create Form Modal */}
           {showCreateForm && (
             <div className="modal-overlay">
-              <div className="modal">
-                <div className="modal-header">
-                  <h2>New Case Request</h2>
-                  <button className="modal-close" onClick={() => setShowCreateForm(false)}>×</button>
+              <div className="bg-surface-primary rounded-lg shadow-[0_4px_20px_var(--shadow-md)] w-full max-w-[500px] max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center py-4 px-6 border-b border-border">
+                  <h2 className="m-0 text-xl font-semibold text-text-primary">New Case Request</h2>
+                  <button className="bg-transparent border-none text-2xl cursor-pointer text-text-muted p-0 leading-none hover:text-text-primary" onClick={() => setShowCreateForm(false)}>&times;</button>
                 </div>
 
-                <form onSubmit={handleCreate} className="form">
+                <form onSubmit={handleCreate} className="p-6">
                   <div className="form-group">
-                    <label htmlFor="surgeonId">Surgeon*</label>
+                    <label htmlFor="surgeonId" className="block mb-2 font-medium text-text-secondary">Surgeon*</label>
                     <select
                       id="surgeonId"
                       value={createFormData.surgeonId}
                       onChange={(e) => setCreateFormData({ ...createFormData, surgeonId: e.target.value })}
                       required
+                      className="w-full py-2 px-3 border border-border rounded-md text-base bg-surface-primary text-text-primary focus:outline-none focus:border-[var(--color-blue-500)] focus:ring-[3px] focus:ring-blue-500/10"
                     >
                       <option value="">Select surgeon</option>
                       {surgeons.map((s) => (
@@ -342,51 +345,55 @@ export default function CasesPage() {
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="procedureName">Procedure Name*</label>
+                    <label htmlFor="procedureName" className="block mb-2 font-medium text-text-secondary">Procedure Name*</label>
                     <input
                       id="procedureName"
                       type="text"
                       value={createFormData.procedureName}
                       onChange={(e) => setCreateFormData({ ...createFormData, procedureName: e.target.value })}
                       required
+                      className="w-full py-2 px-3 border border-border rounded-md text-base bg-surface-primary text-text-primary focus:outline-none focus:border-[var(--color-blue-500)] focus:ring-[3px] focus:ring-blue-500/10"
                     />
                   </div>
 
-                  <div className="form-row">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="form-group">
-                      <label htmlFor="requestedDate">Requested Date (Optional)</label>
+                      <label htmlFor="requestedDate" className="block mb-2 font-medium text-text-secondary">Requested Date (Optional)</label>
                       <input
                         id="requestedDate"
                         type="date"
                         value={createFormData.requestedDate}
                         onChange={(e) => setCreateFormData({ ...createFormData, requestedDate: e.target.value })}
+                        className="w-full py-2 px-3 border border-border rounded-md text-base bg-surface-primary text-text-primary focus:outline-none focus:border-[var(--color-blue-500)] focus:ring-[3px] focus:ring-blue-500/10"
                       />
-                      <small className="help-text">Your preferred date - admin will review</small>
+                      <small className="block mt-1 text-xs text-text-muted">Your preferred date - admin will review</small>
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="requestedTime">Requested Time (Optional)</label>
+                      <label htmlFor="requestedTime" className="block mb-2 font-medium text-text-secondary">Requested Time (Optional)</label>
                       <input
                         id="requestedTime"
                         type="time"
                         value={createFormData.requestedTime}
                         onChange={(e) => setCreateFormData({ ...createFormData, requestedTime: e.target.value })}
+                        className="w-full py-2 px-3 border border-border rounded-md text-base bg-surface-primary text-text-primary focus:outline-none focus:border-[var(--color-blue-500)] focus:ring-[3px] focus:ring-blue-500/10"
                       />
-                      <small className="help-text">Your preferred time - admin will review</small>
+                      <small className="block mt-1 text-xs text-text-muted">Your preferred time - admin will review</small>
                     </div>
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="notes">Notes</label>
+                    <label htmlFor="notes" className="block mb-2 font-medium text-text-secondary">Notes</label>
                     <textarea
                       id="notes"
                       value={createFormData.notes}
                       onChange={(e) => setCreateFormData({ ...createFormData, notes: e.target.value })}
                       rows={3}
+                      className="w-full py-2 px-3 border border-border rounded-md text-base bg-surface-primary text-text-primary focus:outline-none focus:border-[var(--color-blue-500)] focus:ring-[3px] focus:ring-blue-500/10"
                     />
                   </div>
 
-                  <div className="modal-actions">
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
                     <button type="button" className="btn btn-secondary" onClick={() => setShowCreateForm(false)}>
                       Cancel
                     </button>
@@ -402,38 +409,39 @@ export default function CasesPage() {
           {/* Approval Modal */}
           {approvingCase && (
             <div className="modal-overlay">
-              <div className="modal">
-                <div className="modal-header">
-                  <h2>Approve & Schedule Case</h2>
-                  <button className="modal-close" onClick={() => setApprovingCase(null)}>×</button>
+              <div className="bg-surface-primary rounded-lg shadow-[0_4px_20px_var(--shadow-md)] w-full max-w-[500px] max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center py-4 px-6 border-b border-border">
+                  <h2 className="m-0 text-xl font-semibold text-text-primary">Approve & Schedule Case</h2>
+                  <button className="bg-transparent border-none text-2xl cursor-pointer text-text-muted p-0 leading-none hover:text-text-primary" onClick={() => setApprovingCase(null)}>&times;</button>
                 </div>
 
-                <form onSubmit={handleApprove} className="form">
-                  <div className="approval-case-info">
+                <form onSubmit={handleApprove} className="p-6">
+                  <div className="bg-surface-tertiary p-4 rounded-md mb-4 border border-border text-text-primary [&>div]:mb-1 [&>div:last-child]:mb-0">
                     <div><strong>Procedure:</strong> {approvingCase.procedureName}</div>
                     <div><strong>Surgeon:</strong> Dr. {approvingCase.surgeonName}</div>
                     {(approvingCase.requestedDate || approvingCase.requestedTime) && (
-                      <div className="requested-reference">
+                      <div className="mt-2 pt-2 border-t border-dashed border-border text-text-muted">
                         <strong>Requested:</strong> {approvingCase.requestedDate ? formatDate(approvingCase.requestedDate) : ''} {approvingCase.requestedTime ? formatTime(approvingCase.requestedTime) : ''}
-                        <small> (for reference)</small>
+                        <small className="text-text-muted"> (for reference)</small>
                       </div>
                     )}
                   </div>
 
-                  <div className="form-row">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="form-group">
-                      <label htmlFor="approvalDate">Scheduled Date*</label>
+                      <label htmlFor="approvalDate" className="block mb-2 font-medium text-text-secondary">Scheduled Date*</label>
                       <input
                         id="approvalDate"
                         type="date"
                         value={approvalDate}
                         onChange={(e) => setApprovalDate(e.target.value)}
                         required
+                        className="w-full py-2 px-3 border border-border rounded-md text-base bg-surface-primary text-text-primary focus:outline-none focus:border-[var(--color-blue-500)] focus:ring-[3px] focus:ring-blue-500/10"
                       />
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="approvalTime">Scheduled Time (24h)</label>
+                      <label htmlFor="approvalTime" className="block mb-2 font-medium text-text-secondary">Scheduled Time (24h)</label>
                       <TimeSelect
                         id="approvalTime"
                         value={approvalTime}
@@ -445,11 +453,12 @@ export default function CasesPage() {
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="approvalRoom">Operating Room</label>
+                    <label htmlFor="approvalRoom" className="block mb-2 font-medium text-text-secondary">Operating Room</label>
                     <select
                       id="approvalRoom"
                       value={approvalRoomId}
                       onChange={(e) => setApprovalRoomId(e.target.value)}
+                      className="w-full py-2 px-3 border border-border rounded-md text-base bg-surface-primary text-text-primary focus:outline-none focus:border-[var(--color-blue-500)] focus:ring-[3px] focus:ring-blue-500/10"
                     >
                       <option value="">Select room (optional)</option>
                       {rooms.map((room) => (
@@ -458,7 +467,7 @@ export default function CasesPage() {
                     </select>
                   </div>
 
-                  <div className="modal-actions">
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
                     <button type="button" className="btn btn-secondary" onClick={() => setApprovingCase(null)}>
                       Cancel
                     </button>
@@ -474,20 +483,20 @@ export default function CasesPage() {
           {/* Rejection Modal */}
           {rejectingCase && (
             <div className="modal-overlay">
-              <div className="modal">
-                <div className="modal-header">
-                  <h2>Reject Case Request</h2>
-                  <button className="modal-close" onClick={() => setRejectingCase(null)}>×</button>
+              <div className="bg-surface-primary rounded-lg shadow-[0_4px_20px_var(--shadow-md)] w-full max-w-[500px] max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center py-4 px-6 border-b border-border">
+                  <h2 className="m-0 text-xl font-semibold text-text-primary">Reject Case Request</h2>
+                  <button className="bg-transparent border-none text-2xl cursor-pointer text-text-muted p-0 leading-none hover:text-text-primary" onClick={() => setRejectingCase(null)}>&times;</button>
                 </div>
 
-                <form onSubmit={handleReject} className="form">
-                  <div className="approval-case-info">
+                <form onSubmit={handleReject} className="p-6">
+                  <div className="bg-surface-tertiary p-4 rounded-md mb-4 border border-border text-text-primary [&>div]:mb-1 [&>div:last-child]:mb-0">
                     <div><strong>Procedure:</strong> {rejectingCase.procedureName}</div>
                     <div><strong>Surgeon:</strong> Dr. {rejectingCase.surgeonName}</div>
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="rejectionReason">Rejection Reason*</label>
+                    <label htmlFor="rejectionReason" className="block mb-2 font-medium text-text-secondary">Rejection Reason*</label>
                     <textarea
                       id="rejectionReason"
                       value={rejectionReason}
@@ -495,10 +504,11 @@ export default function CasesPage() {
                       required
                       rows={4}
                       placeholder="Provide a reason for rejecting this case request..."
+                      className="w-full py-2 px-3 border border-border rounded-md text-base bg-surface-primary text-text-primary focus:outline-none focus:border-[var(--color-blue-500)] focus:ring-[3px] focus:ring-blue-500/10"
                     />
                   </div>
 
-                  <div className="modal-actions">
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
                     <button type="button" className="btn btn-secondary" onClick={() => setRejectingCase(null)}>
                       Cancel
                     </button>
@@ -513,39 +523,39 @@ export default function CasesPage() {
 
           {/* Cases Display */}
           {isLoadingData ? (
-            <div className="loading-container">
+            <div className="loading">
               <div className="spinner"></div>
             </div>
           ) : (
             <>
               {/* Pending Requests Section - Highlighted at Top */}
               {pendingCases.length > 0 && (
-                <section className="pending-section">
-                  <h2 className="section-title">
+                <section className="mb-8 p-6 bg-gradient-to-br from-[var(--color-blue-50)] to-[var(--color-blue-100)] border-2 border-[var(--color-blue-500)] rounded-xl">
+                  <h2 className="m-0 mb-4 text-xl font-semibold text-[var(--color-blue-500)]">
                     Pending Approval ({pendingCases.length})
                   </h2>
-                  <div className="pending-grid">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
                     {pendingCases.map((c) => (
-                      <div key={c.id} className="pending-card">
-                        <div className="pending-card-header">
-                          <span className="case-number">{c.caseNumber}</span>
+                      <div key={c.id} className="bg-surface-primary rounded-lg shadow-[0_2px_8px_var(--shadow-sm)] overflow-hidden border border-border">
+                        <div className="py-3 px-4 bg-surface-secondary border-b border-border flex justify-between items-center">
+                          <span className="font-mono font-semibold text-text-primary text-sm">{c.caseNumber}</span>
                           <span className={getStatusBadgeClass(c.status)}>REQUESTED</span>
                         </div>
-                        <div className="pending-card-body">
-                          <div className="pending-procedure">{c.procedureName}</div>
-                          <div className="pending-surgeon">Dr. {c.surgeonName}</div>
-                          <div className="pending-submitted">
+                        <div className="p-4">
+                          <div className="text-[1.1rem] font-semibold text-text-primary mb-1">{c.procedureName}</div>
+                          <div className="text-text-secondary mb-2">Dr. {c.surgeonName}</div>
+                          <div className="text-[0.8125rem] text-text-muted mb-1">
                             Submitted: {formatDateTime(c.createdAt)}
                           </div>
                           {(c.requestedDate || c.requestedTime) && (
-                            <div className="pending-datetime">
+                            <div className="text-sm text-text-muted mb-2">
                               Preferred: {c.requestedDate ? formatDate(c.requestedDate) : ''} {c.requestedTime ? formatTime(c.requestedTime) : ''}
                             </div>
                           )}
-                          {c.notes && <div className="pending-notes">{c.notes}</div>}
+                          {c.notes && <div className="text-sm text-text-muted italic pt-2 border-t border-dashed border-border">{c.notes}</div>}
                         </div>
                         {canManageCases ? (
-                          <div className="pending-card-actions">
+                          <div className="py-3 px-4 bg-surface-secondary border-t border-border flex gap-2 justify-end">
                             <button
                               className="btn btn-primary btn-sm"
                               onClick={() => startApproval(c)}
@@ -560,7 +570,7 @@ export default function CasesPage() {
                             </button>
                           </div>
                         ) : (
-                          <div className="pending-card-footer">
+                          <div className="py-3 px-4 bg-[var(--color-orange-bg)] text-[var(--color-orange-700)] text-sm font-medium text-center">
                             Awaiting admin/scheduler review
                           </div>
                         )}
@@ -572,9 +582,9 @@ export default function CasesPage() {
 
               {/* Other Cases Table */}
               {otherCases.length > 0 && (
-                <section className="other-cases-section">
-                  <h2 className="section-title">Case History</h2>
-                  <div className="table-container">
+                <section className="mt-6">
+                  <h2 className="m-0 mb-4 text-[1.1rem] font-semibold text-text-primary pb-2 border-b-2 border-border">Case History</h2>
+                  <div className="bg-surface-primary rounded-lg overflow-hidden shadow-[0_1px_3px_var(--shadow-sm)]">
                     <table className="data-table">
                       <thead>
                         <tr>
@@ -590,7 +600,7 @@ export default function CasesPage() {
                       <tbody>
                         {otherCases.map((c) => (
                           <tr key={c.id}>
-                            <td className="case-number-cell">{c.caseNumber}</td>
+                            <td className="font-mono font-semibold text-text-primary whitespace-nowrap">{c.caseNumber}</td>
                             <td>
                               <span className={getStatusBadgeClass(c.status)}>
                                 {c.status}
@@ -601,18 +611,18 @@ export default function CasesPage() {
                             <td>{c.procedureName}</td>
                             <td>
                               {c.status === 'REJECTED' ? (
-                                <span className="text-muted">Rejected</span>
+                                <span className="text-text-muted">Rejected</span>
                               ) : c.scheduledDate ? (
                                 <div>
                                   {formatDate(c.scheduledDate)} {formatTime(c.scheduledTime)}
                                 </div>
                               ) : (
-                                <span className="text-muted">Not scheduled</span>
+                                <span className="text-text-muted">Not scheduled</span>
                               )}
                             </td>
                             <td>
                               {c.status === 'REJECTED' && c.rejectionReason ? (
-                                <div className="rejection-reason">
+                                <div className="text-[var(--color-red)] text-sm">
                                   <strong>Reason:</strong> {c.rejectionReason}
                                 </div>
                               ) : (
@@ -629,14 +639,14 @@ export default function CasesPage() {
 
               {/* Empty State */}
               {cases.length === 0 && (
-                <div className="empty-state">
+                <div className="text-center p-12 bg-surface-secondary rounded-lg text-text-muted">
                   <p>No case requests yet. Click &ldquo;New Case Request&rdquo; to get started.</p>
                 </div>
               )}
 
               {/* No Search Results */}
               {cases.length > 0 && filteredCases.length === 0 && (
-                <div className="empty-state">
+                <div className="text-center p-12 bg-surface-secondary rounded-lg text-text-muted">
                   <p>No cases match your search &ldquo;{searchTerm}&rdquo;</p>
                   <button className="btn btn-secondary" onClick={() => setSearchTerm('')}>
                     Clear Search
@@ -647,663 +657,6 @@ export default function CasesPage() {
           )}
         </div>
       </main>
-
-      <style jsx>{`
-        /* Search and Sort Controls */
-        .search-sort-controls {
-          display: flex;
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-          flex-wrap: wrap;
-          align-items: center;
-        }
-
-        .search-box {
-          flex: 1;
-          min-width: 200px;
-          max-width: 400px;
-          position: relative;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 0.625rem 2rem 0.625rem 0.75rem;
-          border: 1px solid #d1d5db;
-          border-radius: 6px;
-          font-size: 0.9375rem;
-          background: white;
-        }
-
-        .search-input:focus {
-          outline: none;
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .search-clear {
-          position: absolute;
-          right: 0.5rem;
-          top: 50%;
-          transform: translateY(-50%);
-          background: none;
-          border: none;
-          font-size: 1.25rem;
-          color: #9ca3af;
-          cursor: pointer;
-          padding: 0.25rem;
-          line-height: 1;
-        }
-
-        .search-clear:hover {
-          color: #374151;
-        }
-
-        .sort-box {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .sort-box label {
-          font-weight: 500;
-          color: #374151;
-          font-size: 0.875rem;
-          white-space: nowrap;
-        }
-
-        .sort-select {
-          padding: 0.5rem 0.75rem;
-          border: 1px solid #d1d5db;
-          border-radius: 6px;
-          font-size: 0.875rem;
-          background: white;
-          cursor: pointer;
-        }
-
-        .sort-select:focus {
-          outline: none;
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        /* Pending Section Styles */
-        .pending-section {
-          margin-bottom: 2rem;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          border: 2px solid #3b82f6;
-          border-radius: 12px;
-        }
-
-        .section-title {
-          margin: 0 0 1rem 0;
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: #1e40af;
-        }
-
-        .pending-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 1rem;
-        }
-
-        .pending-card {
-          background: white;
-          border-radius: 8px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-          border: 1px solid #e5e7eb;
-        }
-
-        .pending-card-header {
-          padding: 0.75rem 1rem;
-          background: #f8fafc;
-          border-bottom: 1px solid #e5e7eb;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .case-number {
-          font-family: monospace;
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
-
-        .case-number-cell {
-          font-family: monospace;
-          font-weight: 600;
-          color: #374151;
-          white-space: nowrap;
-        }
-
-        .pending-card-body {
-          padding: 1rem;
-        }
-
-        .pending-procedure {
-          font-size: 1.1rem;
-          font-weight: 600;
-          color: #111827;
-          margin-bottom: 0.25rem;
-        }
-
-        .pending-surgeon {
-          color: #4b5563;
-          margin-bottom: 0.5rem;
-        }
-
-        .pending-submitted {
-          font-size: 0.8125rem;
-          color: #9ca3af;
-          margin-bottom: 0.25rem;
-        }
-
-        .pending-datetime {
-          font-size: 0.875rem;
-          color: #6b7280;
-          margin-bottom: 0.5rem;
-        }
-
-        .pending-notes {
-          font-size: 0.875rem;
-          color: #6b7280;
-          font-style: italic;
-          padding-top: 0.5rem;
-          border-top: 1px dashed #e5e7eb;
-        }
-
-        .pending-card-footer {
-          padding: 0.75rem 1rem;
-          background: #fef3c7;
-          color: #92400e;
-          font-size: 0.875rem;
-          font-weight: 500;
-          text-align: center;
-        }
-
-        .pending-card-actions {
-          padding: 0.75rem 1rem;
-          background: #f8fafc;
-          border-top: 1px solid #e5e7eb;
-          display: flex;
-          gap: 0.5rem;
-          justify-content: flex-end;
-        }
-
-        .btn-sm {
-          padding: 0.375rem 0.75rem;
-          font-size: 0.8125rem;
-        }
-
-        .btn-danger {
-          background: #dc2626;
-          color: white;
-        }
-
-        .btn-danger:hover {
-          background: #b91c1c;
-        }
-
-        .approval-case-info {
-          background: #f9fafb;
-          padding: 1rem;
-          border-radius: 6px;
-          margin-bottom: 1rem;
-          border: 1px solid #e5e7eb;
-        }
-
-        .approval-case-info div {
-          margin-bottom: 0.25rem;
-        }
-
-        .approval-case-info div:last-child {
-          margin-bottom: 0;
-        }
-
-        .requested-reference {
-          margin-top: 0.5rem;
-          padding-top: 0.5rem;
-          border-top: 1px dashed #d1d5db;
-          color: #6b7280;
-        }
-
-        .requested-reference small {
-          color: #9ca3af;
-        }
-
-        .other-cases-section {
-          margin-top: 1.5rem;
-        }
-
-        .other-cases-section .section-title {
-          color: #374151;
-          font-size: 1.1rem;
-          margin-bottom: 1rem;
-          padding-bottom: 0.5rem;
-          border-bottom: 2px solid #e5e7eb;
-        }
-
-        .table-container {
-          background: white;
-          border-radius: 8px;
-          overflow: hidden;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .data-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        .data-table th,
-        .data-table td {
-          padding: 0.75rem 1rem;
-          text-align: left;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .data-table th {
-          background: #f9fafb;
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
-
-        .data-table tr:hover {
-          background: #f9fafb;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 3rem;
-          background: #f9fafb;
-          border-radius: 8px;
-          color: #6b7280;
-        }
-
-        /* Modal Styles */
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .modal {
-          background: white;
-          border-radius: 8px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-          width: 100%;
-          max-width: 500px;
-          max-height: 90vh;
-          overflow-y: auto;
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem 1.5rem;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .modal-header h2 {
-          margin: 0;
-          font-size: 1.25rem;
-          font-weight: 600;
-        }
-
-        .modal-close {
-          background: none;
-          border: none;
-          font-size: 1.5rem;
-          cursor: pointer;
-          color: #6b7280;
-          padding: 0;
-          line-height: 1;
-        }
-
-        .modal-close:hover {
-          color: #111827;
-        }
-
-        .modal-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          padding-top: 1rem;
-          border-top: 1px solid #e5e7eb;
-          margin-top: 1rem;
-        }
-
-        /* Form Styles */
-        .form {
-          padding: 1.5rem;
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-          color: #374151;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-          width: 100%;
-          padding: 0.5rem 0.75rem;
-          border: 1px solid #d1d5db;
-          border-radius: 6px;
-          font-size: 1rem;
-          background: white;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-          outline: none;
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        .help-text {
-          display: block;
-          margin-top: 0.25rem;
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
-
-        /* Button Styles */
-        .btn {
-          padding: 0.5rem 1rem;
-          border-radius: 6px;
-          font-weight: 500;
-          cursor: pointer;
-          border: none;
-          font-size: 0.875rem;
-        }
-
-        .btn-primary {
-          background: #3b82f6;
-          color: white;
-        }
-
-        .btn-primary:hover {
-          background: #2563eb;
-        }
-
-        .btn-secondary {
-          background: #f3f4f6;
-          color: #374151;
-          border: 1px solid #d1d5db;
-        }
-
-        .btn-secondary:hover {
-          background: #e5e7eb;
-        }
-
-        /* Alert Styles */
-        .alert {
-          padding: 1rem;
-          border-radius: 6px;
-          margin-bottom: 1rem;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .alert-error {
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #991b1b;
-        }
-
-        .alert-success {
-          background: #f0fdf4;
-          border: 1px solid #bbf7d0;
-          color: #166534;
-        }
-
-        .alert-close {
-          background: none;
-          border: none;
-          font-size: 1.25rem;
-          cursor: pointer;
-          color: inherit;
-          opacity: 0.7;
-        }
-
-        .alert-close:hover {
-          opacity: 1;
-        }
-
-        /* Status Badge Styles */
-        .status-badge {
-          padding: 0.25rem 0.75rem;
-          border-radius: 9999px;
-          font-size: 0.875rem;
-          font-weight: 500;
-        }
-
-        .status-badge.requested {
-          background: #dbeafe;
-          color: #1e40af;
-        }
-
-        .status-badge.scheduled {
-          background: #d1fae5;
-          color: #065f46;
-        }
-
-        .status-badge.ready {
-          background: #fef3c7;
-          color: #92400e;
-        }
-
-        .status-badge.in-progress {
-          background: #e0e7ff;
-          color: #3730a3;
-        }
-
-        .status-badge.completed {
-          background: #d1d5db;
-          color: #1f2937;
-        }
-
-        .status-badge.rejected {
-          background: #fee2e2;
-          color: #991b1b;
-        }
-
-        .status-badge.cancelled {
-          background: #f3f4f6;
-          color: #6b7280;
-        }
-
-        .requested-info {
-          color: #6b7280;
-          font-size: 0.875rem;
-          font-style: italic;
-        }
-
-        .rejection-reason {
-          color: #dc2626;
-          font-size: 0.875rem;
-        }
-
-        .text-muted {
-          color: #9ca3af;
-        }
-
-        /* Dark mode overrides */
-        :global([data-theme="dark"]) .search-input,
-        :global([data-theme="dark"]) .sort-select {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .search-clear {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .search-clear:hover {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .sort-box label {
-          color: var(--text-secondary);
-        }
-        :global([data-theme="dark"]) .pending-section {
-          background: linear-gradient(135deg, var(--color-blue-50) 0%, var(--color-blue-100) 100%);
-          border-color: var(--color-blue-500);
-        }
-        :global([data-theme="dark"]) .section-title {
-          color: var(--color-blue-500);
-        }
-        :global([data-theme="dark"]) .other-cases-section .section-title {
-          color: var(--text-primary);
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .pending-card {
-          background: var(--surface-secondary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .pending-card-header {
-          background: var(--surface-tertiary);
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .case-number {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .pending-procedure {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .pending-surgeon {
-          color: var(--text-secondary);
-        }
-        :global([data-theme="dark"]) .pending-submitted {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .pending-datetime {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .pending-notes {
-          color: var(--text-muted);
-          border-top-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .pending-card-footer {
-          background: var(--color-orange-bg);
-          color: var(--color-orange);
-        }
-        :global([data-theme="dark"]) .pending-card-actions {
-          background: var(--surface-tertiary);
-          border-top-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .approval-case-info {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .requested-reference {
-          color: var(--text-muted);
-          border-top-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .table-container {
-          background: var(--surface-secondary);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .data-table th {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .data-table th,
-        :global([data-theme="dark"]) .data-table td {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .data-table tr:hover {
-          background: var(--surface-tertiary);
-        }
-        :global([data-theme="dark"]) .case-number-cell {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .empty-state {
-          background: var(--surface-tertiary);
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .modal {
-          background: var(--surface-secondary);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-        }
-        :global([data-theme="dark"]) .modal-header {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .modal-header h2 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .modal-close {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .modal-close:hover {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .modal-actions {
-          border-top-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .form-group label {
-          color: var(--text-secondary);
-        }
-        :global([data-theme="dark"]) .form-group input,
-        :global([data-theme="dark"]) .form-group select,
-        :global([data-theme="dark"]) .form-group textarea {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .help-text {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .alert-error {
-          background: var(--color-red-bg);
-          border-color: var(--color-red);
-          color: var(--color-red);
-        }
-        :global([data-theme="dark"]) .alert-success {
-          background: var(--color-green-bg);
-          border-color: var(--color-green);
-          color: var(--color-green-700);
-        }
-        :global([data-theme="dark"]) .btn-secondary {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .btn-secondary:hover {
-          background: var(--color-gray-400);
-        }
-        :global([data-theme="dark"]) .text-muted {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .requested-info {
-          color: var(--text-muted);
-        }
-      `}</style>
     </div>
   );
 }
