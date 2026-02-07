@@ -128,8 +128,8 @@ async function main() {
   // Register persona plugin (reads X-Active-Persona header for audit metadata)
   await fastify.register(personaPlugin);
 
-  // Health check
-  fastify.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+  // Health check (at /api/health to be consistent with all other routes)
+  fastify.get('/api/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
   // Register routes
   await fastify.register(authRoutes, { prefix: '/api/auth' });
