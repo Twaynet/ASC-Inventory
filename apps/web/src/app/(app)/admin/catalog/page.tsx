@@ -41,13 +41,14 @@ const CATEGORY_LABELS: Record<ItemCategory, string> = {
   PPE: 'PPE',
 };
 
+// Using CSS variables for dark mode support
 const CATEGORY_COLORS: Record<ItemCategory, { bg: string; color: string }> = {
-  IMPLANT: { bg: '#feebc8', color: '#c05621' },      // Orange
-  INSTRUMENT: { bg: '#bee3f8', color: '#2b6cb0' },   // Blue
-  EQUIPMENT: { bg: '#c6f6d5', color: '#276749' },    // Green
-  MEDICATION: { bg: '#fed7e2', color: '#c53030' },   // Red
-  CONSUMABLE: { bg: '#e9d8fd', color: '#6b46c1' },   // Purple
-  PPE: { bg: '#faf089', color: '#975a16' },          // Yellow
+  IMPLANT: { bg: 'var(--category-implant-bg)', color: 'var(--category-implant-text)' },
+  INSTRUMENT: { bg: 'var(--category-instrument-bg)', color: 'var(--category-instrument-text)' },
+  EQUIPMENT: { bg: 'var(--category-equipment-bg)', color: 'var(--category-equipment-text)' },
+  MEDICATION: { bg: 'var(--category-medication-bg)', color: 'var(--category-medication-text)' },
+  CONSUMABLE: { bg: 'var(--category-consumable-bg)', color: 'var(--category-consumable-text)' },
+  PPE: { bg: 'var(--category-ppe-bg)', color: 'var(--category-ppe-text)' },
 };
 
 export default function AdminCatalogPage() {
@@ -619,7 +620,7 @@ export default function AdminCatalogPage() {
                 </div>
                 <div className="form-group">
                   <label>Identifiers &amp; Barcodes</label>
-                  <p style={{ fontSize: '0.8rem', color: '#666', margin: '0 0 0.5rem 0' }}>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 0.5rem 0' }}>
                     Reference identifiers for human recognition only.
                   </p>
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
@@ -643,29 +644,29 @@ export default function AdminCatalogPage() {
                   </div>
                   {/* Edit mode: show saved identifiers from API */}
                   {editingItem && (loadingIdentifiers ? (
-                    <p style={{ fontSize: '0.85rem', color: '#888' }}>Loading...</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading...</p>
                   ) : identifiers.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                       {identifiers.map(ident => (
                         <div key={ident.id} style={{
                           display: 'flex', alignItems: 'center', gap: '0.5rem',
-                          padding: '0.35rem 0.5rem', background: '#f5f5f5', borderRadius: '4px',
+                          padding: '0.35rem 0.5rem', background: 'var(--surface-secondary)', borderRadius: '4px',
                           fontSize: '0.85rem',
                         }}>
                           <span style={{
-                            background: ident.identifierType === 'GTIN' ? '#2563eb' : ident.identifierType === 'UPC' ? '#7c3aed' : '#6b7280',
-                            color: '#fff', padding: '1px 6px', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 600,
+                            background: ident.identifierType === 'GTIN' ? 'var(--color-blue-600)' : ident.identifierType === 'UPC' ? 'var(--color-accent)' : 'var(--color-gray-500)',
+                            color: 'var(--text-on-primary)', padding: '1px 6px', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 600,
                           }}>
                             {ident.identifierType}
                           </span>
-                          <span style={{ flex: 1, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span style={{ flex: 1, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>
                             {ident.rawValue}
                           </span>
-                          <span style={{ color: '#888', fontSize: '0.75rem' }}>{ident.classification}</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{ident.classification}</span>
                           <button
                             type="button"
                             onClick={() => handleDeleteIdentifier(ident.id)}
-                            style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px 4px' }}
+                            style={{ background: 'none', border: 'none', color: 'var(--color-red)', cursor: 'pointer', padding: '2px 4px' }}
                           >
                             &times;
                           </button>
@@ -679,22 +680,22 @@ export default function AdminCatalogPage() {
                       {pendingIdentifiers.map(val => (
                         <div key={val} style={{
                           display: 'flex', alignItems: 'center', gap: '0.5rem',
-                          padding: '0.35rem 0.5rem', background: '#f5f5f5', borderRadius: '4px',
+                          padding: '0.35rem 0.5rem', background: 'var(--surface-secondary)', borderRadius: '4px',
                           fontSize: '0.85rem',
                         }}>
                           <span style={{
-                            background: '#6b7280',
-                            color: '#fff', padding: '1px 6px', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 600,
+                            background: 'var(--color-gray-500)',
+                            color: 'var(--text-on-primary)', padding: '1px 6px', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 600,
                           }}>
                             PENDING
                           </span>
-                          <span style={{ flex: 1, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span style={{ flex: 1, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>
                             {val}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleRemovePendingIdentifier(val)}
-                            style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px 4px' }}
+                            style={{ background: 'none', border: 'none', color: 'var(--color-red)', cursor: 'pointer', padding: '2px 4px' }}
                           >
                             &times;
                           </button>
@@ -703,10 +704,10 @@ export default function AdminCatalogPage() {
                     </div>
                   )}
                   {editingItem && identifiers.length === 0 && !loadingIdentifiers && (
-                    <p style={{ fontSize: '0.85rem', color: '#888' }}>No identifiers added yet.</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No identifiers added yet.</p>
                   )}
                   {!editingItem && pendingIdentifiers.length === 0 && (
-                    <p style={{ fontSize: '0.85rem', color: '#888' }}>No identifiers added yet. Will be saved when item is created.</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No identifiers added yet. Will be saved when item is created.</p>
                   )}
                 </div>
                 <div className="form-group">
@@ -984,8 +985,8 @@ export default function AdminCatalogPage() {
                         {item.identifierCount > 0 && (
                           <span style={{
                             marginLeft: '0.35rem',
-                            background: '#2563eb',
-                            color: '#fff',
+                            background: 'var(--color-blue-600)',
+                            color: 'var(--text-on-primary)',
                             padding: '1px 5px',
                             borderRadius: '3px',
                             fontSize: '0.7rem',
@@ -1051,7 +1052,7 @@ export default function AdminCatalogPage() {
           display: flex;
           gap: 0.5rem;
           margin-bottom: 1.5rem;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border-default);
           padding-bottom: 0.75rem;
         }
 
@@ -1059,18 +1060,18 @@ export default function AdminCatalogPage() {
           padding: 0.5rem 1rem;
           border-radius: 4px;
           text-decoration: none;
-          color: #4a5568;
+          color: var(--text-secondary);
           font-weight: 500;
           transition: background 0.2s, color 0.2s;
         }
 
         .catalog-nav :global(.nav-link:hover) {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
         }
 
         .catalog-nav :global(.nav-link.active) {
-          background: #4299e1;
-          color: white;
+          background: var(--color-blue-500);
+          color: var(--text-on-primary);
         }
 
         .summary-cards {
@@ -1081,17 +1082,17 @@ export default function AdminCatalogPage() {
         }
 
         .summary-card {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
           padding: 1rem;
           text-align: center;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 3px var(--shadow-sm);
           border: 2px solid transparent;
           transition: border-color 0.2s;
         }
 
         .summary-card:hover {
-          border-color: #e2e8f0;
+          border-color: var(--border-default);
         }
 
         .summary-card.selected {
@@ -1105,7 +1106,7 @@ export default function AdminCatalogPage() {
 
         .summary-label {
           font-size: 0.875rem;
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .actions-bar {
@@ -1138,15 +1139,17 @@ export default function AdminCatalogPage() {
         .search-input {
           width: 100%;
           padding: 0.5rem 2rem 0.5rem 0.75rem;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-default);
           border-radius: 4px;
           font-size: 0.875rem;
+          background: var(--surface-primary);
+          color: var(--text-primary);
         }
 
         .search-input:focus {
           outline: none;
-          border-color: #4299e1;
-          box-shadow: 0 0 0 1px #4299e1;
+          border-color: var(--color-blue-500);
+          box-shadow: 0 0 0 1px var(--color-blue-500);
         }
 
         .search-clear {
@@ -1156,7 +1159,7 @@ export default function AdminCatalogPage() {
           transform: translateY(-50%);
           background: none;
           border: none;
-          color: #a0aec0;
+          color: var(--text-muted);
           cursor: pointer;
           font-size: 1rem;
           padding: 0.25rem;
@@ -1164,7 +1167,7 @@ export default function AdminCatalogPage() {
         }
 
         .search-clear:hover {
-          color: #718096;
+          color: var(--text-secondary);
         }
 
         /* Modal Styles */
@@ -1174,7 +1177,7 @@ export default function AdminCatalogPage() {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
+          background: var(--shadow-overlay);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1182,9 +1185,9 @@ export default function AdminCatalogPage() {
         }
 
         .modal {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+          box-shadow: 0 4px 20px var(--shadow-md);
           width: 100%;
           max-width: 560px;
           max-height: 90vh;
@@ -1196,13 +1199,14 @@ export default function AdminCatalogPage() {
           justify-content: space-between;
           align-items: center;
           padding: 1rem 1.5rem;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border-default);
         }
 
         .modal-header h2 {
           margin: 0;
           font-size: 1.25rem;
           font-weight: 600;
+          color: var(--text-primary);
         }
 
         .modal-close {
@@ -1210,13 +1214,13 @@ export default function AdminCatalogPage() {
           border: none;
           font-size: 1.5rem;
           cursor: pointer;
-          color: #718096;
+          color: var(--text-muted);
           padding: 0;
           line-height: 1;
         }
 
         .modal-close:hover {
-          color: #1a202c;
+          color: var(--text-primary);
         }
 
         .modal-body {
@@ -1229,7 +1233,7 @@ export default function AdminCatalogPage() {
           gap: 0.75rem;
           padding-top: 1rem;
           margin-top: 1rem;
-          border-top: 1px solid #e2e8f0;
+          border-top: 1px solid var(--border-default);
         }
 
         .form-row {
@@ -1252,7 +1256,7 @@ export default function AdminCatalogPage() {
           display: block;
           margin-bottom: 0.5rem;
           font-weight: 500;
-          color: #374151;
+          color: var(--text-secondary);
         }
 
         .form-group input[type="text"],
@@ -1260,16 +1264,17 @@ export default function AdminCatalogPage() {
         .form-group select {
           width: 100%;
           padding: 0.5rem 0.75rem;
-          border: 1px solid #d1d5db;
+          border: 1px solid var(--border-default);
           border-radius: 6px;
           font-size: 1rem;
-          background: white;
+          background: var(--surface-primary);
+          color: var(--text-primary);
         }
 
         .form-group input:focus,
         .form-group select:focus {
           outline: none;
-          border-color: #4299e1;
+          border-color: var(--color-blue-500);
           box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
         }
 
@@ -1287,34 +1292,34 @@ export default function AdminCatalogPage() {
           font-size: 0.875rem;
           font-weight: 500;
           border-radius: 9999px;
-          border: 1px solid #d1d5db;
-          background: #f9fafb;
-          color: #6b7280;
+          border: 1px solid var(--border-default);
+          background: var(--surface-secondary);
+          color: var(--text-secondary);
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .pill-toggle:hover {
-          background: #e5e7eb;
-          border-color: #9ca3af;
+          background: var(--surface-tertiary);
+          border-color: var(--color-gray-400);
         }
 
         .pill-toggle.selected {
-          background: #4299e1;
-          border-color: #4299e1;
-          color: white;
+          background: var(--color-blue-500);
+          border-color: var(--color-blue-500);
+          color: var(--text-on-primary);
         }
 
         .pill-toggle.selected:hover {
-          background: #3182ce;
-          border-color: #3182ce;
+          background: var(--color-blue-600);
+          border-color: var(--color-blue-600);
         }
 
         .table-container {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
           padding: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 3px var(--shadow-sm);
           overflow-x: auto;
         }
 
@@ -1327,7 +1332,7 @@ export default function AdminCatalogPage() {
 
         .result-count {
           font-size: 0.875rem;
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .data-table {
@@ -1339,11 +1344,12 @@ export default function AdminCatalogPage() {
         .data-table td {
           padding: 0.75rem;
           text-align: left;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border-default);
+          color: var(--text-primary);
         }
 
         .data-table th {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
           font-weight: 600;
         }
 
@@ -1354,16 +1360,16 @@ export default function AdminCatalogPage() {
         }
 
         .sortable-header:hover {
-          background: #edf2f7;
+          background: var(--surface-tertiary);
         }
 
         .sort-indicator {
           font-size: 0.75rem;
-          color: #4299e1;
+          color: var(--color-blue-500);
         }
 
         .data-table tr:hover {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
         }
 
         .data-table tr.inactive-row {
@@ -1388,7 +1394,7 @@ export default function AdminCatalogPage() {
 
         .empty-state {
           text-align: center;
-          color: #718096;
+          color: var(--text-muted);
           padding: 2rem !important;
         }
 
@@ -1398,30 +1404,30 @@ export default function AdminCatalogPage() {
         }
 
         .btn-danger {
-          background: #e53e3e;
-          color: white;
+          background: var(--color-red);
+          color: var(--text-on-primary);
         }
 
         .btn-danger:hover {
-          background: #c53030;
+          background: var(--color-red-700);
         }
 
         .btn-success {
-          background: #38a169;
-          color: white;
+          background: var(--color-green);
+          color: var(--text-on-primary);
         }
 
         .btn-success:hover {
-          background: #2f855a;
+          background: var(--color-green-700);
         }
 
         .btn-has-images {
-          background: #4299e1;
-          color: white;
+          background: var(--color-blue-500);
+          color: var(--text-on-primary);
         }
 
         .btn-has-images:hover {
-          background: #3182ce;
+          background: var(--color-blue-600);
         }
 
         /* Images Modal Styles */
@@ -1434,10 +1440,10 @@ export default function AdminCatalogPage() {
 
         .images-notice {
           font-size: 0.875rem;
-          color: #718096;
+          color: var(--text-muted);
           margin-bottom: 1rem;
           padding: 0.5rem;
-          background: #f7fafc;
+          background: var(--surface-secondary);
           border-radius: 4px;
         }
 
@@ -1449,21 +1455,22 @@ export default function AdminCatalogPage() {
 
         .tab-btn {
           padding: 0.5rem 1rem;
-          border: 1px solid #e2e8f0;
-          background: white;
+          border: 1px solid var(--border-default);
+          background: var(--surface-primary);
           border-radius: 4px;
           cursor: pointer;
           font-weight: 500;
+          color: var(--text-primary);
         }
 
         .tab-btn.active {
-          background: #4299e1;
-          color: white;
-          border-color: #4299e1;
+          background: var(--color-blue-500);
+          color: var(--text-on-primary);
+          border-color: var(--color-blue-500);
         }
 
         .add-image-form {
-          background: #f7fafc;
+          background: var(--surface-secondary);
           padding: 1rem;
           border-radius: 8px;
           margin-bottom: 1rem;
@@ -1478,8 +1485,10 @@ export default function AdminCatalogPage() {
         .url-input {
           flex: 1;
           padding: 0.5rem;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-default);
           border-radius: 4px;
+          background: var(--surface-primary);
+          color: var(--text-primary);
         }
 
         .file-input {
@@ -1487,28 +1496,29 @@ export default function AdminCatalogPage() {
         }
 
         .uploading-text {
-          color: #4299e1;
+          color: var(--color-blue-500);
           font-size: 0.875rem;
         }
 
         .upload-hint {
           font-size: 0.75rem;
-          color: #718096;
+          color: var(--text-muted);
           margin-top: 0.5rem;
         }
 
         .images-list {
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-default);
           border-radius: 8px;
           max-height: 300px;
           overflow-y: auto;
+          background: var(--surface-primary);
         }
 
         .loading-images,
         .no-images {
           padding: 2rem;
           text-align: center;
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .image-item {
@@ -1516,7 +1526,7 @@ export default function AdminCatalogPage() {
           align-items: center;
           gap: 1rem;
           padding: 0.75rem;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border-default);
         }
 
         .image-item:last-child {
@@ -1536,7 +1546,7 @@ export default function AdminCatalogPage() {
         }
 
         .image-thumbnail:hover {
-          border-color: #4299e1;
+          border-color: var(--color-blue-500);
         }
 
         .image-thumbnail img {
@@ -1555,11 +1565,12 @@ export default function AdminCatalogPage() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          color: var(--text-primary);
         }
 
         .image-caption.clickable {
           cursor: pointer;
-          color: #4299e1;
+          color: var(--color-blue-500);
         }
 
         .image-caption.clickable:hover {
@@ -1575,9 +1586,11 @@ export default function AdminCatalogPage() {
         .caption-input {
           flex: 1;
           padding: 0.25rem 0.5rem;
-          border: 1px solid #4299e1;
+          border: 1px solid var(--color-blue-500);
           border-radius: 4px;
           font-size: 0.875rem;
+          background: var(--surface-primary);
+          color: var(--text-primary);
         }
 
         .image-meta {
@@ -1590,17 +1603,17 @@ export default function AdminCatalogPage() {
         .image-kind {
           padding: 0.125rem 0.375rem;
           border-radius: 4px;
-          background: #e2e8f0;
-          color: #4a5568;
+          background: var(--surface-tertiary);
+          color: var(--text-secondary);
         }
 
         .image-kind.primary {
-          background: #c6f6d5;
-          color: #276749;
+          background: var(--color-green-bg);
+          color: var(--color-green-700);
         }
 
         .image-source {
-          color: #718096;
+          color: var(--text-muted);
         }
 
         :global([data-theme="dark"]) .catalog-nav {

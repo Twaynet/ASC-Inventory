@@ -20,13 +20,14 @@ import {
 } from '@/lib/api';
 
 // LAW catalog.md v2.0 §4A: Engine Category
+// Using CSS variables for dark mode support
 const CATEGORY_COLORS: Record<string, { bg: string; color: string }> = {
-  IMPLANT: { bg: '#feebc8', color: '#c05621' },      // Orange
-  INSTRUMENT: { bg: '#bee3f8', color: '#2b6cb0' },   // Blue
-  EQUIPMENT: { bg: '#c6f6d5', color: '#276749' },    // Green
-  MEDICATION: { bg: '#fed7e2', color: '#c53030' },   // Red
-  CONSUMABLE: { bg: '#e9d8fd', color: '#6b46c1' },   // Purple
-  PPE: { bg: '#faf089', color: '#975a16' },          // Yellow
+  IMPLANT: { bg: 'var(--category-implant-bg)', color: 'var(--category-implant-text)' },
+  INSTRUMENT: { bg: 'var(--category-instrument-bg)', color: 'var(--category-instrument-text)' },
+  EQUIPMENT: { bg: 'var(--category-equipment-bg)', color: 'var(--category-equipment-text)' },
+  MEDICATION: { bg: 'var(--category-medication-bg)', color: 'var(--category-medication-text)' },
+  CONSUMABLE: { bg: 'var(--category-consumable-bg)', color: 'var(--category-consumable-text)' },
+  PPE: { bg: 'var(--category-ppe-bg)', color: 'var(--category-ppe-text)' },
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -257,8 +258,8 @@ export default function CatalogGroupDetailPage() {
                         <span
                           className="category-badge"
                           style={{
-                            backgroundColor: CATEGORY_COLORS[item.category]?.bg || '#e2e8f0',
-                            color: CATEGORY_COLORS[item.category]?.color || '#4a5568',
+                            backgroundColor: CATEGORY_COLORS[item.category]?.bg || 'var(--category-default-bg)',
+                            color: CATEGORY_COLORS[item.category]?.color || 'var(--category-default-text)',
                           }}
                         >
                           {CATEGORY_LABELS[item.category] || item.category}
@@ -326,8 +327,8 @@ export default function CatalogGroupDetailPage() {
                         <span
                           className="category-badge"
                           style={{
-                            backgroundColor: CATEGORY_COLORS[item.category]?.bg || '#e2e8f0',
-                            color: CATEGORY_COLORS[item.category]?.color || '#4a5568',
+                            backgroundColor: CATEGORY_COLORS[item.category]?.bg || 'var(--category-default-bg)',
+                            color: CATEGORY_COLORS[item.category]?.color || 'var(--category-default-text)',
                           }}
                         >
                           {CATEGORY_LABELS[item.category] || item.category}
@@ -376,7 +377,7 @@ export default function CatalogGroupDetailPage() {
         }
 
         .breadcrumb a {
-          color: #4299e1;
+          color: var(--color-blue-500);
           text-decoration: none;
         }
 
@@ -385,11 +386,11 @@ export default function CatalogGroupDetailPage() {
         }
 
         .breadcrumb .separator {
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .description {
-          color: #718096;
+          color: var(--text-muted);
           margin: 0.5rem 0;
         }
 
@@ -401,7 +402,7 @@ export default function CatalogGroupDetailPage() {
         }
 
         .item-count {
-          color: #718096;
+          color: var(--text-muted);
           font-size: 0.875rem;
         }
 
@@ -410,16 +411,17 @@ export default function CatalogGroupDetailPage() {
         }
 
         .add-form-card {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
           padding: 1.5rem;
           margin-bottom: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 3px var(--shadow-sm);
         }
 
         .add-form-card h3 {
           margin-top: 0;
           margin-bottom: 1rem;
+          color: var(--text-primary);
         }
 
         .search-box {
@@ -429,17 +431,20 @@ export default function CatalogGroupDetailPage() {
         .search-box input {
           width: 100%;
           padding: 0.5rem;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-default);
           border-radius: 4px;
           font-size: 1rem;
+          background: var(--surface-primary);
+          color: var(--text-primary);
         }
 
         .available-items {
           max-height: 400px;
           overflow-y: auto;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-default);
           border-radius: 4px;
           margin-bottom: 1rem;
+          background: var(--surface-primary);
         }
 
         .items-list {
@@ -453,10 +458,11 @@ export default function CatalogGroupDetailPage() {
           padding: 0.5rem;
           border-radius: 4px;
           cursor: pointer;
+          color: var(--text-primary);
         }
 
         .item-checkbox:hover {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
         }
 
         .item-checkbox input {
@@ -477,7 +483,7 @@ export default function CatalogGroupDetailPage() {
           display: flex;
           gap: 0.5rem;
           font-size: 0.75rem;
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .catalog-num {
@@ -487,15 +493,15 @@ export default function CatalogGroupDetailPage() {
         .empty-message {
           padding: 2rem;
           text-align: center;
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .limit-message {
           padding: 0.5rem;
           text-align: center;
-          color: #718096;
+          color: var(--text-muted);
           font-size: 0.875rem;
-          background: #f8f9fa;
+          background: var(--surface-secondary);
         }
 
         .form-actions {
@@ -504,10 +510,10 @@ export default function CatalogGroupDetailPage() {
         }
 
         .table-container {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
           padding: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 3px var(--shadow-sm);
           overflow-x: auto;
         }
 
@@ -520,16 +526,17 @@ export default function CatalogGroupDetailPage() {
         .data-table td {
           padding: 0.75rem;
           text-align: left;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border-default);
+          color: var(--text-primary);
         }
 
         .data-table th {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
           font-weight: 600;
         }
 
         .data-table tr:hover {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
         }
 
         .data-table tr.inactive-row {
@@ -554,7 +561,7 @@ export default function CatalogGroupDetailPage() {
 
         .empty-state {
           text-align: center;
-          color: #718096;
+          color: var(--text-muted);
           padding: 2rem !important;
         }
 
@@ -564,12 +571,12 @@ export default function CatalogGroupDetailPage() {
         }
 
         .btn-danger {
-          background: #e53e3e;
-          color: white;
+          background: var(--color-red);
+          color: var(--text-on-primary);
         }
 
         .btn-danger:hover {
-          background: #c53030;
+          background: var(--color-red-700);
         }
       `}</style>
     </>

@@ -28,13 +28,14 @@ import {
  */
 
 // LAW catalog.md v2.0 Section 4A: Engine Category
+// Using CSS variables for dark mode support
 const CATEGORY_COLORS: Record<string, { bg: string; color: string }> = {
-  IMPLANT: { bg: '#feebc8', color: '#c05621' },
-  INSTRUMENT: { bg: '#bee3f8', color: '#2b6cb0' },
-  EQUIPMENT: { bg: '#c6f6d5', color: '#276749' },
-  MEDICATION: { bg: '#fed7e2', color: '#c53030' },
-  CONSUMABLE: { bg: '#e9d8fd', color: '#6b46c1' },
-  PPE: { bg: '#faf089', color: '#975a16' },
+  IMPLANT: { bg: 'var(--category-implant-bg)', color: 'var(--category-implant-text)' },
+  INSTRUMENT: { bg: 'var(--category-instrument-bg)', color: 'var(--category-instrument-text)' },
+  EQUIPMENT: { bg: 'var(--category-equipment-bg)', color: 'var(--category-equipment-text)' },
+  MEDICATION: { bg: 'var(--category-medication-bg)', color: 'var(--category-medication-text)' },
+  CONSUMABLE: { bg: 'var(--category-consumable-bg)', color: 'var(--category-consumable-text)' },
+  PPE: { bg: 'var(--category-ppe-bg)', color: 'var(--category-ppe-text)' },
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -305,8 +306,8 @@ export default function CatalogSetsPage() {
                       <span
                         className="category-badge"
                         style={{
-                          backgroundColor: CATEGORY_COLORS[set.category]?.bg || '#e2e8f0',
-                          color: CATEGORY_COLORS[set.category]?.color || '#4a5568',
+                          backgroundColor: CATEGORY_COLORS[set.category]?.bg || 'var(--category-default-bg)',
+                          color: CATEGORY_COLORS[set.category]?.color || 'var(--category-default-text)',
                         }}
                       >
                         {CATEGORY_LABELS[set.category] || set.category}
@@ -334,8 +335,8 @@ export default function CatalogSetsPage() {
                   <span
                     className="category-badge"
                     style={{
-                      backgroundColor: CATEGORY_COLORS[selectedSet.category]?.bg || '#e2e8f0',
-                      color: CATEGORY_COLORS[selectedSet.category]?.color || '#4a5568',
+                      backgroundColor: CATEGORY_COLORS[selectedSet.category]?.bg || 'var(--category-default-bg)',
+                      color: CATEGORY_COLORS[selectedSet.category]?.color || 'var(--category-default-text)',
                     }}
                   >
                     {CATEGORY_LABELS[selectedSet.category] || selectedSet.category}
@@ -383,8 +384,8 @@ export default function CatalogSetsPage() {
                             <span
                               className="category-badge small"
                               style={{
-                                backgroundColor: CATEGORY_COLORS[item.category]?.bg || '#e2e8f0',
-                                color: CATEGORY_COLORS[item.category]?.color || '#4a5568',
+                                backgroundColor: CATEGORY_COLORS[item.category]?.bg || 'var(--category-default-bg)',
+                                color: CATEGORY_COLORS[item.category]?.color || 'var(--category-default-text)',
                               }}
                             >
                               {CATEGORY_LABELS[item.category] || item.category}
@@ -534,8 +535,8 @@ export default function CatalogSetsPage() {
                                 <span
                                   className="category-badge"
                                   style={{
-                                    backgroundColor: CATEGORY_COLORS[comp.componentCategory]?.bg || '#e2e8f0',
-                                    color: CATEGORY_COLORS[comp.componentCategory]?.color || '#4a5568',
+                                    backgroundColor: CATEGORY_COLORS[comp.componentCategory]?.bg || 'var(--category-default-bg)',
+                                    color: CATEGORY_COLORS[comp.componentCategory]?.color || 'var(--category-default-text)',
                                   }}
                                 >
                                   {CATEGORY_LABELS[comp.componentCategory] || comp.componentCategory}
@@ -661,7 +662,7 @@ export default function CatalogSetsPage() {
           display: flex;
           gap: 0.5rem;
           margin-bottom: 1.5rem;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border-default);
           padding-bottom: 0.75rem;
         }
 
@@ -669,18 +670,18 @@ export default function CatalogSetsPage() {
           padding: 0.5rem 1rem;
           border-radius: 4px;
           text-decoration: none;
-          color: #4a5568;
+          color: var(--text-secondary);
           font-weight: 500;
           transition: background 0.2s, color 0.2s;
         }
 
         .catalog-nav :global(.nav-link:hover) {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
         }
 
         .catalog-nav :global(.nav-link.active) {
-          background: #4299e1;
-          color: white;
+          background: var(--color-blue-500);
+          color: var(--text-on-primary);
         }
 
         .page-header {
@@ -703,7 +704,7 @@ export default function CatalogSetsPage() {
         }
 
         .breadcrumb a {
-          color: #4299e1;
+          color: var(--color-blue-500);
           text-decoration: none;
         }
 
@@ -712,11 +713,11 @@ export default function CatalogSetsPage() {
         }
 
         .breadcrumb .separator {
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .description {
-          color: #718096;
+          color: var(--text-muted);
           margin: 0.5rem 0;
           font-size: 0.875rem;
         }
@@ -729,20 +730,21 @@ export default function CatalogSetsPage() {
         }
 
         .sets-list-panel {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
           padding: 1rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 3px var(--shadow-sm);
         }
 
         .sets-list-panel h3 {
           margin: 0 0 0.25rem 0;
           font-size: 1rem;
+          color: var(--text-primary);
         }
 
         .helper-text {
           font-size: 0.75rem;
-          color: #718096;
+          color: var(--text-muted);
           margin: 0 0 0.75rem 0;
         }
 
@@ -760,17 +762,18 @@ export default function CatalogSetsPage() {
         }
 
         .set-item:hover {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
         }
 
         .set-item.selected {
-          background: #ebf8ff;
-          border-color: #4299e1;
+          background: var(--color-blue-50);
+          border-color: var(--color-blue-500);
         }
 
         .set-name {
           font-weight: 500;
           margin-bottom: 0.25rem;
+          color: var(--text-primary);
         }
 
         .set-meta {
@@ -781,14 +784,14 @@ export default function CatalogSetsPage() {
         }
 
         .component-count {
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .components-panel {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
           padding: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 3px var(--shadow-sm);
           min-height: 400px;
         }
 
@@ -797,7 +800,7 @@ export default function CatalogSetsPage() {
           align-items: center;
           justify-content: center;
           min-height: 300px;
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .panel-header {
@@ -809,6 +812,7 @@ export default function CatalogSetsPage() {
 
         .panel-header h3 {
           margin: 0;
+          color: var(--text-primary);
         }
 
         .panel-actions {
@@ -816,7 +820,7 @@ export default function CatalogSetsPage() {
         }
 
         .add-form-card {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
           border-radius: 8px;
           padding: 1rem;
           margin-bottom: 1rem;
@@ -825,6 +829,7 @@ export default function CatalogSetsPage() {
         .add-form-card h4 {
           margin: 0 0 1rem 0;
           font-size: 1rem;
+          color: var(--text-primary);
         }
 
         .search-box {
@@ -834,16 +839,19 @@ export default function CatalogSetsPage() {
         .search-box input {
           width: 100%;
           padding: 0.5rem;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-default);
           border-radius: 4px;
+          background: var(--surface-primary);
+          color: var(--text-primary);
         }
 
         .available-items {
           max-height: 200px;
           overflow-y: auto;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-default);
           border-radius: 4px;
           margin-bottom: 0.75rem;
+          background: var(--surface-primary);
         }
 
         .item-option {
@@ -852,14 +860,15 @@ export default function CatalogSetsPage() {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          color: var(--text-primary);
         }
 
         .item-option:hover {
-          background: #ebf8ff;
+          background: var(--color-blue-50);
         }
 
         .item-option.selected {
-          background: #bee3f8;
+          background: var(--color-blue-100);
         }
 
         .item-name {
@@ -870,8 +879,8 @@ export default function CatalogSetsPage() {
           padding: 0.5rem;
           text-align: center;
           font-size: 0.75rem;
-          color: #718096;
-          background: #f8f9fa;
+          color: var(--text-muted);
+          background: var(--surface-secondary);
         }
 
         .quantity-fields {
@@ -895,13 +904,15 @@ export default function CatalogSetsPage() {
         .field label {
           font-size: 0.75rem;
           font-weight: 600;
-          color: #4a5568;
+          color: var(--text-secondary);
         }
 
         .field input {
           padding: 0.5rem;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-default);
           border-radius: 4px;
+          background: var(--surface-primary);
+          color: var(--text-primary);
         }
 
         .field input[type="number"] {
@@ -926,16 +937,17 @@ export default function CatalogSetsPage() {
         .data-table td {
           padding: 0.75rem;
           text-align: left;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border-default);
+          color: var(--text-primary);
         }
 
         .data-table th {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
           font-weight: 600;
         }
 
         .data-table tr:hover {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
         }
 
         .name-cell {
@@ -944,7 +956,7 @@ export default function CatalogSetsPage() {
 
         .name-cell .meta {
           font-size: 0.75rem;
-          color: #718096;
+          color: var(--text-muted);
           font-weight: normal;
         }
 
@@ -955,20 +967,20 @@ export default function CatalogSetsPage() {
 
         .notes-cell {
           font-size: 0.875rem;
-          color: #718096;
+          color: var(--text-muted);
           max-width: 200px;
         }
 
         .empty-state {
           text-align: center;
-          color: #718096;
+          color: var(--text-muted);
           padding: 2rem !important;
         }
 
         .empty-message {
           padding: 1rem;
           text-align: center;
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .actions-cell {
@@ -990,12 +1002,12 @@ export default function CatalogSetsPage() {
         }
 
         .btn-danger {
-          background: #e53e3e;
-          color: white;
+          background: var(--color-red);
+          color: var(--text-on-primary);
         }
 
         .btn-danger:hover {
-          background: #c53030;
+          background: var(--color-red-700);
         }
 
         @media (max-width: 900px) {
@@ -1020,7 +1032,7 @@ export default function CatalogSetsPage() {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
+          background: var(--shadow-overlay);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1028,22 +1040,23 @@ export default function CatalogSetsPage() {
         }
 
         .modal {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
           padding: 1.5rem;
           max-width: 500px;
           width: 90%;
           max-height: 90vh;
           overflow-y: auto;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 4px 20px var(--shadow-md);
         }
 
         .modal h3 {
           margin: 0 0 0.5rem 0;
+          color: var(--text-primary);
         }
 
         .modal-description {
-          color: #718096;
+          color: var(--text-muted);
           font-size: 0.875rem;
           margin-bottom: 1.5rem;
         }
@@ -1064,21 +1077,23 @@ export default function CatalogSetsPage() {
         .modal-form .field label {
           font-size: 0.875rem;
           font-weight: 600;
-          color: #4a5568;
+          color: var(--text-secondary);
         }
 
         .modal-form .field input,
         .modal-form .field select {
           padding: 0.5rem;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-default);
           border-radius: 4px;
           font-size: 1rem;
+          background: var(--surface-primary);
+          color: var(--text-primary);
         }
 
         .modal-form .field input:focus,
         .modal-form .field select:focus {
           outline: none;
-          border-color: #4299e1;
+          border-color: var(--color-blue-500);
           box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
         }
 

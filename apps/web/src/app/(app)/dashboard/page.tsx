@@ -197,8 +197,8 @@ export default function SystemDashboard() {
         }
 
         .platform-admin-section {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
+          background: linear-gradient(135deg, var(--color-blue-500) 0%, var(--color-accent) 100%);
+          color: var(--text-on-primary);
           padding: 2rem;
           border-radius: 12px;
           margin-bottom: 2rem;
@@ -209,7 +209,7 @@ export default function SystemDashboard() {
           font-size: 1.5rem;
           border: none;
           padding: 0;
-          color: white;
+          color: var(--text-on-primary);
         }
 
         .platform-description {
@@ -218,8 +218,8 @@ export default function SystemDashboard() {
         }
 
         .platform-btn {
-          background: white;
-          color: #667eea;
+          background: var(--surface-primary);
+          color: var(--color-blue-600);
           font-weight: 600;
           padding: 0.75rem 1.5rem;
           border-radius: 6px;
@@ -230,29 +230,29 @@ export default function SystemDashboard() {
 
         .platform-btn:hover {
           transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 4px 12px var(--shadow-md);
         }
 
         .debug-panel {
           margin-top: 3rem;
           padding: 1rem;
-          background: #f8f9fa;
+          background: var(--surface-secondary);
           border-radius: 8px;
-          border: 1px dashed #ccc;
+          border: 1px dashed var(--color-gray-400);
         }
 
         .debug-toggle {
           background: none;
           border: none;
           font-size: 0.875rem;
-          color: #666;
+          color: var(--text-muted);
           cursor: pointer;
           padding: 0;
           font-family: monospace;
         }
 
         .debug-toggle:hover {
-          color: #333;
+          color: var(--text-primary);
         }
 
         .debug-content {
@@ -266,7 +266,7 @@ export default function SystemDashboard() {
         .debug-section h4 {
           margin: 0 0 0.5rem 0;
           font-size: 0.875rem;
-          color: #333;
+          color: var(--text-primary);
         }
 
         .debug-tags {
@@ -284,13 +284,13 @@ export default function SystemDashboard() {
         }
 
         .debug-tag.role {
-          background: #e3f2fd;
-          color: #1565c0;
+          background: var(--color-blue-100);
+          color: var(--color-blue-600);
         }
 
         .debug-tag.capability {
-          background: #f3e5f5;
-          color: #7b1fa2;
+          background: var(--surface-tertiary);
+          color: var(--color-accent);
         }
 
         .debug-table {
@@ -304,24 +304,29 @@ export default function SystemDashboard() {
         .debug-table td {
           padding: 0.5rem;
           text-align: left;
-          border-bottom: 1px solid #ddd;
+          border-bottom: 1px solid var(--border-default);
         }
 
         .debug-table th {
-          background: #eee;
+          background: var(--surface-tertiary);
           font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .debug-table td {
+          color: var(--text-secondary);
         }
 
         .debug-table tr.allowed td:nth-child(2) {
-          color: #2e7d32;
+          color: var(--color-green);
         }
 
         .debug-table tr.denied td:nth-child(2) {
-          color: #c62828;
+          color: var(--color-red);
         }
 
         .debug-table .reason {
-          color: #666;
+          color: var(--text-muted);
           font-size: 0.75rem;
         }
       `}</style>
@@ -370,8 +375,8 @@ function FeatureSection({ title, features, onNavigate, badgeCounts }: FeatureSec
         .feature-section h2 {
           font-size: 1.25rem;
           margin: 0 0 1rem 0;
-          color: #2d3748;
-          border-bottom: 2px solid #e2e8f0;
+          color: var(--text-primary);
+          border-bottom: 2px solid var(--border-default);
           padding-bottom: 0.5rem;
         }
 
@@ -435,8 +440,8 @@ function FeatureCard({ feature, decision, onNavigate, badgeCount }: FeatureCardP
 
       <style jsx>{`
         .feature-card {
-          background: white;
-          border: 1px solid #e2e8f0;
+          background: var(--surface-primary);
+          border: 1px solid var(--border-default);
           border-radius: 8px;
           padding: 1rem;
           transition: all 0.15s ease;
@@ -447,14 +452,14 @@ function FeatureCard({ feature, decision, onNavigate, badgeCount }: FeatureCardP
         }
 
         .feature-card.clickable:hover {
-          border-color: #3182ce;
-          box-shadow: 0 2px 8px rgba(49, 130, 206, 0.15);
+          border-color: var(--color-blue-500);
+          box-shadow: 0 2px 8px var(--shadow-sm);
           transform: translateY(-1px);
         }
 
         .feature-card.disabled {
           opacity: 0.5;
-          background: #f7fafc;
+          background: var(--surface-secondary);
         }
 
         .card-header {
@@ -467,7 +472,7 @@ function FeatureCard({ feature, decision, onNavigate, badgeCount }: FeatureCardP
         .card-header h3 {
           margin: 0;
           font-size: 1rem;
-          color: #2d3748;
+          color: var(--text-primary);
         }
 
         .badge {
@@ -479,18 +484,18 @@ function FeatureCard({ feature, decision, onNavigate, badgeCount }: FeatureCardP
         }
 
         .badge.admin {
-          background: #fed7d7;
-          color: #c53030;
+          background: var(--color-red-bg);
+          color: var(--color-red);
         }
 
         .badge.contextual {
-          background: #e9d8fd;
-          color: #6b46c1;
+          background: var(--surface-tertiary);
+          color: var(--color-accent);
         }
 
         .badge.count {
-          background: #3b82f6;
-          color: white;
+          background: var(--color-blue-500);
+          color: var(--text-on-primary);
           min-width: 1.25rem;
           text-align: center;
           border-radius: 9999px;
@@ -505,21 +510,21 @@ function FeatureCard({ feature, decision, onNavigate, badgeCount }: FeatureCardP
         .description {
           margin: 0 0 0.5rem 0;
           font-size: 0.875rem;
-          color: #4a5568;
+          color: var(--text-secondary);
           line-height: 1.4;
         }
 
         .notes {
           margin: 0;
           font-size: 0.75rem;
-          color: #718096;
+          color: var(--text-muted);
           font-style: italic;
         }
 
         .contextual-note {
           margin: 0.5rem 0 0 0;
           font-size: 0.75rem;
-          color: #805ad5;
+          color: var(--color-accent);
           font-style: italic;
         }
       `}</style>

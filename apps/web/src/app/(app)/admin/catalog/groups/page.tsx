@@ -318,7 +318,7 @@ export default function AdminCatalogGroupsPage() {
           display: flex;
           gap: 0.5rem;
           margin-bottom: 1.5rem;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border-default);
           padding-bottom: 0.75rem;
         }
 
@@ -326,18 +326,18 @@ export default function AdminCatalogGroupsPage() {
           padding: 0.5rem 1rem;
           border-radius: 4px;
           text-decoration: none;
-          color: #4a5568;
+          color: var(--text-secondary);
           font-weight: 500;
           transition: background 0.2s, color 0.2s;
         }
 
         .catalog-nav :global(.nav-link:hover) {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
         }
 
         .catalog-nav :global(.nav-link.active) {
-          background: #4299e1;
-          color: white;
+          background: var(--color-blue-500);
+          color: var(--text-on-primary);
         }
 
         .page-header {
@@ -353,7 +353,7 @@ export default function AdminCatalogGroupsPage() {
         }
 
         .breadcrumb a {
-          color: #4299e1;
+          color: var(--color-blue-500);
           text-decoration: none;
         }
 
@@ -362,34 +362,34 @@ export default function AdminCatalogGroupsPage() {
         }
 
         .breadcrumb .separator {
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .description {
-          color: #718096;
+          color: var(--text-muted);
           margin: 0;
         }
 
         .summary-card {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
           padding: 1rem 1.5rem;
           display: inline-flex;
           align-items: center;
           gap: 1rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 3px var(--shadow-sm);
           margin-bottom: 1.5rem;
         }
 
         .summary-value {
           font-size: 2rem;
           font-weight: 700;
-          color: #4299e1;
+          color: var(--color-blue-500);
         }
 
         .summary-label {
           font-size: 0.875rem;
-          color: #718096;
+          color: var(--text-muted);
         }
 
         .actions-bar {
@@ -412,19 +412,21 @@ export default function AdminCatalogGroupsPage() {
           align-items: center;
           gap: 0.5rem;
           cursor: pointer;
+          color: var(--text-primary);
         }
 
         .form-card {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
           padding: 1.5rem;
           margin-bottom: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 3px var(--shadow-sm);
         }
 
         .form-card h2 {
           margin-top: 0;
           margin-bottom: 1rem;
+          color: var(--text-primary);
         }
 
         .form-group {
@@ -435,14 +437,17 @@ export default function AdminCatalogGroupsPage() {
           display: block;
           margin-bottom: 0.5rem;
           font-weight: 500;
+          color: var(--text-primary);
         }
 
         .form-group input[type="text"] {
           width: 100%;
           padding: 0.5rem;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-default);
           border-radius: 4px;
           font-size: 1rem;
+          background: var(--surface-primary);
+          color: var(--text-primary);
         }
 
         .form-actions {
@@ -452,10 +457,10 @@ export default function AdminCatalogGroupsPage() {
         }
 
         .table-container {
-          background: white;
+          background: var(--surface-primary);
           border-radius: 8px;
           padding: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 3px var(--shadow-sm);
           overflow-x: auto;
         }
 
@@ -468,16 +473,17 @@ export default function AdminCatalogGroupsPage() {
         .data-table td {
           padding: 0.75rem;
           text-align: left;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border-default);
+          color: var(--text-primary);
         }
 
         .data-table th {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
           font-weight: 600;
         }
 
         .data-table tr:hover {
-          background: #f8f9fa;
+          background: var(--surface-secondary);
         }
 
         .data-table tr.inactive-row {
@@ -489,7 +495,7 @@ export default function AdminCatalogGroupsPage() {
         }
 
         .name-cell a {
-          color: #4299e1;
+          color: var(--color-blue-500);
           text-decoration: none;
         }
 
@@ -499,16 +505,17 @@ export default function AdminCatalogGroupsPage() {
 
         .item-count {
           display: inline-block;
-          background: #e2e8f0;
+          background: var(--surface-tertiary);
           padding: 0.25rem 0.5rem;
           border-radius: 4px;
           font-size: 0.875rem;
           font-weight: 500;
+          color: var(--text-primary);
         }
 
         .empty-state {
           text-align: center;
-          color: #718096;
+          color: var(--text-muted);
           padding: 2rem !important;
         }
 
@@ -518,21 +525,21 @@ export default function AdminCatalogGroupsPage() {
         }
 
         .btn-danger {
-          background: #e53e3e;
-          color: white;
+          background: var(--color-red);
+          color: var(--text-on-primary);
         }
 
         .btn-danger:hover {
-          background: #c53030;
+          background: var(--color-red-700);
         }
 
         .btn-success {
-          background: #38a169;
-          color: white;
+          background: var(--color-green);
+          color: var(--text-on-primary);
         }
 
         .btn-success:hover {
-          background: #2f855a;
+          background: var(--color-green-700);
         }
       `}</style>
     </>
