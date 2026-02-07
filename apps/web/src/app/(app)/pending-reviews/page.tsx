@@ -349,6 +349,76 @@ export default function PendingReviewsPage() {
           justify-content: flex-end;
           gap: 0.75rem;
         }
+
+        /* Dark mode overrides */
+        :global([data-theme="dark"]) .pending-reviews-info {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .pending-reviews-info p {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .no-pending-reviews {
+          background: #22543d;
+          border-color: #276749;
+        }
+        :global([data-theme="dark"]) .pending-reviews-list h2 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .pending-review-card {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .review-header h3 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .review-mrn,
+        :global([data-theme="dark"]) .review-details {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .modal {
+          background: var(--surface-secondary);
+        }
+        :global([data-theme="dark"]) .modal h2 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .modal-case-info {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .review-form .form-label {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .review-form .form-hint {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .review-form .form-textarea {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .signature-notice {
+          background: #744210;
+          border-color: #dd6b20;
+        }
+        :global([data-theme="dark"]) .signature-notice p {
+          color: #feebc8;
+        }
+        :global([data-theme="dark"]) .alert-info {
+          background: var(--color-blue-50);
+          border-color: var(--color-blue-500);
+          color: var(--color-blue-500);
+        }
+        :global([data-theme="dark"]) .loading {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .btn-secondary {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .btn-secondary:hover {
+          background: var(--color-gray-400);
+        }
       `}</style>
     </>
   );

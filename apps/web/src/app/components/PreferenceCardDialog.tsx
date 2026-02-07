@@ -961,6 +961,89 @@ export function PreferenceCardDialog({
         .btn-secondary:hover:not(:disabled) {
           background: #cbd5e0;
         }
+
+        /* Dark mode overrides */
+        :global([data-theme="dark"]) .preference-card-dialog {
+          background: var(--surface-secondary);
+        }
+        :global([data-theme="dark"]) .modal-header {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .modal-header h2 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .close-btn {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .close-btn:hover {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .loading {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .form-section {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .form-section h3 {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .form-group label {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-group input,
+        :global([data-theme="dark"]) .form-group select,
+        :global([data-theme="dark"]) .form-group textarea {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-group input:disabled,
+        :global([data-theme="dark"]) .form-group select:disabled {
+          background: var(--surface-tertiary);
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .collapsible-section {
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .section-header {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .section-header:hover {
+          background: var(--color-gray-400);
+        }
+        :global([data-theme="dark"]) .toggle-icon {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .section-content {
+          background: var(--surface-secondary);
+        }
+        :global([data-theme="dark"]) .section-note {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .clone-info {
+          background: var(--color-blue-50);
+          border-color: var(--color-blue-500);
+          color: var(--color-blue-500);
+        }
+        :global([data-theme="dark"]) .checkbox-item {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .edit-metadata {
+          background: #744210;
+          border-left-color: #dd6b20;
+          color: #feebc8;
+        }
+        :global([data-theme="dark"]) .form-actions {
+          border-top-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .btn-secondary {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .btn-secondary:hover:not(:disabled) {
+          background: var(--color-gray-400);
+        }
       `}</style>
     </div>
   );

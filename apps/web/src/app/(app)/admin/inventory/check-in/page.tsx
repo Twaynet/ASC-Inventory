@@ -1193,6 +1193,167 @@ export default function InventoryCheckInPage() {
           margin: 0 0 1rem 0;
           color: #c05621;
         }
+
+        /* Dark mode overrides */
+        :global([data-theme="dark"]) .case-context {
+          background: var(--color-blue-50);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .case-context-error p {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .case-context-meta {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .request-id {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .alert-warning {
+          background: var(--color-orange-bg);
+          border-color: var(--color-orange);
+          color: var(--color-orange);
+        }
+        :global([data-theme="dark"]) .last-action {
+          background: var(--color-green-bg);
+          border-color: var(--color-green);
+        }
+        :global([data-theme="dark"]) .last-action-meta {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .last-action-time {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .scanner-empty {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .mode-selector {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .mode-btn {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .mode-btn:hover {
+          background: var(--color-gray-400);
+        }
+        :global([data-theme="dark"]) .mode-btn.active {
+          background: var(--color-blue-500);
+          color: var(--text-on-primary);
+        }
+        :global([data-theme="dark"]) .scanner-indicator.ready {
+          background: var(--color-green-bg);
+          color: var(--color-green-700);
+        }
+        :global([data-theme="dark"]) .scanner-indicator.capturing {
+          background: var(--color-orange-bg);
+          color: var(--color-orange);
+        }
+        :global([data-theme="dark"]) .scanner-indicator.processing {
+          background: var(--color-blue-50);
+          color: var(--color-blue-500);
+        }
+        :global([data-theme="dark"]) .scanner-hint {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .link-btn {
+          color: var(--color-accent);
+        }
+        :global([data-theme="dark"]) .manual-entry {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .manual-entry input {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .scan-result {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .scanned-value {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .close-btn {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .item-details {
+          border-top-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .item-name {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .meta-item {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .action-form {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .form-group label {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .form-group input,
+        :global([data-theme="dark"]) .form-group select {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .not-found-message .hint {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .scan-history {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .history-header h3 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .history-item.processed {
+          background: rgba(72, 187, 120, 0.15);
+        }
+        :global([data-theme="dark"]) .history-item.unprocessed {
+          background: rgba(252, 129, 129, 0.15);
+        }
+        :global([data-theme="dark"]) .history-value {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .history-status {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .history-time {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .alert-success {
+          background: var(--color-green-bg);
+          border-color: var(--color-green);
+          color: var(--color-green-700);
+        }
+        :global([data-theme="dark"]) .alert-error {
+          background: var(--color-red-bg);
+          border-color: var(--color-red);
+          color: var(--color-red);
+        }
+        :global([data-theme="dark"]) .gs1-data {
+          background: var(--color-blue-50);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .catalog-match {
+          background: var(--color-green-bg);
+          border-color: var(--color-green);
+        }
+        :global([data-theme="dark"]) .override-modal {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .override-modal h3 {
+          color: var(--color-orange);
+        }
+        :global([data-theme="dark"]) .btn-secondary {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .btn-secondary:hover {
+          background: var(--color-gray-400);
+        }
       `}</style>
     </>
   );

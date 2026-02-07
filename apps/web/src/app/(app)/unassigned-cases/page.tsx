@@ -386,6 +386,75 @@ export default function UnassignedCasesPage() {
           font-weight: 600;
           text-transform: uppercase;
         }
+
+        /* Dark mode overrides */
+        :global([data-theme="dark"]) .back-link {
+          color: var(--color-accent);
+        }
+        :global([data-theme="dark"]) .page-header h1 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .page-description {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .alert-error {
+          background: var(--color-red-bg);
+          border-color: var(--color-red);
+          color: var(--color-red);
+        }
+        :global([data-theme="dark"]) .loading-state {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .empty-state {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .empty-state h3 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .empty-state p {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .cases-list {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .summary-badge {
+          background: var(--color-blue-50);
+          color: var(--color-blue-500);
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .date-group {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .date-header {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .case-card {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .case-card:hover {
+          border-color: var(--color-blue-500);
+        }
+        :global([data-theme="dark"]) .case-card.inactive {
+          background: var(--color-gray-400);
+        }
+        :global([data-theme="dark"]) .case-number {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .case-time {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .case-procedure {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .case-surgeon {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .case-duration {
+          color: var(--text-muted);
+        }
       `}</style>
     </>
   );

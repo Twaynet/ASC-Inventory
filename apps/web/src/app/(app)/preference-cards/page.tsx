@@ -1469,6 +1469,185 @@ export default function PreferenceCardsPage() {
             gap: 0.375rem;
           }
         }
+
+        /* Dark mode overrides */
+        :global([data-theme="dark"]) .summary-card {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .summary-value {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .summary-label {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .search-input,
+        :global([data-theme="dark"]) .filters select {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-card {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .form-section {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .form-section h3 {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .form-group label {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .form-group input,
+        :global([data-theme="dark"]) .form-group select,
+        :global([data-theme="dark"]) .form-group textarea {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-group input:disabled,
+        :global([data-theme="dark"]) .form-group select:disabled {
+          background: var(--surface-tertiary);
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .collapsible-section {
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .section-header {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .section-header:hover {
+          background: var(--color-gray-400);
+        }
+        :global([data-theme="dark"]) .toggle-icon {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .section-content {
+          background: var(--surface-secondary);
+        }
+        :global([data-theme="dark"]) .section-note {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .checkbox-item {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .table-container {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .data-table th {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .data-table th,
+        :global([data-theme="dark"]) .data-table td {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .data-table tr:hover {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .name-cell {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .empty-state {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .modal {
+          background: var(--surface-secondary);
+        }
+        :global([data-theme="dark"]) .modal-header {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .modal-header h2 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .close-btn {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .close-btn:hover {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .edit-log-entry {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .edit-log-entry strong {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .edit-log-date {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .edit-log-details {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .feedback-summary {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .feedback-entry {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .feedback-case {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .feedback-field {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .feedback-meta {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .feedback-actions {
+          border-top-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .review-form select,
+        :global([data-theme="dark"]) .review-form input {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .feedback-review-notes {
+          border-top-color: var(--border-default);
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .print-content {
+          background: var(--surface-secondary);
+        }
+        :global([data-theme="dark"]) .print-header {
+          border-bottom-color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .print-header h1 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .print-meta {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .print-notes {
+          background: var(--surface-tertiary);
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .print-section {
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .print-section h3 {
+          color: var(--text-primary);
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .print-section pre {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .empty-section {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .print-flags span {
+          background: var(--surface-tertiary);
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .print-footer {
+          border-top-color: var(--border-default);
+          color: var(--text-muted);
+        }
       `}</style>
     </>
   );

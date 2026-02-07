@@ -731,6 +731,113 @@ export default function SurgeonMyChecklistsPage() {
             width: 100%;
           }
         }
+
+        /* Dark mode overrides */
+        :global([data-theme="dark"]) .search-input,
+        :global([data-theme="dark"]) .type-filter {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .summary-bar {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .summary-count {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .empty-state {
+          background: var(--surface-tertiary);
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .date-group {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .date-header {
+          border-bottom-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .checklist-card {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .checklist-card.flagged {
+          background: #442a10;
+          border-left-color: #dd6b20;
+        }
+        :global([data-theme="dark"]) .procedure-name {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .detail-label {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .existing-notes {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .notes-label {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .notes-text {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .flag-status-box.pending {
+          background: #442a10;
+          border-color: #f59e0b;
+        }
+        :global([data-theme="dark"]) .flag-status-box.resolved {
+          background: #064e3b;
+          border-color: #10b981;
+        }
+        :global([data-theme="dark"]) .flag-label {
+          color: #fbbf24;
+        }
+        :global([data-theme="dark"]) .flag-text {
+          color: #fde68a;
+        }
+        :global([data-theme="dark"]) .resolution-info {
+          border-top-color: #10b981;
+        }
+        :global([data-theme="dark"]) .resolution-label {
+          color: #34d399;
+        }
+        :global([data-theme="dark"]) .resolution-text {
+          color: #6ee7b7;
+        }
+        :global([data-theme="dark"]) .pending-text {
+          color: #fbbf24;
+        }
+        :global([data-theme="dark"]) .feedback-form {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .form-group label {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .notes-input,
+        :global([data-theme="dark"]) .comment-input {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .loading {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .btn-secondary {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .btn-secondary:hover {
+          background: var(--color-gray-400);
+        }
+        :global([data-theme="dark"]) .type-badge.timeout {
+          background: #1e3a5f;
+          color: #90cdf4;
+        }
+        :global([data-theme="dark"]) .type-badge.debrief {
+          background: #44337a;
+          color: #d6bcfa;
+        }
       `}</style>
     </>
   );

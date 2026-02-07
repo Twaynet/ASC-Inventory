@@ -1509,6 +1509,199 @@ export default function CaseDashboardSettingsPage() {
           font-size: 1rem;
           background: white;
         }
+
+        /* Dark mode overrides */
+        :global([data-theme="dark"]) .back-link {
+          color: var(--color-accent);
+        }
+        :global([data-theme="dark"]) .page-description {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .checkbox-label {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .collapsible-section {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .section-header {
+          background: var(--surface-secondary);
+        }
+        :global([data-theme="dark"]) .section-header:hover {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .section-header.expanded {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .section-arrow {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .section-title-block h2 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .item-count {
+          color: var(--text-muted);
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .section-content {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .feature-status.enabled {
+          background: var(--color-green-bg);
+          color: var(--color-green-700);
+        }
+        :global([data-theme="dark"]) .feature-status.disabled {
+          background: var(--color-red-bg);
+          color: var(--color-red);
+        }
+        :global([data-theme="dark"]) .toggle-btn {
+          background: var(--color-gray-400);
+        }
+        :global([data-theme="dark"]) .toggle-label {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .section-description {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .form-card {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .form-card h3 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-group label {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-group label small {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .form-group input,
+        :global([data-theme="dark"]) .form-group select {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .disabled-input {
+          background: var(--color-gray-400);
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .sortable-item {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .sortable-item:hover {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .sortable-item.drag-over {
+          border-color: var(--color-blue-500);
+          background: var(--color-blue-50);
+        }
+        :global([data-theme="dark"]) .drag-handle span {
+          background: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .item-label {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .item-key {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .item-description {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .status-badge.inactive {
+          background: var(--color-red-bg);
+          color: var(--color-red);
+        }
+        :global([data-theme="dark"]) .empty-state {
+          color: var(--text-muted);
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .alert-success {
+          background: var(--color-green-bg);
+          border-color: var(--color-green-700);
+          color: var(--color-green-700);
+        }
+        :global([data-theme="dark"]) .alert-error {
+          background: var(--color-red-bg);
+          border-color: var(--color-red);
+          color: var(--color-red);
+        }
+        :global([data-theme="dark"]) .loading {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .btn-secondary {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .btn-secondary:hover {
+          background: var(--color-gray-400);
+        }
+        :global([data-theme="dark"]) .template-card {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .template-header {
+          background: var(--surface-tertiary);
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .template-header h4 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .template-meta {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .editor-item {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .btn-icon {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .btn-icon:hover:not(:disabled) {
+          background: var(--color-gray-400);
+        }
+        :global([data-theme="dark"]) .item-label-input,
+        :global([data-theme="dark"]) .item-type-select,
+        :global([data-theme="dark"]) .item-options input {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .item-options label {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .item-key-display {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .add-item-form {
+          background: var(--color-yellow-bg);
+          border-color: var(--color-yellow);
+        }
+        :global([data-theme="dark"]) .add-item-form h5 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .editor-actions {
+          border-top-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .preview-item {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .preview-type {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .preview-label {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .preview-options {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .template-management {
+          border-top-color: var(--border-default);
+        }
       `}</style>
     </>
   );

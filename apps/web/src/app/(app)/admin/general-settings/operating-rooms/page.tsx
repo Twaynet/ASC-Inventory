@@ -562,6 +562,84 @@ export default function OperatingRoomsPage() {
           margin-bottom: 1rem;
           cursor: pointer;
         }
+
+        /* Dark mode overrides */
+        :global([data-theme="dark"]) .back-link {
+          color: var(--color-accent);
+        }
+        :global([data-theme="dark"]) .settings-section {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .section-header h2 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .section-description {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .checkbox-label {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-card {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .form-card h3 {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-group label {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .form-group input {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .data-table th {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .data-table th,
+        :global([data-theme="dark"]) .data-table td {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .data-table tr:hover {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .order-btn {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .order-btn:hover:not(:disabled) {
+          background: var(--color-gray-400);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .name-cell {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .empty-state {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .alert-success {
+          background: var(--color-green-bg);
+          border-color: var(--color-green-700);
+          color: var(--color-green-700);
+        }
+        :global([data-theme="dark"]) .alert-error {
+          background: var(--color-red-bg);
+          border-color: var(--color-red);
+          color: var(--color-red);
+        }
+        :global([data-theme="dark"]) .loading {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .btn-secondary {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .btn-secondary:hover {
+          background: var(--color-gray-400);
+        }
       `}</style>
     </>
   );

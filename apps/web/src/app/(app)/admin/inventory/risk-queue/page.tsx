@@ -424,6 +424,80 @@ export default function RiskQueuePage() {
           padding: 0.375rem 0.75rem;
           font-size: 0.8125rem;
         }
+
+        /* Dark mode overrides */
+        :global([data-theme="dark"]) .summary-card {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .summary-card:hover {
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .summary-card.total {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .summary-label {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .filters select {
+          background: var(--surface-tertiary);
+          border-color: var(--border-default);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .table-container {
+          background: var(--surface-secondary);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        :global([data-theme="dark"]) .data-table th {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .data-table th,
+        :global([data-theme="dark"]) .data-table td {
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .data-table tr:hover {
+          background: var(--surface-tertiary);
+        }
+        :global([data-theme="dark"]) .rule-badge {
+          background: var(--surface-tertiary);
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .name-cell {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .days-badge {
+          background: var(--surface-tertiary);
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .explain-cell {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .muted {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .empty-state {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .info-note {
+          background: var(--color-blue-50);
+          color: var(--color-blue-500);
+        }
+        :global([data-theme="dark"]) .alert-error {
+          background: var(--color-red-bg);
+          border-color: var(--color-red);
+          color: var(--color-red);
+        }
+        :global([data-theme="dark"]) .loading {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .btn-secondary {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .btn-secondary:hover {
+          background: var(--color-gray-400);
+        }
       `}</style>
     </>
   );

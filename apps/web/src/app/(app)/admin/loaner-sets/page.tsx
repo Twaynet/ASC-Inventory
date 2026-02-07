@@ -831,6 +831,132 @@ export default function LoanerSetsPage() {
             padding: 2rem;
             color: #718096;
           }
+
+          /* Dark mode overrides */
+          :global([data-theme="dark"]) .summary-card {
+            background: var(--surface-secondary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+          }
+          :global([data-theme="dark"]) .summary-card.selected {
+            border-color: var(--color-blue-500);
+          }
+          :global([data-theme="dark"]) .summary-card.clickable:hover {
+            border-color: var(--border-default);
+          }
+          :global([data-theme="dark"]) .summary-value {
+            color: var(--text-primary);
+          }
+          :global([data-theme="dark"]) .summary-label {
+            color: var(--text-muted);
+          }
+          :global([data-theme="dark"]) .filter-select {
+            background: var(--surface-tertiary);
+            border-color: var(--border-default);
+            color: var(--text-primary);
+          }
+          :global([data-theme="dark"]) .filter-tabs {
+            border-color: var(--border-default);
+          }
+          :global([data-theme="dark"]) .filter-tab {
+            background: var(--surface-secondary);
+            color: var(--text-primary);
+            border-right-color: var(--border-default);
+          }
+          :global([data-theme="dark"]) .filter-tab.active {
+            background: var(--color-blue-500);
+            color: var(--text-on-primary);
+          }
+          :global([data-theme="dark"]) .form-card {
+            background: var(--surface-secondary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+          }
+          :global([data-theme="dark"]) .form-card h3 {
+            color: var(--text-primary);
+          }
+          :global([data-theme="dark"]) .form-group label {
+            color: var(--text-secondary);
+          }
+          :global([data-theme="dark"]) .form-group input,
+          :global([data-theme="dark"]) .form-group select,
+          :global([data-theme="dark"]) .form-group textarea {
+            background: var(--surface-tertiary);
+            border-color: var(--border-default);
+            color: var(--text-primary);
+          }
+          :global([data-theme="dark"]) .modal {
+            background: var(--surface-secondary);
+          }
+          :global([data-theme="dark"]) .modal-header {
+            border-bottom-color: var(--border-default);
+          }
+          :global([data-theme="dark"]) .modal-header h3 {
+            color: var(--text-primary);
+          }
+          :global([data-theme="dark"]) .modal-close {
+            color: var(--text-muted);
+          }
+          :global([data-theme="dark"]) .return-details {
+            background: var(--surface-tertiary);
+          }
+          :global([data-theme="dark"]) .return-details p {
+            color: var(--text-primary);
+          }
+          :global([data-theme="dark"]) .btn-secondary {
+            background: var(--surface-tertiary);
+            color: var(--text-primary);
+          }
+          :global([data-theme="dark"]) .btn-secondary:hover {
+            background: var(--color-gray-400);
+          }
+          :global([data-theme="dark"]) .table-container {
+            background: var(--surface-secondary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+          }
+          :global([data-theme="dark"]) .data-table th {
+            background: var(--surface-tertiary);
+            color: var(--text-primary);
+          }
+          :global([data-theme="dark"]) .data-table th,
+          :global([data-theme="dark"]) .data-table td {
+            border-bottom-color: var(--border-default);
+          }
+          :global([data-theme="dark"]) .data-table tr:hover {
+            background: var(--surface-tertiary);
+          }
+          :global([data-theme="dark"]) .overdue-row {
+            background: rgba(239, 68, 68, 0.15);
+          }
+          :global([data-theme="dark"]) .overdue-row:hover {
+            background: rgba(239, 68, 68, 0.25);
+          }
+          :global([data-theme="dark"]) .id-cell {
+            color: var(--text-primary);
+          }
+          :global([data-theme="dark"]) .case-link {
+            color: var(--color-blue-500);
+          }
+          :global([data-theme="dark"]) .received-by {
+            color: var(--text-muted);
+          }
+          :global([data-theme="dark"]) .muted {
+            color: var(--text-muted);
+          }
+          :global([data-theme="dark"]) .empty-state {
+            color: var(--text-muted);
+          }
+          :global([data-theme="dark"]) .alert-error {
+            background: var(--color-red-bg);
+            border-color: var(--color-red);
+            color: var(--color-red);
+          }
+          :global([data-theme="dark"]) .alert-success {
+            background: var(--color-green-bg);
+            border-color: var(--color-green);
+            color: var(--color-green-700);
+          }
+          :global([data-theme="dark"]) .loading {
+            color: var(--text-muted);
+          }
         `}</style>
       </main>
     </>

@@ -346,6 +346,39 @@ export default function HelpPage() {
           font-weight: 500;
           white-space: nowrap;
         }
+
+        /* Dark mode overrides */
+        :global([data-theme="dark"]) .help-section h2 {
+          color: var(--text-primary);
+          border-bottom-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) .section-note {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) details {
+          background: var(--surface-secondary);
+          border-color: var(--border-default);
+        }
+        :global([data-theme="dark"]) summary {
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) summary::before {
+          color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) summary:hover {
+          color: var(--color-accent);
+        }
+        :global([data-theme="dark"]) .answer {
+          color: var(--text-secondary);
+        }
+        :global([data-theme="dark"]) .help-table th {
+          background: var(--surface-tertiary);
+          color: var(--text-primary);
+        }
+        :global([data-theme="dark"]) .help-table th,
+        :global([data-theme="dark"]) .help-table td {
+          border-bottom-color: var(--border-default);
+        }
       `}</style>
     </>
   );
