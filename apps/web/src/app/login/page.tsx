@@ -63,6 +63,11 @@ export default function LoginPage() {
     <div className="login-container">
       <div className="login-card">
         <h1>ASC Inventory System</h1>
+        <div className="text-center mb-6">
+          <p className="text-lg font-semibold text-text-primary">If insight requires heroics, it won&apos;t exist.</p>
+          <p className="text-sm text-text-secondary mt-1">If you have to ask an expert, the system has failed.</p>
+          <p className="text-xs text-text-muted mt-2">Built for real workflows, real cases, and real accountability.</p>
+        </div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="facilityKey">Facility Key</label>
