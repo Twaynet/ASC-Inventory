@@ -44,6 +44,7 @@ export default function AdminInventoryPage() {
   const [filterCatalog, setFilterCatalog] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Form state
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -178,6 +179,19 @@ export default function AdminInventoryPage() {
     }
   };
 
+  // Client-side search filter
+  const filteredItems = items.filter((item) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      item.catalogName.toLowerCase().includes(q) ||
+      (item.barcode && item.barcode.toLowerCase().includes(q)) ||
+      (item.serialNumber && item.serialNumber.toLowerCase().includes(q)) ||
+      (item.locationName && item.locationName.toLowerCase().includes(q)) ||
+      item.category.toLowerCase().includes(q)
+    );
+  });
+
   // Compute status counts
   const statusCounts = items.reduce((acc, item) => {
     acc[item.availabilityStatus] = (acc[item.availabilityStatus] || 0) + 1;
@@ -251,6 +265,13 @@ export default function AdminInventoryPage() {
             </button>
           </div>
           <div className="filters">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search name, barcode, serial, location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
             <select
               value={filterCatalog}
               onChange={(e) => setFilterCatalog(e.target.value)}
@@ -269,13 +290,14 @@ export default function AdminInventoryPage() {
                 <option key={loc.id} value={loc.id}>{loc.name}</option>
               ))}
             </select>
-            {(filterCatalog || filterLocation || filterStatus) && (
+            {(filterCatalog || filterLocation || filterStatus || searchQuery) && (
               <button
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
                   setFilterCatalog('');
                   setFilterLocation('');
                   setFilterStatus('');
+                  setSearchQuery('');
                 }}
               >
                 Clear filters
@@ -416,14 +438,14 @@ export default function AdminInventoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.length === 0 ? (
+                {filteredItems.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="empty-state">
-                      No inventory items found.
+                      {searchQuery ? 'No items match your search.' : 'No inventory items found.'}
                     </td>
                   </tr>
                 ) : (
-                  items.map((item) => (
+                  filteredItems.map((item) => (
                     <tr key={item.id}>
                       <td className="name-cell">{item.catalogName}</td>
                       <td className="barcode">{item.barcode || '-'}</td>
@@ -569,6 +591,14 @@ export default function AdminInventoryPage() {
           align-items: center;
           gap: 1rem;
           flex-wrap: wrap;
+        }
+
+        .search-input {
+          padding: 0.5rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          font-size: 0.875rem;
+          min-width: 260px;
         }
 
         .filters select {
@@ -798,6 +828,7 @@ export default function AdminInventoryPage() {
         :global([data-theme="dark"]) .empty-state {
           color: var(--text-muted);
         }
+        :global([data-theme="dark"]) .search-input,
         :global([data-theme="dark"]) .form-group input,
         :global([data-theme="dark"]) .form-group select,
         :global([data-theme="dark"]) .filters select {
