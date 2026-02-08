@@ -425,7 +425,7 @@ export class PostgresCaseRepository implements ICaseRepository {
           cancelled_at = NOW(),
           cancelled_by_user_id = $3,
           status = 'CANCELLED',
-          notes = CASE WHEN $4 IS NOT NULL THEN COALESCE(notes || E'\\n', '') || 'Cancelled: ' || $4 ELSE notes END,
+          notes = CASE WHEN $4::text IS NOT NULL THEN COALESCE(notes || E'\\n', '') || 'Cancelled: ' || $4::text ELSE notes END,
           updated_at = NOW()
       WHERE id = $1 AND facility_id = $2
       RETURNING *,
