@@ -1,0 +1,126 @@
+A) State machine inventory
+
+Surgical Case | case_status enum and boolean flags (is_active, is_cancelled) | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql, 008_case_active_status.sql, 018_case_request_approval_workflow.sql, 041_case_preop_phase.sql
+Inventory Item | availability_status and sterility_status enums | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Event | inventory_event_type enum (append-only audit) | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Attestation | implicit states (active/voided via voided_at timestamp) | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql, 002_attestation_voiding.sql
+Case Checklist Instance | checklist_status enum with pending review flags | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql
+Case Card | case_card_status enum | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\011_case_cards.sql
+
+B) States
+
+Surgical Case | DRAFT | case_status enum value defined at line 23 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Surgical Case | SCHEDULED | case_status enum value defined at line 24 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Surgical Case | READY | case_status enum value defined at line 25 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Surgical Case | IN_PROGRESS | case_status enum value defined at line 26 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Surgical Case | COMPLETED | case_status enum value defined at line 27 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Surgical Case | CANCELLED | case_status enum value defined at line 28 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Surgical Case | REQUESTED | case_status enum value added at line 6 in 018_case_request_approval_workflow.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\018_case_request_approval_workflow.sql
+Surgical Case | REJECTED | case_status enum value added at line 7 in 018_case_request_approval_workflow.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\018_case_request_approval_workflow.sql
+Surgical Case | IN_PREOP | case_status enum value added at line 6 in 041_case_preop_phase.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\041_case_preop_phase.sql
+Inventory Item Availability | AVAILABLE | availability_status enum value defined at line 52 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Item Availability | RESERVED | availability_status enum value defined at line 53 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Item Availability | IN_USE | availability_status enum value defined at line 54 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Item Availability | UNAVAILABLE | availability_status enum value defined at line 55 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Item Availability | MISSING | availability_status enum value defined at line 56 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Item Sterility | STERILE | sterility_status enum value defined at line 45 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Item Sterility | NON_STERILE | sterility_status enum value defined at line 46 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Item Sterility | EXPIRED | sterility_status enum value defined at line 47 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Item Sterility | UNKNOWN | sterility_status enum value defined at line 48 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Event Type | RECEIVED | inventory_event_type enum value defined at line 60 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Event Type | VERIFIED | inventory_event_type enum value defined at line 61 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Event Type | LOCATION_CHANGED | inventory_event_type enum value defined at line 62 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Event Type | RESERVED | inventory_event_type enum value defined at line 63 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Event Type | RELEASED | inventory_event_type enum value defined at line 64 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Event Type | CONSUMED | inventory_event_type enum value defined at line 65 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Event Type | EXPIRED | inventory_event_type enum value defined at line 66 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Event Type | RETURNED | inventory_event_type enum value defined at line 67 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Inventory Event Type | ADJUSTED | inventory_event_type enum value defined at line 68 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Attestation Type | CASE_READINESS | attestation_type enum value defined at line 72 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Attestation Type | SURGEON_ACKNOWLEDGMENT | attestation_type enum value defined at line 73 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Attestation | ACTIVE | implicit state (voided_at IS NULL) | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\002_attestation_voiding.sql
+Attestation | VOIDED | implicit state (voided_at IS NOT NULL) | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\002_attestation_voiding.sql
+Readiness State | GREEN | readiness_state enum value defined at line 32 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Readiness State | ORANGE | readiness_state enum value defined at line 33 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Readiness State | RED | readiness_state enum value defined at line 34 in 001_initial_schema.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Case Checklist | NOT_STARTED | checklist_status enum value defined at line 9 in 004_timeout_debrief.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql
+Case Checklist | IN_PROGRESS | checklist_status enum value defined at line 9 in 004_timeout_debrief.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql
+Case Checklist | COMPLETED | checklist_status enum value defined at line 9 in 004_timeout_debrief.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql
+Case Card Status | DRAFT | case_card_status enum value defined at line 13 in 011_case_cards.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\011_case_cards.sql
+Case Card Status | ACTIVE | case_card_status enum value defined at line 14 in 011_case_cards.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\011_case_cards.sql
+Case Card Status | DEPRECATED | case_card_status enum value defined at line 15 in 011_case_cards.sql | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\011_case_cards.sql
+
+C) Transitions
+
+Surgical Case | DRAFT to REQUESTED | POST /cases | Contract route at line 288 in cases.routes.ts, approval workflow |  C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Surgical Case | REQUESTED to SCHEDULED | POST /cases/:caseId/approve | approve() repository function enforced at line 343 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Surgical Case | REQUESTED to REJECTED | POST /cases/:caseId/reject | reject() repository function enforced at line 371 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Surgical Case | any status to SCHEDULED | POST /cases/:caseId/activate | activate() repository function enforces transition at line 309 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Surgical Case | SCHEDULED to IN_PREOP | POST /cases/:caseId/check-in-preop | checkInPreop() repository function enforced at line 466 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Surgical Case | SCHEDULED to IN_PROGRESS | PATCH /cases/:caseId | update() with status field and canStartCase() validation at line 164-168 in cases.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Surgical Case | IN_PROGRESS to COMPLETED | PATCH /cases/:caseId | update() with status field and canCompleteCase() validation at line 171-176 in cases.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Surgical Case | active to DRAFT | POST /cases/:caseId/deactivate | deactivate() repository function enforced at line 395 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Surgical Case | any status to CANCELLED | POST /cases/:caseId/cancel | cancel() repository function enforced at line 427 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Case Checklist Instance | NOT_STARTED to IN_PROGRESS | POST /cases/:id/checklists/start | startChecklist() sets status='IN_PROGRESS' at line 555 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Case Checklist Instance | IN_PROGRESS to COMPLETED | POST /cases/:id/checklists/:type/complete | completeChecklist() sets status='COMPLETED' at line 813 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Attestation | ACTIVE to VOIDED | POST /readiness/attestations/:id/void | void transition enforced with UPDATE trigger at line 394-398 in readiness.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+
+D) Enforcement points
+
+Surgical Case Status Transitions | route preHandler requireCapabilities checks | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts lines 134, 198, 226, 244, 289, 366, 404, 433, 460
+Surgical Case Status Transitions | case.repository functions verify WHERE conditions before state change | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts lines 343, 371, 466 (WHERE status = 'SCHEDULED' for checkInPreop, WHERE status = 'REQUESTED' for approve/reject)
+Surgical Case Checklist Gates | canStartCase() and canCompleteCase() services enforced in routes | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts lines 16, 165-176
+Surgical Case Deactivation Prevention | is_active flag and status checks at line 414-420 in cases.routes.ts prevent transition if case is IN_PROGRESS or COMPLETED | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Case Checklist Instance Status Enforcement | startChecklist() validates case is_active at line 516-522 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Case Checklist Instance Status Enforcement | existing checklist check at line 524-532 prevents duplicate checklist for same type | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Case Checklist Instance Status Enforcement | recordResponse() checks instance.status !== 'COMPLETED' at line 581-582 prevents modification after completion | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Case Checklist Instance Status Enforcement | completeChecklist() validates all required items have responses at line 764-770 before allowing COMPLETED transition | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Case Checklist Instance Status Enforcement | completeChecklist() validates required signatures present at line 774-801 before allowing COMPLETED transition | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Attestation State Enforcement | database trigger attestation_allow_void_only() at line 16-37 in 002_attestation_voiding.sql allows only voiding operations | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\002_attestation_voiding.sql
+Attestation State Enforcement | voiding route checks attested_by_user_id and role at line 380-391 in readiness.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Attestation State Enforcement | voiding route checks if attestation already voided at line 375-376 in readiness.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Readiness State Evaluation | computeSingleCaseReadiness() service evaluates inventory against requirements | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\readiness.service.ts
+Readiness State Enforcement | Surgeon acknowledgment only allowed when readiness state is RED at line 259-261 in readiness.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+
+E) Side effects
+
+Surgical Case | DRAFT to REQUESTED | recordStatusEvent() creates append-only audit entry at line 205 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Surgical Case | any to any (when status changes) | recordStatusEvent() called with source and context metadata at line 284-286 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Surgical Case | REQUESTED to SCHEDULED (approve) | activated_at, activated_by_user_id, is_active flags set in addition to status | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts line 337-338
+Surgical Case | any to CANCELLED | cancellation reason appended to notes field at line 428 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Surgical Case | SCHEDULED to IN_PREOP | preop_checked_in_at and preop_checked_in_by_user_id recorded at line 463-464 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Case Checklist Instance | NOT_STARTED to IN_PROGRESS | started_at timestamp recorded at line 554 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Case Checklist Instance | IN_PROGRESS to COMPLETED | completed_at timestamp recorded, pending_scrub_review and pending_surgeon_review flags set based on conditional signatures at line 813-816 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Attestation Creation | append-only insert to attestation table at line 264-270 in readiness.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Attestation | ACTIVE to VOIDED | voided_at and voided_by_user_id set, readiness cache refreshed at line 406 in readiness.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Readiness Cache | all readiness state changes | updateReadinessCache() called to recompute and store materialized view at line 278 in readiness.routes.ts, line 406 for void operations | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Case Readiness Cache | computed_at updated on any readiness state change | case_readiness_cache table refreshed with computed inventory status at time of operation | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+
+F) Invalid or blocked transitions (if enforced)
+
+Surgical Case | REQUESTED cannot transition to REQUESTED | explicit WHERE status = 'REQUESTED' constraint in approve() function prevents null result | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts line 343
+Surgical Case | SCHEDULED cannot transition to IN_PREOP unless from SCHEDULED | checkInPreop() enforces WHERE status = 'SCHEDULED' at line 466 in case.repository.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Surgical Case | active case cannot be deactivated if IN_PROGRESS or COMPLETED | explicit validation at line 418-420 in cases.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Surgical Case | cancelled case cannot be activated | caseStatus.isCancelled check at line 381-382 in cases.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Surgical Case | already-active case cannot be activated again | caseStatus.isActive check at line 385-386 in cases.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Surgical Case | already-cancelled case cannot be cancelled again | caseStatus.isCancelled check at line 445-446 in cases.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Surgical Case | inactive case cannot have checklist started | case_checklist startChecklist() checks is_active = true at line 516-518 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Surgical Case | cancelled case cannot have checklist started | case_checklist startChecklist() checks is_cancelled = false at line 520-522 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Case Checklist | IN_PROGRESS checklist cannot transition to IN_PROGRESS again | duplicate checklist check at line 524-532 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Case Checklist | COMPLETED checklist cannot be modified | recordResponse() blocks at line 581-582 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Case Checklist | cannot transition to COMPLETED without all required items completed | item validation at line 764-770 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Case Checklist | cannot transition to COMPLETED without required signatures | signature validation at line 774-801 in checklists.service.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Attestation | VOIDED attestation cannot be voided again | explicit check at line 375-376 in readiness.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Attestation | SURGEON_ACKNOWLEDGMENT can only be created when readiness state is RED | validation at line 259-261 in readiness.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Attestation | UPDATE operations blocked by database trigger | attestation_allow_void_only() trigger at line 36 in 002_attestation_voiding.sql raises exception for unauthorized modifications | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\002_attestation_voiding.sql
+Attestation | DELETE operations blocked by database trigger | attestation_no_delete trigger at line 404 in 001_initial_schema.sql uses prevent_modification() function | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Surgical Case | IN_PROGRESS status requires Time Out checklist COMPLETED | canStartCase() enforced at line 165-168 in cases.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Surgical Case | COMPLETED status requires Post-op Debrief checklist COMPLETED | canCompleteCase() enforced at line 171-176 in cases.routes.ts | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+
+G) Divergences or inconsistencies (factual only)
+
+Inventory Item State Machine | no explicit state transitions implemented in code; availability_status and sterility_status are set directly via UPDATE queries in inventory routes without dedicated state machine enforcement like surgical_case | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts
+Readiness State Machine | readiness state is computed on-demand from inventory data rather than persisted as a mutable state; readiness_state enum exists as a data type but state transitions are implicit via inventory changes | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\readiness.service.ts
+Case Card Status | case_card_status enum defined but transitions not provable from API routes or repositories examined; card creation and deprecation logic not found in explored code | C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\011_case_cards.sql
+Surgical Case Status Events | status transitions recorded in surgical_case_status_event table via recordStatusEvent() service but no explicit validation prevents invalid status enum values from being set directly via UPDATE | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts
+Checklist Pending Review Flags | pending_scrub_review and pending_surgeon_review are independent boolean flags computed during COMPLETED transition, creating implicit sub-states within COMPLETED status not reflected in checklist_status enum | C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts line 789-794

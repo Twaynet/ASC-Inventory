@@ -1,0 +1,371 @@
+## COMPREHENSIVE AUTHENTICATION & AUTHORIZATION SNAPSHOT
+
+**Source Repository:** C:\Users\missp\source\repos\ASC-Inventory
+
+**Scope:** Implemented authentication and authorization mechanisms as of 2026-02-08
+
+**Methodology:** Static code analysis of implementation files (no speculation or external standards).
+
+---
+
+### 1. AUTHENTICATION PROVIDERS & ESTABLISHMENT
+
+**Primary Authentication Mechanism:** JWT-based stateless authentication
+
+**JWT Token Provider:** Fastify JWT plugin (@fastify/jwt)
+
+**Location:** C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts
+
+**JWT Configuration:**
+Secret source: process.env.JWT_SECRET (fallback: 'dev-secret-change-in-production')
+Token expiration: 24 hours
+Sign configuration: expiresIn='24h'
+
+**Server-Side JWT Registration:** Registered via authPlugin() in FastifyInstance at startup (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts)
+
+**Client-Side Storage:** localStorage key 'asc_token' (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\auth.tsx)
+
+**Login Entry Points:**
+POST /auth/login - Unauthenticated endpoint accepting facilityKey, username, password
+GET /auth/me - Authenticated endpoint returning current user context
+POST /auth/logout - Authenticated endpoint with audit logging
+
+**Location of Login Routes:** C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts
+
+**Password Verification:** bcrypt.compare() with stored password_hash from app_user table
+
+**Facility Context in JWT:**
+Standard tenant login: facilityId = user.facility_id from database
+Platform admin login: facilityId = null (explicitly set when facilityKey='PLATFORM')
+Special facility key: "PLATFORM" triggers platform admin authentication path
+
+---
+
+### 2. SESSION & USER MODEL SHAPE
+
+**JWT Payload Type Definition:** JwtPayload interface (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts, lines 12-20)
+
+**JWT Payload Fields:**
+userId: string (UUID)
+facilityId: string | null (null for PLATFORM_ADMIN, otherwise facility UUID)
+username: string
+email: string | null
+name: string
+role: UserRole (primary role, backward compatibility field)
+roles: UserRole[] (all assigned roles, canonical source)
+
+**User Database Schema:** app_user table (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql, lines 104-118)
+
+**User Fields in Database:**
+id: UUID primary key
+facility_id: UUID foreign key (NOT NULL, scoped to facility)
+username: VARCHAR (case-insensitive login supported)
+email: VARCHAR (nullable, required for ADMIN role)
+name: VARCHAR
+role: user_role enum (legacy, backward compatibility)
+roles: array of UserRole (canonical multi-role storage)
+password_hash: bcrypt hash
+active: boolean (account disable support)
+created_at: TIMESTAMPTZ
+updated_at: TIMESTAMPTZ
+Unique constraint: (facility_id, username) ensures username uniqueness per facility
+
+**Multi-Role Support:**
+users.roles field stores array of assigned roles
+roles[] is canonical source (getUserRoles() prioritizes roles[] over legacy role field)
+Legacy fallback: if roles[] empty, falls back to single role field (emits AUTH_LEGACY_ROLE_FALLBACK error for tracking)
+
+**Tenant Data Multi-Tenancy:**
+Facility-scoped users: facility_id NOT NULL (standard tenant user)
+Platform-only users: facility_id IS NULL (PLATFORM_ADMIN users only)
+
+---
+
+### 3. ROLES & CAPABILITIES
+
+**Defined User Roles:** 8 roles (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts, lines 25-34)
+
+**Complete Role Enumeration:**
+PLATFORM_ADMIN (non-tenant identity for control plane)
+ADMIN (facility administrator)
+SCHEDULER (case scheduling and approval)
+INVENTORY_TECH (inventory management)
+CIRCULATOR (OR circulator duties)
+SURGEON (surgical case creation)
+SCRUB (scrub technician)
+ANESTHESIA (anesthesia provider)
+
+**Capability System:** Explicit capability-based access control
+
+**Capabilities Type:** Union type with 25 distinct capabilities (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts, lines 57-84)
+
+**Complete Capability List:**
+Case operations: CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_DELETE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK
+Verification: VERIFY_SCAN
+Attestation: CHECKLIST_ATTEST
+OR Procedures: OR_DEBRIEF, OR_TIMEOUT
+Inventory: INVENTORY_READ, INVENTORY_CHECKIN, INVENTORY_MANAGE
+Administration: USER_MANAGE, LOCATION_MANAGE, CATALOG_MANAGE, REPORTS_VIEW, SETTINGS_MANAGE
+Platform: PLATFORM_ADMIN, PLATFORM_CONFIG_VIEW, PLATFORM_CONFIG_MANAGE
+
+**Role-to-Capability Mapping (Canonical Source):** ROLE_CAPABILITIES constant (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts, lines 93-118)
+
+**ROLE_CAPABILITIES Mapping:**
+PLATFORM_ADMIN: [PLATFORM_ADMIN, PLATFORM_CONFIG_VIEW, PLATFORM_CONFIG_MANAGE]
+SCRUB: [CASE_VIEW, VERIFY_SCAN, CHECKLIST_ATTEST]
+CIRCULATOR: [CASE_VIEW, CHECKLIST_ATTEST, OR_DEBRIEF, OR_TIMEOUT, CASE_CHECKIN_PREOP]
+INVENTORY_TECH: [CASE_VIEW, INVENTORY_READ, INVENTORY_CHECKIN]
+ADMIN: [USER_MANAGE, LOCATION_MANAGE, CATALOG_MANAGE, INVENTORY_MANAGE, REPORTS_VIEW, SETTINGS_MANAGE, CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_DELETE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK]
+SURGEON: [CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK, CHECKLIST_ATTEST]
+SCHEDULER: [CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_CANCEL]
+ANESTHESIA: [CASE_VIEW, CHECKLIST_ATTEST]
+
+**Capability Derivation Logic:** deriveCapabilities(roles: UserRole[]): Capability[] (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts, lines 123-131)
+
+Derives UNION of all capabilities from all assigned roles
+Set-based deduplication (no duplicate capabilities in result)
+Rule: A multi-role user gets all capabilities from all assigned roles
+
+**Pre-Built Role Check Functions (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts, lines 144-150):**
+requireAdmin: requireRoles('ADMIN')
+requireScheduler: requireRoles('ADMIN', 'SCHEDULER')
+requireInventoryTech: requireRoles('ADMIN', 'INVENTORY_TECH')
+requireCirculator: requireRoles('ADMIN', 'CIRCULATOR', 'INVENTORY_TECH')
+requireSurgeon: requireRoles('SURGEON')
+requireAnyStaff: requireRoles('ADMIN', 'SCHEDULER', 'INVENTORY_TECH', 'CIRCULATOR')
+requireAttestation: requireRoles('ADMIN', 'CIRCULATOR', 'INVENTORY_TECH')
+
+**Policy: CASE_VIEW Availability**
+Granted to: ADMIN, SCHEDULER, SURGEON, CIRCULATOR, SCRUB, INVENTORY_TECH, ANESTHESIA (all current internal roles)
+Policy note: New roles get NO CASE_VIEW by default; must be explicitly added after review (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts, line 91)
+
+---
+
+### 4. ENFORCEMENT POINTS
+
+**Web Client Authentication Guard:** AuthGuard component (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\AuthGuard.tsx)
+
+Checks: if (!isLoading && !user) redirect to /login
+Applied to: All routes under (app) route group via layout wrapper
+Location: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\layout.tsx wraps children in AuthGuard
+
+**API Request Authentication:** fastify.authenticate decorator (preHandler middleware)
+
+Authentication method: JWT verification via request.jwtVerify()
+Applied to: Routes marked with preHandler: [fastify.authenticate]
+Returns 401 UNAUTHENTICATED with code 'UNAUTHENTICATED' on JWT verification failure
+Logs: AUTH_FAILED code on failure
+
+**API Authorization Middleware Functions (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts):**
+
+requireRoles(...allowedRoles: UserRole[]) - Lines 96-116
+Enforces: User must have ANY of the listed roles (OR logic)
+Returns 403 FORBIDDEN with code 'FORBIDDEN' if no matching role
+Logs: AUTHZ_DENIED code on failure with requiredRoles
+Uses: getUserRoles() to normalize roles[] as canonical source
+
+requireCapabilities(...requiredCaps: Capability[]) - Lines 121-141
+Enforces: User must have ANY of the listed capabilities (OR logic)
+Capabilities derived from roles[] via deriveCapabilities()
+Returns 403 FORBIDDEN with code 'FORBIDDEN' if no matching capability
+Logs: AUTHZ_DENIED code on failure with requiredCapabilities
+
+requirePlatformAdmin() - Lines 161-183
+Enforces: User must have PLATFORM_ADMIN role
+Returns 403 FORBIDDEN with code 'FORBIDDEN' if role missing
+Logs: PLATFORM_ACCESS_DENIED code on failure
+Special semantics: Rejects tenant users (LAW §2.4: Tenant users must never access Control Plane)
+
+requireTenantContext() - Lines 190-211
+Enforces: User must have non-null facilityId (tenant context required)
+Rejects: PLATFORM_ADMIN users (facilityId=null)
+Returns 403 FORBIDDEN with code 'FORBIDDEN' if facilityId is null
+Logs: TENANT_CONTEXT_REQUIRED code on failure
+
+**Client-Side Feature Access Control:** useAccessControl hook (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\auth.tsx, lines 92-122)
+
+Features definition: FEATURES constant (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts, lines 35-217)
+
+Feature access decision logic: checkFeatureAccess() (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts, lines 251-303)
+Evaluates: requiredRoles (OR logic) and requiredCapabilities (OR logic)
+Returns: AccessDecision with allowed boolean and reason string
+
+Helper methods on useAccessControl result:
+hasRole(role: Role): boolean
+hasCapability(cap: Capability): boolean
+
+**Platform-Specific Layout Guard:** (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\layout.tsx)
+
+Checks: hasRole('PLATFORM_ADMIN') at layout render time
+Returns: Access denied message if !hasRole('PLATFORM_ADMIN')
+Applied to: /platform/* routes
+
+**Route-Level API Enforcement Examples:**
+
+GET /cases - preHandler: [fastify.authenticate]
+GET /cases/:caseId - preHandler: [fastify.authenticate]
+PATCH /cases/:caseId - preHandler: [requireCapabilities('CASE_UPDATE')]
+POST /cases - preHandler: [requireCapabilities('CASE_CREATE')]
+PATCH /cases/:caseId/approve - preHandler: [requireCapabilities('CASE_APPROVE')]
+PATCH /cases/:caseId/reject - preHandler: [requireCapabilities('CASE_REJECT')]
+POST /cases/:caseId/activate - preHandler: [requireCapabilities('CASE_ACTIVATE')]
+PATCH /cases/:caseId/cancel - preHandler: [requireCapabilities('CASE_CANCEL')]
+
+GET /users - preHandler: [requireCapabilities('USER_MANAGE')]
+GET /admin/settings/* - preHandler: [requireCapabilities('SETTINGS_MANAGE')]
+GET /platform/health - preHandler: [requirePlatformAdmin()]
+GET /platform/config/keys - preHandler: [requirePlatformAdmin()]
+PATCH /platform/config/keys/:key - preHandler: [requirePlatformAdmin()]
+
+**Data Access Filtering by Facility:**
+
+Pattern: All tenant endpoints extract { facilityId } = request.user (verified in JWT)
+All database queries filter by WHERE facilityId = $1 using request.user.facilityId
+Examples found in:
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts - const { facilityId } = request.user; caseRepo.findMany(facilityId, ...)
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts - const { facilityId } = request.user; query(sql, [facilityId])
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts - const { facilityId } = request.user; ...
+
+**Request Validation Schemas:**
+
+LoginRequestSchema (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts, lines 27-31)
+Fields: facilityKey (string 1-20), username (string 3-100), password (string 8+)
+Validated via: safeParse() with 400 VALIDATION_ERROR response on failure
+
+CreateUserRequestSchema (lines 56-76)
+Fields: username, email (optional), name, role (optional), roles (optional), password
+Refinements:
+- At least one role source required (role or roles)
+- If ADMIN role present, email required
+
+---
+
+### 5. DEBUG & TRACE TOOLING
+
+**Request ID Correlation:**
+
+Generation: Fastify automatically generates request.requestId for each request
+Propagation: Included in all auth log entries via requestId field
+Audit use: Visible in error responses and audit logs
+
+**Authentication Audit Service:** (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts)
+
+Audit events table: auth_audit_log
+Events logged:
+LOGIN_SUCCESS - on successful login
+LOGIN_FAILED - on failed login attempts
+LOGOUT - on user logout
+
+Event context captured:
+eventType: string (LOGIN_SUCCESS|LOGIN_FAILED|LOGOUT)
+facilityId: string | null
+userId: string | null
+username: string
+userRoles: string[] | null
+success: boolean
+failureReason: string | null (user_not_found|bad_password|account_disabled|facility_not_found|invalid_token)
+requestId: string (from Fastify request)
+ipAddress: string
+userAgent: string
+
+Logging calls: Located in C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts
+LOGIN_FAILED calls at lines: 59, 78, 96, 203, 222, 240
+LOGIN_SUCCESS calls at lines: 126, 275
+LOGOUT calls at lines: 344
+
+**Request-Level Logging:**
+
+Pattern: All authorization denials logged with code + context
+Examples:
+AUTH_FAILED: "Authentication required" - JWT verification failed
+AUTHZ_DENIED: "Authorization denied — missing roles" - Role check failed (lines 110-112 in auth.ts)
+AUTHZ_DENIED: "Authorization denied — missing capabilities" - Capability check failed (line 135 in auth.ts)
+PLATFORM_ACCESS_DENIED: "Control Plane access denied — requires PLATFORM_ADMIN" (line 175 in auth.ts)
+TENANT_CONTEXT_REQUIRED: "Tenant endpoint requires facility context" (line 203 in auth.ts)
+
+**Debug Panel Support:** (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\auth.tsx lines 110-111)
+
+DebugInfo type generated by generateDebugInfo() containing:
+roles: Role[]
+capabilities: Capability[]
+featureDecisions: array of {featureId, featureTitle, allowed, reason}
+
+**Configuration Audit:** (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts)
+
+GET /api/platform/config/audit - Lists config changes with audit trail
+GET /api/platform/config/auth-audit - Lists authentication events
+Both require PLATFORM_ADMIN role
+
+---
+
+### 6. INCONSISTENCIES & DUPLICATED LOGIC
+
+**Legacy Role Fallback Logic:** DUPLICATED in 3 locations
+
+Location 1: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts lines 49-64
+Location 2: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts lines 13-21 (normalizeRoles function)
+Location 3: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts lines 30-38 (normalizeRoles function)
+
+Logic duplicated: All three normalize roles[] | string | undefined to string[] with fallback to single role field
+TODO marker found: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts line 45 states "TODO(PERSONA-REMOVE-LEGACY): Remove the user.role fallback once all JWTs in circulation contain populated roles[] array"
+Gate condition: No ERROR_CODE AUTH_LEGACY_ROLE_FALLBACK seen in logs for 30 days (indicates readiness for removal)
+
+**Role Normalization in Web Client:** (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts lines 235-237)
+
+Current: normalizeRoles(roles: string[]): Role[] (only accepts array)
+Note: String overload removed; callers must pass array only
+Inconsistency: TypeScript-enforced contract but normalizeRoles in API routes still handles string | array
+
+**Feature Access Logic:** Two independent implementations
+
+Location 1: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts - checkFeatureAccess() (client-side)
+Location 2: API preHandler functions in plugins/auth.ts - requireRoles() and requireCapabilities() (server-side)
+
+Logic difference: Client uses feature definitions with OR logic on roles and capabilities; server uses preHandler with AND logic for multiple middleware (if stacked)
+
+**Persona System Not Used for Authorization:** (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\persona.ts)
+
+Explicit statement line 5: "A persona is the active 'hat' a multi-role user wears for their session. It NEVER grants or restricts permissions."
+Personas sent to API as: X-Active-Persona header (untrusted, audit/logging only)
+Implementation: Personas stored client-side in localStorage (key: asc_active_persona)
+No server-side authorization checks based on persona (verified: grep shows no persona in preHandler authorization)
+
+**Facility Context Validation:** INCONSISTENT enforcement
+
+Enforced by preHandler: requireTenantContext() (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts lines 190-211)
+Not explicitly enforced on: All tenant routes (applied selectively, not universally)
+Pattern observed: Tenant routes implicitly assume facilityId exists via request.user.facilityId extraction
+No preHandler guard found on: GET /users, GET /cases routes (rely on manual facilityId extraction)
+
+**Feature Definition Location Mismatch:**
+
+Web features defined in: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts (FEATURES array)
+API routes defined in: Multiple routes files (no single feature registry)
+No generated API contract synchronizing features with actual route capabilities
+
+**Audit Log Inconsistency:** Facility ID representation
+
+Database field: facility_id (nullable, NULL for platform)
+Query filter: facilityId === 'platform' interpreted as NULL (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts lines 361-365)
+Schema field type: Could be ambiguous (is null = platform or missing data?)
+
+---
+
+### 7. VERIFICATION SUMMARY
+
+All major authentication and authorization mechanisms are implemented in code. The following were verified as implemented (NOT inferred):
+
+JWT authentication workflow: verified in auth.routes.ts and plugins/auth.ts
+Multi-role user support: verified in types.ts ROLE_CAPABILITIES and getUserRoles()
+Capability-based access: verified in requireCapabilities() preHandler
+Facility scoping: verified in database schema (app_user.facility_id NOT NULL) and route implementations
+Platform admin separation: verified in requirePlatformAdmin() and separate login path
+Client-side auth guard: verified in AuthGuard.tsx
+Audit logging: verified in auth-audit.service.ts and route implementations
+Feature access control: verified in access-control.ts and FEATURES array
+
+**File references are absolute paths and all findings are traceable to implemented code.**
+
+---
+
+END OF SNAPSHOT

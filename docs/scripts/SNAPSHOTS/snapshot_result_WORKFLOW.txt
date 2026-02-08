@@ -1,0 +1,147 @@
+WORKFLOW SNAPSHOT - ASC INVENTORY SYSTEM
+
+A) Case lifecycle
+
+create
+ROUTE: POST /cases (web: /cases/page.tsx form -> API)
+KEY COMPONENTS: cases.routes.ts createCase handler, web CasesPage dialog
+READS: surgeon validation (app_user table), preference_card for version ID
+WRITES: surgical_case table, case_requirement table (copy from preference card version)
+GATING: CASE_CREATE capability required, logged in user's facilityId validation
+
+schedule
+ROUTE: POST /cases/:caseId/approve (API)
+KEY COMPONENTS: cases.routes.ts approve handler, web CasesPage approval modal
+READS: surgical_case status check, room validation
+WRITES: surgical_case (scheduled date, time, room, status=SCHEDULED)
+GATING: CASE_APPROVE capability required
+
+dashboard
+ROUTE: GET /cases/:caseId (API) or accessed via case route
+KEY COMPONENTS: case-dashboard.routes.ts, web case dashboard component at /app/(app)/case/[caseId]/page.tsx
+READS: surgical_case, case_requirement, case_checklist_instance, readiness cache
+WRITES: none (read-only for dashboard view)
+GATING: authenticated user, facility scoped
+
+verify
+ROUTE: GET /case/:caseId/verify (web page) calling GET /inventory/items and POST /inventory/events (API)
+KEY COMPONENTS: verify/page.tsx component, inventory.routes.ts, useScannerService
+READS: case_requirement, inventory_item, catalog items
+WRITES: inventory_event table (VERIFIED events)
+GATING: authenticated user can verify, device events are read-only until confirmed
+
+timeout
+ROUTE: GET /or/timeout/:caseId (web page) calling POST /checklists/*/start/respond/sign/complete (API)
+KEY COMPONENTS: timeout/[caseId]/page.tsx, checklists.routes.ts
+READS: case_checklist_instance, checklist_template_version, checklist_response
+WRITES: case_checklist_instance (status, responses), case_checklist_signature
+GATING: TIMEOUT checklist must be NOT_STARTED before can transition case to IN_PROGRESS (enforced in PATCH /cases/:caseId)
+
+debrief
+ROUTE: GET /or/debrief/:caseId (web page) calling POST /checklists/*/start/respond/sign/complete and POST /case-cards/:cardId/feedback (API)
+KEY COMPONENTS: debrief/[caseId]/page.tsx, checklists.routes.ts, case-cards.routes.ts
+READS: case_checklist_instance, checklist_response, surgical_case preference card
+WRITES: case_checklist_instance (status, responses), case_checklist_signature, case_card_feedback
+GATING: DEBRIEF checklist must be completed before case can transition to COMPLETED (enforced in PATCH /cases/:caseId)
+
+complete
+ROUTE: PATCH /cases/:caseId (API body: {status: 'COMPLETED'})
+KEY COMPONENTS: cases.routes.ts update handler
+READS: case status, checklist completion state (canCompleteCase service)
+WRITES: surgical_case (status=COMPLETED, updatedAt)
+GATING: CASE_UPDATE capability, DEBRIEF_REQUIRED gate checks that Post-op Debrief checklist is completed
+
+B) Inventory lifecycle
+
+catalog
+ROUTE: POST /catalog (API) or web admin UI
+KEY COMPONENTS: catalog.routes.ts
+READS: facility validation
+WRITES: item_catalog table with tracking requirements (requires_lot_tracking, requires_serial_tracking, requires_expiration_tracking)
+GATING: CATALOG_MANAGE capability
+
+check-in
+ROUTE: POST /inventory/items (API) with validation per catalog intent flags
+KEY COMPONENTS: inventory.routes.ts createItem handler, web inventory check-in page
+READS: item_catalog to get tracking requirements, location validation
+WRITES: inventory_item table (creates new item), validation enforced: if catalog.requires_lot_tracking then lot_number required, if catalog.requires_serial_tracking then serial_number required, if catalog.requires_expiration_tracking OR requires_sterility OR category=IMPLANT then sterility_expires_at required
+GATING: INVENTORY_MANAGE capability, facility scoped
+
+location-assignment
+ROUTE: PATCH /inventory/items/:itemId (body: {locationId}) or POST /inventory/events (eventType: LOCATION_CHANGED)
+KEY COMPONENTS: inventory.routes.ts updateItem handler
+READS: location validation (cross-facility check), item current state
+WRITES: inventory_item (locationId field) or inventory_event table
+GATING: INVENTORY_MANAGE capability
+
+use
+ROUTE: POST /inventory/events (eventType: CONSUMED or RESERVED)
+KEY COMPONENTS: inventory.routes.ts createEvent handler
+READS: inventory_item by ID
+WRITES: inventory_event table (creates event), inventory_item (updates availabilityStatus)
+GATING: INVENTORY_CHECKIN or INVENTORY_MANAGE capability
+
+reconciliation
+ROUTE: GET /inventory/risk-queue (API)
+KEY COMPONENTS: inventory.routes.ts riskQueue handler
+READS: inventory_item joined with item_catalog, computed alarms (MISSING_LOT, MISSING_SERIAL, MISSING_EXPIRATION, EXPIRING_SOON, EXPIRED)
+WRITES: none (read-only)
+GATING: authenticated (facility scoped), no mutations allowed per LAW
+
+C) Case Cards lifecycle
+
+create
+ROUTE: POST /case-cards (API) or via preference-cards UI
+KEY COMPONENTS: case-cards.routes.ts createCard handler, preference-cards page (which manages case cards)
+READS: surgeon validation (app_user with role=SURGEON), duplicate procedure check
+WRITES: case_card table (status=DRAFT, version_major=1.0.0), case_card_version table (version_number=1.0.0), case_card_edit_log
+GATING: role must be in CASE_CARD_ALLOWED_ROLES (ADMIN, INVENTORY_TECH, CIRCULATOR, SCRUB, SURGEON but NOT SCHEDULER), enforced at routes
+
+edit
+ROUTE: PUT /case-cards/:id (API body includes changeSummary)
+KEY COMPONENTS: case-cards.routes.ts update handler
+READS: current card status and lock state, version data
+WRITES: case_card (increments version), case_card_version (new version), case_card_edit_log
+GATING: role check (not SCHEDULER), soft-lock check (must hold lock or lock expired), DEPRECATED/DELETED cards are read-only
+
+version
+ROUTE: GET /case-cards/:id/versions (API)
+KEY COMPONENTS: case-cards.routes.ts getVersions handler
+READS: case_card_version rows ordered by creation
+WRITES: none
+GATING: authenticated, facility scoped
+
+status
+ROUTE: POST /case-cards/:id/activate or POST /case-cards/:id/deprecate (API)
+KEY COMPONENTS: case-cards.routes.ts activate/deprecate handlers
+READS: case_card current status and surgeon_id
+WRITES: case_card (status field), case_card_edit_log (action_type=DEACTIVATE or auto-deprecates prior ACTIVE)
+GATING: activate requires no role restriction, deprecate requires OWNER_SURGEON or ADMIN, reason required for deactivate
+
+link-to-case
+ROUTE: POST /cases/:caseId/preference-card (select card for case)
+KEY COMPONENTS: cases.routes.ts (non-contracted legacy handler)
+READS: preference_card current_version_id
+WRITES: surgical_case (preference_card_version_id), case_requirement table (copies items from version)
+GATING: CASE_PREFERENCE_CARD_LINK capability
+
+print
+ROUTE: web preference-cards page modal
+KEY COMPONENTS: getCaseCard API call, print modal in preference-cards/page.tsx
+READS: case_card, case_card_version (all sections: instrumentation, equipment, supplies, medications, setup_positioning, surgeon_notes)
+WRITES: none
+GATING: authenticated, print via window.print()
+
+feedback
+ROUTE: POST /case-cards/:id/feedback (from debrief page)
+KEY COMPONENTS: debrief/[caseId]/page.tsx submitCaseCardFeedback, case-cards.routes.ts feedback handler
+READS: case_card validation, surgical_case validation
+WRITES: case_card_feedback table (items_unused, items_missing, setup_issues, staff_comments, suggested_edits)
+GATING: authenticated, feedback deduplicated per case
+
+review
+ROUTE: POST /case-cards/:id/feedback/:feedbackId/review (API action: ACKNOWLEDGED|APPLIED|DISMISSED)
+KEY COMPONENTS: case-cards.routes.ts review handler, preference-cards page feedback modal
+READS: case_card_feedback
+WRITES: case_card_feedback (reviewed_at, reviewed_by_user_id, review_action, review_notes)
+GATING: role=ADMIN only

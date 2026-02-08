@@ -1,0 +1,226 @@
+A) Error definitions and helpers
+
+C:\Users\missp\source\repos\ASC-Inventory\packages\contract\src\envelope.ts
+DataEnvelope (success wrapper function)
+ErrorEnvelope (Zod schema and type for { error: { code, message, details? } })
+SuccessEnvelope (Zod schema and type for { success: boolean })
+
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts
+ok() (success helper, wraps payload in { data })
+fail() (error helper, constructs { error: { code, message, details?, requestId? } })
+validated() (Zod validation helper, calls fail() on validation failure)
+
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts
+ApiError class (status, code, message, details)
+
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\lib\contract-route.ts
+validateResponse() (server-side response schema validation)
+registerContractRoute() (automatic param/query/body validation, calls fail() on validation errors)
+
+B) API error envelope shape(s)
+
+Primary envelope (new standard):
+JSON shape: { error: { code: string, message: string, details?: unknown, requestId?: string } }
+Constructed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (fail function, lines 28-46)
+Documented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (header comment, lines 1-13)
+
+Legacy envelope (transitional support in client):
+JSON shape: { error: "string" }
+Detected: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts (lines 121-125, fallback parsing)
+
+Success envelope (new standard):
+JSON shape: { data: <payload> }
+Constructed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (ok function, lines 21-23)
+Documented: C:\Users\missp\source\repos\ASC-Inventory\packages\contract\src\envelope.ts (lines 11-14)
+
+Auth-specific legacy envelope:
+JSON shape (hand-crafted in auth.routes.ts): { error: { code: string, message: string, details?: unknown, requestId?: string } }
+Constructed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts (lines 31-33, 71, 90, 108, 179, 215, 234, 253)
+
+C) HTTP status code usage
+
+200
+Condition: successful GET/POST/PUT/DELETE operations
+Endpoints: all routes using ok(reply, data) with default status
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (line 21)
+
+201
+Condition: resource creation success (POST /api/users)
+Endpoint: POST /api/users
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts (line 187)
+
+400
+Condition: validation errors (Zod schema failures, malformed requests)
+Endpoints: all routes using fail(reply, 'VALIDATION_ERROR', ..., 400) or fail(reply, 'INVALID_REQUEST', ..., 400)
+Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (line 63), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\lib\contract-route.ts (lines 144, 155, 166), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\idempotency.ts (line 42), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts (line 31), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 119)
+
+401
+Condition: authentication failure (missing or invalid JWT, invalid credentials, account disabled)
+Endpoints: all protected routes, POST /api/auth/login (on bad credentials)
+Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 83, 103, 127, 167, 196), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts (lines 71, 90, 108, 179, 215, 234, 253), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (lines 101, 113)
+
+403
+Condition: authorization failure (missing required role or capability, tenant context required)
+Endpoints: all routes using requireRoles, requireCapabilities, requirePlatformAdmin, requireTenantContext
+Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 111, 136, 178, 206), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 82), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts (lines 159, 336, 588), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-cards.routes.ts (lines 460, 593, 830, 897, 952, 1117, 1204, 1231, 1583, 1639, 1698)
+
+404
+Condition: resource not found (case, case card, procedure, user, etc.)
+Endpoints: all routes using fail(reply, 'NOT_FOUND', ..., 404)
+Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts (lines 113, 151, 189, 217, 235, 259, 280, 378, 395, 411, 424, 442, 451, 467, 476, 492, 531, 579, 627, 707), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-cards.routes.ts (lines 285, 378, 422, 615, 769, 820, 888, 969, 1133, 1197, 1253, 1417, 1428, 1488, 1599, 1654, 1712, 1760), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-dashboard.routes.ts (lines 152, 335, 415, 467, 519, 533, 581, 623, 660, 693, 761, 822)
+
+409
+Condition: resource conflict (case card locked by another user)
+Endpoints: case card edit operations when lock held by another user
+Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-cards.routes.ts (lines 633, 1152, 1267)
+
+429
+Condition: rate limit exceeded (AI explain readiness endpoint)
+Endpoint: POST /api/ai/explain-readiness
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 88)
+
+500
+Condition: internal server error (unhandled exceptions, DB failures, response validation failures)
+Endpoints: all routes (global error handler), AI routes (on AI service errors), checklist template updates
+Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 125), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 122), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts (line 228), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts (line 255), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\lib\contract-route.ts (line 192)
+
+501
+Condition: feature disabled (AI explain readiness when feature flag off)
+Endpoint: POST /api/ai/explain-readiness
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 75)
+
+503
+Condition: service unavailable (AI service unreachable)
+Endpoint: POST /api/ai/explain-readiness
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 119)
+
+D) Validation error behavior
+
+Request validation errors produced by: Zod (via safeParse)
+
+Error shape: { error: { code: "VALIDATION_ERROR", message: "Validation error", details: <zod error flatten output>, requestId: <string> } }
+
+Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (validated function, lines 56-67)
+
+Contract route automatic validation: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\lib\contract-route.ts (lines 142-169, validates params/query/body against contract schemas before handler)
+
+Endpoints relying on this behavior: all routes using validated() helper or registerContractRoute() (UNKNOWN: exact count not provable without full endpoint enumeration)
+
+E) Auth-related errors
+
+401 behavior:
+Response shape: { error: { code: "UNAUTHENTICATED", message: "Authentication required", requestId: <string> } }
+Conditions: missing JWT, invalid JWT, invalid credentials (login), account disabled
+Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 78-86, 98-104, 122-128, 162-170, 191-199), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (lines 96-102, 112-115), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts (lines 71, 90, 108, 179, 215, 234, 253)
+
+403 behavior (role-based):
+Response shape: { error: { code: "FORBIDDEN", message: "Required roles: <role1>, <role2>, ...", requestId: <string> } }
+Conditions: user lacks required roles
+Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 109-115)
+
+403 behavior (capability-based):
+Response shape: { error: { code: "FORBIDDEN", message: "Required capabilities: <cap1>, <cap2>, ...", requestId: <string> } }
+Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 134-140)
+
+403 behavior (platform admin):
+Response shape: { error: { code: "FORBIDDEN", message: "Requires PLATFORM_ADMIN role", requestId: <string> } }
+Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 173-181)
+
+403 behavior (tenant context):
+Response shape: { error: { code: "FORBIDDEN", message: "This endpoint requires tenant context (facilityId)", requestId: <string> } }
+Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 201-210)
+
+F) Client wrapper error handling
+
+Error detection method:
+Status code check: response.ok === false (any status >= 400)
+Envelope parsing: response.json() → check for errBody.error field
+
+Error normalization:
+Throws ApiError instances
+ApiError fields: status (number), code (string), message (string), details (unknown, optional)
+ApiError name: "ApiError"
+
+Envelope shape handling:
+New envelope: { error: { code, message, details? } } → throws ApiError(status, code, message, details)
+Legacy envelope: { error: "string" } → throws ApiError(status, "UNKNOWN", error string)
+
+Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts (lines 27-39 for ApiError class, lines 110-126 for error handling)
+
+Response success handling:
+Detects { data: <payload> } envelope (new convention)
+Auto-unwraps data field if present and only key
+Returns unwrapped payload or full json if no envelope
+
+Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts (lines 128-150)
+
+G) UI error display / handling
+
+UI reads errors via:
+catch (err) blocks in async handlers
+Error message extracted: err instanceof Error ? err.message : <fallback string>
+No direct access to err.code or err.status observed in searched UI files
+
+Error display patterns:
+Local state: setError(message) → displayed inline in forms/modals
+No global toast system found
+No global error boundary logic found (Next.js default error pages only)
+
+Files with error display:
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\cases\page.tsx (lines 73, 116-117)
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\login\page.tsx (lines 51-52)
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\page.tsx (lines 76-77)
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\components\CreateCaseModal.tsx (lines 87-88)
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\components\ExplainReadinessPanel.tsx (lines 63-66)
+UNKNOWN (exact count) additional files with setError() calls (20+ files found via grep)
+
+Global error boundaries:
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\error.tsx (Next.js default error boundary, displays error.message)
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\global-error.tsx (Next.js global error boundary, displays error.message)
+
+Alert system: none found
+
+H) Inconsistencies or gaps (factual only)
+
+Mixed error envelopes:
+API uses new envelope { error: { code, message, details?, requestId? } } consistently
+Client supports both new envelope and legacy { error: "string" } (transitional compatibility)
+No evidence of legacy envelope still produced by current API code
+
+Status code consistency:
+Most routes use fail() helper (consistent envelope)
+Auth routes use hand-crafted reply.status().send() (lines 31-33, 71, 90, 108, 179, 215, 234, 253 in auth.routes.ts) with same envelope shape
+Index error handler uses hand-crafted reply.status().send() (lines 101, 113, 119 in index.ts) with same envelope shape
+All observed envelopes match canonical shape
+
+Client assumptions vs API behavior:
+Client expects { data: <payload> } for success responses
+API ok() helper produces { data: <payload> }
+Match confirmed
+
+Client expects { error: { code, message, details? } } for error responses
+API fail() helper produces { error: { code, message, details?, requestId? } }
+Client does not read requestId field (gap: client logs would not include requestId)
+
+Non-envelope errors:
+None observed in API routes (all use fail() or hand-crafted matching shape)
+Global error handler produces standard envelope (index.ts lines 113-127)
+
+String error legacy fallbacks:
+Client supports { error: "string" } parsing (client.ts lines 121-125)
+No API code found producing this format (legacy support only, not actively used)
+
+Validation error details field:
+API returns Zod flattened error structure in details field
+Client does not parse or display structured validation details (only err.message displayed in UI)
+Gap: UI cannot show field-specific validation errors without custom handling
+
+ApiError status field:
+Client ApiError class includes status field (line 30 in client.ts)
+No UI code observed checking err.status for conditional logic (e.g., 401 redirect, 429 retry)
+Gap: UI cannot distinguish error types by status code without manual checks
+
+requestId field:
+API includes requestId in all error responses (via fail() or hand-crafted)
+UI does not display or log requestId from errors
+Gap: client-side debugging cannot correlate errors with server logs via requestId

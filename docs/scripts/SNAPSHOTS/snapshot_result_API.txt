@@ -1,0 +1,1527 @@
+## API CONTRACT SNAPSHOT — ASC Inventory Backend
+
+**Backend Framework:** Fastify + TypeScript + Zod schemas + PostgreSQL
+
+**Default Ports:** 3001 (API), 3000 (web)
+
+**Request Format:** JSON over HTTPS
+
+**Response Envelope:** All responses wrapped in either `{ success: true }` or `{ error: { code, message, requestId, details? } }`
+
+---
+
+## SECTION 1: ENDPOINTS
+
+### Authentication Routes (prefix: /api/auth)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/auth.routes.ts
+
+POST /api/auth/login
+Auth: No
+Input: LoginRequestSchema (facilityKey, username, password)
+Output: { token, user: {id, username, email, name, role, roles, facilityId, facilityName} }
+Errors: UNAUTHENTICATED (401), VALIDATION_ERROR (400)
+
+GET /api/auth/me
+Auth: Yes (JWT)
+Input: None (path/query)
+Output: { user: {id, username, email, name, role, roles, facilityId, facilityName} }
+Errors: UNAUTHENTICATED (401)
+
+POST /api/auth/logout
+Auth: Yes (JWT)
+Input: None (body)
+Output: { success: true }
+Errors: UNAUTHENTICATED (401)
+
+---
+
+### User Management Routes (prefix: /api/users)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/users.routes.ts
+
+GET /api/users
+Auth: Yes (requireCapabilities: USER_MANAGE)
+Input: Query: includeInactive? (string)
+Output: { users: Array<{id, username, email, name, role, roles, active, createdAt, updatedAt}> }
+Errors: FORBIDDEN (403), UNAUTHENTICATED (401)
+
+GET /api/users/surgeons
+Auth: Yes (JWT)
+Input: None
+Output: { users: Array<{id, name, role}> }
+Errors: UNAUTHENTICATED (401)
+
+GET /api/users/:id
+Auth: Yes (requireCapabilities: USER_MANAGE)
+Input: Params: id (string)
+Output: { user: {id, username, email, name, role, roles, active, createdAt, updatedAt} }
+Errors: NOT_FOUND (404), FORBIDDEN (403)
+
+POST /api/users
+Auth: Yes (requireCapabilities: USER_MANAGE)
+Input: CreateUserRequestSchema (username, email?, name, role?, roles?, password)
+Output: { user: {id, username, email, name, role, roles, active, createdAt, updatedAt} }
+Status: 201
+Errors: VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+PATCH /api/users/:id
+Auth: Yes (requireCapabilities: USER_MANAGE)
+Input: Params: id (string), Body: UpdateUserRequestSchema (username?, email?, name?, role?, roles?, password?)
+Output: { user: {id, username, email, name, role, roles, active, createdAt, updatedAt} }
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+POST /api/users/:id/deactivate
+Auth: Yes (requireCapabilities: USER_MANAGE)
+Input: Params: id (string)
+Output: { success: true }
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+POST /api/users/:id/activate
+Auth: Yes (requireCapabilities: USER_MANAGE)
+Input: Params: id (string)
+Output: { success: true }
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+---
+
+### Cases Routes (prefix: /api/cases)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/cases.routes.ts
+
+GET /api/cases
+Auth: Yes (JWT)
+Input: Query: date?, status?, active?, search?
+Output: { cases: Array<CaseFormat> }
+Errors: UNAUTHENTICATED (401)
+Note: [CONTRACT] route via registerContractRoute + contract.cases.list
+
+GET /api/cases/:caseId
+Auth: Yes (JWT)
+Input: Params: caseId (string)
+Output: { case: CaseFormat, requirements: Array<{id, catalogId, catalogName, quantity, isSurgeonOverride, notes}> }
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+Note: [CONTRACT] route
+
+PATCH /api/cases/:caseId
+Auth: Yes (requireCapabilities: CASE_UPDATE)
+Input: Params: caseId (string), Body: {scheduledDate?, scheduledTime?, surgeonId?, procedureName?, preferenceCardVersionId?, status?, notes?}
+Output: { case: CaseFormat }
+Errors: NOT_FOUND (404), FORBIDDEN (403), TIMEOUT_REQUIRED (422), DEBRIEF_REQUIRED (422)
+Note: [CONTRACT] route
+
+POST /api/cases/:caseId/approve
+Auth: Yes (requireCapabilities: CASE_APPROVE)
+Input: Params: caseId (string), Body: {scheduledDate, scheduledTime?, roomId?, estimatedDurationMinutes?}
+Output: { case: CaseFormat }
+Status: 201
+Errors: NOT_FOUND (404), FORBIDDEN (403), INVALID_STATE (409)
+Note: [CONTRACT] route, idempotent
+
+POST /api/cases/:caseId/reject
+Auth: Yes (requireCapabilities: CASE_REJECT)
+Input: Params: caseId (string), Body: {reason}
+Output: { case: CaseFormat }
+Errors: NOT_FOUND (404), FORBIDDEN (403), INVALID_STATE (409)
+Note: [CONTRACT] route, idempotent
+
+PATCH /api/cases/:caseId/assign-room
+Auth: Yes (requireCapabilities: CASE_ASSIGN_ROOM)
+Input: Params: caseId (string), Body: {roomId?, sortOrder?, estimatedDurationMinutes?}
+Output: { case: CaseFormat }
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+Note: [CONTRACT] route, idempotent
+
+POST /api/cases
+Auth: Yes (requireCapabilities: CASE_CREATE)
+Input: Body: {surgeonId, procedureName, scheduledDate, scheduledTime?, requestedDate?, requestedTime?, preferenceCardId?, notes?, status?}
+Output: { case: CaseFormat }
+Status: 201
+Errors: VALIDATION_ERROR (400), FORBIDDEN (403)
+Note: [CONTRACT] route
+
+POST /api/cases/:caseId/activate
+Auth: Yes (requireCapabilities: CASE_ACTIVATE)
+Input: Params: caseId (string), Body: {scheduledDate?, scheduledTime?}
+Output: { case: CaseFormat }
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+Note: [CONTRACT] route, idempotent
+
+POST /api/cases/:caseId/deactivate
+Auth: Yes (requireCapabilities: CASE_ACTIVATE)
+Input: Params: caseId (string)
+Output: { case: CaseFormat }
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+Note: [CONTRACT] route, idempotent
+
+POST /api/cases/:caseId/cancel
+Auth: Yes (requireCapabilities: CASE_CANCEL)
+Input: Params: caseId (string), Body: {reason}
+Output: { case: CaseFormat }
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+Note: [CONTRACT] route, idempotent
+
+POST /api/cases/:caseId/check-in-preop
+Auth: Yes (requireCapabilities: CASE_CHECKIN_PREOP)
+Input: Params: caseId (string)
+Output: { case: CaseFormat }
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+Note: [CONTRACT] route, idempotent
+
+GET /api/cases/:caseId/status-events
+Auth: Yes (JWT)
+Input: Params: caseId (string)
+Output: Array<{id, surgicalCaseId, fromStatus, toStatus, reason, context, actorUserId, actorName, createdAt}>
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+Note: [CONTRACT] route
+
+POST /api/cases/:id/preference-card
+Auth: Yes (requireCapabilities: CASE_PREFERENCE_CARD_LINK)
+Input: Params: id (string), Body: SelectPreferenceCardRequestSchema (preferenceCardId)
+Output: { success: true }
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+PUT /api/cases/:id/requirements
+Auth: Yes (requireCapabilities: CASE_VIEW)
+Input: Params: id (string), Body: SetCaseRequirementsRequestSchema (requirements, isSurgeonOverride)
+Output: { success: true }
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+DELETE /api/cases/:id
+Auth: Yes (requireCapabilities: CASE_DELETE)
+Input: Params: id (string)
+Output: { success: true }
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+---
+
+### Inventory Routes (prefix: /api/inventory)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/inventory.routes.ts
+
+POST /api/inventory/events
+Auth: Yes (requireCapabilities: INVENTORY_CHECKIN | INVENTORY_MANAGE)
+Input: Body: {inventoryItemId, eventType, caseId?, locationId?, sterilityStatus?, notes?, deviceEventId?, occurredAt?}
+Output: { success: true }
+Status: 201
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+Note: [CONTRACT] route, idempotent
+
+POST /api/inventory/events/bulk
+Auth: Yes (requireCapabilities: INVENTORY_CHECKIN | INVENTORY_MANAGE)
+Input: Body: {events: Array<{inventoryItemId, eventType, caseId?, locationId?, sterilityStatus?, notes?, deviceEventId?, occurredAt?}>}
+Output: { success: true, count: number }
+Status: 201
+Errors: ITEMS_NOT_FOUND (400), FORBIDDEN (403)
+Note: [CONTRACT] route, idempotent
+
+POST /api/inventory/events/financial
+Auth: Yes (requireCapabilities: INVENTORY_MANAGE)
+Input: Body: {inventoryItemId, eventType, caseId?, locationId?, sterilityStatus?, notes?, occurredAt?, costOverrideCents?, costOverrideReason?, costOverrideNote?, providedByVendorId?, providedByRepName?, isGratis?, gratisReason?}
+Output: { success: true }
+Status: 201
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+Note: Wave 1 Financial Attribution endpoint
+
+POST /api/inventory/device-events
+Auth: Yes (JWT)
+Input: Body: CreateDeviceEventRequestSchema (deviceId, deviceType, payloadType, rawValue, occurredAt?)
+Output: {deviceEventId, processed, processedItemId, candidate?, gs1Data?, catalogMatch?, barcodeClassification, error?}
+Status: 201
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400)
+
+GET /api/inventory/devices
+Auth: Yes (JWT)
+Input: None
+Output: {devices: Array<{id, name, deviceType, locationId, locationName, active}>}
+Errors: UNAUTHENTICATED (401)
+
+GET /api/inventory/items
+Auth: Yes (JWT)
+Input: Query: catalogId?, locationId?, status?
+Output: {items: Array<InventoryItemFormat>}
+Errors: UNAUTHENTICATED (401)
+Note: [CONTRACT] route
+
+GET /api/inventory/items/:itemId
+Auth: Yes (JWT)
+Input: Params: itemId (string)
+Output: {item: InventoryItemFormat}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+Note: [CONTRACT] route
+
+POST /api/inventory/items
+Auth: Yes (requireCapabilities: INVENTORY_MANAGE)
+Input: Body: {catalogId, serialNumber?, lotNumber?, barcode?, locationId?, sterilityStatus?, sterilityExpiresAt?, barcodeClassification?, barcodeGtin?, barcodeParsedLot?, barcodeParsedSerial?, barcodeParsedExpiration?, attestationReason?}
+Output: {item: InventoryItemFormat}
+Status: 201
+Errors: VALIDATION_ERROR (400), NOT_FOUND (404), DUPLICATE (409), FORBIDDEN (403)
+Note: [CONTRACT] route, W1 validation enforced
+
+PATCH /api/inventory/items/:itemId
+Auth: Yes (requireCapabilities: INVENTORY_MANAGE)
+Input: Params: itemId (string), Body: {serialNumber?, lotNumber?, barcode?, locationId?, sterilityStatus?, sterilityExpiresAt?}
+Output: {item: InventoryItemFormat}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+Note: [CONTRACT] route
+
+GET /api/inventory/items/:itemId/history
+Auth: Yes (JWT)
+Input: Params: itemId (string)
+Output: {events: Array<InventoryEventFormat>}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+Note: [CONTRACT] route
+
+GET /api/inventory/risk-queue
+Auth: Yes (JWT)
+Input: None
+Output: {riskItems: Array<{rule, severity, facilityId, catalogId, catalogName, inventoryItemId, identifier, daysToExpire, expiresAt, missingFields, explain, debug}>}
+Errors: UNAUTHENTICATED (401)
+Note: [CONTRACT] route, computed read-only
+
+---
+
+### Readiness Routes (prefix: /api/readiness)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/readiness.routes.ts
+
+GET /api/readiness/day-before
+Auth: Yes (JWT)
+Input: Query: date? (YYYY-MM-DD), refresh? (boolean)
+Output: {facilityId, facilityName, targetDate, cases: Array<ReadinessCase>, summary: {total, green, orange, red, attested}}
+Errors: UNAUTHENTICATED (401)
+
+GET /api/readiness/calendar-summary
+Auth: Yes (JWT)
+Input: Query: startDate (required), endDate (required), granularity? (day|case)
+Output: {summary data by date range}
+Errors: VALIDATION_ERROR (400), UNAUTHENTICATED (401)
+
+GET /api/readiness/cases/:id
+Auth: Yes (JWT)
+Input: Params: id (string)
+Output: {facilityId, scheduledDate, scheduledTime, procedureName, surgeonId, surgeonName, ...readinessData}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+POST /api/readiness/attestations
+Auth: Yes (JWT)
+Input: Body: CreateAttestationRequestSchema (caseId, type: CASE_READINESS|SURGEON_ACKNOWLEDGMENT, notes?)
+Output: {id, caseId, type, attestedByUserId, attestedByName, readinessStateAtTime, notes, createdAt}
+Status: 201
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+GET /api/readiness/cases/:id/attestations
+Auth: Yes (JWT)
+Input: Params: id (string)
+Output: {attestations: Array<{id, caseId, type, attestedByUserId, attestedByName, readinessStateAtTime, notes, createdAt, voidedAt, voidedByUserId, voidedByName}>}
+Errors: UNAUTHENTICATED (401)
+
+POST /api/readiness/attestations/:id/void
+Auth: Yes (JWT)
+Input: Params: id (string), Body: {reason?}
+Output: {success, attestationId, voidedAt, voidedByUserId, voidedByName, reason}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+GET /api/readiness/cases/:id/verification
+Auth: Yes (JWT)
+Input: Params: id (string)
+Output: {caseId, procedureName, surgeonName, scheduledDate, scheduledTime, requirements: Array<{...}>, summary: {...}}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+POST /api/readiness/refresh
+Auth: Yes (JWT)
+Input: Body: {date?}
+Output: {success, date}
+Errors: UNAUTHENTICATED (401)
+
+---
+
+### Checklists Routes (prefix: /api)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/checklists.routes.ts
+
+GET /api/facility/settings
+Auth: Yes (JWT)
+Input: None
+Output: {facilityId, enableTimeoutDebrief, createdAt, updatedAt}
+Errors: UNAUTHENTICATED (401)
+
+PATCH /api/facility/settings
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Body: UpdateFacilitySettingsRequestSchema
+Output: {facilityId, enableTimeoutDebrief, createdAt, updatedAt}
+Errors: VALIDATION_ERROR (400), FORBIDDEN (403)
+
+GET /api/rooms
+Auth: Yes (JWT)
+Input: None
+Output: {rooms: Array<{id, name, deviceType, locationId, locationName, active}>}
+Errors: UNAUTHENTICATED (401)
+
+GET /api/checklists/templates
+Auth: Yes (JWT)
+Input: None
+Output: {templates: Array<ChecklistTemplate>}
+Errors: FORBIDDEN (403, admin-only)
+
+GET /api/checklists/templates/:type
+Auth: Yes (JWT)
+Input: Params: type (TIMEOUT|DEBRIEF)
+Output: ChecklistTemplate
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+PUT /api/checklists/templates/:type
+PATCH /api/checklists/templates/:type
+Auth: Yes (JWT, admin-only)
+Input: Params: type (TIMEOUT|DEBRIEF), Body: {items: Array<{key, label, type, required, options?}>, requiredSignatures: Array<{role, required, conditional?, conditions?}>}
+Output: Updated ChecklistTemplate
+Errors: VALIDATION_ERROR (400), FORBIDDEN (403)
+
+PUT /api/surgeon/checklists/:instanceId/feedback
+PATCH /api/surgeon/checklists/:instanceId/feedback
+Auth: Yes (JWT, surgeon-only)
+Input: Params: instanceId (string), Body: {notes?, flagged?, flaggedComment?}
+Output: {success}
+Errors: FORBIDDEN (403), VALIDATION_ERROR (400)
+
+GET /api/cases/:id/checklists
+Auth: Yes (JWT)
+Input: Params: id (string)
+Output: {caseId, timeout?, debrief?}
+Errors: UNAUTHENTICATED (401)
+
+POST /api/cases/:id/checklists/start
+Auth: Yes (JWT, authorized staff roles)
+Input: Params: id (string), Body: StartChecklistRequestSchema (type, roomId?)
+Output: ChecklistInstance
+Status: 201
+Errors: VALIDATION_ERROR (400), FORBIDDEN (403)
+
+POST /api/cases/:id/checklists/:type/respond
+Auth: Yes (JWT, authorized staff roles)
+Input: Params: id (string), type (TIMEOUT|DEBRIEF), Body: RespondChecklistRequestSchema (itemKey, value)
+Output: UpdatedChecklistInstance
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+POST /api/cases/:id/checklists/:type/sign
+Auth: Yes (JWT, authorized staff roles)
+Input: Params: id (string), type (TIMEOUT|DEBRIEF), Body: SignChecklistRequestSchema (method, flaggedForReview?, flagComment?)
+Output: UpdatedChecklistInstance
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+POST /api/cases/:id/checklists/:type/complete
+Auth: Yes (JWT, circulator|admin)
+Input: Params: id (string), type (TIMEOUT|DEBRIEF)
+Output: CompletedChecklistInstance
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+POST /api/cases/:id/checklists/debrief/async-review
+Auth: Yes (JWT, SCRUB|SURGEON)
+Input: Params: id (string), Body: {notes?, method}
+Output: UpdatedChecklistInstance
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+GET /api/pending-reviews
+Auth: Yes (JWT, admin-only)
+Input: None
+Output: {pendingReviews: Array<...>, total}
+Errors: FORBIDDEN (403)
+
+GET /api/my-pending-reviews
+Auth: Yes (JWT)
+Input: None
+Output: {pendingReviews: Array<...>, total}
+Errors: UNAUTHENTICATED (401)
+
+GET /api/flagged-reviews
+Auth: Yes (JWT, admin-only)
+Input: None
+Output: {flaggedReviews, resolvedReviews, debriefItemsForReview, totalUnresolved, totalResolved}
+Errors: FORBIDDEN (403)
+
+POST /api/flagged-reviews/:signatureId/resolve
+Auth: Yes (JWT, admin-only)
+Input: Params: signatureId (string), Body: {notes?}
+Output: {success}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+POST /api/flagged-reviews/:instanceId/resolve-surgeon-flag
+Auth: Yes (JWT, admin-only)
+Input: Params: instanceId (string), Body: {notes?}
+Output: {success}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+GET /api/surgeon/my-checklists
+Auth: Yes (JWT, surgeon-only)
+Input: None
+Output: {checklists, total}
+Errors: FORBIDDEN (403)
+
+---
+
+### Locations Routes (prefix: /api/locations)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/locations.routes.ts
+
+GET /api/locations
+Auth: Yes (JWT)
+Input: None
+Output: {locations: Array<{id, name, description, parentLocationId, parentName, childCount, itemCount, createdAt, updatedAt}>}
+Errors: UNAUTHENTICATED (401)
+
+GET /api/locations/:id
+Auth: Yes (JWT)
+Input: Params: id (string)
+Output: {location: {id, name, description, parentLocationId, parentName, childCount, itemCount, createdAt, updatedAt}}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+POST /api/locations
+Auth: Yes (requireCapabilities: LOCATION_MANAGE)
+Input: Body: CreateLocationRequestSchema (name, description?, parentLocationId?)
+Output: {location: {...}}
+Status: 201
+Errors: VALIDATION_ERROR (400), NOT_FOUND (404), DUPLICATE (409), FORBIDDEN (403)
+
+PATCH /api/locations/:id
+Auth: Yes (requireCapabilities: LOCATION_MANAGE)
+Input: Params: id (string), Body: UpdateLocationRequestSchema (name?, description?, parentLocationId?)
+Output: {location: {...}}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+DELETE /api/locations/:id
+Auth: Yes (requireCapabilities: LOCATION_MANAGE)
+Input: Params: id (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+---
+
+### Catalog Routes (prefix: /api/catalog)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/catalog.routes.ts
+
+GET /api/catalog
+Auth: Yes (JWT)
+Input: Query: category?, includeInactive?
+Output: {items: Array<CatalogItem>}
+Errors: UNAUTHENTICATED (401)
+Note: [CONTRACT] route
+
+GET /api/catalog/:catalogId
+Auth: Yes (JWT)
+Input: Params: catalogId (string)
+Output: {item: CatalogItem}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+Note: [CONTRACT] route
+
+POST /api/catalog
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Body: {name, description?, category, manufacturer?, catalogNumber?, requiresSterility?, isLoaner?, isContainer?, requiresLotTracking?, requiresSerialTracking?, requiresExpirationTracking?, criticality?, readinessRequired?, expirationWarningDays?, substitutable?}
+Output: {item: CatalogItem}
+Status: 201
+Errors: VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+Note: [CONTRACT] route, v1.1 Risk-Intent fields supported
+
+PATCH /api/catalog/:catalogId
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: catalogId (string), Body: partial CatalogItem fields
+Output: {item: CatalogItem}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+Note: [CONTRACT] route
+
+POST /api/catalog/:catalogId/deactivate
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: catalogId (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+Note: [CONTRACT] route
+
+POST /api/catalog/:catalogId/activate
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: catalogId (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+Note: [CONTRACT] route
+
+GET /api/catalog/:catalogId/identifiers
+Auth: Yes (JWT)
+Input: Params: catalogId (string)
+Output: {identifiers: Array<{id, catalogId, identifierType, rawValue, source, classification, createdAt, createdByUserId, creatorName}>}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+Note: [CONTRACT] route
+
+POST /api/catalog/:catalogId/identifiers
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: catalogId (string), Body: {rawValue, source?}
+Output: {identifier: {...}, gs1Data?: {...}}
+Status: 201
+Errors: NOT_FOUND (404), DUPLICATE (409), VALIDATION_ERROR (400), FORBIDDEN (403)
+Note: [CONTRACT] route
+
+DELETE /api/catalog/:catalogId/identifiers/:identifierId
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: catalogId (string), identifierId (string)
+Output: {success}
+Errors: NOT_FOUND (404), FORBIDDEN (403)
+Note: [CONTRACT] route
+
+---
+
+### Catalog Groups Routes (prefix: /api/catalog/groups)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/catalog-groups.routes.ts
+
+GET /api/catalog/groups
+Auth: Yes (JWT)
+Input: Query: includeInactive?
+Output: {groups: Array<CatalogGroup>}
+Errors: UNAUTHENTICATED (401)
+
+POST /api/catalog/groups
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Body: {name, description?}
+Output: {group: CatalogGroup}
+Status: 201
+Errors: VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+PATCH /api/catalog/groups/:groupId
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: groupId (string), Body: {name?, description?, active?}
+Output: {group: CatalogGroup}
+Errors: NOT_FOUND (404), DUPLICATE (409), FORBIDDEN (403)
+
+GET /api/catalog/groups/:groupId/items
+Auth: Yes (JWT)
+Input: Params: groupId (string), Query: includeInactive?
+Output: {items: Array<CatalogItem>}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+POST /api/catalog/groups/:groupId/items
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: groupId (string), Body: {catalogId}
+Output: {success}
+Status: 201
+Errors: NOT_FOUND (404), DUPLICATE (409), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+DELETE /api/catalog/groups/:groupId/items/:catalogId
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: groupId (string), catalogId (string)
+Output: {success}
+Errors: NOT_FOUND (404), FORBIDDEN (403)
+
+---
+
+### Catalog Sets Routes (prefix: /api/catalog/sets)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/catalog-sets.routes.ts
+
+GET /api/catalog/sets
+Auth: Yes (JWT)
+Input: Query: includeEmpty?
+Output: {sets: Array<CatalogSet>}
+Errors: UNAUTHENTICATED (401)
+
+POST /api/catalog/sets
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Body: {name, description?, isContainer}
+Output: {set: CatalogSet}
+Status: 201
+Errors: VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+GET /api/catalog/sets/:catalogId/components
+Auth: Yes (JWT)
+Input: Params: catalogId (string)
+Output: {components: Array<SetComponent>}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+POST /api/catalog/sets/:catalogId/components
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: catalogId (string), Body: {componentCatalogId, quantity}
+Output: {component: SetComponent}
+Status: 201
+Errors: NOT_FOUND (404), DUPLICATE (409), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+PATCH /api/catalog/sets/:catalogId/components/:componentId
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: catalogId (string), componentId (string), Body: {quantity?}
+Output: {component: SetComponent}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+DELETE /api/catalog/sets/:catalogId/components/:componentId
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: catalogId (string), componentId (string)
+Output: {success}
+Errors: NOT_FOUND (404), FORBIDDEN (403)
+
+---
+
+### Catalog Images Routes (prefix: /api/catalog)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/catalog-images.routes.ts
+
+POST /api/catalog/:catalogId/images/upload
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Multipart form-data: file, displayName?, primary?
+Output: {image: {id, catalogId, url, displayName, primary, createdAt}}
+Status: 201
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+PATCH /api/catalog/:catalogId/images/:imageId
+Auth: Yes (requireCapabilities: CATALOG_MANAGE)
+Input: Params: catalogId (string), imageId (string), Body: {displayName?, primary?}
+Output: {image: {...}}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+---
+
+### Preference Cards Routes (prefix: /api/preference-cards)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/preference-cards.routes.ts
+
+GET /api/preference-cards
+Auth: Yes (JWT)
+Input: Query: surgeonId?, includeInactive?
+Output: {cards: Array<PreferenceCard>}
+Errors: UNAUTHENTICATED (401)
+
+GET /api/preference-cards/:id
+Auth: Yes (JWT)
+Input: Params: id (string)
+Output: {card: PreferenceCard with versions}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+POST /api/preference-cards
+Auth: Yes (requireCapabilities: PREFERENCE_CARD_MANAGE)
+Input: Body: CreatePreferenceCardRequestSchema (surgeonId, procedureName, description?)
+Output: {card: PreferenceCard}
+Status: 201
+Errors: VALIDATION_ERROR (400), NOT_FOUND (404), DUPLICATE (409), FORBIDDEN (403)
+
+PATCH /api/preference-cards/:id
+Auth: Yes (requireCapabilities: PREFERENCE_CARD_MANAGE)
+Input: Params: id (string), Body: UpdatePreferenceCardRequestSchema (procedureName?, description?, active?)
+Output: {card: PreferenceCard}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+POST /api/preference-cards/:id/versions
+Auth: Yes (requireCapabilities: PREFERENCE_CARD_MANAGE)
+Input: Params: id (string), Body: CreatePreferenceCardVersionRequestSchema (items)
+Output: {version: PreferenceCardVersion}
+Status: 201
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+GET /api/preference-cards/:id/versions
+Auth: Yes (JWT)
+Input: Params: id (string)
+Output: {versions: Array<PreferenceCardVersion>}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+POST /api/preference-cards/:id/versions/:versionId/activate
+Auth: Yes (requireCapabilities: PREFERENCE_CARD_MANAGE)
+Input: Params: id (string), versionId (string)
+Output: {version: PreferenceCardVersion}
+Errors: NOT_FOUND (404), FORBIDDEN (403)
+
+---
+
+### Settings Routes (prefix: /api/settings)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/settings.routes.ts
+
+GET /api/settings/rooms
+Auth: Yes (JWT)
+Input: Query: includeInactive?
+Output: {rooms: Array<{id, name, active, sortOrder, createdAt, updatedAt}>}
+Errors: UNAUTHENTICATED (401)
+
+POST /api/settings/rooms
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Body: CreateRoomRequestSchema (name)
+Output: {room: {...}}
+Status: 201
+Errors: VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+PATCH /api/settings/rooms/:id
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Params: id (string), Body: UpdateRoomRequestSchema (name?, active?, sortOrder?)
+Output: {room: {...}}
+Errors: NOT_FOUND (404), DUPLICATE (409), FORBIDDEN (403)
+
+DELETE /api/settings/rooms/:id
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Params: id (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+---
+
+### Case Cards Routes (prefix: /api/case-cards)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/case-cards.routes.ts
+
+GET /api/case-cards
+Auth: Yes (JWT)
+Input: Query: surgeonId?, status?, category?, search?
+Output: {cards: Array<CaseCard>}
+Errors: UNAUTHENTICATED (401)
+
+GET /api/case-cards/:id
+Auth: Yes (JWT)
+Input: Params: id (string)
+Output: {card: CaseCard with full details}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+GET /api/case-cards/:id/edit-log
+Auth: Yes (JWT)
+Input: Params: id (string)
+Output: {editLog: Array<EditEvent>}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+GET /api/case-cards/:id/versions
+Auth: Yes (JWT)
+Input: Params: id (string)
+Output: {versions: Array<CaseCardVersion>}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+POST /api/case-cards
+Auth: Yes (requireCapabilities: CASE_CARD_MANAGE)
+Input: Body: CreateCaseCardRequestSchema (surgeonId, procedureName, category, sections, status?, description?)
+Output: {card: CaseCard}
+Status: 201
+Errors: VALIDATION_ERROR (400), NOT_FOUND (404), DUPLICATE (409), FORBIDDEN (403)
+
+PUT /api/case-cards/:id
+Auth: Yes (requireCapabilities: CASE_CARD_MANAGE)
+Input: Params: id (string), Body: UpdateCaseCardRequestSchema
+Output: {card: CaseCard, version: CaseCardVersion}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+POST /api/case-cards/:id/activate
+Auth: Yes (requireCapabilities: CASE_CARD_MANAGE)
+Input: Params: id (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+POST /api/case-cards/:id/deprecate
+Auth: Yes (requireCapabilities: CASE_CARD_MANAGE)
+Input: Params: id (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+POST /api/case-cards/:id/delete
+Auth: Yes (requireCapabilities: CASE_CARD_MANAGE)
+Input: Params: id (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+POST /api/case-cards/:id/clone
+Auth: Yes (requireCapabilities: CASE_CARD_MANAGE)
+Input: Params: id (string), Body: {surgeonId?, procedureName?}
+Output: {card: CaseCard}
+Status: 201
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+POST /api/case-cards/:id/lock
+Auth: Yes (requireCapabilities: CASE_CARD_MANAGE)
+Input: Params: id (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+POST /api/case-cards/:id/unlock
+Auth: Yes (requireCapabilities: CASE_CARD_MANAGE)
+Input: Params: id (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+POST /api/case-cards/:id/revert/:versionId
+Auth: Yes (requireCapabilities: CASE_CARD_MANAGE)
+Input: Params: id (string), versionId (string)
+Output: {card: CaseCard}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+---
+
+### Case Dashboard Routes (prefix: /api/case-dashboard)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/case-dashboard.routes.ts
+
+GET /api/case-dashboard/:caseId
+Auth: Yes (JWT)
+Input: Params: caseId (string)
+Output: {dashboard: {case, requirements, attestation, caseCard, anesthesiaPlan, overrides, eventLog}}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+POST /api/case-dashboard/:caseId/attest
+Auth: Yes (JWT)
+Input: Params: caseId (string), Body: {notes?}
+Output: {success, attestation}
+Errors: NOT_FOUND (404), FORBIDDEN (403)
+
+POST /api/case-dashboard/:caseId/void
+Auth: Yes (JWT)
+Input: Params: caseId (string), Body: {reason?}
+Output: {success}
+Errors: NOT_FOUND (404), FORBIDDEN (403)
+
+PUT /api/case-dashboard/:caseId/anesthesia
+Auth: Yes (requireCapabilities: CASE_VIEW)
+Input: Params: caseId (string), Body: {type, plan, notes?}
+Output: {success, anesthesiaPlan}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+PUT /api/case-dashboard/:caseId/link-case-card
+Auth: Yes (requireCapabilities: CASE_VIEW)
+Input: Params: caseId (string), Body: {caseCardVersionId}
+Output: {success, caseCardVersion}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+POST /api/case-dashboard/:caseId/overrides
+Auth: Yes (JWT)
+Input: Params: caseId (string), Body: {catalogId, quantity, notes?, reason}
+Output: {override: CaseOverride}
+Status: 201
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+PUT /api/case-dashboard/:caseId/overrides/:overrideId
+Auth: Yes (requireCapabilities: CASE_VIEW)
+Input: Params: caseId (string), overrideId (string), Body: {quantity?, notes?}
+Output: {override: CaseOverride}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+DELETE /api/case-dashboard/:caseId/overrides/:overrideId
+Auth: Yes (requireCapabilities: CASE_VIEW)
+Input: Params: caseId (string), overrideId (string)
+Output: {success}
+Errors: NOT_FOUND (404), FORBIDDEN (403)
+
+GET /api/case-dashboard/:caseId/event-log
+Auth: Yes (JWT)
+Input: Params: caseId (string)
+Output: {events: Array<CaseEvent>}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+PUT /api/case-dashboard/:caseId/case-summary
+Auth: Yes (JWT)
+Input: Params: caseId (string), Body: {surgeon?, diagnosis?, plan?, notes?}
+Output: {success, summary}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+PUT /api/case-dashboard/:caseId/scheduling
+Auth: Yes (requireCapabilities: CASE_VIEW)
+Input: Params: caseId (string), Body: {scheduledDate?, scheduledTime?, roomId?, estimatedDurationMinutes?}
+Output: {success, case}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), FORBIDDEN (403)
+
+---
+
+### General Settings Routes (prefix: /api/general-settings)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/general-settings.routes.ts
+
+GET /api/general-settings/config-items
+Auth: Yes (JWT)
+Input: Query: itemType?, includeInactive?
+Output: {items: Array<ConfigItem>}
+Errors: UNAUTHENTICATED (401)
+
+POST /api/general-settings/config-items
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Body: {itemType, itemValue, displayName?, sortOrder?}
+Output: {item: ConfigItem}
+Status: 201
+Errors: VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+PATCH /api/general-settings/config-items/:id
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Params: id (string), Body: {itemValue?, displayName?, active?, sortOrder?}
+Output: {item: ConfigItem}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+POST /api/general-settings/config-items/:id/deactivate
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Params: id (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+POST /api/general-settings/config-items/:id/activate
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Params: id (string)
+Output: {success}
+Errors: NOT_FOUND (404), INVALID_STATE (409), FORBIDDEN (403)
+
+PUT /api/general-settings/config-items/reorder
+PATCH /api/general-settings/config-items/reorder
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Body: {items: Array<{id, sortOrder}>}
+Output: {success}
+Errors: VALIDATION_ERROR (400), FORBIDDEN (403)
+
+---
+
+### Schedule Routes (prefix: /api/schedule)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/schedule.routes.ts
+
+GET /api/schedule
+Auth: Yes (JWT)
+Input: Query: date? (YYYY-MM-DD)
+Output: {date, cases: Array<ScheduleCase>}
+Errors: VALIDATION_ERROR (400), UNAUTHENTICATED (401)
+
+GET /api/schedule/month
+Auth: Yes (JWT)
+Input: Query: month (YYYY-MM)
+Output: {month, stats: {totalCases, scheduled, active, completed, cancelled}}
+Errors: VALIDATION_ERROR (400), UNAUTHENTICATED (401)
+
+---
+
+### Reports Routes (prefix: /api/reports)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/reports.routes.ts
+
+GET /api/reports
+Auth: Yes (requireCapabilities: REPORTS_VIEW)
+Input: Query: type?, dateFrom?, dateTo?
+Output: {reports: Array<Report>}
+Errors: VALIDATION_ERROR (400), FORBIDDEN (403)
+
+GET /api/reports/inventory-consumption
+Auth: Yes (requireCapabilities: REPORTS_VIEW)
+Input: Query: dateFrom?, dateTo?, catalogId?
+Output: {data: Array<InventoryConsumption>}
+Errors: VALIDATION_ERROR (400), FORBIDDEN (403)
+
+GET /api/reports/case-analytics
+Auth: Yes (requireCapabilities: REPORTS_VIEW)
+Input: Query: dateFrom?, dateTo?, surgeonId?
+Output: {data: Array<CaseAnalytic>}
+Errors: VALIDATION_ERROR (400), FORBIDDEN (403)
+
+---
+
+### Admin Settings Routes (prefix: /api/admin/settings)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/admin-settings.routes.ts
+
+GET /api/admin/settings
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: None
+Output: {settings: FacilitySettings}
+Errors: FORBIDDEN (403), NOT_FOUND (404)
+
+GET /api/admin/settings/facility
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: None
+Output: {facility: {id, name, key, createdAt}}
+Errors: FORBIDDEN (403)
+
+GET /api/admin/settings/rooms
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Query: includeInactive?
+Output: {rooms: Array<Room>}
+Errors: FORBIDDEN (403)
+
+GET /api/admin/settings/surgeons
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: None
+Output: {surgeons: Array<User>}
+Errors: FORBIDDEN (403)
+
+GET /api/admin/settings/config-items
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Query: itemType?, includeInactive?
+Output: {items: Array<ConfigItem>}
+Errors: FORBIDDEN (403)
+
+---
+
+### AI Routes (prefix: /api/ai)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/ai.routes.ts
+
+POST /api/ai/explain-readiness
+Auth: Yes (JWT)
+Input: Body: {caseId, readinessState, missingItems, notes?}
+Output: {explanation: string}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400)
+
+---
+
+### Platform Routes (prefix: /api/platform)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/platform.routes.ts
+
+GET /api/platform/health
+Auth: Yes (requirePlatformAdmin)
+Input: None
+Output: {status, timestamp, version, plane: 'control'}
+Errors: FORBIDDEN (403)
+
+GET /api/platform/facilities
+Auth: Yes (requirePlatformAdmin)
+Input: None
+Output: {facilities: Array<{id, name}>}
+Errors: FORBIDDEN (403)
+
+---
+
+### Platform Config Routes (prefix: /api/platform/config)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/platform-config.routes.ts
+
+GET /api/platform/config (UNKNOWN - file not fully read)
+
+---
+
+### Vendors Routes (prefix: /api/vendors)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/vendors.routes.ts
+
+GET /api/vendors
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Query: vendorType?, isActive?, search?
+Output: {vendors: Array<Vendor>}
+Errors: FORBIDDEN (403)
+
+GET /api/vendors/:vendorId
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Params: vendorId (string)
+Output: {vendor: Vendor}
+Errors: NOT_FOUND (404), FORBIDDEN (403)
+
+POST /api/vendors
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Body: {name, vendorType, contactName?, contactEmail?, contactPhone?, notes?}
+Output: {vendor: Vendor}
+Status: 201
+Errors: VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+PATCH /api/vendors/:vendorId
+Auth: Yes (requireCapabilities: SETTINGS_MANAGE)
+Input: Params: vendorId (string), Body: {name?, vendorType?, contactName?, contactEmail?, contactPhone?, isActive?, notes?}
+Output: {vendor: Vendor}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400), DUPLICATE (409), FORBIDDEN (403)
+
+---
+
+### Loaner Sets Routes (prefix: /api/loaner-sets)
+**Defining file:** /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/loaner-sets.routes.ts
+
+GET /api/loaner-sets
+Auth: Yes (JWT)
+Input: Query: status?
+Output: {loanerSets: Array<LoanerSet>}
+Errors: UNAUTHENTICATED (401)
+
+GET /api/loaner-sets/open
+Auth: Yes (JWT)
+Input: None
+Output: {loanerSets: Array<LoanerSet>}
+Errors: UNAUTHENTICATED (401)
+
+GET /api/loaner-sets/overdue
+Auth: Yes (JWT)
+Input: None
+Output: {loanerSets: Array<LoanerSet>}
+Errors: UNAUTHENTICATED (401)
+
+GET /api/loaner-sets/:loanerSetId
+Auth: Yes (JWT)
+Input: Params: loanerSetId (string)
+Output: {loanerSet: LoanerSet}
+Errors: NOT_FOUND (404), UNAUTHENTICATED (401)
+
+POST /api/loaner-sets
+Auth: Yes (JWT)
+Input: Body: {catalogId, vendorId, quantity, dueDate, notes?, casesLinked?}
+Output: {loanerSet: LoanerSet}
+Status: 201
+Errors: VALIDATION_ERROR (400), NOT_FOUND (404)
+
+POST /api/loaner-sets/:loanerSetId/return
+Auth: Yes (JWT)
+Input: Params: loanerSetId (string), Body: {quantityReturned, notes?, inspection?}
+Output: {loanerSet: LoanerSet}
+Errors: NOT_FOUND (404), VALIDATION_ERROR (400)
+
+---
+
+### Health Check Endpoint
+
+GET /api/health
+Auth: No
+Input: None
+Output: {status: 'ok', timestamp: ISO8601}
+Errors: None
+
+---
+
+## SECTION 2: SHARED TYPES AND SCHEMAS
+
+All request/response schemas defined in:
+/c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts
+
+Base domain types imported from @asc/domain:
+/c/Users/missp/source/repos/ASC-Inventory/packages/domain/src (UNKNOWN - not fully inspected)
+
+### User & Authentication Schemas
+
+LoginRequestSchema
+Type: Zod schema
+Fields: facilityKey (min 1, max 20), username (min 3, max 100), password (min 8)
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts:27-31
+
+LoginResponseSchema
+Type: Zod schema
+Fields: token (string), user (id, username, email, name, role, roles, facilityId, facilityName)
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts:34-46
+
+CreateUserRequestSchema
+Type: Zod schema
+Fields: username (3-100, alphanumeric+_.-), email (optional), name (1-255), role (optional), roles (optional), password (min 8)
+Validation: Requires role OR roles array; if ADMIN role, email required
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts:56-77
+
+UpdateUserRequestSchema
+Type: Zod schema
+Fields: username?, email?, name?, role?, roles?, password?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts:79-87
+
+UserResponseSchema
+Type: Zod schema
+Fields: id, username, email, name, role, roles, active, createdAt, updatedAt
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts:89-100
+
+### Case Schemas
+
+SetCaseRequirementsRequestSchema
+Type: Zod schema
+Fields: requirements (Array<{catalogId, quantity, notes?}>), isSurgeonOverride
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN - exact location not verified)
+
+SelectPreferenceCardRequestSchema
+Type: Zod schema
+Fields: preferenceCardId
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+### Inventory Schemas
+
+CreateDeviceEventRequestSchema
+Type: Zod schema
+Fields: deviceId, deviceType, payloadType, rawValue, occurredAt?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+### Readiness Schemas
+
+CreateAttestationRequestSchema
+Type: Zod schema
+Fields: caseId, type (CASE_READINESS|SURGEON_ACKNOWLEDGMENT), notes?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+### Checklist Schemas
+
+StartChecklistRequestSchema
+Type: Zod schema
+Fields: type (TIMEOUT|DEBRIEF), roomId?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+RespondChecklistRequestSchema
+Type: Zod schema
+Fields: itemKey, value
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+SignChecklistRequestSchema
+Type: Zod schema
+Fields: method, flaggedForReview?, flagComment?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+UpdateFacilitySettingsRequestSchema
+Type: Zod schema
+Fields: enableTimeoutDebrief?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+### Location Schemas
+
+CreateLocationRequestSchema
+Type: Zod schema
+Fields: name, description?, parentLocationId?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+UpdateLocationRequestSchema
+Type: Zod schema
+Fields: name?, description?, parentLocationId?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+### Preference Card Schemas
+
+CreatePreferenceCardRequestSchema
+Type: Zod schema
+Fields: surgeonId, procedureName, description?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+UpdatePreferenceCardRequestSchema
+Type: Zod schema
+Fields: procedureName?, description?, active?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+CreatePreferenceCardVersionRequestSchema
+Type: Zod schema
+Fields: items (Array<{catalogId, quantity, notes?}>)
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+### Room Schemas
+
+CreateRoomRequestSchema
+Type: Zod schema
+Fields: name
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+UpdateRoomRequestSchema
+Type: Zod schema
+Fields: name?, active?, sortOrder?
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts (UNKNOWN)
+
+### Domain Enums (imported from @asc/domain)
+
+UserRole
+Values: ADMIN, SURGEON, CIRCULATOR, SCRUB, ANESTHESIA, INVENTORY_TECH
+Source: @asc/domain
+
+CaseStatus
+Values: REQUESTED, SCHEDULED, ACTIVE, IN_PROGRESS, COMPLETED, CANCELLED
+Source: @asc/domain
+
+SterilityStatus
+Values: STERILE, NON_STERILE, EXPIRED
+Source: @asc/domain
+
+InventoryEventType
+Values: VERIFIED, LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED, EXPIRED, RECEIVED
+Source: @asc/domain
+
+AttestationType
+Values: CASE_READINESS, SURGEON_ACKNOWLEDGMENT
+Source: @asc/domain
+
+DeviceType
+Values: RFID_READER, BARCODE_SCANNER, KEYBOARD_WEDGE (special virtual device ID: 00000000-0000-0000-0000-000000000000)
+Source: @asc/domain
+
+ReadinessState
+Values: GREEN, ORANGE, RED
+Source: @asc/domain
+
+ChecklistType
+Values: TIMEOUT, DEBRIEF
+Source: @asc/domain
+
+ChecklistStatus
+Values: PENDING, IN_PROGRESS, COMPLETED
+Source: @asc/domain
+
+SignatureMethod
+Values: ELECTRONIC, MANUAL (implicit, used in checklist signing)
+Source: @asc/domain
+
+ItemCategory
+Values: IMPLANT, INSTRUMENT, SUPPLY, EQUIPMENT, CONTAINER
+Source: @asc/domain
+
+Criticality
+Values: CRITICAL, IMPORTANT, ROUTINE
+Source: @asc/domain
+
+---
+
+## SECTION 3: ERROR HANDLING
+
+All endpoints return standardized error envelope:
+{ error: { code: string, message: string, requestId: string, details?: any } }
+
+### Standard HTTP Status Codes & Error Codes
+
+200 OK
+201 Created (resource created)
+400 Bad Request — VALIDATION_ERROR, ITEMS_NOT_FOUND, DUPLICATE
+401 Unauthorized — UNAUTHENTICATED
+403 Forbidden — FORBIDDEN
+404 Not Found — NOT_FOUND
+409 Conflict — INVALID_STATE (for state machine violations), DUPLICATE
+422 Unprocessable Entity — TIMEOUT_REQUIRED, DEBRIEF_REQUIRED
+500 Internal Server Error — INTERNAL_ERROR
+
+### Error Code Meanings
+
+VALIDATION_ERROR: Input schema failed validation or business rule violated
+UNAUTHENTICATED: JWT missing, invalid, or expired
+FORBIDDEN: User lacks required capability or role
+NOT_FOUND: Resource does not exist or user lacks access
+DUPLICATE: Unique constraint violated (name, username, etc.)
+INVALID_STATE: State machine transition rejected (e.g., cannot deactivate last admin, case already active)
+INTERNAL_ERROR: Unhandled server exception (no stack trace exposed)
+ITEMS_NOT_FOUND: Bulk operation had missing items
+TIMEOUT_REQUIRED: Case cannot start without Timeout checklist completion
+DEBRIEF_REQUIRED: Case cannot complete without Debrief checklist completion
+
+All errors include requestId for audit trail correlation.
+
+---
+
+## SECTION 4: CLIENT WRAPPERS (Web App Integration)
+
+Looking for client wrapper implementations in web app:
+/c/Users/missp/source/repos/ASC-Inventory/apps/web/src
+
+Key patterns identified:
+- Fastify contract-based routing via @asc/contract package (registerContractRoute)
+- Idempotency via plugin: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/plugins/idempotency.ts
+- Capability-based auth via plugin: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/plugins/auth.ts
+- Request ID correlation via plugin: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/plugins/request-id.ts
+
+UNKNOWN: Exact web app client wrapper implementations (require web source inspection)
+
+---
+
+## SECTION 5: INCONSISTENCIES & VIOLATIONS
+
+### Naming Inconsistencies
+
+1. Cases List endpoint uses query parameter "search" but implementation unclear in contract definition
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/cases.routes.ts:89
+   Potential issue: Parameter name not documented in contract schema
+
+2. CaseFormat includes both "role" and "roles" fields in responses for backward compatibility but schema definition inconsistent
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/auth.routes.ts:119-120
+   Issue: Legacy "role" field alongside new "roles" array; clients must handle both
+
+3. Device ID Constants
+   Keyboard wedge virtual device has hardcoded special ID: 00000000-0000-0000-0000-000000000000
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/repositories/index.ts (UNKNOWN - constant reference found in inventory.routes.ts:18)
+   Issue: Magic string in multiple places, should be centrally defined
+
+### Versioning Issues
+
+1. Checklist Templates use legacy PUT endpoint alongside PATCH
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/checklists.routes.ts:231-236
+   Issue: Both PUT and PATCH registered to same handler; HTTP semantics conflict (PUT implies replace, PATCH implies partial)
+
+2. Case Dashboard Scheduling uses PUT not PATCH for partial update
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/case-dashboard.routes.ts:801
+   Issue: PUT semantics imply full resource replacement, but endpoint accepts partial updates
+
+### Error Handling Inconsistencies
+
+1. Inventory risk-queue endpoint returns computed data with debug info but no error handling documented
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/inventory.routes.ts:886
+   Issue: No failure modes defined; assumes all data queries succeed
+
+2. Device Event Processing returns structured error in response body (not HTTP error) for unmatched barcodes
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/inventory.routes.ts:554-563
+   Issue: 201 status on partial success (deviceEventId created but processingError non-null); ambiguous success/failure semantics
+
+3. Case deletion has cascading deletes with no transaction safety documented
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/cases.routes.ts:672-698
+   Issue: Multiple ALTER TABLE statements without explicit transaction context; constraint toggle unsafe
+
+### Envelope Shape Inconsistencies
+
+1. Most endpoints return wrapped response: { <dataKey>: <data> }
+   But some return raw arrays directly or nested differently
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/cases.routes.ts:496
+   Line 496: Returns array directly, not wrapped in key
+
+2. Financial event endpoint returns { success: true } without detailed financial record in response
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/inventory.routes.ts:435
+   Issue: No way to retrieve financial_attestation_user_id or confirm event was recorded
+
+3. Device event response mixes computed and stored data in inconsistent envelope
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/inventory.routes.ts:554-563
+   Issue: deviceEventId, processed, processedItemId, candidate, gs1Data, catalogMatch, barcodeClassification, error all mixed at root level
+
+### Auth Enforcement Inconsistencies
+
+1. Surgeon checklist feedback (PATCH /surgeon/checklists/:instanceId/feedback) uses roles array check
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/checklists.routes.ts:250
+   But other surgeon endpoints check request.user.role directly
+   Issue: Inconsistent auth pattern for multi-role users
+
+2. Preference card endpoints declare PREFERENCE_CARD_MANAGE capability but implementation not verified
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/preference-cards.routes.ts (capability reference)
+   Issue: Capability name not confirmed in auth plugin capabilities list
+
+### Catalog Validation Issues
+
+1. Catalog v1.1 Intent Fields (requires_lot_tracking, etc.) optional on create but validation enforced on inventory check-in
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/inventory.routes.ts:689-710
+   Issue: Late enforcement; catalog could be created without these fields then enforce on check-in
+
+2. Catalog category values not validated against ItemCategory enum on POST
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/catalog.routes.ts:174
+   Issue: category field accepted as Record<string, unknown> without validation
+
+---
+
+## SECTION 6: AUTHENTICATION MECHANISMS
+
+### JWT-Based Authentication
+
+All authenticated endpoints require Authorization header: `Authorization: Bearer <token>`
+
+Token Format: JWT (HS256 or RS256, depends on fastify-jwt config)
+Secret: process.env.JWT_SECRET (default 'dev-secret-change-in-production')
+Expiration: 24 hours (expiresIn: '24h')
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/index.ts:87-92
+
+### Payload Structure (JwtPayload)
+
+{
+  userId: string (UUID)
+  facilityId: string | null (null for PLATFORM_ADMIN)
+  username: string
+  email: string | null
+  name: string
+  role: UserRole (primary role for backward compatibility)
+  roles: UserRole[] (all assigned roles)
+}
+
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/auth.routes.ts:113-121
+
+### Capability-Based Authorization
+
+Endpoints use requireCapabilities() plugin to check user roles against required capabilities.
+
+Capability Derivation: Roles → Capabilities (mapping in auth.ts)
+- ADMIN → all capabilities
+- SURGEON → CASE_CREATE, CASE_PREFERENCE_CARD_LINK, CASE_VIEW, etc.
+- CIRCULATOR → CASE_ACTIVATE, CASE_ASSIGN_ROOM, etc.
+- INVENTORY_TECH → INVENTORY_CHECKIN, INVENTORY_MANAGE
+- etc.
+
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/plugins/auth.ts (UNKNOWN - exact mapping not inspected)
+
+### Platform Admin Auth
+
+Special case for control plane endpoints (/api/platform/*):
+- Requires facilityId = NULL in JWT
+- Uses requirePlatformAdmin() plugin
+
+File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/plugins/auth.ts (requirePlatformAdmin function)
+
+### Multi-Tenancy Enforcement
+
+All query() calls filtered by request.user.facilityId
+Exception: Platform admin routes have facilityId = null
+
+---
+
+## SECTION 7: MISSING DETAILS (UNKNOWN)
+
+1. Exact Zod schema definitions for all request bodies beyond LoginRequestSchema
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/schemas/index.ts
+   Why: File too large to fully inspect; schemas exist but definitions not captured
+
+2. Web app client wrapper implementations
+   Directory: /c/Users/missp/source/repos/ASC-Inventory/apps/web/src
+   Why: Out of scope for backend API contract; not inspected
+
+3. Contract package endpoint definitions
+   File: /c/Users/missp/source/repos/ASC-Inventory/packages/contract/src
+   Why: External package; assumed as source of truth but definitions not inspected
+
+4. Capability-to-role mapping details
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/plugins/auth.ts (deriveCapabilities function)
+   Why: Full mapping not inspected; inferred from route-level usage
+
+5. Database schema details (tables, columns, constraints)
+   File: Migration files in /c/Users/missp/source/repos/ASC-Inventory/apps/api/db
+   Why: Out of scope; data model inferred from query() calls and repository interfaces
+
+6. Platform Config Routes (platform-config.routes.ts) full endpoint list
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/platform-config.routes.ts
+   Why: File not fully read; assumed similar pattern to other CRUD routes
+
+7. Case Card Routes feedback endpoints
+   File: /c/Users/missp/source/repos/ASC-Inventory/apps/api/src/routes/case-cards.routes.ts (lines 1394-1780)
+   Why: File too large; section not fully inspected
+
+---
+
+END OF API CONTRACT SNAPSHOT

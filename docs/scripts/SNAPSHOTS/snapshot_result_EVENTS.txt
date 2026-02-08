@@ -1,0 +1,280 @@
+A) Event sources and definitions
+
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Defines inventory_event_type enum, attestation_type enum, device_type enum, device_payload_type enum
+
+C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts
+Defines InventoryEventType enum, AttestationType enum, ChecklistType enum, SignatureMethod enum, ChecklistStatus enum
+
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts
+Defines request/response schemas for events and attestations
+
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts
+Defines AuthEventType type and AuthFailureReason type
+
+B) Event persistence tables (DB)
+
+inventory_event
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Key columns: id, facility_id, inventory_item_id, event_type, case_id, location_id, previous_location_id, sterility_status, notes, performed_by_user_id, device_event_id, occurred_at, created_at
+Append-only enforcement: Triggers inventory_event_no_update and inventory_event_no_delete (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 391-397)
+
+attestation
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Key columns: id, facility_id, case_id, type, attested_by_user_id, readiness_state_at_time, notes, created_at, voided_at, voided_by_user_id
+Append-only enforcement: Modified trigger attestation_allow_void_only permits only voiding operations (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\002_attestation_voiding.sql lines 16-43)
+
+device_event
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Key columns: id, facility_id, device_id, device_type, payload_type, raw_value, processed_item_id, processed, processing_error, occurred_at, created_at
+Append-only enforcement: Triggers device_event_no_update and device_event_no_delete (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 409-415)
+
+surgical_case_status_event
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\036_case_status_events.sql
+Key columns: id, surgical_case_id, from_status, to_status, reason, context, actor_user_id, created_at
+Append-only enforcement: Triggers case_status_event_no_update and case_status_event_no_delete (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\036_case_status_events.sql lines 20-26)
+
+catalog_event
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\037_catalog_event.sql
+Key columns: id, facility_id, catalog_item_id, action, actor_user_id, payload, created_at
+Append-only enforcement: Triggers catalog_event_no_update and catalog_event_no_delete (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\037_catalog_event.sql lines 18-24)
+
+auth_audit_log
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\048_auth_audit_log.sql
+Key columns: id, event_type, facility_id, user_id, username, user_roles, success, failure_reason, request_id, ip_address, user_agent, created_at
+Append-only enforcement: Triggers auth_audit_log_no_update and auth_audit_log_no_delete (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\048_auth_audit_log.sql lines 43-49)
+
+case_checklist_response
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql
+Key columns: id, instance_id, item_key, value, completed_by_user_id, completed_at, created_at
+Append-only enforcement: Triggers case_checklist_response_no_update and case_checklist_response_no_delete (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql lines 113-119)
+
+case_checklist_signature
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql
+Key columns: id, instance_id, role, signed_by_user_id, signed_at, method, created_at, flagged_for_review
+Append-only enforcement: Triggers case_checklist_signature_no_update and case_checklist_signature_no_delete (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql lines 136-142)
+
+case_checklist_flag_resolution
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\026_checklist_flag_for_review.sql
+Key columns: id, signature_id, resolved_by_user_id, resolved_at, resolution_notes, created_at
+Append-only enforcement: UNKNOWN (no explicit trigger found)
+
+C) Event types/enums
+
+InventoryEventType
+Values: RECEIVED, VERIFIED, LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED, EXPIRED, RETURNED, ADJUSTED
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 189-199
+Consumed in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\inventory.repository.ts, C:\Users\missp\source\repos\ASC-Inventory\packages\contract\src\routes\inventory.ts
+
+AttestationType
+Values: CASE_READINESS, SURGEON_ACKNOWLEDGMENT
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 202-206
+Consumed in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+
+ChecklistType
+Values: TIMEOUT, DEBRIEF
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 481-482
+Consumed in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\reports.routes.ts
+
+ChecklistStatus
+Values: NOT_STARTED, IN_PROGRESS, COMPLETED
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 484-485
+Consumed in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts
+
+SignatureMethod
+Values: LOGIN, PIN, BADGE, KIOSK_TAP
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 487-488
+Consumed in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts
+
+AuthEventType
+Values: LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts line 14
+Consumed in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts
+
+AuthFailureReason
+Values: user_not_found, bad_password, account_disabled, facility_not_found, invalid_token
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts lines 16-21
+Consumed in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts
+
+CatalogEventAction
+Values: IMAGE_ADDED, IMAGE_REMOVED (from usage context)
+Defining file: UNKNOWN (not explicitly enumerated, string type used)
+Consumed in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog-images.routes.ts
+
+D) Emission points (who writes events)
+
+inventory_event
+Emitting API routes: POST /inventory/events (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 160), POST /inventory/events/bulk (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 206), POST /inventory/events/financial (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 271)
+Emitting service: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\inventory.repository.ts createEvent method
+Required auth: VERIFY_SCAN capability (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts)
+
+attestation
+Emitting API routes: POST /readiness/attestations (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts line 214)
+Emitting service: Direct query in readiness.routes.ts
+Required auth: CHECKLIST_ATTEST capability (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts)
+
+device_event
+Emitting API routes: POST /inventory/device-events (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 439)
+Emitting service: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\device.repository.ts createEvent method
+Required auth: VERIFY_SCAN capability (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts)
+
+surgical_case_status_event
+Emitting API routes: Indirect via case mutations in C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Emitting service: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\case-status.service.ts recordStatusEvent function
+Required auth: CASE_UPDATE or CASE_ACTIVATE or CASE_APPROVE capability (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts)
+
+catalog_event
+Emitting API routes: POST /catalog/:catalogId/images (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog-images.routes.ts line 153), DELETE /catalog/:catalogId/images/:imageId (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog-images.routes.ts line 73)
+Emitting service: Direct query in catalog-images.routes.ts
+Required auth: CATALOG_MANAGE capability (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog-images.routes.ts)
+
+auth_audit_log
+Emitting API routes: POST /auth/login (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts line 28)
+Emitting service: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts logAuthEvent function
+Required auth: None (public endpoint)
+
+case_checklist_response
+Emitting API routes: POST /cases/:id/checklists/:type/respond (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 334)
+Emitting service: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Required auth: CHECKLIST_ATTEST or OR_TIMEOUT or OR_DEBRIEF capability (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts)
+
+case_checklist_signature
+Emitting API routes: POST /cases/:id/checklists/:type/sign (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 376)
+Emitting service: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Required auth: CHECKLIST_ATTEST or OR_TIMEOUT or OR_DEBRIEF capability (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts)
+
+E) Read/consumption points (who reads events)
+
+inventory_event
+API endpoints: UNKNOWN (no explicit GET route found for inventory events)
+Web pages: UNKNOWN (no direct consumption found in web app)
+Aggregation: UNKNOWN
+
+attestation
+API endpoints: GET /readiness/cases/:id/attestations (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts line 293)
+Web pages: UNKNOWN (consumed via readiness API but specific pages not traced)
+Aggregation: Queried in C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\readiness.service.ts getAttestationsForCases function for cache computation
+
+device_event
+API endpoints: UNKNOWN (no explicit GET route found for device events)
+Web pages: UNKNOWN
+Aggregation: UNKNOWN
+
+surgical_case_status_event
+API endpoints: GET /cases/:caseId/status-events (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 483)
+Web pages: UNKNOWN (no direct consumption found in web app)
+Aggregation: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\case-status.service.ts getStatusEvents function
+
+catalog_event
+API endpoints: UNKNOWN (no explicit GET route found for catalog events)
+Web pages: UNKNOWN
+Aggregation: UNKNOWN
+
+auth_audit_log
+API endpoints: GET /auth-audit (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 342)
+Web pages: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\page.tsx (inferred from route structure)
+Aggregation: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts getAuthAuditLog function
+
+case_checklist_response
+API endpoints: Embedded in checklist instance response (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts)
+Web pages: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\or\timeout\[caseId]\page.tsx, C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\or\debrief\[caseId]\page.tsx
+Aggregation: UNKNOWN
+
+case_checklist_signature
+API endpoints: Embedded in checklist instance response (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts)
+Web pages: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\or\timeout\[caseId]\page.tsx, C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\or\debrief\[caseId]\page.tsx, C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\pending-reviews\page.tsx
+Aggregation: UNKNOWN
+
+F) Event-to-state effects (factual only)
+
+inventory_event VERIFIED emission
+Updates inventory_item.last_verified_at and inventory_item.last_verified_by_user_id
+Implemented in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\inventory.repository.ts (inferred from schema)
+
+attestation creation
+Updates case_readiness_cache.has_attestation, case_readiness_cache.attested_at, case_readiness_cache.attested_by_name
+Implemented in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\readiness.service.ts updateReadinessCache function
+
+surgical_case_status_event emission
+Does not update surgical_case.status directly, event is emitted alongside status update
+Implemented in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\case.repository.ts update, activate, approve, cancel, reject methods
+
+case_checklist_signature emission
+Updates case_checklist_instance.status to COMPLETED when all required signatures collected
+Implemented in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts (inferred from checklist completion logic)
+
+case_checklist_response emission
+No state table update
+Implemented in: Append-only table only
+
+G) Traceability fields
+
+inventory_event
+Actor attribution: performed_by_user_id
+Correlation: inventory_item_id, case_id, device_event_id, location_id
+Timestamps: occurred_at, created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 263-279
+
+attestation
+Actor attribution: attested_by_user_id, voided_by_user_id
+Correlation: case_id, facility_id
+Timestamps: created_at, voided_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 290-299, C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\002_attestation_voiding.sql lines 5-7
+
+device_event
+Actor attribution: None (device-originated)
+Correlation: device_id, processed_item_id, facility_id
+Timestamps: occurred_at, created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 323-336
+
+surgical_case_status_event
+Actor attribution: actor_user_id
+Correlation: surgical_case_id
+Timestamps: created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\036_case_status_events.sql lines 5-13
+
+catalog_event
+Actor attribution: actor_user_id
+Correlation: catalog_item_id, facility_id
+Timestamps: created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\037_catalog_event.sql lines 4-11
+
+auth_audit_log
+Actor attribution: user_id, username
+Correlation: facility_id, request_id
+Timestamps: created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\048_auth_audit_log.sql lines 10-32
+
+case_checklist_response
+Actor attribution: completed_by_user_id
+Correlation: instance_id
+Timestamps: completed_at, created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql lines 99-107
+
+case_checklist_signature
+Actor attribution: signed_by_user_id, resolved_by_user_id
+Correlation: instance_id
+Timestamps: signed_at, created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql lines 122-131, C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\026_checklist_flag_for_review.sql lines 8-11
+
+H) Inconsistencies or gaps (factual only)
+
+Timestamp field naming inconsistency
+inventory_event uses occurred_at, attestation uses created_at only, device_event uses both occurred_at and created_at, surgical_case_status_event uses created_at only
+File paths: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql, C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\036_case_status_events.sql
+
+Missing explicit GET endpoints for several event tables
+inventory_event, device_event, catalog_event have no dedicated retrieval routes
+File paths searched: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\*.ts
+
+CatalogEventAction values not enumerated
+Catalog event action field is TEXT type without enum constraint, values inferred from usage only
+File paths: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\037_catalog_event.sql line 8, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog-images.routes.ts lines 109-111
+
+case_checklist_flag_resolution lacks append-only trigger
+No prevent_modification trigger found for case_checklist_flag_resolution table
+File paths searched: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\026_checklist_flag_for_review.sql
+
+Mixed event persistence patterns
+Some events use service functions (case-status.service.ts, auth-audit.service.ts), others use direct repository queries, others use inline route queries
+File paths: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\case-status.service.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog-images.routes.ts

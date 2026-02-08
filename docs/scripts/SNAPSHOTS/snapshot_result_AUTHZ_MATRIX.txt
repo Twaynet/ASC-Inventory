@@ -1,0 +1,291 @@
+A) Source of truth locations
+
+C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts - Defines UserRole enum, Capability type, ROLE_CAPABILITIES mapping, deriveCapabilities function
+C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\persona.ts - Defines Persona type and persona system (UX-only, non-authoritative)
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts - Defines API authorization helpers (requireRoles, requireCapabilities, requireAdmin, requireScheduler, requirePlatformAdmin, requireTenantContext)
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts - Defines FEATURES array with role and capability requirements per feature
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\auth.tsx - Defines AuthProvider, useAuth, useAccessControl hooks
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\components\AccessGuard.tsx - Client-side UI guard component
+C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\AuthGuard.tsx - Client-side authentication redirect guard
+
+B) Roles
+
+PLATFORM_ADMIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 26
+ADMIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 27
+SCHEDULER - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 28
+INVENTORY_TECH - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 29
+CIRCULATOR - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 30
+SURGEON - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 31
+SCRUB - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 32
+ANESTHESIA - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 33
+
+C) Capabilities
+
+CASE_VIEW - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 58
+CASE_CREATE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 59
+CASE_UPDATE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 60
+CASE_APPROVE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 61
+CASE_REJECT - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 62
+CASE_ASSIGN_ROOM - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 63
+CASE_ACTIVATE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 64
+CASE_CHECKIN_PREOP - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 65
+CASE_DELETE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 66
+CASE_CANCEL - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 67
+CASE_PREFERENCE_CARD_LINK - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 68
+VERIFY_SCAN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 69
+CHECKLIST_ATTEST - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 70
+OR_DEBRIEF - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 71
+OR_TIMEOUT - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 72
+INVENTORY_READ - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 73
+INVENTORY_CHECKIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 74
+INVENTORY_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 75
+USER_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 76
+LOCATION_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 77
+CATALOG_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 78
+REPORTS_VIEW - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 79
+SETTINGS_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 80
+PLATFORM_ADMIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 82
+PLATFORM_CONFIG_VIEW - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 83
+PLATFORM_CONFIG_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 84
+
+D) Role → Capability mapping
+
+PLATFORM_ADMIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 96-101
+PLATFORM_ADMIN
+PLATFORM_CONFIG_VIEW
+PLATFORM_CONFIG_MANAGE
+
+ADMIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 105-111
+USER_MANAGE
+LOCATION_MANAGE
+CATALOG_MANAGE
+INVENTORY_MANAGE
+REPORTS_VIEW
+SETTINGS_MANAGE
+CASE_VIEW
+CASE_CREATE
+CASE_UPDATE
+CASE_APPROVE
+CASE_REJECT
+CASE_ASSIGN_ROOM
+CASE_ACTIVATE
+CASE_CHECKIN_PREOP
+CASE_DELETE
+CASE_CANCEL
+CASE_PREFERENCE_CARD_LINK
+
+SCHEDULER - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 114-116
+CASE_VIEW
+CASE_CREATE
+CASE_UPDATE
+CASE_APPROVE
+CASE_REJECT
+CASE_ASSIGN_ROOM
+CASE_ACTIVATE
+CASE_CHECKIN_PREOP
+CASE_CANCEL
+
+INVENTORY_TECH - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 104
+CASE_VIEW
+INVENTORY_READ
+INVENTORY_CHECKIN
+
+CIRCULATOR - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 103
+CASE_VIEW
+CHECKLIST_ATTEST
+OR_DEBRIEF
+OR_TIMEOUT
+CASE_CHECKIN_PREOP
+
+SURGEON - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 112-113
+CASE_VIEW
+CASE_CREATE
+CASE_UPDATE
+CASE_CANCEL
+CASE_PREFERENCE_CARD_LINK
+CHECKLIST_ATTEST
+
+SCRUB - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 102
+CASE_VIEW
+VERIFY_SCAN
+CHECKLIST_ATTEST
+
+ANESTHESIA - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 117
+CASE_VIEW
+CHECKLIST_ATTEST
+
+E) API enforcement matrix
+
+GET /api/cases - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 86 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+GET /api/cases/:caseId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 106 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+PATCH /api/cases/:caseId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 134 - requireCapabilities - CASE_UPDATE
+POST /api/cases/:caseId/approve - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 198 - requireCapabilities - CASE_APPROVE
+POST /api/cases/:caseId/reject - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 226 - requireCapabilities - CASE_REJECT
+PATCH /api/cases/:caseId/assign-room - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 244 - requireCapabilities - CASE_ASSIGN_ROOM
+POST /api/cases - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 289 - requireCapabilities - CASE_CREATE
+POST /api/cases/:caseId/activate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 366 - requireCapabilities - CASE_ACTIVATE
+POST /api/cases/:caseId/deactivate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 404 - requireCapabilities - CASE_ACTIVATE
+POST /api/cases/:caseId/cancel - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 433 - requireCapabilities - CASE_CANCEL
+POST /api/cases/:caseId/check-in-preop - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 460 - requireCapabilities - CASE_CHECKIN_PREOP
+GET /api/cases/:caseId/status-events - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 485 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+POST /api/cases/:id/preference-card - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 519 - requireCapabilities - CASE_PREFERENCE_CARD_LINK
+PUT /api/cases/:id/requirements - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 567 - requireCapabilities - CASE_VIEW - Note: Only surgeon or admin (USER_MANAGE) can modify in business logic
+DELETE /api/cases/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 620 - requireCapabilities - CASE_DELETE
+
+GET /api/users - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 46 - requireCapabilities - USER_MANAGE
+GET /api/users/surgeons - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 89 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+GET /api/users/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 114 - requireCapabilities - USER_MANAGE
+POST /api/users - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 151 - requireCapabilities - USER_MANAGE
+PATCH /api/users/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 207 - requireCapabilities - USER_MANAGE
+POST /api/users/:id/deactivate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 315 - requireCapabilities - USER_MANAGE
+POST /api/users/:id/activate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 365 - requireCapabilities - USER_MANAGE
+
+POST /api/inventory/events - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 162 - requireCapabilities - INVENTORY_CHECKIN or INVENTORY_MANAGE
+POST /api/inventory/events/bulk - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 208 - requireCapabilities - INVENTORY_CHECKIN or INVENTORY_MANAGE
+POST /api/inventory/events/financial - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 308 - requireCapabilities - INVENTORY_MANAGE
+POST /api/inventory/device-events - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 455 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+GET /api/inventory/devices - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 571 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+GET /api/inventory/items - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 591 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+GET /api/inventory/items/:itemId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 610 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+POST /api/inventory/items - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 642 - requireCapabilities - INVENTORY_MANAGE
+PATCH /api/inventory/items/:itemId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 774 - requireCapabilities - INVENTORY_MANAGE
+GET /api/inventory/items/:itemId/history - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 836 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+GET /api/inventory/risk-queue - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 887 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+
+GET /api/checklists/facility/settings - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 47 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+PATCH /api/checklists/facility/settings - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 71 - requireCapabilities - SETTINGS_MANAGE
+GET /api/checklists/rooms - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 94 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+GET /api/checklists/checklists/templates - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 112 - fastify.authenticate - ADMIN - Enforced in handler at line 117-119
+GET /api/checklists/checklists/templates/:type - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 131 - fastify.authenticate - ADMIN - Enforced in handler at line 138-141
+PUT /api/checklists/checklists/templates/:type - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 231 - fastify.authenticate - ADMIN - Enforced in handler at line 183-186
+PATCH /api/checklists/checklists/templates/:type - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 234 - fastify.authenticate - ADMIN - Enforced in handler at line 183-186
+PUT /api/checklists/surgeon/checklists/:instanceId/feedback - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 268 - fastify.authenticate - SURGEON - Enforced in handler at line 250-252
+PATCH /api/checklists/surgeon/checklists/:instanceId/feedback - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 271 - fastify.authenticate - SURGEON - Enforced in handler at line 250-252
+GET /api/checklists/cases/:id/checklists - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 284 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+POST /api/checklists/cases/:id/checklists/start - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 304 - fastify.authenticate - ADMIN or CIRCULATOR or SURGEON or SCRUB - Enforced in handler at line 312-315
+POST /api/checklists/cases/:id/checklists/:type/respond - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 338 - fastify.authenticate - ADMIN or CIRCULATOR or SURGEON or SCRUB or ANESTHESIA - Enforced in handler at line 346-349
+POST /api/checklists/cases/:id/checklists/:type/sign - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 380 - fastify.authenticate - none - Role mapping enforced in handler at line 404-419
+POST /api/checklists/cases/:id/checklists/:type/complete - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 435 - fastify.authenticate - ADMIN or CIRCULATOR - Enforced in handler at line 443-446
+POST /api/checklists/cases/:id/checklists/debrief/async-review - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 474 - fastify.authenticate - SCRUB or SURGEON - Enforced in handler at line 482-485
+GET /api/checklists/pending-reviews - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 528 - fastify.authenticate - ADMIN - Enforced in handler at line 532-535
+GET /api/checklists/my-pending-reviews - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 550 - fastify.authenticate - none - Filters by SCRUB or SURGEON in handler
+GET /api/checklists/flagged-reviews - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 587 - fastify.authenticate - ADMIN - Enforced in handler at line 591-594
+POST /api/checklists/flagged-reviews/:signatureId/resolve - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 619 - fastify.authenticate - ADMIN - Enforced in handler at line 627-630
+POST /api/checklists/flagged-reviews/:instanceId/resolve-surgeon-flag - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 649 - fastify.authenticate - ADMIN - Enforced in handler at line 657-660
+GET /api/checklists/surgeon/my-checklists - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 683 - fastify.authenticate - SURGEON - Enforced in handler at line 687-690
+
+GET /api/catalog - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 49 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+GET /api/catalog/:catalogId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 118 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+POST /api/catalog - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 172 - requireCapabilities - CATALOG_MANAGE
+PATCH /api/catalog/:catalogId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 247 - requireCapabilities - CATALOG_MANAGE
+POST /api/catalog/:catalogId/deactivate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 398 - requireCapabilities - CATALOG_MANAGE
+POST /api/catalog/:catalogId/activate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 426 - requireCapabilities - CATALOG_MANAGE
+GET /api/catalog/:catalogId/identifiers - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 469 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+POST /api/catalog/:catalogId/identifiers - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 510 - requireCapabilities - CATALOG_MANAGE
+DELETE /api/catalog/:catalogId/identifiers/:identifierId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 582 - requireCapabilities - CATALOG_MANAGE
+
+GET /api/locations - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\locations.routes.ts line 37 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+GET /api/locations/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\locations.routes.ts line 74 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+POST /api/locations - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\locations.routes.ts line 116 - requireCapabilities - LOCATION_MANAGE
+PATCH /api/locations/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\locations.routes.ts line 173 - requireCapabilities - LOCATION_MANAGE
+DELETE /api/locations/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\locations.routes.ts line 286 - requireCapabilities - LOCATION_MANAGE
+
+GET /api/general-settings/config-items - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 49 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+POST /api/general-settings/config-items - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 84 - requireCapabilities - SETTINGS_MANAGE
+PATCH /api/general-settings/config-items/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 128 - requireCapabilities - SETTINGS_MANAGE
+POST /api/general-settings/config-items/:id/deactivate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 187 - requireCapabilities - SETTINGS_MANAGE
+POST /api/general-settings/config-items/:id/activate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 217 - requireCapabilities - SETTINGS_MANAGE
+PUT /api/general-settings/config-items/reorder - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 277 - requireCapabilities - SETTINGS_MANAGE
+PATCH /api/general-settings/config-items/reorder - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 278 - requireCapabilities - SETTINGS_MANAGE
+
+GET /api/schedule/day - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 66 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+GET /api/schedule/unassigned - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 286 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+POST /api/schedule/block-times - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 338 - requireCapabilities - CASE_ASSIGN_ROOM
+PATCH /api/schedule/block-times/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 405 - requireCapabilities - CASE_ASSIGN_ROOM
+DELETE /api/schedule/block-times/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 486 - requireCapabilities - CASE_ASSIGN_ROOM
+PUT /api/schedule/rooms/:roomId/day-config - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 509 - requireCapabilities - CASE_ASSIGN_ROOM
+PATCH /api/schedule/reorder - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 574 - requireCapabilities - CASE_ASSIGN_ROOM
+
+GET /api/platform/health - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform.routes.ts line 23 - requirePlatformAdmin - PLATFORM_ADMIN
+GET /api/platform/facilities - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform.routes.ts line 40 - requirePlatformAdmin - PLATFORM_ADMIN
+GET /api/platform/config/keys - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 77 - requirePlatformAdmin - PLATFORM_ADMIN
+GET /api/platform/config/keys/:key - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 111 - requirePlatformAdmin - PLATFORM_ADMIN
+PATCH /api/platform/config/keys/:key - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 148 - requirePlatformAdmin - PLATFORM_ADMIN
+GET /api/platform/config/facilities/:facilityId/overrides - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 194 - requirePlatformAdmin - PLATFORM_ADMIN
+PATCH /api/platform/config/facilities/:facilityId/overrides/:key - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 241 - requirePlatformAdmin - PLATFORM_ADMIN
+DELETE /api/platform/config/facilities/:facilityId/overrides/:key - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 293 - requirePlatformAdmin - PLATFORM_ADMIN
+GET /api/platform/config/audit - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 327 - requirePlatformAdmin - PLATFORM_ADMIN
+GET /api/platform/config/auth-audit - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 354 - requirePlatformAdmin - PLATFORM_ADMIN
+
+Note: Checklists routes use hardcoded role checks in handler logic instead of preHandler guards. This creates enforcement inconsistency across routes.
+
+F) Web/UI enforcement matrix
+
+All authenticated pages - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\layout.tsx - AuthGuard - Redirects unauthenticated users to /login
+
+/dashboard - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\dashboard\page.tsx - No AccessGuard - Shows features based on access-control.ts FEATURES array with conditional rendering
+/calendar - No file read - No AccessGuard - Accessible by all authenticated users per FEATURES definition
+/cases - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\cases\page.tsx - No AccessGuard in file - Accessible by all authenticated users per FEATURES definition
+/preference-cards - No file read - No AccessGuard - Accessible by all authenticated users per FEATURES definition
+/pending-reviews - No file read - No AccessGuard - Accessible by all authenticated users per FEATURES definition
+/surgeon/my-checklists - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\surgeon\my-checklists\page.tsx - AccessGuard - requiredRoles: SURGEON
+/unassigned-cases - No file read - No AccessGuard - FEATURES definition requires ADMIN or SCHEDULER roles
+
+/admin/cases - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\cases\page.tsx - AccessGuard - requiredRoles: ADMIN or SCHEDULER - requiredCapabilities: CASE_APPROVE
+/admin/users - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\users\page.tsx - Manual hasRole check - ADMIN - Returns access denied div if not ADMIN at line 164-174
+/admin/locations - No file read - AccessGuard expected - FEATURES definition requires ADMIN role and LOCATION_MANAGE capability
+/admin/catalog - No file read - AccessGuard expected - FEATURES definition requires ADMIN role and CATALOG_MANAGE capability
+/admin/inventory - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\page.tsx - AccessGuard - requiredCapabilities: INVENTORY_MANAGE
+/admin/inventory/check-in - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\check-in\page.tsx - AccessGuard - requiredCapabilities: INVENTORY_CHECKIN
+/admin/inventory/risk-queue - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\risk-queue\page.tsx - AccessGuard - requiredCapabilities: INVENTORY_MANAGE
+/admin/reports - No file read - AccessGuard expected - FEATURES definition requires ADMIN role and REPORTS_VIEW capability
+/admin/general-settings - No file read - AccessGuard expected - FEATURES definition requires ADMIN role and SETTINGS_MANAGE capability
+/admin/pending-reviews - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\pending-reviews\page.tsx - AccessGuard - requiredRoles: ADMIN
+
+/platform - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\page.tsx - No explicit AccessGuard - API enforcement only via requirePlatformAdmin - Platform admin UI visible to PLATFORM_ADMIN via dashboard link
+
+Note: Some pages use AccessGuard component, some use manual hasRole checks, and some rely solely on API enforcement without client-side guards. Inconsistent enforcement patterns across UI routes.
+
+G) Effective access summary
+
+PLATFORM_ADMIN
+Web pages/features accessible: /dashboard with platform control plane section, /platform
+API routes accessible: /api/platform/health, /api/platform/facilities, /api/platform/config/keys, /api/platform/config/keys/:key, /api/platform/config/facilities/:facilityId/overrides, /api/platform/config/facilities/:facilityId/overrides/:key, /api/platform/config/audit, /api/platform/config/auth-audit
+Note: NO tenant capabilities, cannot access tenant data directly
+
+ADMIN
+Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews, /unassigned-cases, /admin/cases, /admin/users, /admin/locations, /admin/catalog, /admin/inventory, /admin/inventory/check-in, /admin/inventory/risk-queue, /admin/reports, /admin/general-settings, /admin/pending-reviews
+API routes accessible: All tenant routes requiring USER_MANAGE, LOCATION_MANAGE, CATALOG_MANAGE, INVENTORY_MANAGE, REPORTS_VIEW, SETTINGS_MANAGE, CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_DELETE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK, plus authenticated-only routes
+
+SCHEDULER
+Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews, /unassigned-cases, /admin/cases
+API routes accessible: All routes requiring CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_CANCEL, plus authenticated-only routes
+
+INVENTORY_TECH
+Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews
+API routes accessible: All routes requiring CASE_VIEW, INVENTORY_READ, INVENTORY_CHECKIN, plus authenticated-only routes
+
+CIRCULATOR
+Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews
+API routes accessible: All routes requiring CASE_VIEW, CHECKLIST_ATTEST, OR_DEBRIEF, OR_TIMEOUT, CASE_CHECKIN_PREOP, plus authenticated-only routes, checklist start/respond/complete
+
+SURGEON
+Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews, /surgeon/my-checklists
+API routes accessible: All routes requiring CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK, CHECKLIST_ATTEST, plus authenticated-only routes, checklist start/respond/sign/async-review, surgeon feedback endpoints
+
+SCRUB
+Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews
+API routes accessible: All routes requiring CASE_VIEW, VERIFY_SCAN, CHECKLIST_ATTEST, plus authenticated-only routes, checklist start/respond/sign/async-review
+
+ANESTHESIA
+Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews
+API routes accessible: All routes requiring CASE_VIEW, CHECKLIST_ATTEST, plus authenticated-only routes, checklist respond/sign
+
+H) Divergences between client and server enforcement
+
+Client guards but no server enforcement: None identified - All client-guarded features have corresponding API enforcement
+Server enforcement but no client guards: /admin/users page uses manual hasRole check instead of AccessGuard component - Other admin pages use AccessGuard - Inconsistent pattern
+Partial application of capability model: Checklists routes use hardcoded role arrays in handler logic instead of requireCapabilities or requireRoles preHandlers - Does not leverage capability model consistently - Routes at lines 112-119, 131-141, 162-230, 243-273, 304-315, 338-349, 380-419, 435-446, 474-485, 528-535, 550-575, 587-594, 619-630, 649-660, 683-690 in C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts
+Mixed enforcement patterns: Some API routes use requireCapabilities, some use requireRoles, some use requireAdmin/requireScheduler helpers, some use hardcoded role checks in handlers - No consistent pattern across all routes
+UI enforcement inconsistency: Dashboard page filters features by decision.allowed but does not prevent navigation - Some pages use AccessGuard, some use manual hasRole checks, some have no guard and rely on API enforcement only
+CASE_UPDATE edge case: PUT /api/cases/:id/requirements requires CASE_VIEW capability but enforces surgeon-or-admin business logic in handler - Capability check does not match actual authorization requirement

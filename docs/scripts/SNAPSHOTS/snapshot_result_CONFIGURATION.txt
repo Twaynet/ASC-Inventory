@@ -1,0 +1,326 @@
+ENVIRONMENT VARIABLES
+
+NODE_ENV
+Purpose: Sets application execution mode (development or production)
+Defining or Consuming: apps/api/src/index.ts, apps/api/.env, docker-compose.yml, docker-compose.prod.yml
+
+PORT
+Purpose: HTTP server listening port for API service
+Defining or Consuming: apps/api/src/index.ts, apps/api/.env (3001), docker-compose.yml (3001), docker-compose.prod.yml (3001)
+
+HOST
+Purpose: HTTP server binding host address for API service
+Defining or Consuming: apps/api/src/index.ts, default 0.0.0.0
+
+LOG_LEVEL
+Purpose: Pino logger output level (info, debug, warn, error)
+Defining or Consuming: apps/api/src/index.ts, default info
+
+DB_HOST
+Purpose: PostgreSQL server hostname
+Defining or Consuming: apps/api/src/db/index.ts, apps/api/.env, apps/api/db/migrate.ts, apps/api/db/seed.ts
+
+DB_PORT
+Purpose: PostgreSQL server port
+Defining or Consuming: apps/api/src/db/index.ts, apps/api/.env (5432), apps/api/db/migrate.ts, apps/api/db/seed.ts
+
+DB_NAME
+Purpose: PostgreSQL database name
+Defining or Consuming: apps/api/src/db/index.ts, apps/api/.env (asc_inventory), apps/api/db/migrate.ts, apps/api/db/seed.ts
+
+DB_USER
+Purpose: PostgreSQL authentication username
+Defining or Consuming: apps/api/src/db/index.ts, apps/api/.env (postgres), apps/api/db/migrate.ts, apps/api/db/seed.ts
+
+DB_PASSWORD
+Purpose: PostgreSQL authentication password
+Defining or Consuming: apps/api/src/db/index.ts, apps/api/.env, apps/api/db/migrate.ts, apps/api/db/seed.ts, docker-compose.prod.yml
+
+DB_SSL
+Purpose: Enable TLS for PostgreSQL connections (required for Neon, disabled for local)
+Defining or Consuming: apps/api/src/db/index.ts, apps/api/db/migrate.ts, apps/api/db/seed.ts
+
+JWT_SECRET
+Purpose: HMAC signing secret for JWT token generation and verification
+Defining or Consuming: apps/api/src/index.ts, apps/api/src/plugins/auth.ts, apps/api/.env, .env.example, docker-compose.yml, docker-compose.prod.yml
+
+CORS_ORIGIN
+Purpose: Allowed origin for Cross-Origin Resource Sharing requests
+Defining or Consuming: apps/api/src/index.ts, apps/api/.env (http://localhost:3000), docker-compose.yml, docker-compose.prod.yml (https://beta.orthowise.dev)
+
+AI_EXPLAIN_READINESS_ENABLED
+Purpose: Feature flag to enable AI-powered case readiness explanation endpoint
+Defining or Consuming: apps/api/src/routes/ai.routes.ts, apps/api/.env (true)
+
+OPENAI_API_KEY
+Purpose: API key for OpenAI API access (gpt-4o-mini model)
+Defining or Consuming: apps/api/src/services/ai.service.ts, apps/api/.env
+
+NEXT_PUBLIC_API_URL
+Purpose: Base URL for API requests from web frontend (NEXT_PUBLIC prefix exposes to client bundle)
+Defining or Consuming: apps/web/src/lib/api/client.ts, apps/web/.env.local, apps/web/Dockerfile ARG, docker-compose.yml, docker-compose.prod.yml
+
+NEXT_PUBLIC_VERSION
+Purpose: Application version string exposed in client bundle for Footer display
+Defining or Consuming: apps/web/Dockerfile ARG, apps/web/src/app/components/Footer.tsx
+
+NEXT_PUBLIC_BUILD_TIME
+Purpose: Build timestamp exposed in client bundle for Footer display
+Defining or Consuming: apps/web/Dockerfile ARG, apps/web/next.config.js, apps/web/src/app/components/Footer.tsx
+
+NEXT_PUBLIC_COMMIT_SHA
+Purpose: Git commit SHA hash exposed in client bundle for Footer display
+Defining or Consuming: apps/web/Dockerfile ARG, apps/web/next.config.js, apps/web/src/app/components/Footer.tsx
+
+IMAGE_TAG
+Purpose: Docker image version tag for pulling pre-built images from ghcr.io
+Defining or Consuming: .env.example, docker-compose.prod.yml
+
+POSTGRES_PASSWORD
+Purpose: PostgreSQL superuser password
+Defining or Consuming: .env.example, docker-compose.prod.yml
+
+SEED_FACILITY_KEY
+Purpose: Facility key identifier for database seed demo data
+Defining or Consuming: apps/api/db/seed.ts, default ORTHOWISE_BETA
+
+DEVELOPMENT AND PRODUCTION SCRIPTS
+
+Web Development Server
+Command: npm run dev (from apps/web directory) or turbo run dev (from root)
+Associated Service: asc-web
+Port Bindings: 3000 (varies with multiple instances: 3000, 3002, 3003+)
+
+API Development Server
+Command: npm run dev (from apps/api directory) with tsx watch, uses .env file
+Associated Service: asc-api
+Port Bindings: 3001
+
+API Build
+Command: npm run build (from apps/api directory)
+Associated Service: asc-api
+Output: TypeScript to JavaScript transpilation in apps/api/dist
+
+API Start
+Command: npm start (from apps/api directory)
+Associated Service: asc-api
+Port Bindings: 3001
+
+Web Build
+Command: npm run build (from apps/web directory)
+Associated Service: asc-web
+Output: Next.js production bundle
+
+Web Start
+Command: npm start (from apps/web directory)
+Associated Service: asc-web
+Port Bindings: 3000
+
+Database Migration
+Command: npm run db:migrate (from root) or node --import tsx db/migrate.ts (from apps/api)
+Associated Service: PostgreSQL
+Purpose: Execute SQL migration files in apps/api/db/migrations
+
+Database Seed
+Command: npm run db:seed (from root) or node --import tsx db/seed.ts (from apps/api)
+Associated Service: PostgreSQL
+Purpose: Populate database with demo data for development
+
+Database Schema Sanity Check
+Command: npm run db:check (from root)
+Associated Service: PostgreSQL
+Purpose: Verify database schema consistency
+
+Root Development (Parallel)
+Command: npm run dev (from root with turbo)
+Associated Service: asc-web, asc-api, PostgreSQL
+Port Bindings: Web on 3000, API on 3001, PostgreSQL on 5432
+
+Root Build (Parallel)
+Command: npm run build (from root with turbo)
+Associated Service: All packages and apps
+Purpose: Build domain package, contract package, API, and web in order
+
+Root Lint
+Command: npm run lint (from root with turbo)
+Purpose: ESLint across all workspaces
+
+Root Test
+Command: npm run test (from root with turbo)
+Purpose: Vitest across all workspaces
+
+Generate OpenAPI
+Command: npm run generate:openapi (from root)
+Associated Service: @asc/contract
+Purpose: Generate OpenAPI specification from TypeScript routes
+
+Generate Client
+Command: npm run generate:client (from root)
+Associated Service: @asc/contract
+Purpose: Generate TypeScript API client from OpenAPI spec
+
+Validate Documentation
+Command: npm run validate:docs (from root)
+Purpose: Run documentation validation script
+
+Validate Capabilities
+Command: npm run validate:capabilities (from root)
+Purpose: Run CI capability guardrails validation
+
+Validate API Modules
+Command: npm run validate:api-modules (from root)
+Purpose: Run CI API modules validation
+
+FEATURE FLAGS
+
+AI_EXPLAIN_READINESS_ENABLED
+Flag Name: AI_EXPLAIN_READINESS_ENABLED
+Storage Mechanism: Environment variable (apps/api/.env)
+What the Flag Gates: POST /api/ai/explain-readiness endpoint; when not set to 'true', endpoint returns 501 Not Implemented; controls AI-powered readiness explanation feature gated behind OpenAI API integration
+
+CONTAINER AND DOCKER CONFIGURATION
+
+Development Compose File
+Path: docker-compose.yml
+Services: postgres, api, web
+Named Volumes: postgres_data
+Port Mappings: postgres 5432:5432, api 3001:3001, web 3000:3000
+Shared Volumes: postgres migrations from apps/api/db/migrations, api src from apps/api/src, web src from apps/web/src (all read-only in dev)
+
+Production Compose File
+Path: docker-compose.prod.yml
+Services: postgres, caddy, api, web
+Named Volumes: postgres_data, caddy_data, caddy_config
+Port Mappings: caddy 80:80 and 443:443 (public), postgres internal only, api internal via expose 3001, web internal via expose 3000
+Image Sources: ghcr.io/twaynet/asc-inventory-api:${IMAGE_TAG}, ghcr.io/twaynet/asc-inventory-web:${IMAGE_TAG}
+Restart Policy: unless-stopped for all services
+Certificate Volumes: /etc/caddy/certs/origin.pem and origin-key.pem (read-only, not committed)
+
+API Dockerfile
+Path: apps/api/Dockerfile
+Base Image: node:20-alpine (builder and production stages)
+Build Output: /app/apps/api/dist
+Exposed Port: 3001
+Start Command: node dist/index.js
+Dependencies Managed: npm ci for deterministic builds
+Database Scripts: /app/apps/api/db included for runtime migrations
+Environment: NODE_ENV=production (hardcoded in Dockerfile), PORT=3001 (hardcoded in Dockerfile)
+
+Web Dockerfile
+Path: apps/web/Dockerfile
+Base Image: node:20-alpine
+Build Arguments: VERSION (default dev), BUILD_TIME (default dev), COMMIT_SHA (default dev), NEXT_PUBLIC_API_URL (default https://beta.orthowise.dev/api)
+Exposed Port: 3000
+Start Command: npm run start (Next.js production server)
+Build Output: /app/apps/web/.next
+Environment: NEXT_PUBLIC_* args passed as ENV during build for baking into client bundle
+
+HARD-CODED URLS, PORTS, AND HOSTNAMES
+
+API Server Default Port
+Value: 3001
+File Paths: apps/api/src/index.ts, apps/api/.env, docker-compose.yml, docker-compose.prod.yml, apps/web/Dockerfile, Caddyfile
+
+API Server Default Host
+Value: 0.0.0.0
+File Paths: apps/api/src/index.ts
+
+Web Server Default Port
+Value: 3000
+File Paths: docker-compose.yml, docker-compose.prod.yml, Caddyfile
+
+Web Server Default API URL
+Value: http://localhost:3001/api
+File Paths: apps/api/src/index.ts (CORS default), apps/web/src/lib/api/client.ts
+
+PostgreSQL Default Port
+Value: 5432
+File Paths: apps/api/src/db/index.ts, apps/api/db/migrate.ts, apps/api/db/seed.ts, docker-compose.yml, docker-compose.prod.yml
+
+PostgreSQL Default Database Name
+Value: asc_inventory
+File Paths: apps/api/src/db/index.ts, apps/api/db/migrate.ts, apps/api/db/seed.ts, docker-compose.yml, docker-compose.prod.yml
+
+PostgreSQL Default User
+Value: postgres
+File Paths: apps/api/src/db/index.ts, docker-compose.yml, docker-compose.prod.yml
+
+PostgreSQL Default Password
+Value: postgres (dev only, insecure for development)
+File Paths: apps/api/src/db/index.ts, apps/api/.env, docker-compose.yml
+
+Production Domain
+Value: beta.orthowise.dev
+File Paths: docker-compose.prod.yml (CORS_ORIGIN), Caddyfile
+
+Production API URL
+Value: https://beta.orthowise.dev/api
+File Paths: apps/web/Dockerfile NEXT_PUBLIC_API_URL default, docker-compose.prod.yml, apps/api/src/index.ts
+
+Localhost API URL (Development)
+Value: http://localhost:3001/api
+File Paths: apps/web/.env.local, apps/api/src/index.ts, apps/web/src/lib/api/client.ts, apps/web/src/app/(app)/calendar/components/DayView.tsx
+
+Caddy Reverse Proxy Targets
+Value: api:3001 for /api/*, web:3000 for all other routes
+File Paths: caddy/Caddyfile
+
+Caddy TLS Certificate Paths
+Value: /etc/caddy/certs/origin.pem, /etc/caddy/certs/origin-key.pem
+File Paths: caddy/Caddyfile
+
+JWT Token Expiration
+Value: 24h
+File Paths: apps/api/src/index.ts, apps/api/src/plugins/auth.ts
+
+File Upload Size Limit
+Value: 3MB (3 * 1024 * 1024 bytes)
+File Paths: apps/api/src/index.ts
+
+AI Rate Limit Window
+Value: 60000 milliseconds (1 minute)
+File Paths: apps/api/src/routes/ai.routes.ts
+
+AI Rate Limit Max Requests
+Value: 10 requests per window per user
+File Paths: apps/api/src/routes/ai.routes.ts
+
+AI Model
+Value: gpt-4o-mini
+File Paths: apps/api/src/services/ai.service.ts
+
+AI Request Timeout
+Value: 10000 milliseconds (10 seconds)
+File Paths: apps/api/src/services/ai.service.ts
+
+Development Facility Key (Seed)
+Value: ORTHOWISE_BETA
+File Paths: apps/api/db/seed.ts
+
+Default Log Level
+Value: info
+File Paths: apps/api/src/index.ts
+
+Node.js Version Requirement
+Value: >=20.0.0
+File Paths: package.json
+
+Package Manager Version
+Value: npm@10.8.2
+File Paths: package.json
+
+API Version (npm package)
+Value: 1.4.0
+File Paths: apps/api/package.json
+
+Web Version (npm package)
+Value: 1.5.0
+File Paths: apps/web/package.json
+
+Root Version
+Value: 1.7.0
+File Paths: package.json
+
+Default Seed Demo Users
+Values: admin, scheduler, tech, circulator, scrub, drsmith, drjones (all with password123)
+File Paths: apps/api/db/seed.ts
