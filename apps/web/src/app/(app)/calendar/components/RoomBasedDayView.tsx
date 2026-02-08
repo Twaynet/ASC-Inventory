@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { RoomColumn, RoomSchedule } from './RoomColumn';
-import { ScheduleCard, ScheduleItem, scheduleCardStyles } from './ScheduleCard';
+import { ScheduleCard, ScheduleItem } from './ScheduleCard';
 import { CreateCaseModal } from '@/components/CreateCaseModal';
 import { ScheduleCaseModal } from '@/components/ScheduleCaseModal';
 import { BlockTimeModal } from './BlockTimeModal';
@@ -59,7 +59,9 @@ function UnassignedDroppable({ children, isOver }: { children: React.ReactNode; 
   return (
     <div
       ref={setNodeRef}
-      className={`unassigned-content ${isOver ? 'drop-target-active' : ''}`}
+      className={`flex-1 p-2 overflow-y-auto min-h-[200px] ${
+        isOver ? 'bg-[var(--color-blue-50,#EBF8FF)] border-2 border-dashed border-[var(--color-blue-300,#90CDF4)] rounded-md' : ''
+      }`}
     >
       {children}
     </div>
@@ -361,25 +363,26 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
   const unassignedIds = filteredUnassignedCases.map(item => `${item.type}-${item.id}`);
 
   return (
-    <div className="room-based-day-view">
-      <div className="day-view-header">
-        <div className="day-view-summary">
-          <span className="summary-item">
-            <strong>{totalCases}</strong> case{totalCases !== 1 ? 's' : ''}
+    <div className="flex flex-col h-full">
+      <div className="flex justify-between items-center p-4 bg-[var(--color-gray-50)] border-b border-[var(--color-gray-200)] flex-wrap gap-4">
+        <div className="flex gap-6">
+          <span className="text-sm text-[var(--color-gray-600)]">
+            <strong className="text-[var(--color-gray-900)]">{totalCases}</strong> case{totalCases !== 1 ? 's' : ''}
           </span>
-          <span className="summary-item">
-            <strong>{data?.rooms.length || 0}</strong> room{(data?.rooms.length || 0) !== 1 ? 's' : ''}
+          <span className="text-sm text-[var(--color-gray-600)]">
+            <strong className="text-[var(--color-gray-900)]">{data?.rooms.length || 0}</strong> room{(data?.rooms.length || 0) !== 1 ? 's' : ''}
           </span>
-          <span className="summary-item">
-            <strong>{totalHours}h {remainingMinutes}m</strong> scheduled
+          <span className="text-sm text-[var(--color-gray-600)]">
+            <strong className="text-[var(--color-gray-900)]">{totalHours}h {remainingMinutes}m</strong> scheduled
           </span>
         </div>
-        <div className="day-view-actions">
-          <label className="toggle-label">
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-sm text-[var(--color-gray-600)] cursor-pointer select-none hover:text-[var(--color-gray-800)]">
             <input
               type="checkbox"
               checked={showInactive}
               onChange={(e) => setShowInactive(e.target.checked)}
+              className="w-4 h-4 cursor-pointer"
             />
             Show Inactive
           </label>
@@ -408,11 +411,11 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
       </div>
 
       {error && (
-        <div className="error-banner">{error}</div>
+        <div className="p-4 bg-[var(--color-red-50,#FEE2E2)] text-[var(--color-red-700,#B91C1C)] border-b border-[var(--color-red-200,#FECACA)]">{error}</div>
       )}
 
       {isLoading && !data ? (
-        <div className="loading-state">Loading schedule...</div>
+        <div className="flex items-center justify-center p-12 text-[var(--color-gray-500)]">Loading schedule...</div>
       ) : data ? (
         <DndContext
           sensors={sensors}
@@ -421,18 +424,22 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="schedule-container">
+          <div className="flex flex-1 overflow-x-auto p-4 gap-4">
             {/* Unassigned Cases Column */}
             {(filteredUnassignedCases.length > 0 || canEdit) && (
-              <div className={`unassigned-column ${overId === 'unassigned' ? 'drop-target' : ''}`}>
-                <div className="unassigned-header">
-                  <h3>Unassigned</h3>
-                  <span className="unassigned-count">{filteredUnassignedCases.length}</span>
+              <div className={`unassigned-col min-w-[180px] max-w-[220px] shrink-0 flex flex-col rounded-lg border-2 border-dashed transition-all ${
+                overId === 'unassigned'
+                  ? 'border-[var(--color-blue)] bg-[var(--color-blue-50,#EBF8FF)]'
+                  : 'border-[var(--color-orange-300,#FDBA74)] bg-[var(--color-orange-50,#FFF7ED)]'
+              }`}>
+                <div className="unassigned-hdr flex justify-between items-center p-3 border-b border-[var(--color-orange-200,#FED7AA)]">
+                  <h3 className="unassigned-heading text-sm font-semibold text-[var(--color-orange-800,#9A3412)] m-0">Unassigned</h3>
+                  <span className="unassigned-badge bg-[var(--color-orange-200,#FED7AA)] text-[var(--color-orange-800,#9A3412)] px-2 py-0.5 rounded-full text-xs font-semibold">{filteredUnassignedCases.length}</span>
                 </div>
                 <SortableContext items={unassignedIds} strategy={verticalListSortingStrategy}>
                   <UnassignedDroppable isOver={overId === 'unassigned'}>
                     {filteredUnassignedCases.length === 0 ? (
-                      <div className="unassigned-empty">
+                      <div className="unassigned-empty-text flex items-center justify-center h-full min-h-[100px] text-[var(--color-orange-400,#FB923C)] text-xs text-center p-4">
                         {canEdit ? 'Drag cases here to unassign' : 'No unassigned cases'}
                       </div>
                     ) : (
@@ -452,9 +459,9 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
             )}
 
             {/* Room Columns */}
-            <div className="rooms-container">
+            <div className="flex gap-4 flex-1">
               {filteredRooms.length === 0 ? (
-                <div className="no-rooms">
+                <div className="flex flex-col items-center justify-center gap-4 flex-1 text-[var(--color-gray-500)] text-sm">
                   No operating rooms configured.
                   {canEdit && (
                     <button
@@ -485,7 +492,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
 
           <DragOverlay>
             {activeItem ? (
-              <div className="drag-overlay-card">
+              <div className="opacity-90 cursor-grabbing">
                 <ScheduleCard
                   item={activeItem}
                   startTime="--:--"
@@ -571,195 +578,26 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
         zIndex={1000}
       />
 
+      {/* Minimal dark mode overrides for unassigned column (orange → neutral in dark theme) */}
       <style jsx>{`
-        .room-based-day-view {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-        }
-
-        .day-view-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem;
-          background: var(--color-gray-50);
-          border-bottom: 1px solid var(--color-gray-200);
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        .day-view-summary {
-          display: flex;
-          gap: 1.5rem;
-        }
-
-        .summary-item {
-          font-size: 0.875rem;
-          color: var(--color-gray-600);
-        }
-
-        .summary-item strong {
-          color: var(--color-gray-900);
-        }
-
-        .day-view-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .toggle-label {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-          font-size: 0.875rem;
-          color: var(--color-gray-600);
-          cursor: pointer;
-          user-select: none;
-        }
-
-        .toggle-label input[type="checkbox"] {
-          width: 1rem;
-          height: 1rem;
-          cursor: pointer;
-        }
-
-        .toggle-label:hover {
-          color: var(--color-gray-800);
-        }
-
-        .error-banner {
-          padding: 1rem;
-          background: var(--color-red-50, #FEE2E2);
-          color: var(--color-red-700, #B91C1C);
-          border-bottom: 1px solid var(--color-red-200, #FECACA);
-        }
-
-        .loading-state {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 3rem;
-          color: var(--color-gray-500);
-        }
-
-        .schedule-container {
-          display: flex;
-          flex: 1;
-          overflow-x: auto;
-          padding: 1rem;
-          gap: 1rem;
-        }
-
-        .unassigned-column {
-          min-width: 180px;
-          max-width: 220px;
-          flex-shrink: 0;
-          display: flex;
-          flex-direction: column;
-          background: var(--color-orange-50, #FFF7ED);
-          border-radius: 8px;
-          border: 2px dashed var(--color-orange-300, #FDBA74);
-          transition: border-color 0.15s, background 0.15s;
-        }
-
-        .unassigned-column.drop-target {
-          border-color: var(--color-blue);
-          background: var(--color-blue-50, #EBF8FF);
-        }
-
-        .unassigned-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0.75rem;
-          border-bottom: 1px solid var(--color-orange-200, #FED7AA);
-        }
-
-        .unassigned-header h3 {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: var(--color-orange-800, #9A3412);
-          margin: 0;
-        }
-
-        .unassigned-count {
-          background: var(--color-orange-200, #FED7AA);
-          color: var(--color-orange-800, #9A3412);
-          padding: 0.125rem 0.5rem;
-          border-radius: 9999px;
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-
-        .unassigned-content {
-          flex: 1;
-          padding: 0.5rem;
-          overflow-y: auto;
-          min-height: 200px;
-        }
-
-        .unassigned-content.drop-target-active {
-          background-color: var(--color-blue-50, #EBF8FF);
-          border: 2px dashed var(--color-blue-300, #90CDF4);
-          border-radius: 6px;
-        }
-
-        .unassigned-empty {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 100%;
-          min-height: 100px;
-          color: var(--color-orange-400, #FB923C);
-          font-size: 0.75rem;
-          text-align: center;
-          padding: 1rem;
-        }
-
-        :global([data-theme="dark"]) .unassigned-column {
+        :global([data-theme="dark"]) .unassigned-col {
           background: var(--surface-tertiary);
           border-color: var(--color-gray-400);
         }
-        :global([data-theme="dark"]) .unassigned-header {
+        :global([data-theme="dark"]) .unassigned-hdr {
           border-bottom-color: var(--color-gray-400);
         }
-        :global([data-theme="dark"]) .unassigned-header h3 {
+        :global([data-theme="dark"]) .unassigned-heading {
           color: var(--text-secondary);
         }
-        :global([data-theme="dark"]) .unassigned-count {
+        :global([data-theme="dark"]) .unassigned-badge {
           background: var(--color-gray-400);
           color: var(--text-primary);
         }
-        :global([data-theme="dark"]) .unassigned-empty {
+        :global([data-theme="dark"]) .unassigned-empty-text {
           color: var(--text-muted);
         }
-
-        .rooms-container {
-          display: flex;
-          gap: 1rem;
-          flex: 1;
-        }
-
-        .no-rooms {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 1rem;
-          flex: 1;
-          color: var(--color-gray-500);
-          font-size: 0.875rem;
-        }
-
-        .drag-overlay-card {
-          opacity: 0.9;
-          cursor: grabbing;
-        }
       `}</style>
-
-      <style jsx global>{scheduleCardStyles}</style>
     </div>
   );
 }

@@ -34,39 +34,16 @@ export default function PlatformLayout({
       <>
         <Header title="Platform Administration" />
         <main className="container-full">
-          <div className="access-denied">
-            <h2>Access Denied</h2>
-            <p>
+          <div className="max-w-[500px] mx-auto mt-16 p-8 text-center bg-surface-secondary rounded-lg border border-border">
+            <h2 className="text-[var(--color-red)] mb-4">Access Denied</h2>
+            <p className="text-text-secondary mb-2">
               This area is restricted to Platform Administrators only.
             </p>
-            <p className="hint">
+            <p className="text-sm text-text-muted">
               If you believe you should have access, please contact your system administrator.
             </p>
           </div>
         </main>
-        <style jsx>{`
-          .access-denied {
-            max-width: 500px;
-            margin: 4rem auto;
-            padding: 2rem;
-            text-align: center;
-            background: var(--surface-secondary);
-            border-radius: 8px;
-            border: 1px solid var(--border-default);
-          }
-          .access-denied h2 {
-            color: var(--color-red);
-            margin-bottom: 1rem;
-          }
-          .access-denied p {
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-          }
-          .access-denied .hint {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-          }
-        `}</style>
       </>
     );
   }

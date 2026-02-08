@@ -51,109 +51,41 @@ export function AdminNav({ userRoles }: AdminNavProps) {
   const isAdminPage = pathname?.startsWith('/admin');
 
   return (
-    <div className="admin-nav" ref={menuRef}>
+    <div className="relative" ref={menuRef}>
       <button
-        className={`admin-nav-toggle ${isOpen ? 'open' : ''} ${isAdminPage ? 'active' : ''}`}
+        className={`flex items-center gap-2 py-2 px-4 text-white border-none rounded text-sm font-medium cursor-pointer transition-colors ${
+          isAdminPage
+            ? `bg-accent ${isOpen ? 'bg-[var(--color-blue-700)]' : 'hover:bg-[var(--color-blue-700)]'}`
+            : `bg-[var(--color-gray-600)] ${isOpen ? 'bg-[var(--color-gray-800)]' : 'hover:bg-[var(--color-gray-800)]'}`
+        }`}
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
         Admin
-        <span className="admin-nav-arrow">{isOpen ? '▲' : '▼'}</span>
+        <span className="text-[0.625rem]">{isOpen ? '▲' : '▼'}</span>
       </button>
 
       {isOpen && (
-        <div className="admin-nav-dropdown">
-          {ADMIN_LINKS.map((link) => (
-            <button
-              key={link.href}
-              className={`admin-nav-item ${pathname === link.href || pathname?.startsWith(link.href + '/') ? 'current' : ''}`}
-              onClick={() => router.push(link.href)}
-            >
-              {link.label}
-            </button>
-          ))}
+        <div className="absolute top-full right-0 mt-2 bg-surface-primary rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.15)] min-w-[180px] z-[1000] overflow-hidden divide-y divide-border">
+          {ADMIN_LINKS.map((link) => {
+            const isCurrent = pathname === link.href || pathname?.startsWith(link.href + '/');
+            return (
+              <button
+                key={link.href}
+                className={`block w-full py-3 px-4 text-left border-none text-sm cursor-pointer transition-colors ${
+                  isCurrent
+                    ? 'bg-[var(--color-blue-50)] text-accent font-medium'
+                    : 'bg-transparent text-text-secondary hover:bg-surface-secondary'
+                }`}
+                onClick={() => router.push(link.href)}
+              >
+                {link.label}
+              </button>
+            );
+          })}
         </div>
       )}
-
-      <style jsx>{`
-        .admin-nav {
-          position: relative;
-        }
-
-        .admin-nav-toggle {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 1rem;
-          background: #4a5568;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-
-        .admin-nav-toggle:hover,
-        .admin-nav-toggle.open {
-          background: #2d3748;
-        }
-
-        .admin-nav-toggle.active {
-          background: #3182ce;
-        }
-
-        .admin-nav-toggle.active:hover,
-        .admin-nav-toggle.active.open {
-          background: #2b6cb0;
-        }
-
-        .admin-nav-arrow {
-          font-size: 0.625rem;
-        }
-
-        .admin-nav-dropdown {
-          position: absolute;
-          top: 100%;
-          right: 0;
-          margin-top: 0.5rem;
-          background: white;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-          min-width: 180px;
-          z-index: 1000;
-          overflow: hidden;
-        }
-
-        .admin-nav-item {
-          display: block;
-          width: 100%;
-          padding: 0.75rem 1rem;
-          text-align: left;
-          background: none;
-          border: none;
-          font-size: 0.875rem;
-          color: #4a5568;
-          cursor: pointer;
-          transition: background 0.15s;
-        }
-
-        .admin-nav-item:hover {
-          background: #f7fafc;
-        }
-
-        .admin-nav-item.current {
-          background: #ebf8ff;
-          color: #3182ce;
-          font-weight: 500;
-        }
-
-        .admin-nav-item + .admin-nav-item {
-          border-top: 1px solid #e2e8f0;
-        }
-      `}</style>
     </div>
   );
 }

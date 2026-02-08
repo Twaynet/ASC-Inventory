@@ -16,6 +16,9 @@ import {
   type UpdateCatalogGroupRequest,
 } from '@/lib/api';
 
+const NAV_BASE = 'py-2 px-4 rounded no-underline text-text-secondary font-medium transition-colors hover:bg-surface-secondary';
+const NAV_ACTIVE = 'py-2 px-4 rounded no-underline font-medium bg-[var(--color-blue-500)] text-[var(--text-on-primary)]';
+
 export default function AdminCatalogGroupsPage() {
   const [showInactive, setShowInactive] = useState(false);
 
@@ -132,7 +135,7 @@ export default function AdminCatalogGroupsPage() {
     <>
       <Header title="Catalog Groups" />
 
-      <main className="container admin-groups-page">
+      <main className="container py-8">
         <PageAlerts
           error={error}
           success={successMessage}
@@ -140,31 +143,31 @@ export default function AdminCatalogGroupsPage() {
           onDismissSuccess={clearSuccess}
         />
 
-        <div className="catalog-nav">
-          <Link href="/admin/catalog" className="nav-link">Items</Link>
-          <Link href="/admin/catalog/groups" className="nav-link active">Groups</Link>
-          <Link href="/admin/catalog/sets" className="nav-link">Set Definitions</Link>
+        <div className="flex gap-2 mb-6 border-b border-border pb-3">
+          <Link href="/admin/catalog" className={NAV_BASE}>Items</Link>
+          <Link href="/admin/catalog/groups" className={NAV_ACTIVE}>Groups</Link>
+          <Link href="/admin/catalog/sets" className={NAV_BASE}>Set Definitions</Link>
         </div>
 
-        <div className="page-header">
+        <div className="mb-6">
           <Breadcrumbs items={[
             { label: 'Catalog', href: '/admin/catalog' },
             { label: 'Groups' },
           ]} />
-          <p className="description">
+          <p className="text-text-muted m-0">
             Organize catalog items into groups for reporting and purchasing.
             Groups are for human organization only and do not affect readiness or alarms.
           </p>
         </div>
 
-        <div className="summary-card">
-          <div className="summary-value">{groups.length}</div>
-          <div className="summary-label">
+        <div className="bg-surface-primary rounded-lg py-4 px-6 inline-flex items-center gap-4 shadow-[0_1px_3px_var(--shadow-sm)] mb-6">
+          <div className="text-[2rem] font-bold text-[var(--color-blue-500)]">{groups.length}</div>
+          <div className="text-sm text-text-muted">
             {showInactive ? 'Total Groups' : 'Active Groups'}
           </div>
         </div>
 
-        <div className="actions-bar">
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
           <button
             className="btn btn-create"
             onClick={() => {
@@ -175,8 +178,8 @@ export default function AdminCatalogGroupsPage() {
           >
             + Create Group
           </button>
-          <div className="filters">
-            <label className="checkbox-label">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer text-text-primary">
               <input
                 type="checkbox"
                 checked={showInactive}
@@ -189,8 +192,8 @@ export default function AdminCatalogGroupsPage() {
 
         {/* Create/Edit Form */}
         {(showCreateForm || editingGroup) && (
-          <div className="form-card">
-            <h2>{editingGroup ? 'Edit Group' : 'Create New Group'}</h2>
+          <div className="bg-surface-primary rounded-lg p-6 mb-6 shadow-[0_1px_3px_var(--shadow-sm)]">
+            <h2 className="mt-0 mb-4 text-text-primary">{editingGroup ? 'Edit Group' : 'Create New Group'}</h2>
             <form onSubmit={editingGroup ? handleUpdate : handleCreate}>
               <div className="form-group">
                 <label>Name *</label>
@@ -211,7 +214,7 @@ export default function AdminCatalogGroupsPage() {
                   placeholder="Optional description for this group"
                 />
               </div>
-              <div className="form-actions">
+              <div className="flex gap-4 mt-4">
                 <button type="submit" className="btn btn-primary">
                   {editingGroup ? 'Save Changes' : 'Create Group'}
                 </button>
@@ -235,8 +238,8 @@ export default function AdminCatalogGroupsPage() {
         {isLoadingData ? (
           <div className="loading">Loading groups...</div>
         ) : (
-          <div className="table-container">
-            <table className="data-table">
+          <div className="bg-surface-primary rounded-lg p-6 shadow-[0_1px_3px_var(--shadow-sm)] overflow-x-auto">
+            <table className="w-full border-collapse [&_th]:p-3 [&_th]:text-left [&_th]:border-b [&_th]:border-border [&_th]:bg-surface-secondary [&_th]:font-semibold [&_th]:text-text-primary [&_td]:p-3 [&_td]:text-left [&_td]:border-b [&_td]:border-border [&_td]:text-text-primary [&_tr:hover]:bg-surface-secondary">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -249,21 +252,21 @@ export default function AdminCatalogGroupsPage() {
               <tbody>
                 {groups.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="empty-state">
+                    <td colSpan={5} className="!text-center text-text-muted !p-8">
                       No groups found. Create your first group to organize catalog items.
                     </td>
                   </tr>
                 ) : (
                   groups.map((group) => (
-                    <tr key={group.id} className={!group.active ? 'inactive-row' : ''}>
-                      <td className="name-cell">
-                        <Link href={`/admin/catalog/groups/${group.id}`}>
+                    <tr key={group.id} className={!group.active ? 'opacity-60' : ''}>
+                      <td className="font-medium">
+                        <Link href={`/admin/catalog/groups/${group.id}`} className="text-accent no-underline hover:underline">
                           {group.name}
                         </Link>
                       </td>
                       <td>{group.description || '-'}</td>
                       <td>
-                        <span className="item-count">{group.itemCount}</span>
+                        <span className="inline-block bg-surface-tertiary px-2 py-1 rounded text-sm font-medium text-text-primary">{group.itemCount}</span>
                       </td>
                       <td>
                         <StatusBadge
@@ -271,7 +274,7 @@ export default function AdminCatalogGroupsPage() {
                           size="sm"
                         />
                       </td>
-                      <td className="actions-cell">
+                      <td className="flex gap-2">
                         <Link
                           href={`/admin/catalog/groups/${group.id}`}
                           className="btn btn-secondary btn-sm"
@@ -308,240 +311,6 @@ export default function AdminCatalogGroupsPage() {
           </div>
         )}
       </main>
-
-      <style jsx>{`
-        .admin-groups-page {
-          padding: 2rem 0;
-        }
-
-        .catalog-nav {
-          display: flex;
-          gap: 0.5rem;
-          margin-bottom: 1.5rem;
-          border-bottom: 1px solid var(--border-default);
-          padding-bottom: 0.75rem;
-        }
-
-        .catalog-nav :global(.nav-link) {
-          padding: 0.5rem 1rem;
-          border-radius: 4px;
-          text-decoration: none;
-          color: var(--text-secondary);
-          font-weight: 500;
-          transition: background 0.2s, color 0.2s;
-        }
-
-        .catalog-nav :global(.nav-link:hover) {
-          background: var(--surface-secondary);
-        }
-
-        .catalog-nav :global(.nav-link.active) {
-          background: var(--color-blue-500);
-          color: var(--text-on-primary);
-        }
-
-        .page-header {
-          margin-bottom: 1.5rem;
-        }
-
-        .breadcrumb {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: 0.875rem;
-          margin-bottom: 0.5rem;
-        }
-
-        .breadcrumb a {
-          color: var(--color-blue-500);
-          text-decoration: none;
-        }
-
-        .breadcrumb a:hover {
-          text-decoration: underline;
-        }
-
-        .breadcrumb .separator {
-          color: var(--text-muted);
-        }
-
-        .description {
-          color: var(--text-muted);
-          margin: 0;
-        }
-
-        .summary-card {
-          background: var(--surface-primary);
-          border-radius: 8px;
-          padding: 1rem 1.5rem;
-          display: inline-flex;
-          align-items: center;
-          gap: 1rem;
-          box-shadow: 0 1px 3px var(--shadow-sm);
-          margin-bottom: 1.5rem;
-        }
-
-        .summary-value {
-          font-size: 2rem;
-          font-weight: 700;
-          color: var(--color-blue-500);
-        }
-
-        .summary-label {
-          font-size: 0.875rem;
-          color: var(--text-muted);
-        }
-
-        .actions-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.5rem;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        .filters {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
-          color: var(--text-primary);
-        }
-
-        .form-card {
-          background: var(--surface-primary);
-          border-radius: 8px;
-          padding: 1.5rem;
-          margin-bottom: 1.5rem;
-          box-shadow: 0 1px 3px var(--shadow-sm);
-        }
-
-        .form-card h2 {
-          margin-top: 0;
-          margin-bottom: 1rem;
-          color: var(--text-primary);
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-          color: var(--text-primary);
-        }
-
-        .form-group input[type="text"] {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid var(--border-default);
-          border-radius: 4px;
-          font-size: 1rem;
-          background: var(--surface-primary);
-          color: var(--text-primary);
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 1rem;
-          margin-top: 1rem;
-        }
-
-        .table-container {
-          background: var(--surface-primary);
-          border-radius: 8px;
-          padding: 1.5rem;
-          box-shadow: 0 1px 3px var(--shadow-sm);
-          overflow-x: auto;
-        }
-
-        .data-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        .data-table th,
-        .data-table td {
-          padding: 0.75rem;
-          text-align: left;
-          border-bottom: 1px solid var(--border-default);
-          color: var(--text-primary);
-        }
-
-        .data-table th {
-          background: var(--surface-secondary);
-          font-weight: 600;
-        }
-
-        .data-table tr:hover {
-          background: var(--surface-secondary);
-        }
-
-        .data-table tr.inactive-row {
-          opacity: 0.6;
-        }
-
-        .name-cell {
-          font-weight: 500;
-        }
-
-        .name-cell a {
-          color: var(--color-blue-500);
-          text-decoration: none;
-        }
-
-        .name-cell a:hover {
-          text-decoration: underline;
-        }
-
-        .item-count {
-          display: inline-block;
-          background: var(--surface-tertiary);
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: var(--text-primary);
-        }
-
-        .empty-state {
-          text-align: center;
-          color: var(--text-muted);
-          padding: 2rem !important;
-        }
-
-        .actions-cell {
-          display: flex;
-          gap: 0.5rem;
-        }
-
-        .btn-danger {
-          background: var(--color-red);
-          color: var(--text-on-primary);
-        }
-
-        .btn-danger:hover {
-          background: var(--color-red-700);
-        }
-
-        .btn-success {
-          background: var(--color-green);
-          color: var(--text-on-primary);
-        }
-
-        .btn-success:hover {
-          background: var(--color-green-700);
-        }
-      `}</style>
     </>
   );
 }

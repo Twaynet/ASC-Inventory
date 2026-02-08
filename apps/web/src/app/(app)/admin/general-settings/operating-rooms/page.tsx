@@ -168,7 +168,7 @@ export default function OperatingRoomsPage() {
     <>
       <Header title="Operating Rooms" />
 
-      <main className="container-full operating-rooms-page">
+      <main className="container-full py-8">
         <Breadcrumbs items={[
           { label: 'General Settings', href: '/admin/general-settings' },
           { label: 'Operating Rooms' },
@@ -185,15 +185,15 @@ export default function OperatingRoomsPage() {
         {isLoadingData ? (
           <div className="loading">Loading rooms...</div>
         ) : (
-          <div className="settings-section">
-            <div className="section-header">
+          <div className="bg-surface-primary rounded-lg p-6 shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <div className="flex justify-between items-start mb-6 flex-wrap gap-4">
               <div>
-                <h2>Operating Rooms</h2>
-                <p className="section-description">
+                <h2 className="m-0 mb-2 text-xl text-text-primary">Operating Rooms</h2>
+                <p className="m-0 text-text-muted text-sm max-w-[500px]">
                   Manage the operating rooms available at your facility. Rooms can be assigned to cases on the schedule.
                 </p>
               </div>
-              <div className="section-actions">
+              <div className="flex items-center gap-4">
                 <button
                   className="btn btn-create"
                   onClick={() => {
@@ -204,7 +204,7 @@ export default function OperatingRoomsPage() {
                 >
                   + Add Room
                 </button>
-                <label className="checkbox-label">
+                <label className="flex items-center gap-2 cursor-pointer text-text-primary">
                   <input
                     type="checkbox"
                     checked={showInactive}
@@ -217,8 +217,8 @@ export default function OperatingRoomsPage() {
 
             {/* Create/Edit Room Form */}
             {(showCreateForm || editingRoom) && (
-              <div className="form-card">
-                <h3>{editingRoom ? 'Edit Room' : 'Create New Room'}</h3>
+              <div className="bg-surface-secondary rounded-lg p-4 mb-4">
+                <h3 className="mt-0 mb-4 text-base text-text-primary">{editingRoom ? 'Edit Room' : 'Create New Room'}</h3>
                 <form onSubmit={editingRoom ? handleUpdateRoom : handleCreateRoom}>
                   <div className="form-group">
                     <label>Room Name *</label>
@@ -230,7 +230,7 @@ export default function OperatingRoomsPage() {
                       placeholder="e.g., OR 1, Operating Room A"
                     />
                   </div>
-                  <div className="form-actions">
+                  <div className="flex gap-4">
                     <button type="submit" className="btn btn-primary">
                       {editingRoom ? 'Save Changes' : 'Create Room'}
                     </button>
@@ -251,11 +251,11 @@ export default function OperatingRoomsPage() {
             )}
 
             {/* Rooms Table */}
-            <div className="table-container">
-              <table className="data-table">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse [&_th]:p-3 [&_th]:text-left [&_th]:border-b [&_th]:border-border [&_th]:bg-surface-secondary [&_th]:font-semibold [&_td]:p-3 [&_td]:text-left [&_td]:border-b [&_td]:border-border [&_tr:hover]:bg-surface-secondary">
                 <thead>
                   <tr>
-                    <th className="order-column">Order</th>
+                    <th className="w-[70px] !text-center">Order</th>
                     <th>Room Name</th>
                     <th>Status</th>
                     <th>Created</th>
@@ -265,17 +265,17 @@ export default function OperatingRoomsPage() {
                 <tbody>
                   {rooms.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="empty-state">
+                      <td colSpan={5} className="!text-center text-text-muted !p-8">
                         No rooms found. Create your first room to get started.
                       </td>
                     </tr>
                   ) : (
                     rooms.map((room, index) => (
-                      <tr key={room.id} className={!room.active ? 'inactive-row' : ''}>
-                        <td className="order-cell">
-                          <div className="order-buttons">
+                      <tr key={room.id} className={!room.active ? 'opacity-60' : ''}>
+                        <td className="!text-center">
+                          <div className="flex flex-col items-center gap-0.5">
                             <button
-                              className="order-btn"
+                              className="bg-surface-tertiary border border-border rounded w-6 h-5 text-[0.625rem] cursor-pointer text-text-muted flex items-center justify-center p-0 leading-none hover:enabled:bg-surface-secondary hover:enabled:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
                               onClick={() => handleMoveRoom(room.id, 'up')}
                               disabled={index === 0}
                               title="Move up"
@@ -283,7 +283,7 @@ export default function OperatingRoomsPage() {
                               ▲
                             </button>
                             <button
-                              className="order-btn"
+                              className="bg-surface-tertiary border border-border rounded w-6 h-5 text-[0.625rem] cursor-pointer text-text-muted flex items-center justify-center p-0 leading-none hover:enabled:bg-surface-secondary hover:enabled:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
                               onClick={() => handleMoveRoom(room.id, 'down')}
                               disabled={index === rooms.length - 1}
                               title="Move down"
@@ -292,14 +292,14 @@ export default function OperatingRoomsPage() {
                             </button>
                           </div>
                         </td>
-                        <td className="name-cell">{room.name}</td>
+                        <td className="font-medium text-text-primary">{room.name}</td>
                         <td>
                           <span className={`status-badge ${room.active ? 'active' : 'inactive'}`}>
                             {room.active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td>{new Date(room.createdAt).toLocaleDateString()}</td>
-                        <td className="actions-cell">
+                        <td className="flex gap-2">
                           <button
                             className="btn btn-secondary btn-sm"
                             onClick={() => startEdit(room)}
@@ -332,180 +332,8 @@ export default function OperatingRoomsPage() {
         )}
       </main>
 
+      {/* Status badge colors with dark mode */}
       <style jsx>{`
-        .operating-rooms-page {
-          padding: 2rem 0;
-        }
-
-        .back-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: none;
-          border: none;
-          color: #3182ce;
-          font-size: 0.875rem;
-          cursor: pointer;
-          padding: 0;
-          margin-bottom: 1.5rem;
-        }
-
-        .back-link:hover {
-          text-decoration: underline;
-        }
-
-        .settings-section {
-          background: white;
-          border-radius: 8px;
-          padding: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .section-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 1.5rem;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        .section-header h2 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.25rem;
-        }
-
-        .section-description {
-          margin: 0;
-          color: #718096;
-          font-size: 0.875rem;
-          max-width: 500px;
-        }
-
-        .section-actions {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
-        }
-
-        .form-card {
-          background: #f8f9fa;
-          border-radius: 8px;
-          padding: 1rem;
-          margin-bottom: 1rem;
-        }
-
-        .form-card h3 {
-          margin-top: 0;
-          margin-bottom: 1rem;
-          font-size: 1rem;
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-        }
-
-        .form-group input {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          font-size: 1rem;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 1rem;
-        }
-
-        .table-container {
-          overflow-x: auto;
-        }
-
-        .data-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        .data-table th,
-        .data-table td {
-          padding: 0.75rem;
-          text-align: left;
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .data-table th {
-          background: #f8f9fa;
-          font-weight: 600;
-        }
-
-        .data-table tr:hover {
-          background: #f8f9fa;
-        }
-
-        .data-table tr.inactive-row {
-          opacity: 0.6;
-        }
-
-        .order-column {
-          width: 70px;
-          text-align: center;
-        }
-
-        .order-cell {
-          text-align: center;
-        }
-
-        .order-buttons {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 2px;
-        }
-
-        .order-btn {
-          background: #f3f4f6;
-          border: 1px solid #d1d5db;
-          border-radius: 4px;
-          width: 24px;
-          height: 20px;
-          font-size: 0.625rem;
-          cursor: pointer;
-          color: #6b7280;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          line-height: 1;
-        }
-
-        .order-btn:hover:not(:disabled) {
-          background: #e5e7eb;
-          color: #374151;
-        }
-
-        .order-btn:disabled {
-          opacity: 0.3;
-          cursor: not-allowed;
-        }
-
-        .name-cell {
-          font-weight: 500;
-        }
-
         .status-badge {
           display: inline-block;
           padding: 0.25rem 0.5rem;
@@ -513,133 +341,10 @@ export default function OperatingRoomsPage() {
           font-size: 0.75rem;
           font-weight: 600;
         }
-
-        .status-badge.active {
-          background: #c6f6d5;
-          color: #276749;
-        }
-
-        .status-badge.inactive {
-          background: #fed7d7;
-          color: #c53030;
-        }
-
-        .empty-state {
-          text-align: center;
-          color: #718096;
-          padding: 2rem !important;
-        }
-
-        .actions-cell {
-          display: flex;
-          gap: 0.5rem;
-        }
-
-        .btn-danger {
-          background: #e53e3e;
-          color: white;
-        }
-
-        .btn-danger:hover {
-          background: #c53030;
-        }
-
-        .btn-success {
-          background: #38a169;
-          color: white;
-        }
-
-        .btn-success:hover {
-          background: #2f855a;
-        }
-
-        .alert-success {
-          background: #c6f6d5;
-          border: 1px solid #9ae6b4;
-          color: #276749;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1rem;
-          cursor: pointer;
-        }
-
-        /* Dark mode overrides */
-        :global([data-theme="dark"]) .back-link {
-          color: var(--color-accent);
-        }
-        :global([data-theme="dark"]) .settings-section {
-          background: var(--surface-secondary);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .section-header h2 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .section-description {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .checkbox-label {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .form-card {
-          background: var(--surface-tertiary);
-        }
-        :global([data-theme="dark"]) .form-card h3 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .form-group label {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .form-group input {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .data-table th {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .data-table th,
-        :global([data-theme="dark"]) .data-table td {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .data-table tr:hover {
-          background: var(--surface-tertiary);
-        }
-        :global([data-theme="dark"]) .order-btn {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .order-btn:hover:not(:disabled) {
-          background: var(--color-gray-400);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .name-cell {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .empty-state {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .alert-success {
-          background: var(--color-green-bg);
-          border-color: var(--color-green-700);
-          color: var(--color-green-700);
-        }
-        :global([data-theme="dark"]) .alert-error {
-          background: var(--color-red-bg);
-          border-color: var(--color-red);
-          color: var(--color-red);
-        }
-        :global([data-theme="dark"]) .loading {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .btn-secondary {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .btn-secondary:hover {
-          background: var(--color-gray-400);
-        }
+        .status-badge.active { background: #c6f6d5; color: #276749; }
+        .status-badge.inactive { background: #fed7d7; color: #c53030; }
+        :global([data-theme="dark"]) .status-badge.active { background: #22543d; color: #c6f6d5; }
+        :global([data-theme="dark"]) .status-badge.inactive { background: #742a2a; color: #fed7d7; }
       `}</style>
     </>
   );

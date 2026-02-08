@@ -111,15 +111,18 @@ export default function UnassignedCasesPage() {
     <>
       <Header title="Unassigned Cases" />
 
-      <main className="container-full unassigned-cases-page">
-        <button className="back-link" onClick={() => router.push('/dashboard')}>
+      <main className="container-full py-8 px-6">
+        <button
+          className="inline-flex items-center gap-2 bg-transparent border-none text-accent text-sm cursor-pointer p-0 mb-6 hover:underline"
+          onClick={() => router.push('/dashboard')}
+        >
           ← Back to Dashboard
         </button>
 
-        <div className="page-header">
+        <div className="flex justify-between items-start mb-6 flex-wrap gap-4">
           <div>
-            <h1>Unassigned Cases</h1>
-            <p className="page-description">
+            <h1 className="m-0 mb-2 text-2xl text-text-primary">Unassigned Cases</h1>
+            <p className="m-0 text-text-muted text-sm max-w-[500px]">
               Scheduled cases that have not been assigned to an operating room.
               Click a case to go to its calendar day view.
             </p>
@@ -136,32 +139,34 @@ export default function UnassignedCasesPage() {
         {error && <div className="alert alert-error">{error}</div>}
 
         {isLoadingData ? (
-          <div className="loading-state">Loading unassigned cases...</div>
+          <div className="text-center p-12 text-text-muted">Loading unassigned cases...</div>
         ) : cases.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">
+          <div className="text-center p-12 bg-surface-primary rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <div className="mb-4">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" />
                 <path d="M9 12l2 2 4-4" />
               </svg>
             </div>
-            <h3>All Cases Assigned</h3>
-            <p>There are no scheduled cases waiting for room assignment.</p>
+            <h3 className="m-0 mb-2 text-text-primary">All Cases Assigned</h3>
+            <p className="m-0 text-text-muted">There are no scheduled cases waiting for room assignment.</p>
           </div>
         ) : (
-          <div className="cases-list">
-            <div className="summary-badge">
+          <div className="bg-surface-primary rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.1)] overflow-hidden">
+            <div className="bg-[var(--color-blue-50)] text-[var(--color-blue-500)] py-3 px-6 font-medium text-sm border-b border-border">
               {cases.length} unassigned case{cases.length !== 1 ? 's' : ''}
             </div>
 
             {sortedDates.map((date) => (
-              <div key={date} className="date-group">
-                <h2 className="date-header">{formatDate(date)}</h2>
-                <div className="cases-grid">
+              <div key={date} className="py-4 px-6 border-b border-border last:border-b-0">
+                <h2 className="text-base font-semibold text-text-primary m-0 mb-4">{formatDate(date)}</h2>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
                   {casesByDate[date].map((caseItem) => (
                     <div
                       key={caseItem.id}
-                      className={`case-card ${!caseItem.isActive ? 'inactive' : ''}`}
+                      className={`bg-surface-secondary border border-border rounded-lg p-4 cursor-pointer transition-all relative hover:border-[var(--color-blue-500)] hover:shadow-[0_2px_8px_rgba(49,130,206,0.15)] hover:-translate-y-px ${
+                        !caseItem.isActive ? 'opacity-60 bg-surface-tertiary' : ''
+                      }`}
                       onClick={() => handleCaseClick(caseItem)}
                       role="button"
                       tabIndex={0}
@@ -171,18 +176,18 @@ export default function UnassignedCasesPage() {
                         }
                       }}
                     >
-                      <div className="case-header">
-                        <span className="case-number">{caseItem.caseNumber}</span>
-                        <span className="case-time">{formatTime(caseItem.scheduledTime)}</span>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-semibold text-text-primary text-sm">{caseItem.caseNumber}</span>
+                        <span className="text-xs text-text-muted">{formatTime(caseItem.scheduledTime)}</span>
                       </div>
-                      <div className="case-procedure">{caseItem.procedureName}</div>
-                      <div className="case-surgeon">{caseItem.surgeonName}</div>
-                      <div className="case-footer">
-                        <span className="case-duration">{caseItem.durationMinutes} min</span>
+                      <div className="text-[0.9375rem] text-text-primary mb-1 font-medium">{caseItem.procedureName}</div>
+                      <div className="text-[0.8125rem] text-text-muted mb-1">{caseItem.surgeonName}</div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-text-muted">{caseItem.durationMinutes} min</span>
                         <ReadinessBadge overall="UNKNOWN" />
                       </div>
                       {!caseItem.isActive && (
-                        <span className="inactive-badge">Inactive</span>
+                        <span className="absolute top-2 right-2 bg-[var(--color-red)] text-white text-[0.625rem] px-1.5 py-0.5 rounded font-semibold uppercase">Inactive</span>
                       )}
                     </div>
                   ))}
@@ -192,270 +197,6 @@ export default function UnassignedCasesPage() {
           </div>
         )}
       </main>
-
-      <style jsx>{`
-        .unassigned-cases-page {
-          padding: 2rem 1.5rem;
-        }
-
-        .back-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: none;
-          border: none;
-          color: #3182ce;
-          font-size: 0.875rem;
-          cursor: pointer;
-          padding: 0;
-          margin-bottom: 1.5rem;
-        }
-
-        .back-link:hover {
-          text-decoration: underline;
-        }
-
-        .page-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 1.5rem;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        .page-header h1 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.5rem;
-        }
-
-        .page-description {
-          margin: 0;
-          color: #718096;
-          font-size: 0.875rem;
-          max-width: 500px;
-        }
-
-        .alert-error {
-          background: #fed7d7;
-          border: 1px solid #fc8181;
-          color: #c53030;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1rem;
-        }
-
-        .loading-state {
-          text-align: center;
-          padding: 3rem;
-          color: #718096;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 3rem;
-          background: white;
-          border-radius: 12px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .empty-icon {
-          margin-bottom: 1rem;
-        }
-
-        .empty-state h3 {
-          margin: 0 0 0.5rem 0;
-          color: #2d3748;
-        }
-
-        .empty-state p {
-          margin: 0;
-          color: #718096;
-        }
-
-        .cases-list {
-          background: white;
-          border-radius: 12px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-        }
-
-        .summary-badge {
-          background: #ebf8ff;
-          color: #2b6cb0;
-          padding: 0.75rem 1.5rem;
-          font-weight: 500;
-          font-size: 0.875rem;
-          border-bottom: 1px solid #bee3f8;
-        }
-
-        .date-group {
-          padding: 1rem 1.5rem;
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .date-group:last-child {
-          border-bottom: none;
-        }
-
-        .date-header {
-          font-size: 1rem;
-          font-weight: 600;
-          color: #2d3748;
-          margin: 0 0 1rem 0;
-        }
-
-        .cases-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 1rem;
-        }
-
-        .case-card {
-          background: #f7fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          padding: 1rem;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          position: relative;
-        }
-
-        .case-card:hover {
-          border-color: #3182ce;
-          box-shadow: 0 2px 8px rgba(49, 130, 206, 0.15);
-          transform: translateY(-1px);
-        }
-
-        .case-card.inactive {
-          opacity: 0.6;
-          background: #edf2f7;
-        }
-
-        .case-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 0.5rem;
-        }
-
-        .case-number {
-          font-weight: 600;
-          color: #2d3748;
-          font-size: 0.875rem;
-        }
-
-        .case-time {
-          font-size: 0.75rem;
-          color: #718096;
-        }
-
-        .case-procedure {
-          font-size: 0.9375rem;
-          color: #2d3748;
-          margin-bottom: 0.25rem;
-          font-weight: 500;
-        }
-
-        .case-surgeon {
-          font-size: 0.8125rem;
-          color: #718096;
-          margin-bottom: 0.25rem;
-        }
-
-        .case-footer {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .case-duration {
-          font-size: 0.75rem;
-          color: #a0aec0;
-        }
-
-        .inactive-badge {
-          position: absolute;
-          top: 0.5rem;
-          right: 0.5rem;
-          background: #fc8181;
-          color: white;
-          font-size: 0.625rem;
-          padding: 0.125rem 0.375rem;
-          border-radius: 4px;
-          font-weight: 600;
-          text-transform: uppercase;
-        }
-
-        /* Dark mode overrides */
-        :global([data-theme="dark"]) .back-link {
-          color: var(--color-accent);
-        }
-        :global([data-theme="dark"]) .page-header h1 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .page-description {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .alert-error {
-          background: var(--color-red-bg);
-          border-color: var(--color-red);
-          color: var(--color-red);
-        }
-        :global([data-theme="dark"]) .loading-state {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .empty-state {
-          background: var(--surface-secondary);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .empty-state h3 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .empty-state p {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .cases-list {
-          background: var(--surface-secondary);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .summary-badge {
-          background: var(--color-blue-50);
-          color: var(--color-blue-500);
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .date-group {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .date-header {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .case-card {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .case-card:hover {
-          border-color: var(--color-blue-500);
-        }
-        :global([data-theme="dark"]) .case-card.inactive {
-          background: var(--color-gray-400);
-        }
-        :global([data-theme="dark"]) .case-number {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .case-time {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .case-procedure {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .case-surgeon {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .case-duration {
-          color: var(--text-muted);
-        }
-      `}</style>
     </>
   );
 }

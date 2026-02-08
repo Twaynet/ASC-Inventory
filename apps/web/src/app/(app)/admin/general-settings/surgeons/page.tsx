@@ -106,7 +106,7 @@ export default function SurgeonSettingsPage() {
     <>
       <Header title="Surgeon Settings" />
 
-      <main className="container-full surgeon-settings-page">
+      <main className="container-full py-8 px-6">
         <Breadcrumbs items={[
           { label: 'General Settings', href: '/admin/general-settings' },
           { label: 'Surgeons' },
@@ -123,49 +123,55 @@ export default function SurgeonSettingsPage() {
         {isLoadingData ? (
           <div className="loading">Loading surgeons...</div>
         ) : (
-          <div className="settings-section">
-            <div className="section-header">
-              <div>
-                <h2>Surgeon Display Colors</h2>
-                <p className="section-description">
-                  Assign colors to surgeons for visual identification in the calendar and schedule views.
-                </p>
-              </div>
+          <div className="bg-surface-primary rounded-lg p-6 shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <div className="mb-6">
+              <h2 className="m-0 mb-2 text-xl">Surgeon Display Colors</h2>
+              <p className="m-0 text-text-muted text-sm">
+                Assign colors to surgeons for visual identification in the calendar and schedule views.
+              </p>
             </div>
 
-            <div className="surgeons-list">
+            <div className="flex flex-col gap-3">
               {surgeons.length === 0 ? (
-                <div className="empty-state">
+                <div className="text-center p-8 text-text-muted">
                   No surgeons found. Add users with the Surgeon role to configure their display settings.
                 </div>
               ) : (
                 surgeons.map((surgeon) => (
-                  <div key={surgeon.id} className="surgeon-row">
-                    <div className="surgeon-info">
+                  <div key={surgeon.id} className="flex justify-between items-center p-4 bg-surface-secondary rounded-lg border border-border">
+                    <div className="flex items-center gap-4">
                       <div
-                        className="color-indicator"
+                        className="w-10 h-10 rounded-lg border-2 border-black/10 shrink-0"
                         style={{ backgroundColor: surgeon.displayColor || '#E5E7EB' }}
                       />
-                      <div className="surgeon-details">
-                        <span className="surgeon-name">{surgeon.name}</span>
-                        <span className="surgeon-username">@{surgeon.username}</span>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-text-primary">{surgeon.name}</span>
+                        <span className="text-[0.8125rem] text-text-muted">@{surgeon.username}</span>
                       </div>
                     </div>
 
                     {editingSurgeonId === surgeon.id ? (
-                      <div className="color-picker">
-                        <div className="color-grid">
+                      <div className="flex items-center gap-4">
+                        <div className="grid grid-cols-7 gap-1.5">
                           {SURGEON_COLORS.map((color) => (
                             <button
                               key={color.value}
-                              className={`color-swatch ${surgeon.displayColor === color.value ? 'selected' : ''}`}
+                              className={`w-7 h-7 rounded cursor-pointer transition-transform hover:scale-[1.15] ${
+                                surgeon.displayColor === color.value
+                                  ? 'border-2 border-text-primary shadow-[0_0_0_2px_var(--surface-primary),0_0_0_4px_var(--text-primary)]'
+                                  : 'border-2 border-transparent'
+                              }`}
                               style={{ backgroundColor: color.value }}
                               onClick={() => handleColorSelect(surgeon.id, color.value)}
                               title={color.name}
                             />
                           ))}
                           <button
-                            className={`color-swatch no-color ${!surgeon.displayColor ? 'selected' : ''}`}
+                            className={`w-7 h-7 rounded border-2 border-dashed flex items-center justify-center text-base cursor-pointer transition-transform hover:scale-[1.15] ${
+                              !surgeon.displayColor
+                                ? 'border-text-primary bg-surface-tertiary text-text-muted shadow-[0_0_0_2px_var(--surface-primary),0_0_0_4px_var(--text-primary)]'
+                                : 'border-border bg-surface-tertiary text-text-muted'
+                            }`}
                             onClick={() => handleColorSelect(surgeon.id, null)}
                             title="No color"
                           >
@@ -194,218 +200,6 @@ export default function SurgeonSettingsPage() {
           </div>
         )}
       </main>
-
-      <style jsx>{`
-        .surgeon-settings-page {
-          padding: 2rem 1.5rem;
-        }
-
-        .back-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: none;
-          border: none;
-          color: #3182ce;
-          font-size: 0.875rem;
-          cursor: pointer;
-          padding: 0;
-          margin-bottom: 1.5rem;
-        }
-
-        .back-link:hover {
-          text-decoration: underline;
-        }
-
-        .settings-section {
-          background: white;
-          border-radius: 8px;
-          padding: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .section-header {
-          margin-bottom: 1.5rem;
-        }
-
-        .section-header h2 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.25rem;
-        }
-
-        .section-description {
-          margin: 0;
-          color: #718096;
-          font-size: 0.875rem;
-        }
-
-        .surgeons-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .surgeon-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem;
-          background: #f8f9fa;
-          border-radius: 8px;
-          border: 1px solid #e2e8f0;
-        }
-
-        .surgeon-info {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .color-indicator {
-          width: 40px;
-          height: 40px;
-          border-radius: 8px;
-          border: 2px solid rgba(0, 0, 0, 0.1);
-          flex-shrink: 0;
-        }
-
-        .surgeon-details {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .surgeon-name {
-          font-weight: 600;
-          color: #2d3748;
-        }
-
-        .surgeon-username {
-          font-size: 0.8125rem;
-          color: #718096;
-        }
-
-        .color-picker {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .color-grid {
-          display: grid;
-          grid-template-columns: repeat(7, 1fr);
-          gap: 0.375rem;
-        }
-
-        .color-swatch {
-          width: 28px;
-          height: 28px;
-          border-radius: 4px;
-          border: 2px solid transparent;
-          cursor: pointer;
-          transition: transform 0.1s, border-color 0.1s;
-        }
-
-        .color-swatch:hover {
-          transform: scale(1.15);
-        }
-
-        .color-swatch.selected {
-          border-color: #1a202c;
-          box-shadow: 0 0 0 2px white, 0 0 0 4px #1a202c;
-        }
-
-        .color-swatch.no-color {
-          background: #f3f4f6;
-          border: 2px dashed #d1d5db;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1rem;
-          color: #9ca3af;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 2rem;
-          color: #718096;
-        }
-
-        .alert-success {
-          background: #c6f6d5;
-          border: 1px solid #9ae6b4;
-          color: #276749;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1rem;
-          cursor: pointer;
-        }
-
-        .alert-error {
-          background: #fed7d7;
-          border: 1px solid #fc8181;
-          color: #c53030;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1rem;
-        }
-
-        /* Dark mode overrides */
-        :global([data-theme="dark"]) .back-link {
-          color: var(--color-accent);
-        }
-        :global([data-theme="dark"]) .settings-section {
-          background: var(--surface-secondary);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .section-header h2 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .section-description {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .surgeon-row {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .surgeon-name {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .surgeon-username {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .color-swatch.no-color {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .color-swatch.selected {
-          border-color: var(--text-primary);
-          box-shadow: 0 0 0 2px var(--surface-secondary), 0 0 0 4px var(--text-primary);
-        }
-        :global([data-theme="dark"]) .empty-state {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .alert-success {
-          background: var(--color-green-bg);
-          border-color: var(--color-green-700);
-          color: var(--color-green-700);
-        }
-        :global([data-theme="dark"]) .alert-error {
-          background: var(--color-red-bg);
-          border-color: var(--color-red);
-          color: var(--color-red);
-        }
-        :global([data-theme="dark"]) .loading {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .btn-secondary {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .btn-secondary:hover {
-          background: var(--color-gray-400);
-        }
-      `}</style>
     </>
   );
 }

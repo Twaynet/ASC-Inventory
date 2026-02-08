@@ -139,7 +139,7 @@ export default function AdminLocationsPage() {
     <>
       <Header title="Location Management" />
 
-      <main className="container admin-locations-page">
+      <main className="container py-8">
         <PageAlerts
           error={error}
           success={successMessage}
@@ -147,22 +147,22 @@ export default function AdminLocationsPage() {
           onDismissSuccess={clearSuccess}
         />
 
-        <div className="summary-cards">
-          <div className="summary-card">
-            <div className="summary-value">{locations.length}</div>
-            <div className="summary-label">Total Locations</div>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4 mb-6">
+          <div className="bg-surface-primary rounded-lg p-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <div className="text-[2rem] font-bold text-text-primary">{locations.length}</div>
+            <div className="text-sm text-text-muted">Total Locations</div>
           </div>
-          <div className="summary-card">
-            <div className="summary-value">{locations.filter(l => !l.parentLocationId).length}</div>
-            <div className="summary-label">Top-Level Locations</div>
+          <div className="bg-surface-primary rounded-lg p-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <div className="text-[2rem] font-bold text-text-primary">{locations.filter(l => !l.parentLocationId).length}</div>
+            <div className="text-sm text-text-muted">Top-Level Locations</div>
           </div>
-          <div className="summary-card">
-            <div className="summary-value">{locations.reduce((sum, l) => sum + l.itemCount, 0)}</div>
-            <div className="summary-label">Total Items Stored</div>
+          <div className="bg-surface-primary rounded-lg p-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <div className="text-[2rem] font-bold text-text-primary">{locations.reduce((sum, l) => sum + l.itemCount, 0)}</div>
+            <div className="text-sm text-text-muted">Total Items Stored</div>
           </div>
         </div>
 
-        <div className="actions-bar">
+        <div className="flex justify-between items-center mb-6">
           <button
             className="btn btn-create"
             onClick={() => {
@@ -177,10 +177,10 @@ export default function AdminLocationsPage() {
 
         {/* Create/Edit Form */}
         {(showCreateForm || editingLocation) && (
-          <div className="form-card">
-            <h2>{editingLocation ? 'Edit Location' : 'Create New Location'}</h2>
+          <div className="bg-surface-primary rounded-lg p-6 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <h2 className="mt-0 mb-4">{editingLocation ? 'Edit Location' : 'Create New Location'}</h2>
             <form onSubmit={editingLocation ? handleUpdate : handleCreate}>
-              <div className="form-row">
+              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                 <div className="form-group">
                   <label>Name *</label>
                   <input
@@ -213,7 +213,7 @@ export default function AdminLocationsPage() {
                   placeholder="Optional description"
                 />
               </div>
-              <div className="form-actions">
+              <div className="flex gap-4 mt-4">
                 <button type="submit" className="btn btn-primary">
                   {editingLocation ? 'Save Changes' : 'Create Location'}
                 </button>
@@ -237,8 +237,8 @@ export default function AdminLocationsPage() {
         {isLoadingData ? (
           <div className="loading">Loading locations...</div>
         ) : (
-          <div className="table-container">
-            <table className="data-table">
+          <div className="bg-surface-primary rounded-lg p-6 shadow-[0_1px_3px_rgba(0,0,0,0.1)] overflow-x-auto">
+            <table className="w-full border-collapse [&_th]:p-3 [&_th]:text-left [&_th]:border-b [&_th]:border-border [&_th]:bg-surface-secondary [&_th]:font-semibold [&_td]:p-3 [&_td]:text-left [&_td]:border-b [&_td]:border-border [&_tr:hover]:bg-surface-secondary">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -252,19 +252,19 @@ export default function AdminLocationsPage() {
               <tbody>
                 {locations.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="empty-state">
+                    <td colSpan={6} className="!text-center text-text-muted !p-8">
                       No locations found. Create your first location to get started.
                     </td>
                   </tr>
                 ) : (
                   locations.map((loc) => (
                     <tr key={loc.id}>
-                      <td className="name-cell">{loc.name}</td>
+                      <td className="font-medium">{loc.name}</td>
                       <td>{loc.parentLocationName || '-'}</td>
                       <td>{loc.description || '-'}</td>
                       <td>{loc.childCount}</td>
                       <td>{loc.itemCount}</td>
-                      <td className="actions-cell">
+                      <td className="flex gap-2">
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => startEdit(loc)}
@@ -294,184 +294,6 @@ export default function AdminLocationsPage() {
           </div>
         )}
       </main>
-
-      <style jsx>{`
-        .admin-locations-page {
-          padding: 2rem 0;
-        }
-
-        .summary-cards {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .summary-card {
-          background: white;
-          border-radius: 8px;
-          padding: 1rem;
-          text-align: center;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .summary-value {
-          font-size: 2rem;
-          font-weight: 700;
-          color: #2d3748;
-        }
-
-        .summary-label {
-          font-size: 0.875rem;
-          color: #718096;
-        }
-
-        .actions-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.5rem;
-        }
-
-        .form-card {
-          background: white;
-          border-radius: 8px;
-          padding: 1.5rem;
-          margin-bottom: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-card h2 {
-          margin-top: 0;
-          margin-bottom: 1rem;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        @media (max-width: 768px) {
-          .form-row {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-        }
-
-        .form-group input,
-        .form-group select {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          font-size: 1rem;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 1rem;
-          margin-top: 1rem;
-        }
-
-        .table-container {
-          background: white;
-          border-radius: 8px;
-          padding: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          overflow-x: auto;
-        }
-
-        .data-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        .data-table th,
-        .data-table td {
-          padding: 0.75rem;
-          text-align: left;
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .data-table th {
-          background: #f8f9fa;
-          font-weight: 600;
-        }
-
-        .data-table tr:hover {
-          background: #f8f9fa;
-        }
-
-        .name-cell {
-          font-weight: 500;
-        }
-
-        .empty-state {
-          text-align: center;
-          color: #718096;
-          padding: 2rem !important;
-        }
-
-        .actions-cell {
-          display: flex;
-          gap: 0.5rem;
-        }
-
-        .btn-danger {
-          background: #e53e3e;
-          color: white;
-        }
-
-        .btn-danger:hover {
-          background: #c53030;
-        }
-
-        .btn-danger:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        :global([data-theme="dark"]) .summary-card,
-        :global([data-theme="dark"]) .form-card,
-        :global([data-theme="dark"]) .table-container {
-          background: var(--surface-secondary);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .summary-value {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .summary-label,
-        :global([data-theme="dark"]) .empty-state {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .form-group input,
-        :global([data-theme="dark"]) .form-group select {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .data-table th,
-        :global([data-theme="dark"]) .data-table td {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .data-table th {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .data-table tr:hover {
-          background: var(--surface-tertiary);
-        }
-      `}</style>
     </>
   );
 }

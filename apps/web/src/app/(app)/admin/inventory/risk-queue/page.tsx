@@ -85,42 +85,42 @@ export default function RiskQueuePage() {
     <>
       <Header title="Inventory Risk Queue" />
 
-      <main className="container risk-queue-page">
+      <main className="container py-8">
         {error && <div className="alert alert-error">{error}</div>}
 
         {/* Summary Cards */}
-        <div className="summary-cards">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-4 mb-6">
           {['RED', 'ORANGE', 'YELLOW'].map(severity => (
             <div
               key={severity}
-              className={`summary-card ${filterSeverity === severity ? 'selected' : ''}`}
+              className="bg-surface-primary rounded-lg p-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)] border-2 transition-colors cursor-pointer hover:border-border"
               onClick={() => setFilterSeverity(filterSeverity === severity ? '' : severity)}
               style={{
                 borderColor: filterSeverity === severity ? SEVERITY_COLORS[severity].border : 'transparent',
-                cursor: 'pointer',
               }}
             >
               <div
-                className="summary-value"
+                className="text-[2rem] font-bold"
                 style={{ color: SEVERITY_COLORS[severity].color }}
               >
                 {severityCounts[severity] || 0}
               </div>
-              <div className="summary-label">{severity}</div>
+              <div className="text-xs text-text-muted uppercase tracking-wide">{severity}</div>
             </div>
           ))}
-          <div className="summary-card total">
-            <div className="summary-value">{riskItems.length}</div>
-            <div className="summary-label">TOTAL</div>
+          <div className="bg-surface-secondary rounded-lg p-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)] border-2 border-transparent">
+            <div className="text-[2rem] font-bold text-text-primary">{riskItems.length}</div>
+            <div className="text-xs text-text-muted uppercase tracking-wide">TOTAL</div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="filters-bar">
-          <div className="filters">
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <select
               value={filterRule}
               onChange={(e) => setFilterRule(e.target.value)}
+              className="p-2 border border-border rounded text-sm bg-surface-primary text-text-primary"
             >
               <option value="">All Rules</option>
               {Object.entries(RULE_LABELS).map(([key, label]) => (
@@ -150,8 +150,8 @@ export default function RiskQueuePage() {
         {isLoadingData ? (
           <div className="loading">Loading risk items...</div>
         ) : (
-          <div className="table-container">
-            <table className="data-table">
+          <div className="bg-surface-primary rounded-lg p-6 shadow-[0_1px_3px_rgba(0,0,0,0.1)] overflow-x-auto">
+            <table className="w-full border-collapse [&_th]:p-3 [&_th]:text-left [&_th]:border-b [&_th]:border-border [&_th]:bg-surface-secondary [&_th]:font-semibold [&_th]:text-sm [&_td]:p-3 [&_td]:text-left [&_td]:border-b [&_td]:border-border [&_tr:hover]:bg-surface-secondary">
               <thead>
                 <tr>
                   <th>Severity</th>
@@ -165,7 +165,7 @@ export default function RiskQueuePage() {
               <tbody>
                 {filteredItems.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="empty-state">
+                    <td colSpan={6} className="!text-center text-text-muted !p-8">
                       {riskItems.length === 0
                         ? 'No risk items found. All inventory is compliant.'
                         : 'No items match the current filters.'}
@@ -176,7 +176,7 @@ export default function RiskQueuePage() {
                     <tr key={`${item.inventoryItemId}-${item.rule}-${index}`}>
                       <td>
                         <span
-                          className="severity-badge"
+                          className="inline-block px-2 py-1 rounded text-xs font-semibold"
                           style={{
                             backgroundColor: SEVERITY_COLORS[item.severity]?.bg || '#e2e8f0',
                             color: SEVERITY_COLORS[item.severity]?.color || '#4a5568',
@@ -186,20 +186,20 @@ export default function RiskQueuePage() {
                         </span>
                       </td>
                       <td>
-                        <span className="rule-badge">
+                        <span className="inline-block px-2 py-1 bg-surface-tertiary rounded text-xs font-medium text-text-secondary">
                           {RULE_LABELS[item.rule] || item.rule}
                         </span>
                       </td>
-                      <td className="name-cell">{item.catalogName}</td>
-                      <td className="identifier-cell">
-                        {item.identifier || <span className="muted">-</span>}
+                      <td className="font-medium text-text-primary">{item.catalogName}</td>
+                      <td className="font-mono text-sm">
+                        {item.identifier || <span className="text-text-muted">-</span>}
                       </td>
-                      <td className="expires-cell">
+                      <td className="whitespace-nowrap">
                         {item.expiresAt ? (
                           <span>
                             {new Date(item.expiresAt).toLocaleDateString()}
                             {item.daysToExpire !== null && (
-                              <span className="days-badge">
+                              <span className="inline-block ml-2 px-1.5 py-0.5 bg-surface-tertiary rounded text-xs text-text-muted">
                                 {item.daysToExpire <= 0
                                   ? `${Math.abs(item.daysToExpire)}d ago`
                                   : `${item.daysToExpire}d`}
@@ -207,10 +207,10 @@ export default function RiskQueuePage() {
                             )}
                           </span>
                         ) : (
-                          <span className="muted">-</span>
+                          <span className="text-text-muted">-</span>
                         )}
                       </td>
-                      <td className="explain-cell">{item.explain}</td>
+                      <td className="text-sm text-text-secondary max-w-[300px]">{item.explain}</td>
                     </tr>
                   ))
                 )}
@@ -219,286 +219,12 @@ export default function RiskQueuePage() {
           </div>
         )}
 
-        <div className="info-note">
+        <div className="mt-6 p-4 bg-[var(--color-blue-50)] rounded-lg text-sm text-[var(--color-blue-500)]">
           <strong>Note:</strong> Risk items are computed on-demand from Catalog v1.1 intent flags and current Inventory state.
           No data is stored or cached. Severity is derived from catalog criticality (CRITICAL=RED, IMPORTANT=ORANGE, ROUTINE=YELLOW).
           Expired items are always RED.
         </div>
       </main>
-
-      <style jsx>{`
-        .risk-queue-page {
-          padding: 2rem 0;
-        }
-
-        .summary-cards {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .summary-card {
-          background: white;
-          border-radius: 8px;
-          padding: 1rem;
-          text-align: center;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          border: 2px solid transparent;
-          transition: border-color 0.2s;
-        }
-
-        .summary-card:hover {
-          border-color: #e2e8f0;
-        }
-
-        .summary-card.total {
-          background: #f7fafc;
-        }
-
-        .summary-value {
-          font-size: 2rem;
-          font-weight: 700;
-        }
-
-        .summary-label {
-          font-size: 0.75rem;
-          color: #718096;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .filters-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.5rem;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        .filters {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .filters select {
-          padding: 0.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          font-size: 0.875rem;
-        }
-
-        .table-container {
-          background: white;
-          border-radius: 8px;
-          padding: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          overflow-x: auto;
-        }
-
-        .data-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        .data-table th,
-        .data-table td {
-          padding: 0.75rem;
-          text-align: left;
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .data-table th {
-          background: #f8f9fa;
-          font-weight: 600;
-          font-size: 0.875rem;
-        }
-
-        .data-table tr:hover {
-          background: #f8f9fa;
-        }
-
-        .severity-badge {
-          display: inline-block;
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-
-        .rule-badge {
-          display: inline-block;
-          padding: 0.25rem 0.5rem;
-          background: #edf2f7;
-          border-radius: 4px;
-          font-size: 0.75rem;
-          font-weight: 500;
-          color: #4a5568;
-        }
-
-        .name-cell {
-          font-weight: 500;
-        }
-
-        .identifier-cell {
-          font-family: monospace;
-          font-size: 0.875rem;
-        }
-
-        .expires-cell {
-          white-space: nowrap;
-        }
-
-        .days-badge {
-          display: inline-block;
-          margin-left: 0.5rem;
-          padding: 0.125rem 0.375rem;
-          background: #edf2f7;
-          border-radius: 4px;
-          font-size: 0.75rem;
-          color: #718096;
-        }
-
-        .explain-cell {
-          font-size: 0.875rem;
-          color: #4a5568;
-          max-width: 300px;
-        }
-
-        .muted {
-          color: #a0aec0;
-        }
-
-        .empty-state {
-          text-align: center;
-          color: #718096;
-          padding: 2rem !important;
-        }
-
-        .info-note {
-          margin-top: 1.5rem;
-          padding: 1rem;
-          background: #ebf8ff;
-          border-radius: 8px;
-          font-size: 0.875rem;
-          color: #2b6cb0;
-        }
-
-        .alert-error {
-          background: #fed7d7;
-          border: 1px solid #fc8181;
-          color: #c53030;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1rem;
-        }
-
-        .loading {
-          text-align: center;
-          padding: 2rem;
-          color: #718096;
-        }
-
-        .btn {
-          padding: 0.5rem 1rem;
-          border-radius: 4px;
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-          border: none;
-        }
-
-        .btn-secondary {
-          background: #e2e8f0;
-          color: #4a5568;
-        }
-
-        .btn-secondary:hover {
-          background: #cbd5e0;
-        }
-
-        .btn-sm {
-          padding: 0.375rem 0.75rem;
-          font-size: 0.8125rem;
-        }
-
-        /* Dark mode overrides */
-        :global([data-theme="dark"]) .summary-card {
-          background: var(--surface-secondary);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .summary-card:hover {
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .summary-card.total {
-          background: var(--surface-tertiary);
-        }
-        :global([data-theme="dark"]) .summary-label {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .filters select {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .table-container {
-          background: var(--surface-secondary);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .data-table th {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .data-table th,
-        :global([data-theme="dark"]) .data-table td {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .data-table tr:hover {
-          background: var(--surface-tertiary);
-        }
-        :global([data-theme="dark"]) .rule-badge {
-          background: var(--surface-tertiary);
-          color: var(--text-secondary);
-        }
-        :global([data-theme="dark"]) .name-cell {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .days-badge {
-          background: var(--surface-tertiary);
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .explain-cell {
-          color: var(--text-secondary);
-        }
-        :global([data-theme="dark"]) .muted {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .empty-state {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .info-note {
-          background: var(--color-blue-50);
-          color: var(--color-blue-500);
-        }
-        :global([data-theme="dark"]) .alert-error {
-          background: var(--color-red-bg);
-          border-color: var(--color-red);
-          color: var(--color-red);
-        }
-        :global([data-theme="dark"]) .loading {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .btn-secondary {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .btn-secondary:hover {
-          background: var(--color-gray-400);
-        }
-      `}</style>
     </>
   );
 }

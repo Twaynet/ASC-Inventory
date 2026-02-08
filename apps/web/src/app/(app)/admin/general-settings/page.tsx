@@ -62,17 +62,17 @@ export default function AdminGeneralSettingsPage() {
     <>
       <Header title="General Settings" />
 
-      <main className="container general-settings-dashboard">
+      <main className="container py-8">
         <AdminSettingsSubnav />
-        <p className="page-description">
+        <p className="text-text-muted mb-8 max-w-[600px]">
           Configure facility-specific options for forms and workflows. Changes apply to all users in your facility.
         </p>
 
-        <div className="settings-grid">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6">
           {SETTINGS_CARDS.map((card) => (
             <div
               key={card.id}
-              className="settings-card"
+              className="group flex items-center gap-4 bg-surface-primary border border-border rounded-xl p-6 cursor-pointer transition-all hover:border-accent hover:shadow-[0_4px_12px_rgba(96,165,250,0.15)] hover:-translate-y-0.5 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(96,165,250,0.2)]"
               onClick={() => router.push(card.path)}
               role="button"
               tabIndex={0}
@@ -82,131 +82,16 @@ export default function AdminGeneralSettingsPage() {
                 }
               }}
             >
-              <div className="card-icon">{card.icon}</div>
-              <div className="card-content">
-                <h2>{card.title}</h2>
-                <p>{card.description}</p>
+              <div className="text-[2.5rem] shrink-0">{card.icon}</div>
+              <div className="flex-1 min-w-0">
+                <h2 className="m-0 mb-2 text-lg text-text-primary">{card.title}</h2>
+                <p className="m-0 text-sm text-text-muted leading-[1.4]">{card.description}</p>
               </div>
-              <div className="card-arrow">→</div>
+              <div className="text-2xl text-text-muted shrink-0 transition-transform group-hover:translate-x-1 group-hover:text-accent">→</div>
             </div>
           ))}
         </div>
       </main>
-
-      <style jsx>{`
-        .general-settings-dashboard {
-          padding: 2rem 0;
-        }
-
-        .page-description {
-          color: #718096;
-          margin-bottom: 2rem;
-          max-width: 600px;
-        }
-
-        .settings-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 1.5rem;
-        }
-
-        .settings-card {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          padding: 1.5rem;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .settings-card:hover {
-          border-color: #3182ce;
-          box-shadow: 0 4px 12px rgba(49, 130, 206, 0.15);
-          transform: translateY(-2px);
-        }
-
-        .settings-card:focus {
-          outline: none;
-          border-color: #3182ce;
-          box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.2);
-        }
-
-        .card-icon {
-          font-size: 2.5rem;
-          flex-shrink: 0;
-        }
-
-        .card-content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .card-content h2 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.125rem;
-          color: #2d3748;
-        }
-
-        .card-content p {
-          margin: 0;
-          font-size: 0.875rem;
-          color: #718096;
-          line-height: 1.4;
-        }
-
-        .card-arrow {
-          font-size: 1.5rem;
-          color: #a0aec0;
-          flex-shrink: 0;
-          transition: transform 0.2s;
-        }
-
-        .settings-card:hover .card-arrow {
-          transform: translateX(4px);
-          color: #3182ce;
-        }
-
-        @media (max-width: 480px) {
-          .settings-card {
-            padding: 1rem;
-          }
-
-          .card-icon {
-            font-size: 2rem;
-          }
-        }
-
-        :global([data-theme="dark"]) .page-description {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .settings-card {
-          background: var(--surface-secondary);
-          border-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .settings-card:hover {
-          border-color: var(--color-accent);
-          box-shadow: 0 4px 12px rgba(96, 165, 250, 0.15);
-        }
-        :global([data-theme="dark"]) .settings-card:focus {
-          border-color: var(--color-accent);
-          box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
-        }
-        :global([data-theme="dark"]) .card-content h2 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .card-content p {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .card-arrow {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .settings-card:hover .card-arrow {
-          color: var(--color-accent);
-        }
-      `}</style>
     </>
   );
 }

@@ -178,7 +178,7 @@ export default function AdminUsersPage() {
     <>
       <Header title="User Management" />
 
-      <main className="container admin-users-page">
+      <main className="container py-8">
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && (
           <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
@@ -186,7 +186,7 @@ export default function AdminUsersPage() {
           </div>
         )}
 
-        <div className="actions-bar">
+        <div className="flex justify-between items-center mb-6">
           <button
             className="btn btn-create"
             onClick={() => {
@@ -197,7 +197,7 @@ export default function AdminUsersPage() {
           >
             + Add User
           </button>
-          <label className="checkbox-label">
+          <label className="flex items-center gap-2 cursor-pointer text-text-primary">
             <input
               type="checkbox"
               checked={showInactive}
@@ -209,10 +209,10 @@ export default function AdminUsersPage() {
 
         {/* Create/Edit Form */}
         {(showCreateForm || editingUser) && (
-          <div className="form-card">
-            <h2>{editingUser ? 'Edit User' : 'Create New User'}</h2>
+          <div className="bg-surface-primary rounded-lg p-6 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <h2 className="mt-0 mb-4">{editingUser ? 'Edit User' : 'Create New User'}</h2>
             <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser}>
-              <div className="form-row">
+              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                 <div className="form-group">
                   <label>Username *</label>
                   <input
@@ -234,7 +234,7 @@ export default function AdminUsersPage() {
                   />
                 </div>
               </div>
-              <div className="form-row">
+              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                 <div className="form-group">
                   <label>Email {(formData.roles || []).includes('ADMIN') && '*'}</label>
                   <input
@@ -244,7 +244,7 @@ export default function AdminUsersPage() {
                     required={(formData.roles || []).includes('ADMIN')}
                     placeholder="email@facility.com"
                   />
-                  <small>Required for ADMIN role</small>
+                  <small className="text-text-muted text-sm">Required for ADMIN role</small>
                 </div>
                 <div className="form-group">
                   <label>Roles *</label>
@@ -283,7 +283,7 @@ export default function AdminUsersPage() {
                   minLength={editingUser ? 0 : 8}
                 />
               </div>
-              <div className="form-actions">
+              <div className="flex gap-4 mt-4">
                 <button type="submit" className="btn btn-primary">
                   {editingUser ? 'Save Changes' : 'Create User'}
                 </button>
@@ -307,8 +307,8 @@ export default function AdminUsersPage() {
         {isLoadingData ? (
           <div className="loading">Loading users...</div>
         ) : (
-          <div className="users-table-container">
-            <table className="users-table">
+          <div className="bg-surface-primary rounded-lg p-6 shadow-[0_1px_3px_rgba(0,0,0,0.1)] overflow-x-auto">
+            <table className="w-full border-collapse [&_th]:p-3 [&_th]:text-left [&_th]:border-b [&_th]:border-border [&_th]:bg-surface-secondary [&_th]:font-semibold [&_td]:p-3 [&_td]:text-left [&_td]:border-b [&_td]:border-border [&_tr:hover]:bg-surface-secondary">
               <thead>
                 <tr>
                   <th>Username</th>
@@ -333,23 +333,25 @@ export default function AdminUsersPage() {
                     userRoles = [u.role];
                   }
                   return (
-                  <tr key={u.id} className={!u.active ? 'inactive-row' : ''}>
-                    <td className="username">{u.username}</td>
+                  <tr key={u.id} className={!u.active ? 'opacity-60' : ''}>
+                    <td className="font-medium font-mono">{u.username}</td>
                     <td>{u.name}</td>
                     <td>{u.email || '-'}</td>
-                    <td className="roles-cell">
-                      {userRoles.map(r => (
-                        <span key={r} className={`role-badge role-${r.toLowerCase()}`}>
-                          {r}
-                        </span>
-                      ))}
+                    <td>
+                      <div className="flex flex-wrap gap-1">
+                        {userRoles.map(r => (
+                          <span key={r} className={`role-badge role-${r.toLowerCase()}`}>
+                            {r}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td>
                       <span className={`status-badge ${u.active ? 'active' : 'inactive'}`}>
                         {u.active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="actions-cell">
+                    <td className="flex gap-2">
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => startEdit(u)}
@@ -383,118 +385,8 @@ export default function AdminUsersPage() {
         )}
       </main>
 
+      {/* Role and status badge colors require dark mode overrides */}
       <style jsx>{`
-        .admin-users-page {
-          padding: 2rem 0;
-        }
-
-        .actions-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.5rem;
-        }
-
-        .checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
-        }
-
-        .form-card {
-          background: white;
-          border-radius: 8px;
-          padding: 1.5rem;
-          margin-bottom: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-card h2 {
-          margin-top: 0;
-          margin-bottom: 1rem;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        @media (max-width: 768px) {
-          .form-row {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-        }
-
-        .form-group input,
-        .form-group select {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          font-size: 1rem;
-        }
-
-        .form-group small {
-          color: #666;
-          font-size: 0.875rem;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 1rem;
-          margin-top: 1rem;
-        }
-
-        .users-table-container {
-          background: white;
-          border-radius: 8px;
-          padding: 1.5rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          overflow-x: auto;
-        }
-
-        .users-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        .users-table th,
-        .users-table td {
-          padding: 0.75rem;
-          text-align: left;
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .users-table th {
-          background: #f8f9fa;
-          font-weight: 600;
-        }
-
-        .users-table tr:hover {
-          background: #f8f9fa;
-        }
-
-        .users-table tr.inactive-row {
-          opacity: 0.6;
-        }
-
-        .username {
-          font-weight: 500;
-          font-family: monospace;
-        }
-
         .role-badge {
           display: inline-block;
           padding: 0.25rem 0.5rem;
@@ -502,13 +394,13 @@ export default function AdminUsersPage() {
           font-size: 0.75rem;
           font-weight: 600;
         }
-
         .role-admin { background: #feebc8; color: #c05621; }
         .role-scheduler { background: #c6f6d5; color: #276749; }
         .role-inventory_tech { background: #bee3f8; color: #2b6cb0; }
         .role-circulator { background: #e9d8fd; color: #6b46c1; }
         .role-scrub { background: #fed7e2; color: #c53030; }
         .role-surgeon { background: #b2f5ea; color: #234e52; }
+        .role-anesthesia { background: #fef3c7; color: #92400e; }
 
         .status-badge {
           display: inline-block;
@@ -517,99 +409,18 @@ export default function AdminUsersPage() {
           font-size: 0.75rem;
           font-weight: 600;
         }
+        .status-badge.active { background: #c6f6d5; color: #276749; }
+        .status-badge.inactive { background: #fed7d7; color: #c53030; }
 
-        .status-badge.active {
-          background: #c6f6d5;
-          color: #276749;
-        }
-
-        .status-badge.inactive {
-          background: #fed7d7;
-          color: #c53030;
-        }
-
-        .actions-cell {
-          display: flex;
-          gap: 0.5rem;
-        }
-
-        .btn-danger {
-          background: #e53e3e;
-          color: white;
-        }
-
-        .btn-danger:hover {
-          background: #c53030;
-        }
-
-        .btn-danger:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .btn-success {
-          background: #38a169;
-          color: white;
-        }
-
-        .btn-success:hover {
-          background: #2f855a;
-        }
-
-        .alert-success {
-          background: #c6f6d5;
-          border: 1px solid #9ae6b4;
-          color: #276749;
-          padding: 1rem;
-          border-radius: 8px;
-          margin-bottom: 1rem;
-          cursor: pointer;
-        }
-
-        :global([data-theme="dark"]) .form-card,
-        :global([data-theme="dark"]) .users-table-container {
-          background: var(--surface-secondary);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .form-group input,
-        :global([data-theme="dark"]) .form-group select {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .form-group small {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .users-table th,
-        :global([data-theme="dark"]) .users-table td {
-          border-bottom-color: var(--border-default);
-        }
-        :global([data-theme="dark"]) .users-table th {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .users-table tr:hover {
-          background: var(--surface-tertiary);
-        }
         :global([data-theme="dark"]) .role-admin { background: #744210; color: #feebc8; }
         :global([data-theme="dark"]) .role-scheduler { background: #22543d; color: #c6f6d5; }
         :global([data-theme="dark"]) .role-inventory_tech { background: #2a4365; color: #bee3f8; }
         :global([data-theme="dark"]) .role-circulator { background: #44337a; color: #e9d8fd; }
         :global([data-theme="dark"]) .role-scrub { background: #742a2a; color: #fed7e2; }
         :global([data-theme="dark"]) .role-surgeon { background: #234e52; color: #b2f5ea; }
-        :global([data-theme="dark"]) .status-badge.active {
-          background: #22543d;
-          color: #c6f6d5;
-        }
-        :global([data-theme="dark"]) .status-badge.inactive {
-          background: #742a2a;
-          color: #fed7d7;
-        }
-        :global([data-theme="dark"]) .alert-success {
-          background: #22543d;
-          border-color: #276749;
-          color: #c6f6d5;
-        }
+        :global([data-theme="dark"]) .role-anesthesia { background: #78350f; color: #fef3c7; }
+        :global([data-theme="dark"]) .status-badge.active { background: #22543d; color: #c6f6d5; }
+        :global([data-theme="dark"]) .status-badge.inactive { background: #742a2a; color: #fed7d7; }
       `}</style>
     </>
   );

@@ -180,7 +180,7 @@ export default function CatalogGroupDetailPage() {
     <>
       <Header title={group.name} />
 
-      <main className="container group-detail-page">
+      <main className="container py-8">
         <PageAlerts
           error={error}
           success={successMessage}
@@ -188,25 +188,25 @@ export default function CatalogGroupDetailPage() {
           onDismissSuccess={clearSuccess}
         />
 
-        <div className="page-header">
+        <div className="mb-6">
           <Breadcrumbs items={[
             { label: 'Catalog', href: '/admin/catalog' },
             { label: 'Groups', href: '/admin/catalog/groups' },
             { label: group.name },
           ]} />
           {group.description && (
-            <p className="description">{group.description}</p>
+            <p className="text-text-muted my-2">{group.description}</p>
           )}
-          <div className="group-meta">
+          <div className="flex items-center gap-4 mt-2">
             <StatusBadge
               status={group.active ? 'ACTIVE' : 'INACTIVE'}
               size="sm"
             />
-            <span className="item-count">{items.length} items</span>
+            <span className="text-text-muted text-sm">{items.length} items</span>
           </div>
         </div>
 
-        <div className="actions-bar">
+        <div className="mb-6">
           <button
             className="btn btn-create"
             onClick={() => {
@@ -221,42 +221,44 @@ export default function CatalogGroupDetailPage() {
 
         {/* Add Items Form */}
         {showAddForm && (
-          <div className="add-form-card">
-            <h3>Add Catalog Items to Group</h3>
-            <div className="search-box">
+          <div className="bg-surface-primary rounded-lg p-6 mb-6 shadow-[0_1px_3px_var(--shadow-sm)]">
+            <h3 className="mt-0 mb-4 text-text-primary">Add Catalog Items to Group</h3>
+            <div className="mb-4">
               <input
                 type="text"
                 placeholder="Search by name, manufacturer, or catalog number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full p-2 border border-border rounded text-base bg-surface-primary text-text-primary"
               />
             </div>
-            <div className="available-items">
+            <div className="max-h-[400px] overflow-y-auto border border-border rounded mb-4 bg-surface-primary">
               {availableItems.length === 0 ? (
-                <p className="empty-message">
+                <p className="p-8 text-center text-text-muted">
                   {searchTerm
                     ? 'No matching items found.'
                     : 'All catalog items are already in this group.'}
                 </p>
               ) : (
                 <>
-                  <div className="items-list">
+                  <div className="p-2">
                     {availableItems.slice(0, 50).map(item => (
-                      <label key={item.id} className="item-checkbox">
+                      <label key={item.id} className="flex items-center gap-3 p-2 rounded cursor-pointer text-text-primary hover:bg-surface-secondary">
                         <input
                           type="checkbox"
                           checked={selectedItems.includes(item.id)}
                           onChange={() => toggleItemSelection(item.id)}
+                          className="shrink-0"
                         />
-                        <span className="item-info">
-                          <span className="item-name">{item.name}</span>
-                          <span className="item-meta">
+                        <span className="flex-1 min-w-0">
+                          <span className="block font-medium">{item.name}</span>
+                          <span className="flex gap-2 text-xs text-text-muted">
                             {item.manufacturer && <span>{item.manufacturer}</span>}
-                            {item.catalogNumber && <span className="catalog-num">{item.catalogNumber}</span>}
+                            {item.catalogNumber && <span className="font-mono">{item.catalogNumber}</span>}
                           </span>
                         </span>
                         <span
-                          className="category-badge"
+                          className="inline-block px-2 py-1 rounded text-xs font-semibold"
                           style={{
                             backgroundColor: CATEGORY_COLORS[item.category]?.bg || 'var(--category-default-bg)',
                             color: CATEGORY_COLORS[item.category]?.color || 'var(--category-default-text)',
@@ -268,14 +270,14 @@ export default function CatalogGroupDetailPage() {
                     ))}
                   </div>
                   {availableItems.length > 50 && (
-                    <p className="limit-message">
+                    <p className="p-2 text-center text-text-muted text-sm bg-surface-secondary">
                       Showing first 50 results. Use search to narrow down.
                     </p>
                   )}
                 </>
               )}
             </div>
-            <div className="form-actions">
+            <div className="flex gap-4">
               <button
                 className="btn btn-primary"
                 onClick={handleAddItems}
@@ -300,8 +302,8 @@ export default function CatalogGroupDetailPage() {
         {isLoadingData ? (
           <div className="loading">Loading items...</div>
         ) : (
-          <div className="table-container">
-            <table className="data-table">
+          <div className="bg-surface-primary rounded-lg p-6 shadow-[0_1px_3px_var(--shadow-sm)] overflow-x-auto">
+            <table className="w-full border-collapse [&_th]:p-3 [&_th]:text-left [&_th]:border-b [&_th]:border-border [&_th]:bg-surface-secondary [&_th]:font-semibold [&_th]:text-text-primary [&_td]:p-3 [&_td]:text-left [&_td]:border-b [&_td]:border-border [&_td]:text-text-primary [&_tr:hover]:bg-surface-secondary">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -315,17 +317,17 @@ export default function CatalogGroupDetailPage() {
               <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="empty-state">
+                    <td colSpan={6} className="!text-center text-text-muted !p-8">
                       No items in this group yet. Click &quot;Add Items&quot; to add catalog items.
                     </td>
                   </tr>
                 ) : (
                   items.map((item) => (
-                    <tr key={item.id} className={!item.active ? 'inactive-row' : ''}>
-                      <td className="name-cell">{item.name}</td>
+                    <tr key={item.id} className={!item.active ? 'opacity-60' : ''}>
+                      <td className="font-medium">{item.name}</td>
                       <td>
                         <span
-                          className="category-badge"
+                          className="inline-block px-2 py-1 rounded text-xs font-semibold"
                           style={{
                             backgroundColor: CATEGORY_COLORS[item.category]?.bg || 'var(--category-default-bg)',
                             color: CATEGORY_COLORS[item.category]?.color || 'var(--category-default-text)',
@@ -335,14 +337,14 @@ export default function CatalogGroupDetailPage() {
                         </span>
                       </td>
                       <td>{item.manufacturer || '-'}</td>
-                      <td className="catalog-number">{item.catalogNumber || '-'}</td>
+                      <td className="font-mono">{item.catalogNumber || '-'}</td>
                       <td>
                         <StatusBadge
                           status={item.active ? 'ACTIVE' : 'INACTIVE'}
                           size="sm"
                         />
                       </td>
-                      <td className="actions-cell">
+                      <td className="flex gap-2">
                         <button
                           className="btn btn-danger btn-sm"
                           onClick={() => handleRemoveItem(item.id)}
@@ -358,227 +360,6 @@ export default function CatalogGroupDetailPage() {
           </div>
         )}
       </main>
-
-      <style jsx>{`
-        .group-detail-page {
-          padding: 2rem 0;
-        }
-
-        .page-header {
-          margin-bottom: 1.5rem;
-        }
-
-        .breadcrumb {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: 0.875rem;
-          margin-bottom: 0.5rem;
-        }
-
-        .breadcrumb a {
-          color: var(--color-blue-500);
-          text-decoration: none;
-        }
-
-        .breadcrumb a:hover {
-          text-decoration: underline;
-        }
-
-        .breadcrumb .separator {
-          color: var(--text-muted);
-        }
-
-        .description {
-          color: var(--text-muted);
-          margin: 0.5rem 0;
-        }
-
-        .group-meta {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          margin-top: 0.5rem;
-        }
-
-        .item-count {
-          color: var(--text-muted);
-          font-size: 0.875rem;
-        }
-
-        .actions-bar {
-          margin-bottom: 1.5rem;
-        }
-
-        .add-form-card {
-          background: var(--surface-primary);
-          border-radius: 8px;
-          padding: 1.5rem;
-          margin-bottom: 1.5rem;
-          box-shadow: 0 1px 3px var(--shadow-sm);
-        }
-
-        .add-form-card h3 {
-          margin-top: 0;
-          margin-bottom: 1rem;
-          color: var(--text-primary);
-        }
-
-        .search-box {
-          margin-bottom: 1rem;
-        }
-
-        .search-box input {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid var(--border-default);
-          border-radius: 4px;
-          font-size: 1rem;
-          background: var(--surface-primary);
-          color: var(--text-primary);
-        }
-
-        .available-items {
-          max-height: 400px;
-          overflow-y: auto;
-          border: 1px solid var(--border-default);
-          border-radius: 4px;
-          margin-bottom: 1rem;
-          background: var(--surface-primary);
-        }
-
-        .items-list {
-          padding: 0.5rem;
-        }
-
-        .item-checkbox {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.5rem;
-          border-radius: 4px;
-          cursor: pointer;
-          color: var(--text-primary);
-        }
-
-        .item-checkbox:hover {
-          background: var(--surface-secondary);
-        }
-
-        .item-checkbox input {
-          flex-shrink: 0;
-        }
-
-        .item-info {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .item-name {
-          display: block;
-          font-weight: 500;
-        }
-
-        .item-meta {
-          display: flex;
-          gap: 0.5rem;
-          font-size: 0.75rem;
-          color: var(--text-muted);
-        }
-
-        .catalog-num {
-          font-family: monospace;
-        }
-
-        .empty-message {
-          padding: 2rem;
-          text-align: center;
-          color: var(--text-muted);
-        }
-
-        .limit-message {
-          padding: 0.5rem;
-          text-align: center;
-          color: var(--text-muted);
-          font-size: 0.875rem;
-          background: var(--surface-secondary);
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 1rem;
-        }
-
-        .table-container {
-          background: var(--surface-primary);
-          border-radius: 8px;
-          padding: 1.5rem;
-          box-shadow: 0 1px 3px var(--shadow-sm);
-          overflow-x: auto;
-        }
-
-        .data-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        .data-table th,
-        .data-table td {
-          padding: 0.75rem;
-          text-align: left;
-          border-bottom: 1px solid var(--border-default);
-          color: var(--text-primary);
-        }
-
-        .data-table th {
-          background: var(--surface-secondary);
-          font-weight: 600;
-        }
-
-        .data-table tr:hover {
-          background: var(--surface-secondary);
-        }
-
-        .data-table tr.inactive-row {
-          opacity: 0.6;
-        }
-
-        .name-cell {
-          font-weight: 500;
-        }
-
-        .catalog-number {
-          font-family: monospace;
-        }
-
-        .category-badge {
-          display: inline-block;
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-
-        .empty-state {
-          text-align: center;
-          color: var(--text-muted);
-          padding: 2rem !important;
-        }
-
-        .actions-cell {
-          display: flex;
-          gap: 0.5rem;
-        }
-
-        .btn-danger {
-          background: var(--color-red);
-          color: var(--text-on-primary);
-        }
-
-        .btn-danger:hover {
-          background: var(--color-red-700);
-        }
-      `}</style>
     </>
   );
 }

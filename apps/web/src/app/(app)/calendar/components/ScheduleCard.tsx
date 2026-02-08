@@ -65,6 +65,28 @@ function getStatusColor(status?: string): string {
   }
 }
 
+function getBadgeClasses(status?: string): string {
+  const base = 'inline-flex items-center justify-center w-3.5 h-3.5 rounded-sm text-[0.5rem] font-bold';
+  switch (status) {
+    case 'COMPLETED':
+      return `${base} bg-[var(--color-green)] text-[var(--text-on-primary)]`;
+    case 'IN_PROGRESS':
+      return `${base} bg-[var(--color-orange)] text-[var(--text-on-primary)]`;
+    default:
+      return `${base} bg-[var(--color-gray-200)] text-[var(--color-gray-500)]`;
+  }
+}
+
+function getBadgeTitle(status?: string): string {
+  switch (status) {
+    case 'COMPLETED': return 'Completed';
+    case 'IN_PROGRESS': return 'In Progress';
+    default: return 'Not Started';
+  }
+}
+
+const CARD_BASE = 'flex gap-3 p-3 rounded-md mb-2 shadow-[0_1px_3px_var(--shadow-sm)] hover:shadow-[0_2px_4px_var(--shadow-md)] touch-none transition-all';
+
 export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutClick, onDebriefClick }: ScheduleCardProps) {
   const router = useRouter();
 
@@ -91,38 +113,26 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
       <div
         ref={setNodeRef}
         style={style}
-        className={`schedule-card schedule-card-block ${isDragging ? 'dragging' : ''}`}
+        className={`${CARD_BASE} bg-[var(--color-gray-100)] border-l-4 border-l-[var(--color-gray-400)] hover:bg-[var(--color-gray-200)] ${isDragging ? 'z-[100]' : ''}`}
         onClick={onClick}
         {...attributes}
         {...listeners}
       >
-        <div className="schedule-card-time">{formatTime(startTime)}</div>
-        <div className="schedule-card-content">
-          <div className="schedule-card-title">Time Slot</div>
-          <div className="schedule-card-subtitle">{item.durationMinutes} min</div>
+        <div className="text-xs font-semibold text-[var(--color-gray-600)] whitespace-nowrap">{formatTime(startTime)}</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-[var(--color-gray-900)]">Time Slot</div>
+          <div className="text-xs text-[var(--color-gray-600)]">{item.durationMinutes} min</div>
           {item.notes && (
-            <div className="schedule-card-notes">{item.notes}</div>
+            <div className="text-xs text-[var(--color-gray-500)] italic mt-1 whitespace-nowrap overflow-hidden text-ellipsis">{item.notes}</div>
           )}
         </div>
-
-        <style jsx>{`
-          .schedule-card-block {
-            background: var(--color-gray-100);
-            border-left: 4px solid var(--color-gray-400);
-          }
-          .schedule-card-block:hover {
-            background: var(--color-gray-200);
-          }
-        `}</style>
       </div>
     );
   }
 
   // Case card
   const handleClick = (e: React.MouseEvent) => {
-    // Don't navigate if we're dragging
     if (isDragging) return;
-
     if (onClick) {
       onClick();
     } else {
@@ -131,25 +141,7 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
   };
 
   const isInactive = item.isActive === false;
-
-  // Use surgeon color for border if available, otherwise fall back to status color
   const borderColor = item.surgeonColor || getStatusColor(item.status);
-
-  // Determine checklist status for display
-  const getChecklistStatus = (status?: string) => {
-    if (!status) return { className: 'pending', title: 'Not Started' };
-    switch (status) {
-      case 'COMPLETED':
-        return { className: 'completed', title: 'Completed' };
-      case 'IN_PROGRESS':
-        return { className: 'in-progress', title: 'In Progress' };
-      default:
-        return { className: 'pending', title: 'Not Started' };
-    }
-  };
-
-  const timeoutStatus = getChecklistStatus(item.timeoutStatus);
-  const debriefStatus = getChecklistStatus(item.debriefStatus);
 
   return (
     <div
@@ -159,17 +151,21 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
         borderLeftColor: borderColor,
         cursor: isDraggable ? 'grab' : 'pointer',
       }}
-      className={`schedule-card schedule-card-case ${isDragging ? 'dragging' : ''} ${isInactive ? 'inactive' : 'active'}`}
+      className={`${CARD_BASE} border-l-4 ${
+        isInactive
+          ? 'bg-[var(--color-gray-100)] opacity-70 hover:bg-[var(--color-gray-200)]'
+          : 'bg-surface-primary hover:bg-[var(--color-blue-50)]'
+      } ${isDragging ? 'shadow-[0_4px_12px_var(--shadow-md)] z-[100]' : ''}`}
       onClick={handleClick}
       {...attributes}
       {...listeners}
     >
-      <div className="schedule-card-time-column">
-        <div className="schedule-card-time">{formatTime(startTime)}</div>
-        <div className="schedule-card-checklists">
+      <div className="flex flex-col items-start gap-1 min-w-[60px]">
+        <div className="text-xs font-semibold text-[var(--color-gray-600)] whitespace-nowrap">{formatTime(startTime)}</div>
+        <div className="flex gap-0.5">
           <span
-            className={`checklist-badge ${timeoutStatus.className}${onTimeoutClick ? ' clickable' : ''}`}
-            title={`Timeout: ${timeoutStatus.title}`}
+            className={`${getBadgeClasses(item.timeoutStatus)}${onTimeoutClick ? ' hover:scale-[1.15] hover:shadow-[0_1px_3px_var(--shadow-md)]' : ''}`}
+            title={`Timeout: ${getBadgeTitle(item.timeoutStatus)}`}
             onClick={(e) => {
               if (onTimeoutClick) {
                 e.stopPropagation();
@@ -181,8 +177,8 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
             T
           </span>
           <span
-            className={`checklist-badge ${debriefStatus.className}${onDebriefClick ? ' clickable' : ''}`}
-            title={`Debrief: ${debriefStatus.title}`}
+            className={`${getBadgeClasses(item.debriefStatus)}${onDebriefClick ? ' hover:scale-[1.15] hover:shadow-[0_1px_3px_var(--shadow-md)]' : ''}`}
+            title={`Debrief: ${getBadgeTitle(item.debriefStatus)}`}
             onClick={(e) => {
               if (onDebriefClick) {
                 e.stopPropagation();
@@ -195,193 +191,28 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
           </span>
         </div>
       </div>
-      <div className="schedule-card-content">
-        <div className="schedule-card-title">
-          {item.laterality && <span className="schedule-card-laterality">{item.laterality} </span>}
+      <div className="flex-1 min-w-0">
+        <div className={`text-sm font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${isInactive ? 'text-[var(--color-gray-500)]' : 'text-[var(--color-gray-900)]'}`}>
+          {item.laterality && <span className="text-[var(--color-gray-500)] font-medium">{item.laterality} </span>}
           {item.procedureName}
         </div>
-        <div className="schedule-card-subtitle">
+        <div className={`text-xs whitespace-nowrap overflow-hidden text-ellipsis ${isInactive ? 'text-[var(--color-gray-500)]' : 'text-[var(--color-gray-600)]'}`}>
           {item.surgeonColor && (
             <span
-              className="surgeon-color-dot"
+              className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 shrink-0 align-middle"
               style={{ backgroundColor: item.surgeonColor }}
             />
           )}
           Dr. {item.surgeonName}
         </div>
-        <div className="schedule-card-meta">
-          <span className="schedule-card-duration">{item.durationMinutes} min</span>
+        <div className="flex gap-2 mt-1 text-[0.625rem] text-[var(--color-gray-500)]">
+          <span className="bg-[var(--color-gray-100)] px-1.5 py-0.5 rounded">{item.durationMinutes} min</span>
           {item.caseNumber && (
-            <span className="schedule-card-case-number">{item.caseNumber}</span>
+            <span className="text-[var(--color-gray-400)]">{item.caseNumber}</span>
           )}
           <ReadinessBadge overall={readinessFromState(item.readinessState)} />
         </div>
       </div>
-
-      <style jsx>{`
-        .surgeon-color-dot {
-          display: inline-block;
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          margin-right: 0.375rem;
-          flex-shrink: 0;
-          vertical-align: middle;
-        }
-        .schedule-card-case {
-          border-left-width: 4px;
-          border-left-style: solid;
-        }
-        .schedule-card-case.active {
-          background: var(--surface-primary);
-        }
-        .schedule-card-case.active:hover {
-          background: var(--color-blue-50);
-        }
-        .schedule-card-case.inactive {
-          background: var(--color-gray-100);
-          opacity: 0.7;
-        }
-        .schedule-card-case.inactive:hover {
-          background: var(--color-gray-200);
-        }
-        .schedule-card-case.inactive .schedule-card-title,
-        .schedule-card-case.inactive .schedule-card-subtitle {
-          color: var(--color-gray-500);
-        }
-        .schedule-card-case.dragging {
-          box-shadow: 0 4px 12px var(--shadow-md);
-        }
-      `}</style>
     </div>
   );
 }
-
-// Shared styles - exported for use in parent components
-export const scheduleCardStyles = `
-  .schedule-card {
-    display: flex;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    border-radius: 6px;
-    margin-bottom: 0.5rem;
-    transition: background 0.15s, box-shadow 0.15s, opacity 0.15s;
-    box-shadow: 0 1px 3px var(--shadow-sm);
-    touch-action: none;
-  }
-
-  .schedule-card:hover {
-    box-shadow: 0 2px 4px var(--shadow-md);
-  }
-
-  .schedule-card.dragging {
-    z-index: 100;
-  }
-
-  .schedule-card-time-column {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
-    min-width: 60px;
-  }
-
-  .schedule-card-time {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--color-gray-600);
-    white-space: nowrap;
-  }
-
-  .schedule-card-content {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .schedule-card-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-gray-900);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .schedule-card-laterality {
-    color: var(--color-gray-500);
-    font-weight: 500;
-  }
-
-  .schedule-card-subtitle {
-    font-size: 0.75rem;
-    color: var(--color-gray-600);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .schedule-card-meta {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.25rem;
-    font-size: 0.625rem;
-    color: var(--color-gray-500);
-  }
-
-  .schedule-card-duration {
-    background: var(--color-gray-100);
-    padding: 0.125rem 0.375rem;
-    border-radius: 4px;
-  }
-
-  .schedule-card-case-number {
-    color: var(--color-gray-400);
-  }
-
-  .schedule-card-notes {
-    font-size: 0.75rem;
-    color: var(--color-gray-500);
-    font-style: italic;
-    margin-top: 0.25rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .schedule-card-checklists {
-    display: flex;
-    gap: 0.125rem;
-  }
-
-  .checklist-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-    font-size: 0.5rem;
-    font-weight: 700;
-    cursor: help;
-  }
-
-  .checklist-badge.pending {
-    background: var(--color-gray-200);
-    color: var(--color-gray-500);
-  }
-
-  .checklist-badge.in-progress {
-    background: var(--color-orange);
-    color: var(--text-on-primary);
-  }
-
-  .checklist-badge.completed {
-    background: var(--color-green);
-    color: var(--text-on-primary);
-  }
-
-  .checklist-badge.clickable:hover {
-    transform: scale(1.15);
-    box-shadow: 0 1px 3px var(--shadow-md);
-  }
-`;

@@ -93,12 +93,12 @@ export default function PendingReviewsPage() {
     <>
       <Header title="My Pending Reviews" />
 
-      <main className="container pending-reviews-page">
+      <main className="container py-8">
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && <div className="alert alert-success">{successMessage}</div>}
 
-        <div className="pending-reviews-info">
-          <p>
+        <div className="bg-surface-secondary rounded-lg py-4 px-6 mb-8">
+          <p className="m-0 text-text-muted">
             As a {roleLabel}, you have pending debrief reviews to complete.
             These are procedures where your signature is required due to exceptions or issues documented during the debrief.
           </p>
@@ -107,23 +107,23 @@ export default function PendingReviewsPage() {
         {isLoadingData ? (
           <div className="loading">Loading pending reviews...</div>
         ) : pendingReviews.length === 0 ? (
-          <div className="no-pending-reviews">
-            <span className="status-icon">✓</span>
-            <p>No pending reviews! You are all caught up.</p>
+          <div className="text-center p-12 bg-[var(--color-green-bg)] rounded-lg border border-[var(--color-green)]">
+            <span className="text-[3rem] block mb-4 text-[var(--color-green)]">✓</span>
+            <p className="m-0 text-text-primary">No pending reviews! You are all caught up.</p>
           </div>
         ) : (
-          <div className="pending-reviews-list">
-            <h2>Pending Reviews ({pendingReviews.length})</h2>
+          <div>
+            <h2 className="mb-4 text-text-primary">Pending Reviews ({pendingReviews.length})</h2>
             {pendingReviews.map((review) => (
-              <div key={review.instanceId} className="pending-review-card">
-                <div className="review-header">
-                  <h3>{review.caseName}</h3>
+              <div key={review.instanceId} className="bg-surface-primary border border-border rounded-lg p-6 mb-4 shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="m-0 text-lg text-text-primary">{review.caseName}</h3>
                 </div>
-                <div className="review-details">
+                <div className="mb-4 text-text-muted [&_p]:my-1">
                   <p><strong>Surgeon:</strong> {review.surgeonName}</p>
                   <p><strong>Debrief Completed:</strong> {new Date(review.completedAt).toLocaleString()}</p>
                 </div>
-                <div className="review-actions">
+                <div className="flex gap-3">
                   <button
                     className="btn btn-primary"
                     onClick={() => handleStartReview(review)}
@@ -145,34 +145,34 @@ export default function PendingReviewsPage() {
         {/* Review Modal */}
         {reviewingCase && (
           <div className="modal-overlay">
-            <div className="modal review-modal">
-              <h2>Complete Review</h2>
-              <p className="modal-case-info">
+            <div className="bg-surface-primary rounded-lg p-8 max-w-[500px] w-[90%] max-h-[90vh] overflow-y-auto">
+              <h2 className="mt-0 mb-4 text-text-primary">Complete Review</h2>
+              <p className="bg-surface-secondary p-4 rounded mb-6 text-text-primary">
                 <strong>{reviewingCase.caseName}</strong><br />
                 Surgeon: {reviewingCase.surgeonName}
               </p>
 
-              <div className="review-form">
-                <label className="form-label">
+              <div>
+                <label className="block font-semibold mb-2 text-text-primary">
                   {notesLabel}
-                  <span className="form-hint">(Optional - add any notes or corrections)</span>
+                  <span className="font-normal text-text-muted text-sm block">(Optional - add any notes or corrections)</span>
                 </label>
                 <textarea
-                  className="form-textarea"
+                  className="w-full p-3 border border-border rounded text-base resize-y mb-4 bg-surface-primary text-text-primary"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={4}
                   placeholder={`Enter any ${roleLabel.toLowerCase()} notes or corrections...`}
                 />
 
-                <div className="signature-notice">
-                  <p>
+                <div className="alert alert-warning mb-6">
+                  <p className="m-0 text-sm">
                     By clicking &quot;Sign and Submit&quot;, you confirm that you have reviewed
                     the debrief documentation for this procedure.
                   </p>
                 </div>
 
-                <div className="modal-actions">
+                <div className="flex justify-end gap-3">
                   <button
                     className="btn btn-secondary"
                     onClick={handleCancelReview}
@@ -193,233 +193,6 @@ export default function PendingReviewsPage() {
           </div>
         )}
       </main>
-
-      <style jsx>{`
-        .pending-reviews-page {
-          padding: 2rem 0;
-        }
-
-        .pending-reviews-info {
-          background: #f8f9fa;
-          border-radius: 8px;
-          padding: 1rem 1.5rem;
-          margin-bottom: 2rem;
-        }
-
-        .pending-reviews-info p {
-          margin: 0;
-          color: #666;
-        }
-
-        .no-pending-reviews {
-          text-align: center;
-          padding: 3rem;
-          background: #f0fff4;
-          border-radius: 8px;
-          border: 1px solid #9ae6b4;
-        }
-
-        .no-pending-reviews .status-icon {
-          font-size: 3rem;
-          display: block;
-          margin-bottom: 1rem;
-          color: #38a169;
-        }
-
-        .pending-reviews-list h2 {
-          margin-bottom: 1rem;
-          color: #333;
-        }
-
-        .pending-review-card {
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          padding: 1.5rem;
-          margin-bottom: 1rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .review-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 0.75rem;
-        }
-
-        .review-header h3 {
-          margin: 0;
-          font-size: 1.125rem;
-          color: #333;
-        }
-
-        .review-mrn {
-          color: #666;
-          font-size: 0.875rem;
-        }
-
-        .review-details {
-          margin-bottom: 1rem;
-          color: #666;
-        }
-
-        .review-details p {
-          margin: 0.25rem 0;
-        }
-
-        .review-actions {
-          display: flex;
-          gap: 0.75rem;
-        }
-
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .modal {
-          background: white;
-          border-radius: 8px;
-          padding: 2rem;
-          max-width: 500px;
-          width: 90%;
-          max-height: 90vh;
-          overflow-y: auto;
-        }
-
-        .modal h2 {
-          margin-top: 0;
-          margin-bottom: 1rem;
-        }
-
-        .modal-case-info {
-          background: #f8f9fa;
-          padding: 1rem;
-          border-radius: 4px;
-          margin-bottom: 1.5rem;
-        }
-
-        .review-form .form-label {
-          display: block;
-          font-weight: 600;
-          margin-bottom: 0.5rem;
-        }
-
-        .review-form .form-hint {
-          font-weight: normal;
-          color: #666;
-          font-size: 0.875rem;
-          display: block;
-        }
-
-        .review-form .form-textarea {
-          width: 100%;
-          padding: 0.75rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 4px;
-          font-size: 1rem;
-          resize: vertical;
-          margin-bottom: 1rem;
-        }
-
-        .signature-notice {
-          background: #fff3cd;
-          border: 1px solid #ffc107;
-          border-radius: 4px;
-          padding: 0.75rem 1rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .signature-notice p {
-          margin: 0;
-          font-size: 0.875rem;
-          color: #856404;
-        }
-
-        .modal-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-        }
-
-        /* Dark mode overrides */
-        :global([data-theme="dark"]) .pending-reviews-info {
-          background: var(--surface-tertiary);
-        }
-        :global([data-theme="dark"]) .pending-reviews-info p {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .no-pending-reviews {
-          background: #22543d;
-          border-color: #276749;
-        }
-        :global([data-theme="dark"]) .pending-reviews-list h2 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .pending-review-card {
-          background: var(--surface-secondary);
-          border-color: var(--border-default);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        :global([data-theme="dark"]) .review-header h3 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .review-mrn,
-        :global([data-theme="dark"]) .review-details {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .modal {
-          background: var(--surface-secondary);
-        }
-        :global([data-theme="dark"]) .modal h2 {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .modal-case-info {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .review-form .form-label {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .review-form .form-hint {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .review-form .form-textarea {
-          background: var(--surface-tertiary);
-          border-color: var(--border-default);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .signature-notice {
-          background: #744210;
-          border-color: #dd6b20;
-        }
-        :global([data-theme="dark"]) .signature-notice p {
-          color: #feebc8;
-        }
-        :global([data-theme="dark"]) .alert-info {
-          background: var(--color-blue-50);
-          border-color: var(--color-blue-500);
-          color: var(--color-blue-500);
-        }
-        :global([data-theme="dark"]) .loading {
-          color: var(--text-muted);
-        }
-        :global([data-theme="dark"]) .btn-secondary {
-          background: var(--surface-tertiary);
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .btn-secondary:hover {
-          background: var(--color-gray-400);
-        }
-      `}</style>
     </>
   );
 }
