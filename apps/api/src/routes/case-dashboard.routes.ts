@@ -561,10 +561,6 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
     // ── New snapshot-based flow ──
     if (body.caseCardId) {
-      if (!body.reasonCode) {
-        return fail(reply, 'VALIDATION_ERROR', 'reasonCode is required');
-      }
-
       // Verify case exists and get current link state
       const caseResult = await query<{ case_card_version_id: string | null }>(`
         SELECT case_card_version_id FROM surgical_case WHERE id = $1 AND facility_id = $2
@@ -572,6 +568,12 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
       if (caseResult.rows.length === 0) {
         return fail(reply, 'NOT_FOUND', 'Case not found', 404);
+      }
+
+      // Reason is required for relink/change, optional for initial link
+      const isRelink = !!caseResult.rows[0].case_card_version_id;
+      if (isRelink && !body.reasonCode) {
+        return fail(reply, 'VALIDATION_ERROR', 'reasonCode is required when relinking');
       }
 
       // Resolve ACTIVE version for the case card
@@ -655,7 +657,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `, [
           caseId, facilityId, action, card.card_id, card.version_id,
-          JSON.stringify(snapshotJson), body.reasonCode, body.reasonNote || null,
+          JSON.stringify(snapshotJson), body.reasonCode || 'INITIAL_LINK', body.reasonNote || null,
           userId, userName,
         ]);
 
@@ -666,7 +668,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `, [
           caseId, facilityId, eventType, userId, userRole, userName,
-          `${action === 'RELINKED' ? 'Relinked' : 'Linked'} preference card: ${card.procedure_name} v${card.version_number} (${body.reasonCode})`,
+          `${action === 'RELINKED' ? 'Relinked' : 'Linked'} preference card: ${card.procedure_name} v${card.version_number}${body.reasonCode ? ` (${body.reasonCode})` : ''}`,
           card.version_id,
         ]);
       });

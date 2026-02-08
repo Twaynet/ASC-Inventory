@@ -82,9 +82,10 @@ export interface CaseDashboardData {
   missingItems: MissingItem[];
 }
 
-export type LinkReasonCode = 'OUTDATED_CARD' | 'SURGEON_CHANGED_PLAN' | 'EMERGENT_DEVIATION' | 'MISSING_EQUIPMENT' | 'OTHER';
+export type LinkReasonCode = 'INITIAL_LINK' | 'OUTDATED_CARD' | 'SURGEON_CHANGED_PLAN' | 'EMERGENT_DEVIATION' | 'MISSING_EQUIPMENT' | 'OTHER';
 
 export const LINK_REASON_LABELS: Record<LinkReasonCode, string> = {
+  INITIAL_LINK: 'Initial link',
   OUTDATED_CARD: 'Outdated card',
   SURGEON_CHANGED_PLAN: 'Surgeon changed plan',
   EMERGENT_DEVIATION: 'Emergent deviation',
@@ -201,7 +202,7 @@ export async function linkCaseCard(
 export async function linkCaseCardWithReason(
   token: string,
   caseId: string,
-  data: { caseCardId: string; reasonCode: string; reasonNote?: string }
+  data: { caseCardId: string; reasonCode?: string; reasonNote?: string }
 ): Promise<{ success: boolean }> {
   return request(`/case-dashboard/${caseId}/link-case-card`, {
     method: 'PUT',

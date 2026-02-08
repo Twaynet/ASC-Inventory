@@ -95,6 +95,19 @@
   --surface-hover: var(--surface-secondary);
   --border: var(--border-default);
 
+  /* Status colors - dark mode (muted backgrounds, brighter foregrounds) */
+  --color-green: #4ade80;
+  --color-green-bg: #14532d;
+  --color-green-700: #86efac;
+  --color-orange: #fb923c;
+  --color-orange-bg: #431407;
+  --color-orange-700: #fdba74;
+  --color-red: #f87171;
+  --color-red-bg: #450a0a;
+  --color-red-50: #450a0a;
+  --color-red-100: #450a0a;
+  --color-red-700: #fca5a5;
+
   /* Category colors - dark mode (softer, more muted) */
   --category-implant-bg: #7c4a1a;
   --category-implant-text: #fbd38d;

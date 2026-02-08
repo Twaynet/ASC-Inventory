@@ -346,12 +346,14 @@ export function CaseDashboardContent({
     }
   };
 
+  const isRelink = !!caseCardLinkData?.currentLink;
+
   const handleLinkCaseCard = async () => {
-    if (!selectedCaseCardId || !linkReasonCode) return;
+    if (!selectedCaseCardId || (isRelink && !linkReasonCode)) return;
     try {
       await linkCaseCardWithReason(token, caseId, {
         caseCardId: selectedCaseCardId,
-        reasonCode: linkReasonCode,
+        reasonCode: linkReasonCode || undefined,
         reasonNote: linkReasonNote || undefined,
       });
       setSuccessMessage('Preference card linked');
@@ -459,18 +461,6 @@ export function CaseDashboardContent({
     if (readiness.overall === 'BLOCKED') return 'Needs Attention';
     if (readiness.overall === 'READY') return 'Ready';
     return 'Scheduled';
-  };
-
-  const getPrintStatusColor = () => {
-    if (dashboard.attestationState === 'VOIDED') return '#e53e3e';
-    if (dashboard.attestationState === 'ATTESTED') return '#38a169';
-    // Use computed readiness for consistent status
-    if (readiness.overall === 'BLOCKED') {
-      const hasCritical = readiness.blockers.some(b => b.severity === 'critical');
-      return hasCritical ? '#e53e3e' : '#dd6b20';
-    }
-    if (readiness.overall === 'READY') return '#38a169';
-    return '#718096';
   };
 
   return (
@@ -639,8 +629,8 @@ export function CaseDashboardContent({
       <section
         className="dashboard-section"
         style={{
-          background: readiness.overall === 'READY' ? '#f0fff4' : readiness.overall === 'BLOCKED' ? '#fffbeb' : undefined,
-          borderColor: readiness.overall === 'READY' ? '#c6f6d5' : readiness.overall === 'BLOCKED' ? '#fde68a' : undefined,
+          background: readiness.overall === 'READY' ? 'var(--color-green-bg)' : readiness.overall === 'BLOCKED' ? 'var(--color-orange-bg)' : undefined,
+          borderColor: readiness.overall === 'READY' ? 'var(--color-green)' : readiness.overall === 'BLOCKED' ? 'var(--color-orange)' : undefined,
         }}
       >
         <div className={`flex items-center gap-3 ${readiness.blockers.length > 0 ? 'mb-3' : ''}`}>
@@ -656,13 +646,13 @@ export function CaseDashboardContent({
             {readiness.blockers.map((blocker) => (
               <div
                 key={blocker.code}
-                className={`flex justify-between items-center py-2 px-3 bg-white rounded-md border ${
-                  blocker.severity === 'critical' ? 'border-[#fc8181]' : 'border-[#fbd38d]'
+                className={`flex justify-between items-center py-2 px-3 bg-surface-primary rounded-md border ${
+                  blocker.severity === 'critical' ? 'border-[var(--color-red)]' : 'border-[var(--color-orange)]'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${
-                    blocker.severity === 'critical' ? 'bg-[#e53e3e]' : 'bg-[#dd6b20]'
+                    blocker.severity === 'critical' ? 'bg-[var(--color-red)]' : 'bg-[var(--color-orange)]'
                   }`} />
                   <span className="text-sm">{blocker.label}</span>
                 </div>
@@ -1377,11 +1367,15 @@ export function CaseDashboardContent({
             <h3>{caseCardLinkData?.currentLink ? 'Relink' : 'Link'} {TERMS.PREFERENCE_CARD}</h3>
             <p className="mb-3">Select an active preference card to link to this case:</p>
 
-            {/* Card selection */}
-            {availableCaseCards.filter(c => c.surgeonId === dashboard.surgeonId).length > 0 ? (
+            {/* Card selection — surgeon's cards first, then others */}
+            {availableCaseCards.length > 0 ? (
               <div className="max-h-[250px] overflow-y-auto mb-4">
-                {availableCaseCards
-                  .filter(c => c.surgeonId === dashboard.surgeonId)
+                {[...availableCaseCards]
+                  .sort((a, b) => {
+                    const aMatch = a.surgeonId === dashboard.surgeonId ? 0 : 1;
+                    const bMatch = b.surgeonId === dashboard.surgeonId ? 0 : 1;
+                    return aMatch - bMatch || a.procedureName.localeCompare(b.procedureName);
+                  })
                   .map(card => (
                     <div
                       key={card.id}
@@ -1401,31 +1395,35 @@ export function CaseDashboardContent({
                   ))}
               </div>
             ) : (
-              <p className="text-text-muted mb-4">No active preference cards found for this surgeon.</p>
+              <p className="text-text-muted mb-4">No active preference cards available.</p>
             )}
 
-            {/* Reason (required) */}
-            <div className="form-group">
-              <label>Reason *</label>
-              <select
-                value={linkReasonCode}
-                onChange={e => setLinkReasonCode(e.target.value as LinkReasonCode)}
-              >
-                <option value="">Select reason...</option>
-                {Object.entries(LINK_REASON_LABELS).map(([code, label]) => (
-                  <option key={code} value={code}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Note (optional)</label>
-              <textarea
-                value={linkReasonNote}
-                onChange={e => setLinkReasonNote(e.target.value)}
-                rows={2}
-                placeholder="Additional context..."
-              />
-            </div>
+            {/* Reason — required only for relink */}
+            {isRelink && (
+              <>
+                <div className="form-group">
+                  <label>Reason *</label>
+                  <select
+                    value={linkReasonCode}
+                    onChange={e => setLinkReasonCode(e.target.value as LinkReasonCode)}
+                  >
+                    <option value="">Select reason...</option>
+                    {Object.entries(LINK_REASON_LABELS).map(([code, label]) => (
+                      <option key={code} value={code}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Note (optional)</label>
+                  <textarea
+                    value={linkReasonNote}
+                    onChange={e => setLinkReasonNote(e.target.value)}
+                    rows={2}
+                    placeholder="Additional context..."
+                  />
+                </div>
+              </>
+            )}
 
             <p className="text-xs text-text-muted mb-4">This action will be logged and visible to all users.</p>
 
@@ -1434,9 +1432,9 @@ export function CaseDashboardContent({
               <button
                 onClick={handleLinkCaseCard}
                 className="btn-primary"
-                disabled={!selectedCaseCardId || !linkReasonCode}
+                disabled={!selectedCaseCardId || (isRelink && !linkReasonCode)}
               >
-                {caseCardLinkData?.currentLink ? 'Relink' : 'Link'}
+                {isRelink ? 'Relink' : 'Link'}
               </button>
             </div>
           </div>
@@ -1585,7 +1583,7 @@ export function CaseDashboardContent({
               </div>
             </div>
             <div className="print-content">
-              <div className="print-header border-b-2 border-[#3182ce] pb-4 mb-6">
+              <div className="print-header border-b-2 border-accent pb-4 mb-6">
                 <h1 className="mb-2 text-[1.75rem]">{printingCard.card.procedureName}</h1>
                 <div className="flex gap-6 flex-wrap text-sm">
                   <span><strong>Surgeon:</strong> {printingCard.card.surgeonName}</span>
@@ -1593,7 +1591,7 @@ export function CaseDashboardContent({
                   <span><strong>Status:</strong> {printingCard.card.status}</span>
                 </div>
                 {printingCard.card.turnoverNotes && (
-                  <div className="mt-2 p-2 bg-[#f7fafc] rounded text-sm">
+                  <div className="mt-2 p-2 bg-surface-secondary rounded text-sm">
                     <strong>Turnover Notes:</strong> {printingCard.card.turnoverNotes}
                   </div>
                 )}
@@ -1609,94 +1607,94 @@ export function CaseDashboardContent({
                 return (
                   <div className="flex flex-col gap-4">
                     {/* Instrumentation */}
-                    <div className="border border-[#e2e8f0] rounded p-4">
-                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Instrumentation</h3>
+                    <div className="border border-border rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-border pb-2">Instrumentation</h3>
                       {inst && Object.values(inst).some(v => v) ? (
                         <>
-                          {Boolean(inst.primaryTrays) && <div className="mb-2"><strong>Primary Trays:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(inst.primaryTrays)}</pre></div>}
-                          {Boolean(inst.supplementalTrays) && <div className="mb-2"><strong>Supplemental Trays:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(inst.supplementalTrays)}</pre></div>}
-                          {Boolean(inst.looseInstruments) && <div className="mb-2"><strong>Loose Instruments:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(inst.looseInstruments)}</pre></div>}
+                          {Boolean(inst.primaryTrays) && <div className="mb-2"><strong>Primary Trays:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(inst.primaryTrays)}</pre></div>}
+                          {Boolean(inst.supplementalTrays) && <div className="mb-2"><strong>Supplemental Trays:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(inst.supplementalTrays)}</pre></div>}
+                          {Boolean(inst.looseInstruments) && <div className="mb-2"><strong>Loose Instruments:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(inst.looseInstruments)}</pre></div>}
                           <div className="flex gap-4 flex-wrap">
-                            {Boolean(inst.flashAllowed) && <span className="bg-[#bee3f8] py-1 px-2 rounded text-xs">Flash Sterilization Allowed</span>}
-                            {Boolean(inst.peelPackOnly) && <span className="bg-[#bee3f8] py-1 px-2 rounded text-xs">Peel Pack Only</span>}
+                            {Boolean(inst.flashAllowed) && <span className="bg-accent/20 py-1 px-2 rounded text-xs">Flash Sterilization Allowed</span>}
+                            {Boolean(inst.peelPackOnly) && <span className="bg-accent/20 py-1 px-2 rounded text-xs">Peel Pack Only</span>}
                           </div>
                         </>
-                      ) : <p className="text-[#718096] italic">No instrumentation documented</p>}
+                      ) : <p className="text-text-muted italic">No instrumentation documented</p>}
                     </div>
 
                     {/* Equipment */}
-                    <div className="border border-[#e2e8f0] rounded p-4">
-                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Equipment</h3>
+                    <div className="border border-border rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-border pb-2">Equipment</h3>
                       {equip && Object.values(equip).some(v => v) ? (
                         <>
-                          {Boolean(equip.energyDevices) && <div className="mb-2"><strong>Energy Devices:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(equip.energyDevices)}</pre></div>}
+                          {Boolean(equip.energyDevices) && <div className="mb-2"><strong>Energy Devices:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(equip.energyDevices)}</pre></div>}
                           {Boolean(equip.tourniquetLocation || equip.tourniquetPressure) && <div className="mb-2"><strong>Tourniquet:</strong> {String(equip.tourniquetLocation || '')} {equip.tourniquetPressure ? `@ ${equip.tourniquetPressure}` : ''}</div>}
                           {Boolean(equip.imaging) && <div className="mb-2"><strong>Imaging:</strong> {String(equip.imaging)}</div>}
-                          {Boolean(equip.specializedDevices) && <div className="mb-2"><strong>Specialized Devices:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(equip.specializedDevices)}</pre></div>}
+                          {Boolean(equip.specializedDevices) && <div className="mb-2"><strong>Specialized Devices:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(equip.specializedDevices)}</pre></div>}
                         </>
-                      ) : <p className="text-[#718096] italic">No equipment documented</p>}
+                      ) : <p className="text-text-muted italic">No equipment documented</p>}
                     </div>
 
                     {/* Supplies */}
-                    <div className="border border-[#e2e8f0] rounded p-4">
-                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Supplies</h3>
+                    <div className="border border-border rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-border pb-2">Supplies</h3>
                       {supp && Object.values(supp).some(v => v) ? (
                         <>
-                          {Boolean(supp.gloves) && <div className="mb-2"><strong>Gloves:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(supp.gloves)}</pre></div>}
-                          {Boolean(supp.drapes) && <div className="mb-2"><strong>Drapes:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(supp.drapes)}</pre></div>}
-                          {Boolean(supp.implants) && <div className="mb-2"><strong>Implants:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(supp.implants)}</pre></div>}
-                          {Boolean(supp.sutures) && <div className="mb-2"><strong>Sutures:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(supp.sutures)}</pre></div>}
-                          {Boolean(supp.disposables) && <div className="mb-2"><strong>Disposables:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(supp.disposables)}</pre></div>}
+                          {Boolean(supp.gloves) && <div className="mb-2"><strong>Gloves:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(supp.gloves)}</pre></div>}
+                          {Boolean(supp.drapes) && <div className="mb-2"><strong>Drapes:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(supp.drapes)}</pre></div>}
+                          {Boolean(supp.implants) && <div className="mb-2"><strong>Implants:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(supp.implants)}</pre></div>}
+                          {Boolean(supp.sutures) && <div className="mb-2"><strong>Sutures:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(supp.sutures)}</pre></div>}
+                          {Boolean(supp.disposables) && <div className="mb-2"><strong>Disposables:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(supp.disposables)}</pre></div>}
                         </>
-                      ) : <p className="text-[#718096] italic">No supplies documented</p>}
+                      ) : <p className="text-text-muted italic">No supplies documented</p>}
                     </div>
 
                     {/* Medications */}
-                    <div className="border border-[#e2e8f0] rounded p-4">
-                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Medications & Solutions</h3>
+                    <div className="border border-border rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-border pb-2">Medications & Solutions</h3>
                       {meds && Object.values(meds).some(v => v) ? (
                         <>
-                          {Boolean(meds.localAnesthetic) && <div className="mb-2"><strong>Local Anesthetic:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(meds.localAnesthetic)}</pre></div>}
-                          {Boolean(meds.antibiotics) && <div className="mb-2"><strong>Antibiotics:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(meds.antibiotics)}</pre></div>}
-                          {Boolean(meds.irrigation) && <div className="mb-2"><strong>Irrigation:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(meds.irrigation)}</pre></div>}
-                          {Boolean(meds.topicalAgents) && <div className="mb-2"><strong>Topical Agents:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(meds.topicalAgents)}</pre></div>}
+                          {Boolean(meds.localAnesthetic) && <div className="mb-2"><strong>Local Anesthetic:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(meds.localAnesthetic)}</pre></div>}
+                          {Boolean(meds.antibiotics) && <div className="mb-2"><strong>Antibiotics:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(meds.antibiotics)}</pre></div>}
+                          {Boolean(meds.irrigation) && <div className="mb-2"><strong>Irrigation:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(meds.irrigation)}</pre></div>}
+                          {Boolean(meds.topicalAgents) && <div className="mb-2"><strong>Topical Agents:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(meds.topicalAgents)}</pre></div>}
                         </>
-                      ) : <p className="text-[#718096] italic">No medications/solutions documented</p>}
+                      ) : <p className="text-text-muted italic">No medications/solutions documented</p>}
                     </div>
 
                     {/* Setup & Positioning */}
-                    <div className="border border-[#e2e8f0] rounded p-4">
-                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Setup & Positioning</h3>
+                    <div className="border border-border rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-border pb-2">Setup & Positioning</h3>
                       {setup && Object.values(setup).some(v => v) ? (
                         <>
                           {Boolean(setup.patientPosition) && <div className="mb-2"><strong>Patient Position:</strong> {String(setup.patientPosition)}</div>}
                           {Boolean(setup.tableConfiguration) && <div className="mb-2"><strong>Table Configuration:</strong> {String(setup.tableConfiguration)}</div>}
-                          {Boolean(setup.paddingRequirements) && <div className="mb-2"><strong>Padding:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(setup.paddingRequirements)}</pre></div>}
+                          {Boolean(setup.paddingRequirements) && <div className="mb-2"><strong>Padding:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(setup.paddingRequirements)}</pre></div>}
                           {Boolean(setup.mayoStandCount || setup.mayoStandPlacement) && <div className="mb-2"><strong>Mayo Stand:</strong> {setup.mayoStandCount ? `${setup.mayoStandCount}x` : ''} {String(setup.mayoStandPlacement || '')}</div>}
-                          {Boolean(setup.backTableNotes) && <div className="mb-2"><strong>Back Table:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(setup.backTableNotes)}</pre></div>}
-                          {Boolean(setup.orFlowNotes) && <div className="mb-2"><strong>OR Flow Notes:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(setup.orFlowNotes)}</pre></div>}
+                          {Boolean(setup.backTableNotes) && <div className="mb-2"><strong>Back Table:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(setup.backTableNotes)}</pre></div>}
+                          {Boolean(setup.orFlowNotes) && <div className="mb-2"><strong>OR Flow Notes:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(setup.orFlowNotes)}</pre></div>}
                         </>
-                      ) : <p className="text-[#718096] italic">No setup/positioning documented</p>}
+                      ) : <p className="text-text-muted italic">No setup/positioning documented</p>}
                     </div>
 
                     {/* Surgeon Notes */}
-                    <div className="border border-[#e2e8f0] rounded p-4">
-                      <h3 className="mb-2 text-base border-b border-[#e2e8f0] pb-2">Surgeon Notes & Preferences</h3>
+                    <div className="border border-border rounded p-4">
+                      <h3 className="mb-2 text-base border-b border-border pb-2">Surgeon Notes & Preferences</h3>
                       {notes && Object.values(notes).some(v => v) ? (
                         <>
-                          {Boolean(notes.preferences) && <div className="mb-2"><strong>Preferences:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(notes.preferences)}</pre></div>}
-                          {Boolean(notes.holdPrnItems) && <div className="mb-2"><strong>Hold / PRN Items:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(notes.holdPrnItems)}</pre></div>}
-                          {Boolean(notes.decisionTriggers) && <div className="mb-2"><strong>Decision Triggers:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(notes.decisionTriggers)}</pre></div>}
-                          {Boolean(notes.teachingModifiers) && <div className="mb-2"><strong>Teaching Case Modifiers:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(notes.teachingModifiers)}</pre></div>}
-                          {Boolean(notes.revisionAddOns) && <div className="mb-2"><strong>Revision-Only Add-Ons:</strong><pre className="my-1 whitespace-pre-wrap bg-[#f7fafc] p-2 rounded">{String(notes.revisionAddOns)}</pre></div>}
+                          {Boolean(notes.preferences) && <div className="mb-2"><strong>Preferences:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(notes.preferences)}</pre></div>}
+                          {Boolean(notes.holdPrnItems) && <div className="mb-2"><strong>Hold / PRN Items:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(notes.holdPrnItems)}</pre></div>}
+                          {Boolean(notes.decisionTriggers) && <div className="mb-2"><strong>Decision Triggers:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(notes.decisionTriggers)}</pre></div>}
+                          {Boolean(notes.teachingModifiers) && <div className="mb-2"><strong>Teaching Case Modifiers:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(notes.teachingModifiers)}</pre></div>}
+                          {Boolean(notes.revisionAddOns) && <div className="mb-2"><strong>Revision-Only Add-Ons:</strong><pre className="my-1 whitespace-pre-wrap bg-surface-secondary p-2 rounded">{String(notes.revisionAddOns)}</pre></div>}
                         </>
-                      ) : <p className="text-[#718096] italic">No surgeon notes/preferences documented</p>}
+                      ) : <p className="text-text-muted italic">No surgeon notes/preferences documented</p>}
                     </div>
                   </div>
                 );
               })()}
 
-              <div className="mt-6 pt-4 border-t border-[#e2e8f0] flex justify-between text-xs text-[#718096]">
+              <div className="mt-6 pt-4 border-t border-border flex justify-between text-xs text-text-muted">
                 <span>Printed: {new Date().toLocaleString()}</span>
                 <span>Facility: {user?.facilityName}</span>
               </div>
