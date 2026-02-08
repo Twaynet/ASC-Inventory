@@ -14,7 +14,7 @@ interface ReportDefinition {
   id: string;
   name: string;
   description: string;
-  category: 'inventory' | 'cases' | 'compliance';
+  category: 'inventory' | 'cases' | 'compliance' | 'audit';
   filters: string[];
   exportFormats: string[];
 }
@@ -75,6 +75,39 @@ const AVAILABLE_REPORTS: ReportDefinition[] = [
     description: 'Open loaner sets with estimated values and due dates',
     category: 'inventory',
     filters: ['vendorId', 'isOverdue'],
+    exportFormats: ['csv', 'json'],
+  },
+  // Audit Reports
+  {
+    id: 'cancelled-cases',
+    name: 'Cancelled Cases Report',
+    description: 'Cancelled cases with reasons, prior status, and cancelling user',
+    category: 'audit',
+    filters: ['startDate', 'endDate', 'surgeonId'],
+    exportFormats: ['csv', 'json'],
+  },
+  {
+    id: 'case-timelines',
+    name: 'Case Timelines Report',
+    description: 'Case status transition history with actors and reasons',
+    category: 'audit',
+    filters: ['startDate', 'endDate', 'surgeonId', 'toStatus'],
+    exportFormats: ['csv', 'json'],
+  },
+  {
+    id: 'debrief-summary',
+    name: 'Debrief Summary Report',
+    description: 'Debrief checklist completion, duration, signatures, and flagged items',
+    category: 'audit',
+    filters: ['startDate', 'endDate', 'surgeonId', 'debriefStatus'],
+    exportFormats: ['csv', 'json'],
+  },
+  {
+    id: 'case-event-log',
+    name: 'Case Event Log Report',
+    description: 'Cross-case event log with type, user, and description',
+    category: 'audit',
+    filters: ['startDate', 'endDate', 'eventType'],
     exportFormats: ['csv', 'json'],
   },
 ];
@@ -1162,6 +1195,443 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="loaner-exposure_${new Date().toISOString().split('T')[0]}.csv"`)
+        .send(csv);
+    }
+
+    return reply.send({ rows, summary });
+  });
+
+  // ============================================================================
+  // Audit Reports
+  // ============================================================================
+
+  /**
+   * GET /reports/cancelled-cases
+   * Cancelled cases with reasons, prior status, and cancelling user
+   */
+  fastify.get<{
+    Querystring: {
+      startDate?: string;
+      endDate?: string;
+      surgeonId?: string;
+      format?: 'json' | 'csv';
+    };
+  }>('/cancelled-cases', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { startDate, endDate, surgeonId, format = 'json' } = request.query;
+
+    const end = endDate || new Date().toISOString().split('T')[0];
+    const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    let sql = `
+      SELECT
+        sc.id AS case_id,
+        sc.procedure_name,
+        sc.scheduled_date,
+        sc.or_room,
+        u.name AS surgeon_name,
+        sc.cancelled_at,
+        cancel_event.from_status,
+        cancel_event.reason AS cancellation_reason,
+        canceller.name AS cancelled_by_name
+      FROM surgical_case sc
+      JOIN app_user u ON sc.surgeon_id = u.id
+      LEFT JOIN LATERAL (
+        SELECT scse.from_status, scse.reason, scse.actor_user_id
+        FROM surgical_case_status_event scse
+        WHERE scse.surgical_case_id = sc.id
+          AND scse.to_status = 'CANCELLED'
+        ORDER BY scse.created_at DESC
+        LIMIT 1
+      ) cancel_event ON true
+      LEFT JOIN app_user canceller ON cancel_event.actor_user_id = canceller.id
+      WHERE sc.facility_id = $1
+        AND sc.is_cancelled = true
+        AND sc.scheduled_date BETWEEN $2 AND $3
+    `;
+    const params: unknown[] = [facilityId, start, end];
+    let paramIndex = 4;
+
+    if (surgeonId) {
+      sql += ` AND sc.surgeon_id = $${paramIndex++}`;
+      params.push(surgeonId);
+    }
+
+    sql += ` ORDER BY sc.cancelled_at DESC NULLS LAST, sc.scheduled_date DESC`;
+
+    const result = await query<{
+      case_id: string;
+      procedure_name: string;
+      scheduled_date: Date;
+      or_room: string | null;
+      surgeon_name: string;
+      cancelled_at: Date | null;
+      from_status: string | null;
+      cancellation_reason: string | null;
+      cancelled_by_name: string | null;
+    }>(sql, params);
+
+    const rows = result.rows.map(row => ({
+      caseId: row.case_id,
+      procedureName: row.procedure_name,
+      scheduledDate: formatDateForCSV(row.scheduled_date),
+      orRoom: row.or_room || '',
+      surgeonName: row.surgeon_name,
+      cancelledAt: formatTimestampForCSV(row.cancelled_at),
+      priorStatus: row.from_status || 'UNKNOWN',
+      cancellationReason: row.cancellation_reason || '',
+      cancelledByName: row.cancelled_by_name || 'System',
+    }));
+
+    // Summary: total, by surgeon, by prior status
+    const bySurgeon: Record<string, number> = {};
+    const byPriorStatus: Record<string, number> = {};
+    rows.forEach(r => {
+      bySurgeon[r.surgeonName] = (bySurgeon[r.surgeonName] || 0) + 1;
+      byPriorStatus[r.priorStatus] = (byPriorStatus[r.priorStatus] || 0) + 1;
+    });
+
+    const summary = {
+      totalCancelled: rows.length,
+      bySurgeon: Object.entries(bySurgeon).map(([name, count]) => ({ surgeonName: name, count })),
+      byPriorStatus: Object.entries(byPriorStatus).map(([status, count]) => ({ status, count })),
+      dateRange: { start, end },
+    };
+
+    if (format === 'csv') {
+      const headers = [
+        'scheduledDate', 'procedureName', 'surgeonName', 'orRoom',
+        'priorStatus', 'cancellationReason', 'cancelledByName', 'cancelledAt',
+      ];
+      const csv = generateCSV(headers, rows);
+      return reply
+        .header('Content-Type', 'text/csv')
+        .header('Content-Disposition', `attachment; filename="cancelled-cases_${start}_${end}.csv"`)
+        .send(csv);
+    }
+
+    return reply.send({ rows, summary });
+  });
+
+  /**
+   * GET /reports/case-timelines
+   * Case status transition history with actors and reasons
+   */
+  fastify.get<{
+    Querystring: {
+      startDate?: string;
+      endDate?: string;
+      surgeonId?: string;
+      toStatus?: string;
+      format?: 'json' | 'csv';
+    };
+  }>('/case-timelines', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { startDate, endDate, surgeonId, toStatus, format = 'json' } = request.query;
+
+    const end = endDate || new Date().toISOString().split('T')[0];
+    const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    let sql = `
+      SELECT
+        scse.id AS event_id,
+        scse.created_at,
+        scse.from_status,
+        scse.to_status,
+        scse.reason,
+        sc.procedure_name,
+        surgeon.name AS surgeon_name,
+        actor.name AS actor_name
+      FROM surgical_case_status_event scse
+      JOIN surgical_case sc ON scse.surgical_case_id = sc.id
+      JOIN app_user surgeon ON sc.surgeon_id = surgeon.id
+      LEFT JOIN app_user actor ON scse.actor_user_id = actor.id
+      WHERE sc.facility_id = $1
+        AND scse.created_at >= $2::date
+        AND scse.created_at < ($3::date + interval '1 day')
+    `;
+    const params: unknown[] = [facilityId, start, end];
+    let paramIndex = 4;
+
+    if (surgeonId) {
+      sql += ` AND sc.surgeon_id = $${paramIndex++}`;
+      params.push(surgeonId);
+    }
+
+    if (toStatus) {
+      sql += ` AND scse.to_status = $${paramIndex++}`;
+      params.push(toStatus);
+    }
+
+    sql += ` ORDER BY scse.created_at DESC LIMIT 2000`;
+
+    const result = await query<{
+      event_id: string;
+      created_at: Date;
+      from_status: string | null;
+      to_status: string;
+      reason: string | null;
+      procedure_name: string;
+      surgeon_name: string;
+      actor_name: string | null;
+    }>(sql, params);
+
+    const rows = result.rows.map(row => ({
+      eventId: row.event_id,
+      occurredAt: formatTimestampForCSV(row.created_at),
+      procedureName: row.procedure_name,
+      surgeonName: row.surgeon_name,
+      fromStatus: row.from_status || '(created)',
+      toStatus: row.to_status,
+      reason: row.reason || '',
+      actorName: row.actor_name || 'System',
+    }));
+
+    // Summary: total, by transition type
+    const byTransition: Record<string, number> = {};
+    rows.forEach(r => {
+      const key = `${r.fromStatus} → ${r.toStatus}`;
+      byTransition[key] = (byTransition[key] || 0) + 1;
+    });
+
+    const summary = {
+      totalTransitions: rows.length,
+      byTransition: Object.entries(byTransition).map(([transition, count]) => ({ transition, count })),
+      dateRange: { start, end },
+    };
+
+    if (format === 'csv') {
+      const headers = [
+        'occurredAt', 'procedureName', 'surgeonName', 'fromStatus', 'toStatus', 'reason', 'actorName',
+      ];
+      const csv = generateCSV(headers, rows);
+      return reply
+        .header('Content-Type', 'text/csv')
+        .header('Content-Disposition', `attachment; filename="case-timelines_${start}_${end}.csv"`)
+        .send(csv);
+    }
+
+    return reply.send({ rows, summary });
+  });
+
+  /**
+   * GET /reports/debrief-summary
+   * Debrief checklist completion, duration, signatures, and flagged items
+   */
+  fastify.get<{
+    Querystring: {
+      startDate?: string;
+      endDate?: string;
+      surgeonId?: string;
+      debriefStatus?: string;
+      format?: 'json' | 'csv';
+    };
+  }>('/debrief-summary', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { startDate, endDate, surgeonId, debriefStatus, format = 'json' } = request.query;
+
+    const end = endDate || new Date().toISOString().split('T')[0];
+    const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    let sql = `
+      SELECT
+        sc.id AS case_id,
+        sc.procedure_name,
+        sc.scheduled_date,
+        u.name AS surgeon_name,
+        cci.status AS checklist_status,
+        cci.started_at,
+        cci.completed_at,
+        cci.pending_scrub_review,
+        cci.pending_surgeon_review,
+        cci.surgeon_flagged,
+        (
+          SELECT json_agg(json_build_object('role', ccs.role, 'signedAt', ccs.signed_at, 'signedByName', su.name))
+          FROM case_checklist_signature ccs
+          JOIN app_user su ON ccs.signed_by_user_id = su.id
+          WHERE ccs.instance_id = cci.id
+        ) AS signatures
+      FROM case_checklist_instance cci
+      JOIN surgical_case sc ON cci.case_id = sc.id
+      JOIN app_user u ON sc.surgeon_id = u.id
+      WHERE cci.facility_id = $1
+        AND cci.type = 'DEBRIEF'
+        AND sc.scheduled_date BETWEEN $2 AND $3
+    `;
+    const params: unknown[] = [facilityId, start, end];
+    let paramIndex = 4;
+
+    if (surgeonId) {
+      sql += ` AND sc.surgeon_id = $${paramIndex++}`;
+      params.push(surgeonId);
+    }
+
+    if (debriefStatus) {
+      sql += ` AND cci.status = $${paramIndex++}`;
+      params.push(debriefStatus);
+    }
+
+    sql += ` ORDER BY sc.scheduled_date ASC, sc.procedure_name ASC`;
+
+    const result = await query<{
+      case_id: string;
+      procedure_name: string;
+      scheduled_date: Date;
+      surgeon_name: string;
+      checklist_status: string;
+      started_at: Date | null;
+      completed_at: Date | null;
+      pending_scrub_review: boolean;
+      pending_surgeon_review: boolean;
+      surgeon_flagged: boolean;
+      signatures: Array<{ role: string; signedAt: string; signedByName: string }> | null;
+    }>(sql, params);
+
+    const rows = result.rows.map(row => {
+      const sigs = row.signatures || [];
+      let durationMinutes: number | null = null;
+      if (row.started_at && row.completed_at) {
+        durationMinutes = Math.round((new Date(row.completed_at).getTime() - new Date(row.started_at).getTime()) / 60000);
+      }
+
+      return {
+        caseId: row.case_id,
+        procedureName: row.procedure_name,
+        scheduledDate: formatDateForCSV(row.scheduled_date),
+        surgeonName: row.surgeon_name,
+        checklistStatus: row.checklist_status,
+        startedAt: formatTimestampForCSV(row.started_at),
+        completedAt: formatTimestampForCSV(row.completed_at),
+        durationMinutes: durationMinutes !== null ? durationMinutes : '',
+        circulatorSigned: sigs.some(s => s.role === 'CIRCULATOR') ? 'Yes' : 'No',
+        surgeonSigned: sigs.some(s => s.role === 'SURGEON') ? 'Yes' : 'No',
+        scrubSigned: sigs.some(s => s.role === 'SCRUB') ? 'Yes' : 'No',
+        pendingReviews: (row.pending_scrub_review ? 'Scrub ' : '') + (row.pending_surgeon_review ? 'Surgeon' : '') || 'None',
+        flagged: row.surgeon_flagged ? 'Yes' : 'No',
+      };
+    });
+
+    // Summary
+    const completedRows = rows.filter(r => r.checklistStatus === 'COMPLETED');
+    const durations = rows.filter(r => typeof r.durationMinutes === 'number').map(r => r.durationMinutes as number);
+    const avgDuration = durations.length > 0 ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length) : 0;
+
+    const summary = {
+      totalDebriefs: rows.length,
+      completionRate: rows.length > 0 ? Math.round((completedRows.length / rows.length) * 100) : 0,
+      avgDurationMinutes: avgDuration,
+      pendingCount: rows.filter(r => r.pendingReviews !== 'None').length,
+      flaggedCount: rows.filter(r => r.flagged === 'Yes').length,
+      dateRange: { start, end },
+    };
+
+    if (format === 'csv') {
+      const headers = [
+        'scheduledDate', 'procedureName', 'surgeonName', 'checklistStatus',
+        'startedAt', 'completedAt', 'durationMinutes',
+        'circulatorSigned', 'surgeonSigned', 'scrubSigned', 'pendingReviews', 'flagged',
+      ];
+      const csv = generateCSV(headers, rows);
+      return reply
+        .header('Content-Type', 'text/csv')
+        .header('Content-Disposition', `attachment; filename="debrief-summary_${start}_${end}.csv"`)
+        .send(csv);
+    }
+
+    return reply.send({ rows, summary });
+  });
+
+  /**
+   * GET /reports/case-event-log
+   * Cross-case event log with type, user, and description
+   */
+  fastify.get<{
+    Querystring: {
+      startDate?: string;
+      endDate?: string;
+      eventType?: string;
+      format?: 'json' | 'csv';
+    };
+  }>('/case-event-log', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { startDate, endDate, eventType, format = 'json' } = request.query;
+
+    const end = endDate || new Date().toISOString().split('T')[0];
+    const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    let sql = `
+      SELECT
+        cel.id AS event_id,
+        cel.created_at,
+        cel.event_type,
+        cel.user_name,
+        cel.user_role,
+        cel.description,
+        sc.procedure_name
+      FROM case_event_log cel
+      JOIN surgical_case sc ON cel.case_id = sc.id
+      WHERE cel.facility_id = $1
+        AND cel.created_at >= $2::date
+        AND cel.created_at < ($3::date + interval '1 day')
+    `;
+    const params: unknown[] = [facilityId, start, end];
+    let paramIndex = 4;
+
+    if (eventType) {
+      sql += ` AND cel.event_type = $${paramIndex++}`;
+      params.push(eventType);
+    }
+
+    sql += ` ORDER BY cel.created_at DESC LIMIT 2000`;
+
+    const result = await query<{
+      event_id: string;
+      created_at: Date;
+      event_type: string;
+      user_name: string;
+      user_role: string;
+      description: string;
+      procedure_name: string;
+    }>(sql, params);
+
+    const rows = result.rows.map(row => ({
+      eventId: row.event_id,
+      occurredAt: formatTimestampForCSV(row.created_at),
+      eventType: row.event_type,
+      procedureName: row.procedure_name,
+      userName: row.user_name,
+      userRole: row.user_role,
+      description: row.description,
+    }));
+
+    // Summary: total, by event type
+    const byEventType: Record<string, number> = {};
+    rows.forEach(r => {
+      byEventType[r.eventType] = (byEventType[r.eventType] || 0) + 1;
+    });
+
+    const summary = {
+      totalEvents: rows.length,
+      byEventType: Object.entries(byEventType).map(([type, count]) => ({ eventType: type, count })),
+      dateRange: { start, end },
+    };
+
+    if (format === 'csv') {
+      const headers = [
+        'occurredAt', 'eventType', 'procedureName', 'userName', 'userRole', 'description',
+      ];
+      const csv = generateCSV(headers, rows);
+      return reply
+        .header('Content-Type', 'text/csv')
+        .header('Content-Disposition', `attachment; filename="case-event-log_${start}_${end}.csv"`)
         .send(csv);
     }
 

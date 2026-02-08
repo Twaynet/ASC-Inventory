@@ -12,7 +12,7 @@ export interface ReportDefinition {
   id: string;
   name: string;
   description: string;
-  category: 'inventory' | 'cases' | 'compliance';
+  category: 'inventory' | 'cases' | 'compliance' | 'audit';
   filters: string[];
   exportFormats: string[];
 }
@@ -208,8 +208,8 @@ export async function getCaseSummaryReport(
 }
 
 export function getReportExportUrl(
-  reportType: 'inventory-readiness' | 'verification-activity' | 'checklist-compliance' | 'case-summary' | 'vendor-concessions' | 'inventory-valuation' | 'loaner-exposure',
-  filters: ReportFilters & FinancialReportFilters = {}
+  reportType: 'inventory-readiness' | 'verification-activity' | 'checklist-compliance' | 'case-summary' | 'vendor-concessions' | 'inventory-valuation' | 'loaner-exposure' | 'cancelled-cases' | 'case-timelines' | 'debrief-summary' | 'case-event-log',
+  filters: ReportFilters & FinancialReportFilters & AuditReportFilters = {}
 ): string {
   const params = new URLSearchParams();
   params.set('format', 'csv');
@@ -226,6 +226,8 @@ export function getReportExportUrl(
   if (filters.ownershipType) params.set('ownershipType', filters.ownershipType);
   if (filters.category) params.set('category', filters.category);
   if (filters.isOverdue !== undefined) params.set('isOverdue', String(filters.isOverdue));
+  if (filters.toStatus) params.set('toStatus', filters.toStatus);
+  if (filters.debriefStatus) params.set('debriefStatus', filters.debriefStatus);
   return `${API_BASE}/reports/${reportType}?${params.toString()}`;
 }
 
@@ -338,6 +340,142 @@ export interface LoanerExposureSummary {
   overdueValue: { cents: number; dollars: string };
   byVendor: Array<{ vendorName: string; openSets: number; overdueSets: number; valueCents: number; valueDollars: string }>;
   generatedAt: string;
+}
+
+// ============================================================================
+// Audit Reports
+// ============================================================================
+
+export interface AuditReportFilters {
+  toStatus?: string;
+  debriefStatus?: string;
+}
+
+export interface CancelledCaseRow {
+  caseId: string;
+  procedureName: string;
+  scheduledDate: string;
+  orRoom: string;
+  surgeonName: string;
+  cancelledAt: string;
+  priorStatus: string;
+  cancellationReason: string;
+  cancelledByName: string;
+}
+
+export interface CancelledCaseSummary {
+  totalCancelled: number;
+  bySurgeon: Array<{ surgeonName: string; count: number }>;
+  byPriorStatus: Array<{ status: string; count: number }>;
+  dateRange: { start: string; end: string };
+}
+
+export interface CaseTimelineRow {
+  eventId: string;
+  occurredAt: string;
+  procedureName: string;
+  surgeonName: string;
+  fromStatus: string;
+  toStatus: string;
+  reason: string;
+  actorName: string;
+}
+
+export interface CaseTimelineSummary {
+  totalTransitions: number;
+  byTransition: Array<{ transition: string; count: number }>;
+  dateRange: { start: string; end: string };
+}
+
+export interface DebriefSummaryRow {
+  caseId: string;
+  procedureName: string;
+  scheduledDate: string;
+  surgeonName: string;
+  checklistStatus: string;
+  startedAt: string;
+  completedAt: string;
+  durationMinutes: number | string;
+  circulatorSigned: string;
+  surgeonSigned: string;
+  scrubSigned: string;
+  pendingReviews: string;
+  flagged: string;
+}
+
+export interface DebriefSummarySummary {
+  totalDebriefs: number;
+  completionRate: number;
+  avgDurationMinutes: number;
+  pendingCount: number;
+  flaggedCount: number;
+  dateRange: { start: string; end: string };
+}
+
+export interface CaseEventLogRow {
+  eventId: string;
+  occurredAt: string;
+  eventType: string;
+  procedureName: string;
+  userName: string;
+  userRole: string;
+  description: string;
+}
+
+export interface CaseEventLogSummary {
+  totalEvents: number;
+  byEventType: Array<{ eventType: string; count: number }>;
+  dateRange: { start: string; end: string };
+}
+
+export async function getCancelledCasesReport(
+  token: string,
+  filters: ReportFilters = {}
+): Promise<{ rows: CancelledCaseRow[]; summary: CancelledCaseSummary }> {
+  const params = new URLSearchParams();
+  if (filters.startDate) params.set('startDate', filters.startDate);
+  if (filters.endDate) params.set('endDate', filters.endDate);
+  if (filters.surgeonId) params.set('surgeonId', filters.surgeonId);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request(`/reports/cancelled-cases${query}`, { token });
+}
+
+export async function getCaseTimelinesReport(
+  token: string,
+  filters: ReportFilters & AuditReportFilters = {}
+): Promise<{ rows: CaseTimelineRow[]; summary: CaseTimelineSummary }> {
+  const params = new URLSearchParams();
+  if (filters.startDate) params.set('startDate', filters.startDate);
+  if (filters.endDate) params.set('endDate', filters.endDate);
+  if (filters.surgeonId) params.set('surgeonId', filters.surgeonId);
+  if (filters.toStatus) params.set('toStatus', filters.toStatus);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request(`/reports/case-timelines${query}`, { token });
+}
+
+export async function getDebriefSummaryReport(
+  token: string,
+  filters: ReportFilters & AuditReportFilters = {}
+): Promise<{ rows: DebriefSummaryRow[]; summary: DebriefSummarySummary }> {
+  const params = new URLSearchParams();
+  if (filters.startDate) params.set('startDate', filters.startDate);
+  if (filters.endDate) params.set('endDate', filters.endDate);
+  if (filters.surgeonId) params.set('surgeonId', filters.surgeonId);
+  if (filters.debriefStatus) params.set('debriefStatus', filters.debriefStatus);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request(`/reports/debrief-summary${query}`, { token });
+}
+
+export async function getCaseEventLogReport(
+  token: string,
+  filters: ReportFilters = {}
+): Promise<{ rows: CaseEventLogRow[]; summary: CaseEventLogSummary }> {
+  const params = new URLSearchParams();
+  if (filters.startDate) params.set('startDate', filters.startDate);
+  if (filters.endDate) params.set('endDate', filters.endDate);
+  if (filters.eventType) params.set('eventType', filters.eventType);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request(`/reports/case-event-log${query}`, { token });
 }
 
 export async function getVendorConcessionsReport(
