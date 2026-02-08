@@ -27,6 +27,7 @@ import {
   setRoomDayConfig,
   reorderScheduleItems,
   assignCaseRoom,
+  createBlockTime,
   type DayScheduleResponse,
   type BlockTime,
 } from '@/lib/api';
@@ -209,9 +210,37 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
   };
 
   const handleConfirmRemove = async () => {
-    if (!token || !removeCaseId) return;
+    if (!token || !removeCaseId || !data) return;
+
+    // Find the case's room and details before removing
+    let caseRoomId: string | null = null;
+    let caseDuration = 60;
+    let caseSortOrder = 0;
+    for (const room of data.rooms) {
+      const item = room.items.find(i => i.type === 'case' && i.id === removeCaseId);
+      if (item) {
+        caseRoomId = room.roomId;
+        caseDuration = item.durationMinutes;
+        caseSortOrder = item.sortOrder;
+        break;
+      }
+    }
+
     try {
+      // Unassign the case from the room
       await assignCaseRoom(token, removeCaseId, { roomId: null });
+
+      // Create an Unoccupied Time block in its place with the same duration
+      if (caseRoomId) {
+        await createBlockTime(token, {
+          roomId: caseRoomId,
+          blockDate: selectedDate,
+          durationMinutes: caseDuration,
+          notes: `Replaced: ${removeProcedureName}`,
+          sortOrder: caseSortOrder,
+        });
+      }
+
       setShowRemoveModal(false);
       setRemoveCaseId(null);
       setRemoveProcedureName('');
