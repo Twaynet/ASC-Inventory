@@ -60,7 +60,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-container">
+    <div className="login-container" style={{ minHeight: 'calc(100vh - 3rem)' }}>
       <div className="login-card">
         <h1>ASC Inventory System</h1>
         <div className="text-center mb-6">

@@ -114,16 +114,16 @@ export function BlockTimeModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-[var(--shadow-overlay)] flex items-center justify-center z-[1000]" onClick={handleClose}>
-      <div className="bg-surface-primary rounded-xl w-[90%] max-w-[400px] shadow-[0_20px_40px_var(--shadow-md)]" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={handleClose}>
+      <div className="modal-content max-w-[400px] p-0" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center px-6 py-4 border-b border-border">
-          <h2 className="m-0 text-lg font-semibold">{isEditing ? 'Edit Time Slot' : 'Add Time Slot'}</h2>
+          <h3 className="m-0">{isEditing ? 'Edit Unoccupied Time' : 'Add Unoccupied Time'}</h3>
           <button className="bg-transparent border-none text-2xl text-text-muted cursor-pointer leading-none hover:text-text-primary" onClick={handleClose}>&times;</button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="p-6">
-            <div className="bg-surface-secondary rounded-lg p-4 mb-6">
+            <div className="bg-surface-secondary border border-border rounded-lg p-4 mb-6">
               <div className="flex justify-between text-sm">
                 <span className="text-text-muted">Room:</span>
                 <span className="font-medium text-text-primary">{roomName}</span>
@@ -160,10 +160,10 @@ export function BlockTimeModal({
               />
             </div>
 
-            {error && <div className="bg-[var(--color-red-50)] text-[var(--color-red-700)] p-3 rounded-md text-sm mt-4">{error}</div>}
+            {error && <div className="alert alert-error mt-4">{error}</div>}
           </div>
 
-          <div className="flex justify-between items-center px-6 py-4 border-t border-border bg-surface-secondary rounded-b-xl">
+          <div className="flex justify-between items-center px-6 py-4 border-t border-border bg-surface-secondary rounded-b-lg">
             {isEditing && (
               <button
                 type="button"
@@ -188,7 +188,7 @@ export function BlockTimeModal({
                 className="btn btn-primary"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Add Time Slot'}
+                {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Add Unoccupied Time'}
               </button>
             </div>
           </div>

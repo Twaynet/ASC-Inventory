@@ -120,7 +120,7 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
       >
         <div className="text-xs font-semibold text-[var(--color-gray-600)] whitespace-nowrap">{formatTime(startTime)}</div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-[var(--color-gray-900)]">Time Slot</div>
+          <div className="text-sm font-semibold text-[var(--color-gray-900)]">Unoccupied Time</div>
           <div className="text-xs text-[var(--color-gray-600)]">{item.durationMinutes} min</div>
           {item.notes && (
             <div className="text-xs text-[var(--color-gray-500)] italic mt-1 whitespace-nowrap overflow-hidden text-ellipsis">{item.notes}</div>

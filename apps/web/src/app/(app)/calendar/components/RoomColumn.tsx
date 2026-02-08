@@ -171,7 +171,7 @@ export function RoomColumn({
           className="w-full p-2 bg-[var(--color-gray-100)] border border-dashed border-[var(--color-gray-300)] rounded-b-md text-xs text-[var(--color-gray-600)] cursor-pointer transition-colors hover:bg-[var(--color-gray-200)] hover:text-[var(--color-gray-800)]"
           onClick={() => onAddBlockTime(room.roomId, room.roomName)}
         >
-          + Time Slot
+          + Unoccupied Time
         </button>
       )}
     </div>

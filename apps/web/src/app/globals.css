@@ -754,6 +754,13 @@ body {
   color: var(--text-muted);
 }
 
+[data-theme="dark"] .form-group select,
+[data-theme="dark"] .form-group textarea {
+  background: var(--surface-tertiary);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
 [data-theme="dark"] .password-toggle {
   color: var(--text-muted);
 }
