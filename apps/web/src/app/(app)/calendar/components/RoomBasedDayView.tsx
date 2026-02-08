@@ -75,7 +75,6 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [showInactive, setShowInactive] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
@@ -93,6 +92,11 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
   const [timeoutModalOpen, setTimeoutModalOpen] = useState(false);
   const [debriefModalOpen, setDebriefModalOpen] = useState(false);
   const [checklistCaseId, setChecklistCaseId] = useState<string | null>(null);
+
+  // Remove from schedule modal state
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [removeCaseId, setRemoveCaseId] = useState<string | null>(null);
+  const [removeProcedureName, setRemoveProcedureName] = useState('');
 
   // Check if user can edit (ADMIN or SCHEDULER)
   const userRoles = user.roles || [user.role];
@@ -196,6 +200,32 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
     setBlockTimeRoomName(roomName);
     setEditingBlockTime(null);
     setShowBlockTimeModal(true);
+  };
+
+  const handleRemoveFromSchedule = (caseId: string, procedureName: string) => {
+    setRemoveCaseId(caseId);
+    setRemoveProcedureName(procedureName);
+    setShowRemoveModal(true);
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!token || !removeCaseId) return;
+    try {
+      await assignCaseRoom(token, removeCaseId, { roomId: null });
+      setShowRemoveModal(false);
+      setRemoveCaseId(null);
+      setRemoveProcedureName('');
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove case from schedule');
+      setShowRemoveModal(false);
+    }
+  };
+
+  const handleCancelRemove = () => {
+    setShowRemoveModal(false);
+    setRemoveCaseId(null);
+    setRemoveProcedureName('');
   };
 
   const handleBlockTimeModalClose = () => {
@@ -347,20 +377,10 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
 
   const activeItem = getActiveItem();
 
-  // Filter function to exclude inactive cases when toggle is off
-  const filterItems = (items: ScheduleItem[]) => {
-    if (showInactive) return items;
-    return items.filter(item => item.type === 'block' || item.isActive !== false);
-  };
+  const unassignedCases = data?.unassignedCases || [];
+  const rooms = data?.rooms || [];
 
-  // Filter unassigned cases and room items
-  const filteredUnassignedCases = data ? filterItems(data.unassignedCases) : [];
-  const filteredRooms = data?.rooms.map(room => ({
-    ...room,
-    items: filterItems(room.items),
-  })) || [];
-
-  const unassignedIds = filteredUnassignedCases.map(item => `${item.type}-${item.id}`);
+  const unassignedIds = unassignedCases.map(item => `${item.type}-${item.id}`);
 
   return (
     <div className="flex flex-col h-full">
@@ -377,15 +397,6 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-sm text-[var(--color-gray-600)] cursor-pointer select-none hover:text-[var(--color-gray-800)]">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              className="w-4 h-4 cursor-pointer"
-            />
-            Show Inactive
-          </label>
           <button
             className="btn btn-secondary btn-sm"
             onClick={loadData}
@@ -426,7 +437,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
         >
           <div className="flex flex-1 overflow-x-auto p-4 gap-4">
             {/* Unassigned Cases Column */}
-            {(filteredUnassignedCases.length > 0 || canEdit) && (
+            {(unassignedCases.length > 0 || canEdit) && (
               <div className={`unassigned-col min-w-[180px] max-w-[220px] shrink-0 flex flex-col rounded-lg border-2 border-dashed transition-all ${
                 overId === 'unassigned'
                   ? 'border-[var(--color-blue)] bg-[var(--color-blue-50,#EBF8FF)]'
@@ -434,16 +445,16 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
               }`}>
                 <div className="unassigned-hdr flex justify-between items-center p-3 border-b border-[var(--color-orange-200,#FED7AA)]">
                   <h3 className="unassigned-heading text-sm font-semibold text-[var(--color-orange-800,#9A3412)] m-0">Unassigned</h3>
-                  <span className="unassigned-badge bg-[var(--color-orange-200,#FED7AA)] text-[var(--color-orange-800,#9A3412)] px-2 py-0.5 rounded-full text-xs font-semibold">{filteredUnassignedCases.length}</span>
+                  <span className="unassigned-badge bg-[var(--color-orange-200,#FED7AA)] text-[var(--color-orange-800,#9A3412)] px-2 py-0.5 rounded-full text-xs font-semibold">{unassignedCases.length}</span>
                 </div>
                 <SortableContext items={unassignedIds} strategy={verticalListSortingStrategy}>
                   <UnassignedDroppable isOver={overId === 'unassigned'}>
-                    {filteredUnassignedCases.length === 0 ? (
+                    {unassignedCases.length === 0 ? (
                       <div className="unassigned-empty-text flex items-center justify-center h-full min-h-[100px] text-[var(--color-orange-400,#FB923C)] text-xs text-center p-4">
                         {canEdit ? 'Drag cases here to unassign' : 'No unassigned cases'}
                       </div>
                     ) : (
-                      filteredUnassignedCases.map((item) => (
+                      unassignedCases.map((item) => (
                         <ScheduleCard
                           key={item.id}
                           item={item}
@@ -460,7 +471,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
 
             {/* Room Columns */}
             <div className="flex gap-4 flex-1">
-              {filteredRooms.length === 0 ? (
+              {rooms.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-4 flex-1 text-[var(--color-gray-500)] text-sm">
                   No operating rooms configured.
                   {canEdit && (
@@ -473,7 +484,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
                   )}
                 </div>
               ) : (
-                filteredRooms.map((room) => (
+                rooms.map((room) => (
                   <RoomColumn
                     key={room.roomId}
                     room={room}
@@ -483,6 +494,7 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
                     onAddBlockTime={handleAddBlockTime}
                     onTimeoutClick={handleTimeoutClick}
                     onDebriefClick={handleDebriefClick}
+                    onRemoveFromSchedule={canEdit ? handleRemoveFromSchedule : undefined}
                     isOver={overId === room.roomId}
                   />
                 ))
@@ -577,6 +589,29 @@ export function RoomBasedDayView({ selectedDate, token, user }: RoomBasedDayView
         }}
         zIndex={1000}
       />
+
+      {/* Remove from Schedule Confirmation Modal */}
+      {showRemoveModal && (
+        <div className="modal-overlay" onClick={handleCancelRemove}>
+          <div className="modal-content max-w-[450px]" onClick={(e) => e.stopPropagation()}>
+            <h3>Remove Case from Schedule</h3>
+            <p>
+              Are you sure you want to remove <strong>&ldquo;{removeProcedureName}&rdquo;</strong> from the schedule?
+            </p>
+            <div className="alert alert-warning mb-4">
+              <strong>This action is irreversible.</strong> The case will be permanently removed from the calendar schedule. The case record itself will be preserved in the system.
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button className="btn btn-secondary" onClick={handleCancelRemove}>
+                Cancel
+              </button>
+              <button className="btn btn-danger" onClick={handleConfirmRemove}>
+                Remove from Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Minimal dark mode overrides for unassigned column (orange → neutral in dark theme) */}
       <style jsx>{`

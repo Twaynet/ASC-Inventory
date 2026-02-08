@@ -20,6 +20,7 @@ interface RoomColumnProps {
   onAddBlockTime?: (roomId: string, roomName: string) => void;
   onTimeoutClick?: (caseId: string) => void;
   onDebriefClick?: (caseId: string) => void;
+  onRemoveFromSchedule?: (caseId: string, procedureName: string) => void;
   isOver?: boolean;
 }
 
@@ -68,6 +69,7 @@ export function RoomColumn({
   onAddBlockTime,
   onTimeoutClick,
   onDebriefClick,
+  onRemoveFromSchedule,
   isOver,
 }: RoomColumnProps) {
   const [isEditingStartTime, setIsEditingStartTime] = useState(false);
@@ -155,6 +157,7 @@ export function RoomColumn({
                 onClick={() => onItemClick?.(item, room.roomId, room.roomName)}
                 onTimeoutClick={item.type === 'case' && onTimeoutClick ? () => onTimeoutClick(item.id) : undefined}
                 onDebriefClick={item.type === 'case' && onDebriefClick ? () => onDebriefClick(item.id) : undefined}
+                onRemoveFromSchedule={item.type === 'case' && item.isActive === false ? onRemoveFromSchedule : undefined}
               />
             ))
           )}

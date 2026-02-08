@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth, useAccessControl } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import {
   getCalendarSummary,
-  deleteCase,
   type CalendarCaseSummary,
 } from '@/lib/api';
 
@@ -173,33 +172,6 @@ function DayBeforeContent() {
     setRefreshTrigger(prev => prev + 1);
   }, [viewMode]);
 
-  // Handle delete case (for inactive cases only)
-  const handleDeleteCase = useCallback(async (caseId: string, procedureName: string) => {
-    if (!token) return;
-
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${procedureName}"?\n\nThis action cannot be undone.`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await deleteCase(token, caseId);
-      // Remove from local state to update UI immediately
-      if (viewMode === 'month') {
-        setMonthCases(prev => prev.filter(c => c.caseId !== caseId));
-      } else if (viewMode === 'week') {
-        setWeekCases(prev => prev.filter(c => c.caseId !== caseId));
-      }
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete case');
-    }
-  }, [token, viewMode]);
-
-  // Check if user can delete (Admin or Scheduler)
-  const { hasRole } = useAccessControl();
-  const canDeleteCases = hasRole('ADMIN') || hasRole('SCHEDULER');
-
   // Selected date string for Day View
   const selectedDateStr = useMemo(() => formatDateParam(currentDate), [currentDate]);
 
@@ -310,8 +282,6 @@ function DayBeforeContent() {
             cases={weekCases}
             onDayClick={handleDayClickFromWeek}
             onOpenCaseDashboard={handleOpenCaseDashboard}
-            onDeleteCase={handleDeleteCase}
-            canDelete={canDeleteCases}
             isLoading={isLoadingCalendar}
           />
         )}

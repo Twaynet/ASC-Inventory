@@ -37,6 +37,7 @@ interface ScheduleCardProps {
   onClick?: () => void;
   onTimeoutClick?: () => void;
   onDebriefClick?: () => void;
+  onRemoveFromSchedule?: (caseId: string, procedureName: string) => void;
 }
 
 function formatTime(timeStr: string): string {
@@ -87,7 +88,7 @@ function getBadgeTitle(status?: string): string {
 
 const CARD_BASE = 'flex gap-3 p-3 rounded-md mb-2 shadow-[0_1px_3px_var(--shadow-sm)] hover:shadow-[0_2px_4px_var(--shadow-md)] touch-none transition-all';
 
-export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutClick, onDebriefClick }: ScheduleCardProps) {
+export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutClick, onDebriefClick, onRemoveFromSchedule }: ScheduleCardProps) {
   const router = useRouter();
 
   const {
@@ -192,6 +193,9 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
         </div>
       </div>
       <div className="flex-1 min-w-0">
+        {isInactive && (
+          <span className="inline-block px-1.5 py-0.5 mb-1 text-[0.6rem] font-bold uppercase bg-[var(--color-gray-300)] text-[var(--color-gray-600)] rounded">Deactivated</span>
+        )}
         <div className={`text-sm font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${isInactive ? 'text-[var(--color-gray-500)]' : 'text-[var(--color-gray-900)]'}`}>
           {item.laterality && <span className="text-[var(--color-gray-500)] font-medium">{item.laterality} </span>}
           {item.procedureName}
@@ -212,6 +216,17 @@ export function ScheduleCard({ item, startTime, isDraggable, onClick, onTimeoutC
           )}
           <ReadinessBadge overall={readinessFromState(item.readinessState)} />
         </div>
+        {isInactive && onRemoveFromSchedule && (
+          <button
+            className="btn btn-danger btn-sm w-full mt-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemoveFromSchedule(item.id, item.procedureName || 'Unknown Procedure');
+            }}
+          >
+            Remove from Schedule
+          </button>
+        )}
       </div>
     </div>
   );

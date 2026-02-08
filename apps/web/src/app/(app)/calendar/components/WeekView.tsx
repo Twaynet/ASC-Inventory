@@ -8,8 +8,6 @@ interface WeekViewProps {
   cases: CalendarCaseSummary[];
   onDayClick: (date: Date) => void;
   onOpenCaseDashboard: (caseId: string) => void;
-  onDeleteCase?: (caseId: string, procedureName: string) => void;
-  canDelete?: boolean;
   isLoading?: boolean;
 }
 
@@ -59,8 +57,6 @@ export function WeekView({
   cases,
   onDayClick,
   onOpenCaseDashboard,
-  onDeleteCase,
-  canDelete,
   isLoading,
 }: WeekViewProps) {
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
@@ -138,18 +134,6 @@ export function WeekView({
                       {!c.isActive && (
                         <div className="case-badge-inactive-header">
                           <span className="case-badge-inactive-label">INACTIVE</span>
-                          {canDelete && onDeleteCase && (
-                            <button
-                              className="case-badge-delete-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteCase(c.caseId, c.procedureName);
-                              }}
-                              title="Delete case"
-                            >
-                              ×
-                            </button>
-                          )}
                         </div>
                       )}
                       <div className="case-badge-case-number">{c.caseNumber}</div>
