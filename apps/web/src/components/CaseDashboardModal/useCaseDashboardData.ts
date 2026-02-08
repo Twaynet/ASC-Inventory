@@ -4,12 +4,14 @@ import { useState, useCallback } from 'react';
 import {
   getCaseDashboard,
   getCaseEventLog,
+  getCaseCardLink,
   getCaseCards,
   getSurgeons,
   getConfigItems,
   getCaseChecklists,
   type CaseDashboardData,
   type CaseDashboardEventLogEntry,
+  type CaseCardLinkData,
   type CaseCardSummary,
   type User,
   type ConfigItem,
@@ -19,6 +21,7 @@ import {
 export interface UseCaseDashboardDataResult {
   dashboard: CaseDashboardData | null;
   eventLog: CaseDashboardEventLogEntry[];
+  caseCardLinkData: CaseCardLinkData | null;
   availableCaseCards: CaseCardSummary[];
   surgeons: User[];
   anesthesiaModalities: ConfigItem[];
@@ -36,6 +39,7 @@ export function useCaseDashboardData(
 ): UseCaseDashboardDataResult {
   const [dashboard, setDashboard] = useState<CaseDashboardData | null>(null);
   const [eventLog, setEventLog] = useState<CaseDashboardEventLogEntry[]>([]);
+  const [caseCardLinkData, setCaseCardLinkData] = useState<CaseCardLinkData | null>(null);
   const [availableCaseCards, setAvailableCaseCards] = useState<CaseCardSummary[]>([]);
   const [surgeons, setSurgeons] = useState<User[]>([]);
   const [anesthesiaModalities, setAnesthesiaModalities] = useState<ConfigItem[]>([]);
@@ -51,9 +55,10 @@ export function useCaseDashboardData(
     setError('');
 
     try {
-      const [dashboardResult, eventLogResult, caseCardsResult, surgeonsResult, configItemsResult, checklistsResult] = await Promise.all([
+      const [dashboardResult, eventLogResult, linkDataResult, caseCardsResult, surgeonsResult, configItemsResult, checklistsResult] = await Promise.all([
         getCaseDashboard(token, caseId),
         getCaseEventLog(token, caseId),
+        getCaseCardLink(token, caseId).catch(() => ({ currentLink: null, history: [] })),
         getCaseCards(token, { status: 'ACTIVE' }),
         getSurgeons(token),
         getConfigItems(token),
@@ -62,6 +67,7 @@ export function useCaseDashboardData(
 
       setDashboard(dashboardResult.dashboard);
       setEventLog(eventLogResult.eventLog);
+      setCaseCardLinkData(linkDataResult);
       setAvailableCaseCards(caseCardsResult.cards);
       setSurgeons(surgeonsResult.users);
       setChecklists(checklistsResult);
@@ -80,6 +86,7 @@ export function useCaseDashboardData(
   return {
     dashboard,
     eventLog,
+    caseCardLinkData,
     availableCaseCards,
     surgeons,
     anesthesiaModalities,

@@ -11,7 +11,7 @@
  */
 
 import { FastifyInstance } from 'fastify';
-import { query } from '../db/index.js';
+import { query, transaction } from '../db/index.js';
 import { ok, fail } from '../utils/reply.js';
 
 /**
@@ -71,6 +71,16 @@ interface CaseDashboardData {
     version: string;
     versionId: string;
     status: string;
+  } | null;
+  caseCardLink: {
+    eventId: string;
+    caseCardId: string | null;
+    cardName: string | null;
+    cardVersion: string | null;
+    reasonCode: string;
+    reasonNote: string | null;
+    linkedBy: string;
+    linkedAt: string;
   } | null;
   anesthesiaPlan: {
     modalities: string[];
@@ -228,6 +238,40 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       anticoagulationConsiderations: anesthesiaResult.rows[0].anticoagulation_considerations,
     } : null;
 
+    // Get current case card link from link events
+    let caseCardLink = null;
+    const linkResult = await query<{
+      id: string;
+      action: string;
+      source_case_card_id: string | null;
+      snapshot_json: any;
+      reason_code: string;
+      reason_note: string | null;
+      performed_by_name: string;
+      performed_at: Date;
+    }>(`
+      SELECT id, action, source_case_card_id, snapshot_json,
+             reason_code, reason_note, performed_by_name, performed_at
+      FROM case_card_link_event
+      WHERE case_id = $1
+      ORDER BY performed_at DESC, created_at DESC, id DESC
+      LIMIT 1
+    `, [caseId]);
+
+    if (linkResult.rows.length > 0 && linkResult.rows[0].action !== 'UNLINKED') {
+      const le = linkResult.rows[0];
+      caseCardLink = {
+        eventId: le.id,
+        caseCardId: le.source_case_card_id,
+        cardName: le.snapshot_json?.caseCardName || null,
+        cardVersion: le.snapshot_json?.versionNumber || null,
+        reasonCode: le.reason_code,
+        reasonNote: le.reason_note,
+        linkedBy: le.performed_by_name,
+        linkedAt: le.performed_at.toISOString(),
+      };
+    }
+
     // Get active overrides
     const overridesResult = await query<{
       id: string;
@@ -294,6 +338,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
         admin: false,
       },
       caseCard,
+      caseCardLink,
       anesthesiaPlan,
       overrides: overridesResult.rows.map(o => ({
         id: o.id,
@@ -497,20 +542,143 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
   /**
    * PUT /case-dashboard/:caseId/link-case-card
-   * Link or change case card
+   * Link or relink a case card (snapshot-based, auditable)
+   *
+   * New body: { caseCardId, reasonCode, reasonNote? }
+   * Legacy body: { caseCardVersionId }  (backward compat, no snapshot)
    */
   fastify.put<{ Params: { caseId: string } }>('/:caseId/link-case-card', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
-    const body = request.body as { caseCardVersionId: string };
+    const body = request.body as {
+      caseCardId?: string;
+      caseCardVersionId?: string;
+      reasonCode?: string;
+      reasonNote?: string;
+    };
 
-    if (!body.caseCardVersionId) {
-      return fail(reply, 'VALIDATION_ERROR', 'caseCardVersionId is required');
+    // ── New snapshot-based flow ──
+    if (body.caseCardId) {
+      if (!body.reasonCode) {
+        return fail(reply, 'VALIDATION_ERROR', 'reasonCode is required');
+      }
+
+      // Verify case exists and get current link state
+      const caseResult = await query<{ case_card_version_id: string | null }>(`
+        SELECT case_card_version_id FROM surgical_case WHERE id = $1 AND facility_id = $2
+      `, [caseId, facilityId]);
+
+      if (caseResult.rows.length === 0) {
+        return fail(reply, 'NOT_FOUND', 'Case not found', 404);
+      }
+
+      // Resolve ACTIVE version for the case card
+      const cardResult = await query<{
+        card_id: string;
+        procedure_name: string;
+        surgeon_id: string;
+        surgeon_name: string;
+        status: string;
+        case_type: string;
+        procedure_codes: string[];
+        default_duration_minutes: number | null;
+        turnover_notes: string | null;
+        version_id: string;
+        version_number: string;
+        header_info: any;
+        patient_flags: any;
+        instrumentation: any;
+        equipment: any;
+        supplies: any;
+        medications: any;
+        setup_positioning: any;
+        surgeon_notes: any;
+      }>(`
+        SELECT
+          cc.id as card_id, cc.procedure_name, cc.surgeon_id,
+          u.name as surgeon_name, cc.status, cc.case_type,
+          cc.procedure_codes, cc.default_duration_minutes, cc.turnover_notes,
+          ccv.id as version_id, ccv.version_number,
+          ccv.header_info, ccv.patient_flags, ccv.instrumentation,
+          ccv.equipment, ccv.supplies, ccv.medications,
+          ccv.setup_positioning, ccv.surgeon_notes
+        FROM case_card cc
+        JOIN app_user u ON cc.surgeon_id = u.id
+        JOIN case_card_version ccv ON cc.current_version_id = ccv.id
+        WHERE cc.id = $1 AND cc.facility_id = $2 AND cc.status = 'ACTIVE'
+      `, [body.caseCardId, facilityId]);
+
+      if (cardResult.rows.length === 0) {
+        return fail(reply, 'NOT_FOUND', 'No active case card found for the given ID', 404);
+      }
+
+      const card = cardResult.rows[0];
+      const previousVersionId = caseResult.rows[0].case_card_version_id;
+      const action = previousVersionId ? 'RELINKED' : 'LINKED';
+
+      // Build render-complete snapshot
+      const snapshotJson = {
+        caseCardId: card.card_id,
+        caseCardName: card.procedure_name,
+        surgeonId: card.surgeon_id,
+        surgeonName: card.surgeon_name,
+        caseCardStatus: card.status,
+        caseType: card.case_type,
+        procedureCodes: card.procedure_codes || [],
+        defaultDurationMinutes: card.default_duration_minutes,
+        turnoverNotes: card.turnover_notes,
+        versionId: card.version_id,
+        versionNumber: card.version_number,
+        headerInfo: card.header_info || {},
+        patientFlags: card.patient_flags || {},
+        instrumentation: card.instrumentation || {},
+        equipment: card.equipment || {},
+        supplies: card.supplies || {},
+        medications: card.medications || {},
+        setupPositioning: card.setup_positioning || {},
+        surgeonNotes: card.surgeon_notes || {},
+      };
+
+      await transaction(async (client) => {
+        // Update FK for backward compat
+        await client.query(`
+          UPDATE surgical_case SET case_card_version_id = $1 WHERE id = $2
+        `, [card.version_id, caseId]);
+
+        // Write link event with snapshot
+        await client.query(`
+          INSERT INTO case_card_link_event
+            (case_id, facility_id, action, source_case_card_id, source_case_card_version_id,
+             snapshot_json, reason_code, reason_note, performed_by_user_id, performed_by_name)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `, [
+          caseId, facilityId, action, card.card_id, card.version_id,
+          JSON.stringify(snapshotJson), body.reasonCode, body.reasonNote || null,
+          userId, userName,
+        ]);
+
+        // Log to general event log
+        const eventType = previousVersionId ? 'CASE_CARD_CHANGED' : 'CASE_CARD_LINKED';
+        await client.query(`
+          INSERT INTO case_event_log (case_id, facility_id, event_type, user_id, user_role, user_name, description, case_card_version_id)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+          caseId, facilityId, eventType, userId, userRole, userName,
+          `${action === 'RELINKED' ? 'Relinked' : 'Linked'} preference card: ${card.procedure_name} v${card.version_number} (${body.reasonCode})`,
+          card.version_id,
+        ]);
+      });
+
+      return ok(reply, { success: true });
     }
 
-    // Verify case exists
+    // ── Legacy flow (backward compat) ──
+    if (!body.caseCardVersionId) {
+      return fail(reply, 'VALIDATION_ERROR', 'caseCardId or caseCardVersionId is required');
+    }
+
     const caseResult = await query<{ case_card_version_id: string | null }>(`
       SELECT case_card_version_id FROM surgical_case WHERE id = $1 AND facility_id = $2
     `, [caseId, facilityId]);
@@ -521,7 +689,6 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
 
     const previousVersionId = caseResult.rows[0].case_card_version_id;
 
-    // Verify case card version exists and is accessible
     const versionResult = await query<{ id: string; procedure_name: string }>(`
       SELECT ccv.id, cc.procedure_name
       FROM case_card_version ccv
@@ -533,12 +700,10 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       return fail(reply, 'NOT_FOUND', 'Case card version not found', 404);
     }
 
-    // Update case
     await query(`
       UPDATE surgical_case SET case_card_version_id = $1 WHERE id = $2
     `, [body.caseCardVersionId, caseId]);
 
-    // Log event
     const eventType = previousVersionId ? 'CASE_CARD_CHANGED' : 'CASE_CARD_LINKED';
     await query(`
       INSERT INTO case_event_log (case_id, facility_id, event_type, user_id, user_role, user_name, description, case_card_version_id)
@@ -550,6 +715,133 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
     ]);
 
     return ok(reply, { success: true });
+  });
+
+  /**
+   * POST /case-dashboard/:caseId/case-card-unlink
+   * Unlink the current case card
+   */
+  fastify.post<{ Params: { caseId: string } }>('/:caseId/case-card-unlink', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { caseId } = request.params;
+    const { facilityId, userId, name: userName, role: userRole } = request.user;
+    const body = request.body as { reasonCode: string; reasonNote?: string };
+
+    if (!body.reasonCode) {
+      return fail(reply, 'VALIDATION_ERROR', 'reasonCode is required');
+    }
+
+    // Verify case exists and has a linked card
+    const caseResult = await query<{ case_card_version_id: string | null }>(`
+      SELECT case_card_version_id FROM surgical_case WHERE id = $1 AND facility_id = $2
+    `, [caseId, facilityId]);
+
+    if (caseResult.rows.length === 0) {
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
+    }
+
+    if (!caseResult.rows[0].case_card_version_id) {
+      return fail(reply, 'INVALID_REQUEST', 'No case card is currently linked', 400);
+    }
+
+    await transaction(async (client) => {
+      // Clear FK for backward compat
+      await client.query(`
+        UPDATE surgical_case SET case_card_version_id = NULL WHERE id = $1
+      `, [caseId]);
+
+      // Write unlink event (no snapshot)
+      await client.query(`
+        INSERT INTO case_card_link_event
+          (case_id, facility_id, action, reason_code, reason_note,
+           performed_by_user_id, performed_by_name)
+        VALUES ($1, $2, 'UNLINKED', $3, $4, $5, $6)
+      `, [caseId, facilityId, body.reasonCode, body.reasonNote || null, userId, userName]);
+
+      // Log to general event log (reuse CASE_CARD_CHANGED)
+      await client.query(`
+        INSERT INTO case_event_log (case_id, facility_id, event_type, user_id, user_role, user_name, description)
+        VALUES ($1, $2, 'CASE_CARD_CHANGED', $3, $4, $5, $6)
+      `, [caseId, facilityId, userId, userRole, userName,
+        `Unlinked preference card (${body.reasonCode})`]);
+    });
+
+    return ok(reply, { success: true });
+  });
+
+  /**
+   * GET /case-dashboard/:caseId/case-card-link
+   * Get current link status + full history
+   */
+  fastify.get<{ Params: { caseId: string } }>('/:caseId/case-card-link', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { caseId } = request.params;
+    const { facilityId } = request.user;
+
+    // Verify case exists
+    const caseResult = await query(`
+      SELECT id FROM surgical_case WHERE id = $1 AND facility_id = $2
+    `, [caseId, facilityId]);
+
+    if (caseResult.rows.length === 0) {
+      return fail(reply, 'NOT_FOUND', 'Case not found', 404);
+    }
+
+    // Fetch all link events, newest first
+    const eventsResult = await query<{
+      id: string;
+      action: string;
+      source_case_card_id: string | null;
+      source_case_card_version_id: string | null;
+      snapshot_json: any;
+      reason_code: string;
+      reason_note: string | null;
+      performed_by_name: string;
+      performed_at: Date;
+    }>(`
+      SELECT id, action, source_case_card_id, source_case_card_version_id,
+             snapshot_json, reason_code, reason_note,
+             performed_by_name, performed_at
+      FROM case_card_link_event
+      WHERE case_id = $1
+      ORDER BY performed_at DESC, created_at DESC, id DESC
+    `, [caseId]);
+
+    const history = eventsResult.rows.map(e => ({
+      id: e.id,
+      action: e.action,
+      sourceCaseCardId: e.source_case_card_id,
+      cardName: e.snapshot_json?.caseCardName || null,
+      cardVersion: e.snapshot_json?.versionNumber || null,
+      reasonCode: e.reason_code,
+      reasonNote: e.reason_note,
+      performedByName: e.performed_by_name,
+      performedAt: e.performed_at.toISOString(),
+    }));
+
+    // Derive currentLink from most recent event
+    let currentLink = null;
+    if (eventsResult.rows.length > 0) {
+      const latest = eventsResult.rows[0];
+      if (latest.action !== 'UNLINKED') {
+        currentLink = {
+          eventId: latest.id,
+          caseCardId: latest.source_case_card_id,
+          caseCardVersionId: latest.source_case_card_version_id,
+          cardName: latest.snapshot_json?.caseCardName || null,
+          cardVersion: latest.snapshot_json?.versionNumber || null,
+          reasonCode: latest.reason_code,
+          reasonNote: latest.reason_note,
+          linkedBy: latest.performed_by_name,
+          linkedAt: latest.performed_at.toISOString(),
+          snapshotJson: latest.snapshot_json,
+        };
+      }
+    }
+
+    return ok(reply, { currentLink, history });
   });
 
   /**

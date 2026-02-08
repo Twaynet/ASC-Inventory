@@ -30,6 +30,7 @@ export function CaseDashboardModal({
   const {
     dashboard,
     eventLog,
+    caseCardLinkData,
     availableCaseCards,
     surgeons,
     anesthesiaModalities,
@@ -121,6 +122,7 @@ export function CaseDashboardModal({
               user={user}
               dashboard={dashboard}
               eventLog={eventLog}
+              caseCardLinkData={caseCardLinkData}
               availableCaseCards={availableCaseCards}
               surgeons={surgeons}
               anesthesiaModalities={anesthesiaModalities}

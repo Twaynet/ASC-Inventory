@@ -12,12 +12,16 @@ import {
   updateCaseScheduling,
   updateCase,
   getCaseCard,
-  linkCaseCard,
+  linkCaseCardWithReason,
+  unlinkCaseCard,
   activateCase,
   deactivateCase,
   checkInPreop,
+  LINK_REASON_LABELS,
   type CaseDashboardData,
   type CaseDashboardEventLogEntry,
+  type CaseCardLinkData,
+  type LinkReasonCode,
   type AnesthesiaModality,
   type CaseCardSummary,
   type CaseCardDetail,
@@ -53,6 +57,7 @@ export interface CaseDashboardContentProps {
   };
   dashboard: CaseDashboardData;
   eventLog: CaseDashboardEventLogEntry[];
+  caseCardLinkData: CaseCardLinkData | null;
   availableCaseCards: CaseCardSummary[];
   surgeons: User[];
   anesthesiaModalities: ConfigItem[];
@@ -68,6 +73,7 @@ export function CaseDashboardContent({
   user,
   dashboard,
   eventLog,
+  caseCardLinkData,
   availableCaseCards,
   surgeons,
   anesthesiaModalities,
@@ -93,6 +99,11 @@ export function CaseDashboardContent({
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [showEventLogModal, setShowEventLogModal] = useState(false);
   const [showLinkCaseCardModal, setShowLinkCaseCardModal] = useState(false);
+  const [showUnlinkModal, setShowUnlinkModal] = useState(false);
+  const [showLinkHistoryModal, setShowLinkHistoryModal] = useState(false);
+  const [linkReasonCode, setLinkReasonCode] = useState<LinkReasonCode | ''>('');
+  const [linkReasonNote, setLinkReasonNote] = useState('');
+  const [selectedCaseCardId, setSelectedCaseCardId] = useState<string | null>(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printingCard, setPrintingCard] = useState<{ card: CaseCardDetail; currentVersion: CaseCardVersionData | null } | null>(null);
 
@@ -335,14 +346,39 @@ export function CaseDashboardContent({
     }
   };
 
-  const handleLinkCaseCard = async (versionId: string) => {
+  const handleLinkCaseCard = async () => {
+    if (!selectedCaseCardId || !linkReasonCode) return;
     try {
-      await linkCaseCard(token, caseId, versionId);
-      setSuccessMessage('Case card linked');
+      await linkCaseCardWithReason(token, caseId, {
+        caseCardId: selectedCaseCardId,
+        reasonCode: linkReasonCode,
+        reasonNote: linkReasonNote || undefined,
+      });
+      setSuccessMessage('Preference card linked');
       setShowLinkCaseCardModal(false);
+      setSelectedCaseCardId(null);
+      setLinkReasonCode('');
+      setLinkReasonNote('');
       onDataChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to link preference card');
+    }
+  };
+
+  const handleUnlinkCaseCard = async () => {
+    if (!linkReasonCode) return;
+    try {
+      await unlinkCaseCard(token, caseId, {
+        reasonCode: linkReasonCode,
+        reasonNote: linkReasonNote || undefined,
+      });
+      setSuccessMessage('Preference card unlinked');
+      setShowUnlinkModal(false);
+      setLinkReasonCode('');
+      setLinkReasonNote('');
+      onDataChange();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unlink preference card');
     }
   };
 
@@ -1110,27 +1146,56 @@ export function CaseDashboardContent({
         </h2>
         {!collapsedSections.has('caseCard') && (
           <div>
-            {dashboard.caseCard ? (
+            {caseCardLinkData?.currentLink ? (
               <div className="mb-4">
+                <div className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-[var(--color-green)] text-white mb-3">
+                  Linked
+                </div>
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4">
-                  <div><strong>Name:</strong> {dashboard.caseCard.name}</div>
-                  <div><strong>Version:</strong> {dashboard.caseCard.version}</div>
-                  <div><strong>Status:</strong> {dashboard.caseCard.status}</div>
+                  <div><strong>Name:</strong> {caseCardLinkData.currentLink.cardName}</div>
+                  <div><strong>Version:</strong> {caseCardLinkData.currentLink.cardVersion}</div>
+                  <div><strong>Linked by:</strong> {caseCardLinkData.currentLink.linkedBy}</div>
+                  <div><strong>Linked at:</strong> {new Date(caseCardLinkData.currentLink.linkedAt).toLocaleString()}</div>
+                  <div><strong>Reason:</strong> {LINK_REASON_LABELS[caseCardLinkData.currentLink.reasonCode as LinkReasonCode] || caseCardLinkData.currentLink.reasonCode}</div>
+                  {caseCardLinkData.currentLink.reasonNote && (
+                    <div><strong>Note:</strong> {caseCardLinkData.currentLink.reasonNote}</div>
+                  )}
                 </div>
               </div>
             ) : (
-              <p className="text-[var(--red)] mb-4">No {TERMS.PREFERENCE_CARD} linked. Link a {TERMS.PREFERENCE_CARD} to enable attestation.</p>
+              <div className="mb-4">
+                <div className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-text-muted text-white mb-3">
+                  Not linked
+                </div>
+                <p className="text-text-muted">No {TERMS.PREFERENCE_CARD} linked.</p>
+              </div>
             )}
-            <div className="flex gap-2">
-              <button onClick={() => setShowLinkCaseCardModal(true)} className="btn-secondary">
-                {dashboard.caseCard ? `Change ${TERMS.PREFERENCE_CARD}` : `Link ${TERMS.PREFERENCE_CARD}`}
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={() => {
+                setSelectedCaseCardId(null);
+                setLinkReasonCode('');
+                setLinkReasonNote('');
+                setShowLinkCaseCardModal(true);
+              }} className="btn-secondary">
+                {caseCardLinkData?.currentLink ? `Relink ${TERMS.PREFERENCE_CARD}` : `Link ${TERMS.PREFERENCE_CARD}`}
               </button>
-              {dashboard.caseCard && (
-                <button
-                  onClick={handlePrintPreferenceCard}
-                  className="btn-secondary"
-                >
-                  Print Active {TERMS.PREFERENCE_CARD}
+              {caseCardLinkData?.currentLink && (
+                <>
+                  <button onClick={() => {
+                    setLinkReasonCode('');
+                    setLinkReasonNote('');
+                    setShowUnlinkModal(true);
+                  }} className="btn-secondary">
+                    Unlink
+                  </button>
+                  <button onClick={handlePrintPreferenceCard} className="btn-secondary">
+                    Print Active {TERMS.PREFERENCE_CARD}
+                  </button>
+                </>
+              )}
+              {caseCardLinkData && caseCardLinkData.history.length > 0 && (
+                <button onClick={() => setShowLinkHistoryModal(true)} className="btn-link">
+                  Link history ({caseCardLinkData.history.length})
                 </button>
               )}
             </div>
@@ -1305,23 +1370,27 @@ export function CaseDashboardContent({
         </div>
       )}
 
-      {/* Link Case Card Modal */}
+      {/* Link / Relink Case Card Modal */}
       {showLinkCaseCardModal && (
         <div className="modal-overlay nested-modal" onClick={() => setShowLinkCaseCardModal(false)}>
           <div className="modal-content max-w-[600px]" onClick={e => e.stopPropagation()}>
-            <h3>Link {TERMS.PREFERENCE_CARD}</h3>
-            <p>Select an active preference card to link to this case:</p>
-            {availableCaseCards.length > 0 ? (
-              <div className="max-h-[400px] overflow-y-auto">
+            <h3>{caseCardLinkData?.currentLink ? 'Relink' : 'Link'} {TERMS.PREFERENCE_CARD}</h3>
+            <p className="mb-3">Select an active preference card to link to this case:</p>
+
+            {/* Card selection */}
+            {availableCaseCards.filter(c => c.surgeonId === dashboard.surgeonId).length > 0 ? (
+              <div className="max-h-[250px] overflow-y-auto mb-4">
                 {availableCaseCards
                   .filter(c => c.surgeonId === dashboard.surgeonId)
                   .map(card => (
                     <div
-                      key={card.currentVersionId}
-                      className={`p-4 border border-border rounded mb-2 cursor-pointer ${
-                        card.currentVersionId === dashboard.caseCard?.versionId ? 'bg-[var(--surface-hover)]' : ''
+                      key={card.id}
+                      className={`p-4 border rounded mb-2 cursor-pointer transition-colors ${
+                        selectedCaseCardId === card.id
+                          ? 'border-accent bg-[var(--surface-hover)]'
+                          : 'border-border'
                       }`}
-                      onClick={() => handleLinkCaseCard(card.currentVersionId!)}
+                      onClick={() => setSelectedCaseCardId(card.id)}
                     >
                       <strong>{card.procedureName}</strong>
                       <br />
@@ -1330,17 +1399,132 @@ export function CaseDashboardContent({
                       </span>
                     </div>
                   ))}
-                {availableCaseCards.filter(c => c.surgeonId === dashboard.surgeonId).length === 0 && (
-                  <p className="text-text-muted">
-                    No active preference cards found for this surgeon.
-                  </p>
-                )}
               </div>
             ) : (
-              <p className="text-text-muted">No active preference cards available.</p>
+              <p className="text-text-muted mb-4">No active preference cards found for this surgeon.</p>
             )}
-            <div className="flex justify-end mt-4">
+
+            {/* Reason (required) */}
+            <div className="form-group">
+              <label>Reason *</label>
+              <select
+                value={linkReasonCode}
+                onChange={e => setLinkReasonCode(e.target.value as LinkReasonCode)}
+              >
+                <option value="">Select reason...</option>
+                {Object.entries(LINK_REASON_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Note (optional)</label>
+              <textarea
+                value={linkReasonNote}
+                onChange={e => setLinkReasonNote(e.target.value)}
+                rows={2}
+                placeholder="Additional context..."
+              />
+            </div>
+
+            <p className="text-xs text-text-muted mb-4">This action will be logged and visible to all users.</p>
+
+            <div className="flex gap-2 justify-end">
               <button onClick={() => setShowLinkCaseCardModal(false)} className="btn-secondary">Cancel</button>
+              <button
+                onClick={handleLinkCaseCard}
+                className="btn-primary"
+                disabled={!selectedCaseCardId || !linkReasonCode}
+              >
+                {caseCardLinkData?.currentLink ? 'Relink' : 'Link'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unlink Case Card Modal */}
+      {showUnlinkModal && caseCardLinkData?.currentLink && (
+        <div className="modal-overlay nested-modal" onClick={() => setShowUnlinkModal(false)}>
+          <div className="modal-content max-w-[500px]" onClick={e => e.stopPropagation()}>
+            <h3>Unlink {TERMS.PREFERENCE_CARD}</h3>
+            <p className="mb-3">
+              You are about to unlink <strong>{caseCardLinkData.currentLink.cardName}</strong> (v{caseCardLinkData.currentLink.cardVersion}) from this case.
+            </p>
+            <div className="form-group">
+              <label>Reason *</label>
+              <select
+                value={linkReasonCode}
+                onChange={e => setLinkReasonCode(e.target.value as LinkReasonCode)}
+              >
+                <option value="">Select reason...</option>
+                {Object.entries(LINK_REASON_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Note (optional)</label>
+              <textarea
+                value={linkReasonNote}
+                onChange={e => setLinkReasonNote(e.target.value)}
+                rows={2}
+                placeholder="Additional context..."
+              />
+            </div>
+            <p className="text-xs text-text-muted mb-4">This action will be logged and visible to all users.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowUnlinkModal(false)} className="btn-secondary">Cancel</button>
+              <button
+                onClick={handleUnlinkCaseCard}
+                className="btn-danger"
+                disabled={!linkReasonCode}
+              >
+                Unlink
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link History Modal */}
+      {showLinkHistoryModal && caseCardLinkData && (
+        <div className="modal-overlay nested-modal" onClick={() => setShowLinkHistoryModal(false)}>
+          <div className="modal-content max-w-[700px]" onClick={e => e.stopPropagation()}>
+            <h3>{TERMS.PREFERENCE_CARD} Link History</h3>
+            <div className="max-h-[400px] overflow-y-auto">
+              {caseCardLinkData.history.length > 0 ? (
+                caseCardLinkData.history.map(event => (
+                  <div key={event.id} className="py-3 border-b border-border text-sm">
+                    <div className="flex justify-between mb-1">
+                      <span>
+                        <strong className={
+                          event.action === 'LINKED' ? 'text-[var(--color-green)]' :
+                          event.action === 'UNLINKED' ? 'text-[var(--color-red)]' :
+                          'text-accent'
+                        }>
+                          {event.action}
+                        </strong>
+                        {event.cardName && (
+                          <> &mdash; {event.cardName} v{event.cardVersion}</>
+                        )}
+                      </span>
+                      <span className="text-text-muted">
+                        {new Date(event.performedAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-text-muted">
+                      {event.performedByName} &middot; {LINK_REASON_LABELS[event.reasonCode as LinkReasonCode] || event.reasonCode}
+                      {event.reasonNote && <> &middot; {event.reasonNote}</>}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-text-muted">No link history.</p>
+              )}
+            </div>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setShowLinkHistoryModal(false)} className="btn-secondary">Close</button>
             </div>
           </div>
         </div>

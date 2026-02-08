@@ -53,8 +53,9 @@ export { getCaseCards, getCaseCard, getCaseCardEditLog, getCaseCardVersions, cre
 export type { CaseCardStatus, CaseType, CaseCardSummary, CaseCardVersionData, CaseCardDetail, CaseCardEditLogEntry, CaseCardCreateRequest, CaseCardUpdateRequest, CaseCardFeedbackSubmitRequest, CaseCardFeedback, CaseCardFeedbackResponse } from './api/case-cards';
 
 // Case Dashboard
-export { getCaseDashboard, attestCaseReadiness, voidCaseAttestation, updateAnesthesiaPlan, linkCaseCard, addCaseOverride, updateCaseOverride, removeCaseOverride, getCaseEventLog, updateCaseSummary, updateCaseScheduling } from './api/case-dashboard';
-export type { AnesthesiaModality, AttestationState, CaseEventType, CaseDashboardCaseCard, CaseDashboardAnesthesiaPlan, CaseDashboardOverride, CaseDashboardData, CaseDashboardEventLogEntry } from './api/case-dashboard';
+export { getCaseDashboard, attestCaseReadiness, voidCaseAttestation, updateAnesthesiaPlan, linkCaseCard, linkCaseCardWithReason, unlinkCaseCard, getCaseCardLink, addCaseOverride, updateCaseOverride, removeCaseOverride, getCaseEventLog, updateCaseSummary, updateCaseScheduling } from './api/case-dashboard';
+export type { AnesthesiaModality, AttestationState, CaseEventType, CaseDashboardCaseCard, CaseDashboardCaseCardLink, CaseDashboardAnesthesiaPlan, CaseDashboardOverride, CaseDashboardData, CaseDashboardEventLogEntry, LinkReasonCode, CaseCardLinkEvent, CaseCardLinkData } from './api/case-dashboard';
+export { LINK_REASON_LABELS } from './api/case-dashboard';
 
 // Reports
 export { getAvailableReports, getInventoryReadinessReport, getVerificationActivityReport, getChecklistComplianceReport, getCaseSummaryReport, getVendorConcessionsReport, getInventoryValuationReport, getLoanerExposureReport, getCancelledCasesReport, getCaseTimelinesReport, getDebriefSummaryReport, getCaseEventLogReport, getReportExportUrl } from './api/reports';

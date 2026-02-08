@@ -75,10 +75,60 @@ export interface CaseDashboardData {
   patientFlags: Record<string, boolean>;
   admissionTypes: Record<string, boolean>;
   caseCard: CaseDashboardCaseCard | null;
+  caseCardLink: CaseDashboardCaseCardLink | null;
   anesthesiaPlan: CaseDashboardAnesthesiaPlan | null;
   overrides: CaseDashboardOverride[];
   readinessState: 'GREEN' | 'ORANGE' | 'RED';
   missingItems: MissingItem[];
+}
+
+export type LinkReasonCode = 'OUTDATED_CARD' | 'SURGEON_CHANGED_PLAN' | 'EMERGENT_DEVIATION' | 'MISSING_EQUIPMENT' | 'OTHER';
+
+export const LINK_REASON_LABELS: Record<LinkReasonCode, string> = {
+  OUTDATED_CARD: 'Outdated card',
+  SURGEON_CHANGED_PLAN: 'Surgeon changed plan',
+  EMERGENT_DEVIATION: 'Emergent deviation',
+  MISSING_EQUIPMENT: 'Missing equipment',
+  OTHER: 'Other',
+};
+
+export interface CaseDashboardCaseCardLink {
+  eventId: string;
+  caseCardId: string | null;
+  cardName: string | null;
+  cardVersion: string | null;
+  reasonCode: string;
+  reasonNote: string | null;
+  linkedBy: string;
+  linkedAt: string;
+}
+
+export interface CaseCardLinkEvent {
+  id: string;
+  action: 'LINKED' | 'UNLINKED' | 'RELINKED';
+  sourceCaseCardId: string | null;
+  cardName: string | null;
+  cardVersion: string | null;
+  reasonCode: string;
+  reasonNote: string | null;
+  performedByName: string;
+  performedAt: string;
+}
+
+export interface CaseCardLinkData {
+  currentLink: {
+    eventId: string;
+    caseCardId: string | null;
+    caseCardVersionId: string | null;
+    cardName: string | null;
+    cardVersion: string | null;
+    reasonCode: string;
+    reasonNote: string | null;
+    linkedBy: string;
+    linkedAt: string;
+    snapshotJson: Record<string, unknown>;
+  } | null;
+  history: CaseCardLinkEvent[];
 }
 
 export interface CaseDashboardEventLogEntry {
@@ -145,6 +195,38 @@ export async function linkCaseCard(
     body: { caseCardVersionId },
     token,
   });
+}
+
+// Snapshot-based link (new flow)
+export async function linkCaseCardWithReason(
+  token: string,
+  caseId: string,
+  data: { caseCardId: string; reasonCode: string; reasonNote?: string }
+): Promise<{ success: boolean }> {
+  return request(`/case-dashboard/${caseId}/link-case-card`, {
+    method: 'PUT',
+    body: data,
+    token,
+  });
+}
+
+export async function unlinkCaseCard(
+  token: string,
+  caseId: string,
+  data: { reasonCode: string; reasonNote?: string }
+): Promise<{ success: boolean }> {
+  return request(`/case-dashboard/${caseId}/case-card-unlink`, {
+    method: 'POST',
+    body: data,
+    token,
+  });
+}
+
+export async function getCaseCardLink(
+  token: string,
+  caseId: string
+): Promise<CaseCardLinkData> {
+  return request(`/case-dashboard/${caseId}/case-card-link`, { token });
 }
 
 // TODO(api-schema): needs Zod request + response schema
