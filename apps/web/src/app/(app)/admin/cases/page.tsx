@@ -15,7 +15,7 @@ import {
   type ActivateCaseRequest,
 } from '@/lib/api/cases';
 import { getSurgeons, type User } from '@/lib/api/users';
-import { getPreferenceCards, type PreferenceCard } from '@/lib/api/preference-cards';
+import { getCaseCards, type CaseCardSummary } from '@/lib/api/case-cards';
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00');
@@ -38,7 +38,7 @@ export default function AdminCasesPage() {
 
   const [cases, setCases] = useState<Case[]>([]);
   const [surgeons, setSurgeons] = useState<User[]>([]);
-  const [preferenceCards, setPreferenceCards] = useState<PreferenceCard[]>([]);
+  const [caseCards, setCaseCards] = useState<CaseCardSummary[]>([]);
   const [filter, setFilter] = useState<'all' | 'inactive' | 'active' | 'cancelled'>('inactive');
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
@@ -46,10 +46,11 @@ export default function AdminCasesPage() {
 
   // Create form state
   const [showCreateForm, setShowCreateForm] = useState(false);
+  // preferenceCardVersionId removed: legacy FK to preference_card_versions table.
+  // Case cards are linked via the case dashboard (linkCaseCard) after creation.
   const [createFormData, setCreateFormData] = useState({
     surgeonId: '',
     procedureName: '',
-    preferenceCardVersionId: '',
     notes: '',
   });
 
@@ -74,11 +75,11 @@ export default function AdminCasesPage() {
       const [casesResult, surgeonsResult, cardsResult] = await Promise.all([
         getCases(token),
         getSurgeons(token),
-        getPreferenceCards(token),
+        getCaseCards(token, { status: 'ACTIVE' }),
       ]);
       setCases(casesResult.cases);
       setSurgeons(surgeonsResult.users);
-      setPreferenceCards(cardsResult.cards.filter(c => c.active));
+      setCaseCards(cardsResult.cards);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load cases');
@@ -115,7 +116,6 @@ export default function AdminCasesPage() {
         surgeonId: createFormData.surgeonId,
         procedureName: createFormData.procedureName,
         notes: createFormData.notes || null,
-        preferenceCardVersionId: createFormData.preferenceCardVersionId || null,
       };
       await createCase(token, caseData);
       setSuccessMessage('Case created successfully. It will remain inactive until approved and scheduled.');
@@ -123,7 +123,6 @@ export default function AdminCasesPage() {
       setCreateFormData({
         surgeonId: '',
         procedureName: '',
-        preferenceCardVersionId: '',
         notes: '',
       });
       loadData();
@@ -288,7 +287,7 @@ export default function AdminCasesPage() {
                   <select
                     value={createFormData.surgeonId}
                     onChange={(e) => {
-                      setCreateFormData({ ...createFormData, surgeonId: e.target.value, preferenceCardVersionId: '' });
+                      setCreateFormData({ ...createFormData, surgeonId: e.target.value });
                     }}
                     required
                   >
@@ -309,28 +308,23 @@ export default function AdminCasesPage() {
                   />
                 </div>
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Preference Card</label>
-                  <select
-                    value={createFormData.preferenceCardVersionId}
-                    onChange={(e) => setCreateFormData({ ...createFormData, preferenceCardVersionId: e.target.value })}
-                    disabled={!createFormData.surgeonId}
-                  >
-                    <option value="">None</option>
-                    {preferenceCards
-                      .filter(c => c.surgeonId === createFormData.surgeonId && c.currentVersion)
-                      .map(c => (
-                        <option key={c.id} value={c.currentVersion!.id}>
-                          {c.procedureName} (v{c.currentVersion!.versionNumber})
-                        </option>
-                      ))}
-                  </select>
-                  {createFormData.surgeonId && !preferenceCards.some(c => c.surgeonId === createFormData.surgeonId) && (
-                    <small className="form-hint">No preference cards found for this surgeon</small>
-                  )}
+              {createFormData.surgeonId && caseCards.some(c => c.surgeonId === createFormData.surgeonId) && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Available Preference Cards</label>
+                    <ul className="card-ref-list">
+                      {caseCards
+                        .filter(c => c.surgeonId === createFormData.surgeonId)
+                        .map(c => (
+                          <li key={c.id}>
+                            {c.procedureName} (v{c.version})
+                          </li>
+                        ))}
+                    </ul>
+                    <small className="form-hint">Link a preference card via the Case Dashboard after creation</small>
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="form-group">
                 <label>Notes</label>
                 <input
@@ -352,7 +346,6 @@ export default function AdminCasesPage() {
                     setCreateFormData({
                       surgeonId: '',
                       procedureName: '',
-                      preferenceCardVersionId: '',
                       notes: '',
                     });
                   }}
@@ -678,6 +671,13 @@ export default function AdminCasesPage() {
           color: #a0aec0;
         }
 
+        .card-ref-list {
+          margin: 0;
+          padding-left: 1.25rem;
+          font-size: 0.875rem;
+          color: #4a5568;
+        }
+
         .summary-cards {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -928,6 +928,9 @@ export default function AdminCasesPage() {
         :global([data-theme="dark"]) .text-muted,
         :global([data-theme="dark"]) .requested-info {
           color: var(--text-muted);
+        }
+        :global([data-theme="dark"]) .card-ref-list {
+          color: var(--text-secondary);
         }
         :global([data-theme="dark"]) .form-group input,
         :global([data-theme="dark"]) .form-group select {

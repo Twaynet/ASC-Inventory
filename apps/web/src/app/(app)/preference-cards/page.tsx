@@ -1,5 +1,9 @@
 'use client';
 
+// Domain truth: "Surgeon Preference Cards" in the UI are backed by the
+// case_card domain (case_cards + case_card_versions tables, /api/case-cards/*).
+// The legacy preference_card tables are NOT used by this page.
+
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';

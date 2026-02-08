@@ -60,9 +60,8 @@ export type { AnesthesiaModality, AttestationState, CaseEventType, CaseDashboard
 export { getAvailableReports, getInventoryReadinessReport, getVerificationActivityReport, getChecklistComplianceReport, getCaseSummaryReport, getVendorConcessionsReport, getInventoryValuationReport, getLoanerExposureReport, getCancelledCasesReport, getCaseTimelinesReport, getDebriefSummaryReport, getCaseEventLogReport, getReportExportUrl } from './api/reports';
 export type { ReportDefinition, ReportFilters, FinancialReportFilters, AuditReportFilters, InventoryReadinessRow, InventoryReadinessSummary, VerificationActivityRow, VerificationActivitySummary, ChecklistComplianceRow, ChecklistComplianceSummary, CaseSummaryRow, CaseSummarySummary, VendorConcessionRow, VendorConcessionSummary, InventoryValuationRow, InventoryValuationSummary, LoanerExposureRow, LoanerExposureSummary, CancelledCaseRow, CancelledCaseSummary, CaseTimelineRow, CaseTimelineSummary, DebriefSummaryRow, DebriefSummarySummary, CaseEventLogRow, CaseEventLogSummary } from './api/reports';
 
-// Preference Cards
-export { getPreferenceCards, getPreferenceCard, getPreferenceCardVersions, createPreferenceCard, updatePreferenceCard, createPreferenceCardVersion, deactivatePreferenceCard, activatePreferenceCard } from './api/preference-cards';
-export type { PreferenceCardItem, PreferenceCardVersion, PreferenceCard, CreatePreferenceCardRequest, UpdatePreferenceCardRequest, CreatePreferenceCardVersionRequest } from './api/preference-cards';
+// Preference Cards — barrel re-exports removed: no consumers remain.
+// Module kept at ./api/preference-cards.ts for future reference / migration.
 
 // Schedule
 export { getDaySchedule, getUnassignedCases, createBlockTime, updateBlockTime, deleteBlockTime, setRoomDayConfig, reorderScheduleItems } from './api/schedule';
