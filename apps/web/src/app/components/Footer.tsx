@@ -31,7 +31,7 @@ export function Footer() {
 
   return (
     <footer className="app-footer">
-      <span>ASC Inventory v{version}</span>
+      <span>ASC Inventory {version}</span>
       <span className="footer-separator">|</span>
       <span>Built: {formattedTime} ({commitSha})</span>
       <span className="footer-separator">|</span>
