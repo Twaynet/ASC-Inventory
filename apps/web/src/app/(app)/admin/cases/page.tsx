@@ -591,13 +591,13 @@ export default function AdminCasesPage() {
                       {c.status === 'REQUESTED' && !c.isCancelled ? (
                         <>
                           <button
-                            className="btn btn-primary btn-sm"
+                            className="btn btn-primary btn-xs"
                             onClick={() => startApproval(c)}
                           >
                             Approve
                           </button>
                           <button
-                            className="btn btn-danger btn-sm"
+                            className="btn btn-danger btn-xs"
                             onClick={() => startRejection(c)}
                           >
                             Reject
@@ -605,7 +605,7 @@ export default function AdminCasesPage() {
                         </>
                       ) : !c.isActive && !c.isCancelled && c.status !== 'REJECTED' ? (
                         <button
-                          className="btn btn-primary btn-sm"
+                          className="btn btn-primary btn-xs"
                           onClick={() => startActivation(c)}
                         >
                           Activate
@@ -613,7 +613,7 @@ export default function AdminCasesPage() {
                       ) : null}
                       {c.isActive && !c.isCancelled && c.status !== 'IN_PROGRESS' && c.status !== 'COMPLETED' && (
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-xs"
                           onClick={() => handleDeactivate(c.id)}
                         >
                           Deactivate
@@ -621,7 +621,7 @@ export default function AdminCasesPage() {
                       )}
                       {!c.isCancelled && c.status !== 'REJECTED' && (
                         <button
-                          className="btn btn-danger btn-sm"
+                          className="btn btn-danger btn-xs"
                           onClick={() => handleCancel(c.id)}
                         >
                           Cancel

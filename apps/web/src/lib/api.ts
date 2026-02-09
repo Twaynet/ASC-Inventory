@@ -45,7 +45,7 @@ export { getCaseChecklists, startChecklist, respondToChecklist, signChecklist, c
 export type { ChecklistItem, RequiredSignature, ChecklistResponse, ChecklistSignature, ChecklistInstance, CaseChecklistsResponse, PendingReview, PendingReviewsResponse, FlaggedReview, DebriefItemForReview, FlaggedReviewsResponse, SurgeonChecklist, SurgeonChecklistsResponse, ChecklistTemplateItem, ChecklistTemplateSignature, ChecklistTemplateData } from './api/checklists';
 
 // Settings (facility, rooms, surgeons, config items, locations)
-export { getFacilitySettings, updateFacilitySettings, getRooms, getSettingsRooms, createRoom, updateRoom, deactivateRoom, activateRoom, reorderRooms, getSettingsSurgeons, updateSurgeonSettings, getConfigItems, createConfigItem, updateConfigItem, deactivateConfigItem, activateConfigItem, reorderConfigItems, getLocations, getLocation, createLocation, updateLocation, deleteLocation } from './api/settings';
+export { getFacilitySettings, updateFacilitySettings, getRooms, getSettingsRooms, createRoom, updateRoom, deactivateRoom, activateRoom, reorderRooms, getSettingsSurgeons, updateSurgeonSettings, getConfigItems, createConfigItem, updateConfigItem, deactivateConfigItem, activateConfigItem, reorderConfigItems, getLocations, getLocation, createLocation, updateLocation, deactivateLocation, activateLocation } from './api/settings';
 export type { FacilitySettings, Room, RoomDetail, CreateRoomRequest, UpdateRoomRequest, SurgeonSettings, ConfigItemType, ConfigItem, CreateConfigItemRequest, UpdateConfigItemRequest, Location, CreateLocationRequest, UpdateLocationRequest } from './api/settings';
 
 // Case Cards

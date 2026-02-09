@@ -353,14 +353,14 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="flex gap-2">
                       <button
-                        className="btn btn-secondary btn-sm"
+                        className="btn btn-secondary btn-xs"
                         onClick={() => startEdit(u)}
                       >
                         Edit
                       </button>
                       {u.active ? (
                         <button
-                          className="btn btn-danger btn-sm"
+                          className="btn btn-danger btn-xs"
                           onClick={() => handleDeactivate(u.id)}
                           disabled={u.id === user?.id}
                           title={u.id === user?.id ? 'Cannot deactivate yourself' : ''}
@@ -369,7 +369,7 @@ export default function AdminUsersPage() {
                         </button>
                       ) : (
                         <button
-                          className="btn btn-success btn-sm"
+                          className="btn btn-success btn-xs"
                           onClick={() => handleActivate(u.id)}
                         >
                           Activate

@@ -19,6 +19,7 @@ interface LocationRow {
   description: string | null;
   parent_location_id: string | null;
   parent_name: string | null;
+  is_active: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -33,21 +34,24 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
    * GET /locations
    * List all locations in facility
    */
-  fastify.get('/', {
+  fastify.get<{ Querystring: { includeInactive?: string } }>('/', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     const { facilityId } = request.user;
+    const includeInactive = request.query.includeInactive === 'true';
+
+    const activeFilter = includeInactive ? '' : 'AND l.is_active = true';
 
     const result = await query<LocationWithCounts>(`
       SELECT
         l.id, l.facility_id, l.name, l.description,
         l.parent_location_id, p.name as parent_name,
-        l.created_at, l.updated_at,
+        l.is_active, l.created_at, l.updated_at,
         (SELECT COUNT(*) FROM location c WHERE c.parent_location_id = l.id) as child_count,
         (SELECT COUNT(*) FROM inventory_item i WHERE i.location_id = l.id) as item_count
       FROM location l
       LEFT JOIN location p ON l.parent_location_id = p.id
-      WHERE l.facility_id = $1
+      WHERE l.facility_id = $1 ${activeFilter}
       ORDER BY l.name ASC
     `, [facilityId]);
 
@@ -58,6 +62,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
         description: row.description,
         parentLocationId: row.parent_location_id,
         parentName: row.parent_name,
+        isActive: row.is_active,
         childCount: parseInt(row.child_count),
         itemCount: parseInt(row.item_count),
         createdAt: row.created_at.toISOString(),
@@ -80,7 +85,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT
         l.id, l.facility_id, l.name, l.description,
         l.parent_location_id, p.name as parent_name,
-        l.created_at, l.updated_at,
+        l.is_active, l.created_at, l.updated_at,
         (SELECT COUNT(*) FROM location c WHERE c.parent_location_id = l.id) as child_count,
         (SELECT COUNT(*) FROM inventory_item i WHERE i.location_id = l.id) as item_count
       FROM location l
@@ -100,6 +105,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
         description: row.description,
         parentLocationId: row.parent_location_id,
         parentName: row.parent_name,
+        isActive: row.is_active,
         childCount: parseInt(row.child_count),
         itemCount: parseInt(row.item_count),
         createdAt: row.created_at.toISOString(),
@@ -157,6 +163,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
         description: row.description,
         parentLocationId: row.parent_location_id,
         parentName: null,
+        isActive: true,
         childCount: 0,
         itemCount: 0,
         createdAt: row.created_at.toISOString(),
@@ -254,7 +261,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT
         l.id, l.facility_id, l.name, l.description,
         l.parent_location_id, p.name as parent_name,
-        l.created_at, l.updated_at,
+        l.is_active, l.created_at, l.updated_at,
         (SELECT COUNT(*) FROM location c WHERE c.parent_location_id = l.id) as child_count,
         (SELECT COUNT(*) FROM inventory_item i WHERE i.location_id = l.id) as item_count
       FROM location l
@@ -270,6 +277,7 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
         description: row.description,
         parentLocationId: row.parent_location_id,
         parentName: row.parent_name,
+        isActive: row.is_active,
         childCount: parseInt(row.child_count),
         itemCount: parseInt(row.item_count),
         createdAt: row.created_at.toISOString(),
@@ -279,38 +287,47 @@ export async function locationsRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   /**
-   * DELETE /locations/:id
-   * Delete location (ADMIN only) - only if no children or items
+   * POST /locations/:id/deactivate
+   * Deactivate location (ADMIN only)
    */
-  fastify.delete<{ Params: { id: string } }>('/:id', {
+  fastify.post<{ Params: { id: string } }>('/:id/deactivate', {
     preHandler: [requireCapabilities('LOCATION_MANAGE')],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
 
-    // Check location exists and get counts
-    const result = await query<LocationWithCounts>(`
-      SELECT
-        l.id,
-        (SELECT COUNT(*) FROM location c WHERE c.parent_location_id = l.id) as child_count,
-        (SELECT COUNT(*) FROM inventory_item i WHERE i.location_id = l.id) as item_count
-      FROM location l
-      WHERE l.id = $1 AND l.facility_id = $2
+    const result = await query(`
+      UPDATE location SET is_active = false, updated_at = NOW()
+      WHERE id = $1 AND facility_id = $2 AND is_active = true
+      RETURNING id
     `, [id, facilityId]);
 
     if (result.rows.length === 0) {
-      return fail(reply, 'NOT_FOUND', 'Location not found', 404);
+      return fail(reply, 'NOT_FOUND', 'Location not found or already inactive', 404);
     }
 
-    const row = result.rows[0];
-    if (parseInt(row.child_count) > 0) {
-      return fail(reply, 'INVALID_STATE', 'Cannot delete location with child locations');
-    }
-    if (parseInt(row.item_count) > 0) {
-      return fail(reply, 'INVALID_STATE', 'Cannot delete location with inventory items');
-    }
+    return ok(reply, { success: true });
+  });
 
-    await query(`DELETE FROM location WHERE id = $1 AND facility_id = $2`, [id, facilityId]);
+  /**
+   * POST /locations/:id/activate
+   * Activate location (ADMIN only)
+   */
+  fastify.post<{ Params: { id: string } }>('/:id/activate', {
+    preHandler: [requireCapabilities('LOCATION_MANAGE')],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { facilityId } = request.user;
+
+    const result = await query(`
+      UPDATE location SET is_active = true, updated_at = NOW()
+      WHERE id = $1 AND facility_id = $2 AND is_active = false
+      RETURNING id
+    `, [id, facilityId]);
+
+    if (result.rows.length === 0) {
+      return fail(reply, 'NOT_FOUND', 'Location not found or already active', 404);
+    }
 
     return ok(reply, { success: true });
   });

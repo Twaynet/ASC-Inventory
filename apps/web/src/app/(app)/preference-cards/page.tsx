@@ -318,39 +318,39 @@ export default function PreferenceCardsPage() {
                       <td className="actions-cell">
                         {card.status !== 'DEPRECATED' && (
                           <button
-                            className="btn btn-secondary btn-sm"
+                            className="btn btn-secondary btn-xs"
                             onClick={() => openEditDialog(card)}
                           >
                             Edit
                           </button>
                         )}
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-xs"
                           onClick={() => openCloneDialog(card)}
                         >
                           Clone
                         </button>
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-xs"
                           onClick={() => handlePrint(card)}
                         >
                           Print
                         </button>
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-xs"
                           onClick={() => viewEditLog(card)}
                         >
                           History
                         </button>
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-xs"
                           onClick={() => viewFeedback(card)}
                         >
                           Feedback
                         </button>
                         {card.status === 'DRAFT' && (
                           <button
-                            className="btn btn-success btn-sm"
+                            className="btn btn-success btn-xs"
                             onClick={() => handleActivate(card.id)}
                           >
                             Activate
@@ -358,7 +358,7 @@ export default function PreferenceCardsPage() {
                         )}
                         {card.status === 'ACTIVE' && (
                           <button
-                            className="btn btn-danger btn-sm"
+                            className="btn btn-danger btn-xs"
                             onClick={() => handleDeprecate(card.id)}
                           >
                             Deprecate
@@ -505,17 +505,17 @@ export default function PreferenceCardsPage() {
                                       onChange={(e) => setReviewNotes(e.target.value)}
                                     />
                                     <div className="review-buttons">
-                                      <button className="btn btn-primary btn-sm" onClick={handleReviewFeedback}>
+                                      <button className="btn btn-primary btn-xs" onClick={handleReviewFeedback}>
                                         Submit Review
                                       </button>
-                                      <button className="btn btn-secondary btn-sm" onClick={() => setReviewingFeedback(null)}>
+                                      <button className="btn btn-secondary btn-xs" onClick={() => setReviewingFeedback(null)}>
                                         Cancel
                                       </button>
                                     </div>
                                   </div>
                                 ) : (
                                   <button
-                                    className="btn btn-primary btn-sm"
+                                    className="btn btn-primary btn-xs"
                                     onClick={() => {
                                       setReviewingFeedback(fb);
                                       setReviewAction('ACKNOWLEDGED');

@@ -8,14 +8,16 @@ import {
   getLocations,
   createLocation,
   updateLocation,
-  deleteLocation,
+  deactivateLocation,
+  activateLocation,
   type Location,
   type CreateLocationRequest,
   type UpdateLocationRequest,
 } from '@/lib/api';
 
 export default function AdminLocationsPage() {
-  // Use shared hook for data loading, auth, and error handling
+  const [showInactive, setShowInactive] = useState(false);
+
   const {
     data,
     isLoading,
@@ -32,10 +34,11 @@ export default function AdminLocationsPage() {
     accessDenied,
   } = usePageData({
     fetchFn: async (token) => {
-      const result = await getLocations(token);
+      const result = await getLocations(token, showInactive);
       return result.locations;
     },
     requiredRoles: ['ADMIN'],
+    deps: [showInactive],
   });
 
   const locations = data || [];
@@ -88,15 +91,25 @@ export default function AdminLocationsPage() {
     );
   };
 
-  const handleDelete = async (locationId: string) => {
+  const handleDeactivate = async (locationId: string) => {
     if (!token) return;
-    if (!confirm('Are you sure you want to delete this location?')) return;
-
     await withErrorHandling(
-      () => deleteLocation(token, locationId),
+      () => deactivateLocation(token, locationId),
       setError,
       () => {
-        setSuccessMessage('Location deleted successfully');
+        setSuccessMessage('Location deactivated');
+        refetch();
+      }
+    );
+  };
+
+  const handleActivate = async (locationId: string) => {
+    if (!token) return;
+    await withErrorHandling(
+      () => activateLocation(token, locationId),
+      setError,
+      () => {
+        setSuccessMessage('Location activated');
         refetch();
       }
     );
@@ -139,7 +152,7 @@ export default function AdminLocationsPage() {
     <>
       <Header title="Location Management" />
 
-      <main className="container py-8">
+      <main className="container py-6">
         <PageAlerts
           error={error}
           success={successMessage}
@@ -147,22 +160,22 @@ export default function AdminLocationsPage() {
           onDismissSuccess={clearSuccess}
         />
 
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4 mb-6">
-          <div className="bg-surface-primary rounded-lg p-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
-            <div className="text-[2rem] font-bold text-text-primary">{locations.length}</div>
-            <div className="text-sm text-text-muted">Total Locations</div>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3 mb-4">
+          <div className="bg-surface-primary rounded-lg p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <div className="text-2xl font-bold text-text-primary">{locations.length}</div>
+            <div className="text-xs text-text-muted">Total Locations</div>
           </div>
-          <div className="bg-surface-primary rounded-lg p-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
-            <div className="text-[2rem] font-bold text-text-primary">{locations.filter(l => !l.parentLocationId).length}</div>
-            <div className="text-sm text-text-muted">Top-Level Locations</div>
+          <div className="bg-surface-primary rounded-lg p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <div className="text-2xl font-bold text-text-primary">{locations.filter(l => !l.parentLocationId).length}</div>
+            <div className="text-xs text-text-muted">Top-Level</div>
           </div>
-          <div className="bg-surface-primary rounded-lg p-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
-            <div className="text-[2rem] font-bold text-text-primary">{locations.reduce((sum, l) => sum + l.itemCount, 0)}</div>
-            <div className="text-sm text-text-muted">Total Items Stored</div>
+          <div className="bg-surface-primary rounded-lg p-3 text-center shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <div className="text-2xl font-bold text-text-primary">{locations.reduce((sum, l) => sum + l.itemCount, 0)}</div>
+            <div className="text-xs text-text-muted">Total Items Stored</div>
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <button
             className="btn btn-create"
             onClick={() => {
@@ -173,14 +186,22 @@ export default function AdminLocationsPage() {
           >
             + Add Location
           </button>
+          <label className="flex items-center gap-2 cursor-pointer text-text-primary">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+            />
+            Show inactive
+          </label>
         </div>
 
         {/* Create/Edit Form */}
         {(showCreateForm || editingLocation) && (
-          <div className="bg-surface-primary rounded-lg p-6 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
-            <h2 className="mt-0 mb-4">{editingLocation ? 'Edit Location' : 'Create New Location'}</h2>
+          <div className="bg-surface-primary rounded-lg p-4 mb-4 shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+            <h2 className="mt-0 mb-3 text-base">{editingLocation ? 'Edit Location' : 'Create New Location'}</h2>
             <form onSubmit={editingLocation ? handleUpdate : handleCreate}>
-              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+              <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
                 <div className="form-group">
                   <label>Name *</label>
                   <input
@@ -213,7 +234,7 @@ export default function AdminLocationsPage() {
                   placeholder="Optional description"
                 />
               </div>
-              <div className="flex gap-4 mt-4">
+              <div className="flex gap-3 mt-3">
                 <button type="submit" className="btn btn-primary">
                   {editingLocation ? 'Save Changes' : 'Create Location'}
                 </button>
@@ -237,13 +258,14 @@ export default function AdminLocationsPage() {
         {isLoadingData ? (
           <div className="loading">Loading locations...</div>
         ) : (
-          <div className="bg-surface-primary rounded-lg p-6 shadow-[0_1px_3px_rgba(0,0,0,0.1)] overflow-x-auto">
-            <table className="w-full border-collapse [&_th]:p-3 [&_th]:text-left [&_th]:border-b [&_th]:border-border [&_th]:bg-surface-secondary [&_th]:font-semibold [&_td]:p-3 [&_td]:text-left [&_td]:border-b [&_td]:border-border [&_tr:hover]:bg-surface-secondary">
+          <div className="bg-surface-primary rounded-lg p-4 shadow-[0_1px_3px_rgba(0,0,0,0.1)] overflow-x-auto">
+            <table className="w-full border-collapse [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-xs [&_th]:border-b [&_th]:border-border [&_th]:bg-surface-secondary [&_th]:font-semibold [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm [&_td]:text-left [&_td]:border-b [&_td]:border-border [&_tr:hover]:bg-surface-secondary">
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Parent</th>
                   <th>Description</th>
+                  <th>Status</th>
                   <th>Children</th>
                   <th>Items</th>
                   <th>Actions</th>
@@ -252,39 +274,49 @@ export default function AdminLocationsPage() {
               <tbody>
                 {locations.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="!text-center text-text-muted !p-8">
+                    <td colSpan={7} className="!text-center text-text-muted !py-6">
                       No locations found. Create your first location to get started.
                     </td>
                   </tr>
                 ) : (
                   locations.map((loc) => (
-                    <tr key={loc.id}>
+                    <tr key={loc.id} className={!loc.isActive ? 'opacity-60' : ''}>
                       <td className="font-medium">{loc.name}</td>
                       <td>{loc.parentLocationName || '-'}</td>
                       <td>{loc.description || '-'}</td>
+                      <td>
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          loc.isActive
+                            ? 'bg-[var(--color-green-bg)] text-[var(--color-green-700)]'
+                            : 'bg-[var(--color-red-bg)] text-[var(--color-red-700)]'
+                        }`}>
+                          {loc.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
                       <td>{loc.childCount}</td>
                       <td>{loc.itemCount}</td>
-                      <td className="flex gap-2">
+                      <td className="flex gap-1.5">
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-xs"
                           onClick={() => startEdit(loc)}
                         >
                           Edit
                         </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleDelete(loc.id)}
-                          disabled={loc.childCount > 0 || loc.itemCount > 0}
-                          title={
-                            loc.childCount > 0
-                              ? 'Cannot delete: has child locations'
-                              : loc.itemCount > 0
-                              ? 'Cannot delete: has items stored'
-                              : ''
-                          }
-                        >
-                          Delete
-                        </button>
+                        {loc.isActive ? (
+                          <button
+                            className="btn btn-danger btn-xs"
+                            onClick={() => handleDeactivate(loc.id)}
+                          >
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button
+                            className="btn btn-success btn-xs"
+                            onClick={() => handleActivate(loc.id)}
+                          >
+                            Activate
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))

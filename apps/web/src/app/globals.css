@@ -327,6 +327,12 @@ body {
   font-size: 0.75rem;
 }
 
+.btn-xs {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
 /* Summary Cards */
 .summary-grid {
   display: grid;

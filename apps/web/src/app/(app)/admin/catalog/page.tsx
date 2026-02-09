@@ -534,7 +534,7 @@ export default function AdminCatalogPage() {
             </button>
             {(filterCategory || searchTerm) && (
               <button
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-xs"
                 onClick={() => {
                   setFilterCategory('');
                   setSearchTerm('');
@@ -861,14 +861,14 @@ export default function AdminCatalogPage() {
                             />
                             <button
                               type="button"
-                              className="btn btn-primary btn-sm"
+                              className="btn btn-primary btn-xs"
                               onClick={handleSaveCaption}
                             >
                               Save
                             </button>
                             <button
                               type="button"
-                              className="btn btn-secondary btn-sm"
+                              className="btn btn-secondary btn-xs"
                               onClick={() => setEditingImageId(null)}
                             >
                               Cancel
@@ -890,7 +890,7 @@ export default function AdminCatalogPage() {
                       </div>
                       <button
                         type="button"
-                        className="btn btn-danger btn-sm"
+                        className="btn btn-danger btn-xs"
                         onClick={() => handleDeleteImage(img.id)}
                       >
                         Delete
@@ -1007,27 +1007,27 @@ export default function AdminCatalogPage() {
                       </td>
                       <td className="actions-cell">
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-xs"
                           onClick={() => startEdit(item)}
                         >
                           Edit
                         </button>
                         <button
-                          className={`btn btn-sm ${item.imageCount > 0 ? 'btn-has-images' : 'btn-secondary'}`}
+                          className={`btn btn-xs ${item.imageCount > 0 ? 'btn-has-images' : 'btn-secondary'}`}
                           onClick={() => openImagesModal(item)}
                         >
                           Images{item.imageCount > 0 ? ` (${item.imageCount})` : ''}
                         </button>
                         {item.active ? (
                           <button
-                            className="btn btn-danger btn-sm"
+                            className="btn btn-danger btn-xs"
                             onClick={() => handleDeactivate(item.id)}
                           >
                             Deactivate
                           </button>
                         ) : (
                           <button
-                            className="btn btn-success btn-sm"
+                            className="btn btn-success btn-xs"
                             onClick={() => handleActivate(item.id)}
                           >
                             Activate

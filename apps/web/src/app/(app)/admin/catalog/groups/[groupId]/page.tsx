@@ -346,7 +346,7 @@ export default function CatalogGroupDetailPage() {
                       </td>
                       <td className="flex gap-2">
                         <button
-                          className="btn btn-danger btn-sm"
+                          className="btn btn-danger btn-xs"
                           onClick={() => handleRemoveItem(item.id)}
                         >
                           Remove

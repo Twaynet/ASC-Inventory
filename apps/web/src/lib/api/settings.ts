@@ -76,6 +76,7 @@ export interface Location {
   description: string | null;
   parentLocationId: string | null;
   parentLocationName: string | null;
+  isActive: boolean;
   childCount: number;
   itemCount: number;
   createdAt: string;
@@ -236,8 +237,12 @@ export async function reorderConfigItems(
 // ============================================================================
 
 // TODO(api-schema): needs Zod response schema
-export async function getLocations(token: string): Promise<{ locations: Location[] }> {
-  return request('/locations', { token });
+export async function getLocations(
+  token: string,
+  includeInactive = false
+): Promise<{ locations: Location[] }> {
+  const qs = includeInactive ? '?includeInactive=true' : '';
+  return request(`/locations${qs}`, { token });
 }
 
 // TODO(api-schema): needs Zod response schema
@@ -256,6 +261,10 @@ export async function updateLocation(token: string, locationId: string, data: Up
 }
 
 // TODO(api-schema): needs Zod response schema
-export async function deleteLocation(token: string, locationId: string): Promise<{ success: boolean }> {
-  return request(`/locations/${locationId}`, { method: 'DELETE', token });
+export async function deactivateLocation(token: string, locationId: string): Promise<{ success: boolean }> {
+  return request(`/locations/${locationId}/deactivate`, { method: 'POST', body: {}, token });
+}
+
+export async function activateLocation(token: string, locationId: string): Promise<{ success: boolean }> {
+  return request(`/locations/${locationId}/activate`, { method: 'POST', body: {}, token });
 }

@@ -301,21 +301,21 @@ export default function OperatingRoomsPage() {
                         <td>{new Date(room.createdAt).toLocaleDateString()}</td>
                         <td className="flex gap-2">
                           <button
-                            className="btn btn-secondary btn-sm"
+                            className="btn btn-secondary btn-xs"
                             onClick={() => startEdit(room)}
                           >
                             Edit
                           </button>
                           {room.active ? (
                             <button
-                              className="btn btn-danger btn-sm"
+                              className="btn btn-danger btn-xs"
                               onClick={() => handleDeactivateRoom(room.id)}
                             >
                               Deactivate
                             </button>
                           ) : (
                             <button
-                              className="btn btn-success btn-sm"
+                              className="btn btn-success btn-xs"
                               onClick={() => handleActivateRoom(room.id)}
                             >
                               Activate
