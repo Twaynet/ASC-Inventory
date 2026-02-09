@@ -67,3 +67,7 @@ export type { ReportDefinition, ReportFilters, FinancialReportFilters, AuditRepo
 // Schedule
 export { getDaySchedule, getUnassignedCases, createBlockTime, updateBlockTime, deleteBlockTime, setRoomDayConfig, reorderScheduleItems } from './api/schedule';
 export type { ScheduleItem, RoomSchedule, DayScheduleResponse, BlockTime, RoomDayConfig, UnassignedCase, UnassignedCasesResponse } from './api/schedule';
+
+// Attention
+export { getAttention } from './api/attention';
+export type { AttentionItem, AttentionSeverity, AttentionType, AttentionFilters } from './api/attention';

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import {
@@ -14,9 +15,16 @@ import { getVendors, type Vendor } from '@/lib/api/vendors';
 
 type FilterMode = 'all' | 'open' | 'overdue' | 'returned';
 
+const VALID_FILTERS: FilterMode[] = ['all', 'open', 'overdue', 'returned'];
+
 export default function LoanerSetsPage() {
   const { user, token } = useAuth();
   const isAdmin = user?.roles?.includes('ADMIN');
+  const searchParams = useSearchParams();
+
+  // Initialize filter from URL ?filter= param (deep link support)
+  const urlFilter = searchParams.get('filter') as FilterMode | null;
+  const initialFilter: FilterMode = urlFilter && VALID_FILTERS.includes(urlFilter) ? urlFilter : 'open';
 
   const [loanerSets, setLoanerSets] = useState<LoanerSet[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -26,7 +34,7 @@ export default function LoanerSetsPage() {
 
   const [showReceiveForm, setShowReceiveForm] = useState(false);
   const [returningSet, setReturningSet] = useState<LoanerSet | null>(null);
-  const [filterMode, setFilterMode] = useState<FilterMode>('open');
+  const [filterMode, setFilterMode] = useState<FilterMode>(initialFilter);
   const [filterVendor, setFilterVendor] = useState('');
 
   const [formData, setFormData] = useState<Partial<CreateLoanerSetRequest>>({});

@@ -40,6 +40,7 @@ import { platformRoutes } from './routes/platform.routes.js';
 // Wave 1: Financial Attribution
 import { vendorsRoutes } from './routes/vendors.routes.js';
 import { loanerSetsRoutes } from './routes/loaner-sets.routes.js';
+import { attentionRoutes } from './routes/attention.routes.js';
 import { personaPlugin } from './plugins/persona.js';
 import { requestIdPlugin } from './plugins/request-id.js';
 
@@ -159,6 +160,7 @@ async function main() {
   // Wave 1: Financial Attribution
   await fastify.register(vendorsRoutes, { prefix: '/api/vendors' });
   await fastify.register(loanerSetsRoutes, { prefix: '/api/loaner-sets' });
+  await fastify.register(attentionRoutes, { prefix: '/api/attention' });
 
   // Start server
   try {

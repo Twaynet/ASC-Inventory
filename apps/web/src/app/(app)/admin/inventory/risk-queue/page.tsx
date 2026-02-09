@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import { getInventoryRiskQueue, type RiskQueueItem } from '@/lib/api';
@@ -19,15 +20,23 @@ const RULE_LABELS: Record<string, string> = {
   MISSING_SERIAL: 'Missing Serial',
 };
 
+const VALID_RULES = Object.keys(RULE_LABELS);
+
 export default function RiskQueuePage() {
   const { user, token } = useAuth();
   const { hasRole } = useAccessControl();
+  const searchParams = useSearchParams();
+
+  // Deep link support: ?rule=EXPIRED initializes rule filter
+  const urlRule = searchParams.get('rule');
 
   const [riskItems, setRiskItems] = useState<RiskQueueItem[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
   const [filterSeverity, setFilterSeverity] = useState<string>('');
-  const [filterRule, setFilterRule] = useState<string>('');
+  const [filterRule, setFilterRule] = useState<string>(
+    urlRule && VALID_RULES.includes(urlRule) ? urlRule : '',
+  );
 
   const loadData = useCallback(async () => {
     if (!token) return;
