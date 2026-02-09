@@ -123,7 +123,7 @@ async function getExpiredItems(facilityId: string): Promise<AttentionItem[]> {
       title: `Expired: ${r.catalog_name}`,
       detail: `${identifier}${r.location_name ? ` @ ${r.location_name}` : ''} — expired ${r.sterility_expires_at.toISOString().split('T')[0]}`,
       dueAt: r.sterility_expires_at.toISOString().split('T')[0],
-      deepLink: '/admin/inventory/risk-queue?rule=EXPIRED',
+      deepLink: '/admin/inventory?expiry=EXPIRED',
       source: { entity: 'inventory_item', id: r.id },
     };
   });
@@ -153,7 +153,7 @@ async function getExpiringSoonItems(facilityId: string): Promise<AttentionItem[]
       title: `Expiring soon: ${r.catalog_name}`,
       detail: `${identifier}${r.location_name ? ` @ ${r.location_name}` : ''} — expires ${r.sterility_expires_at.toISOString().split('T')[0]}`,
       dueAt: r.sterility_expires_at.toISOString().split('T')[0],
-      deepLink: '/admin/inventory/risk-queue?rule=EXPIRING_SOON',
+      deepLink: '/admin/inventory?expiry=EXPIRING_SOON',
       source: { entity: 'inventory_item', id: r.id },
     };
   });

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import {
@@ -28,10 +28,34 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 
 const STERILITY_STATUSES = ['STERILE', 'NON_STERILE', 'EXPIRED', 'UNKNOWN'];
 
+const EXPIRY_WINDOW_DAYS = 30;
+type ExpiryFilter = '' | 'EXPIRED' | 'EXPIRING_SOON';
+
+function isItemExpired(item: InventoryItem): boolean {
+  if (!item.sterilityExpiresAt) return false;
+  if (item.availabilityStatus === 'UNAVAILABLE' || item.availabilityStatus === 'MISSING') return false;
+  return new Date(item.sterilityExpiresAt) < new Date();
+}
+
+function isItemExpiringSoon(item: InventoryItem): boolean {
+  if (!item.sterilityExpiresAt) return false;
+  if (item.availabilityStatus === 'UNAVAILABLE' || item.availabilityStatus === 'MISSING') return false;
+  const expiresAt = new Date(item.sterilityExpiresAt);
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + EXPIRY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  return expiresAt >= now && expiresAt <= cutoff;
+}
+
 export default function AdminInventoryPage() {
   const { user, token } = useAuth();
   const { hasRole } = useAccessControl();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Deep link support: ?expiry=EXPIRED or ?expiry=EXPIRING_SOON
+  const urlExpiry = searchParams.get('expiry') as ExpiryFilter | null;
+  const initialExpiry: ExpiryFilter =
+    urlExpiry === 'EXPIRED' || urlExpiry === 'EXPIRING_SOON' ? urlExpiry : '';
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
@@ -43,7 +67,8 @@ export default function AdminInventoryPage() {
   // Filters
   const [filterCatalog, setFilterCatalog] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterStatus, setFilterStatus] = useState(initialExpiry ? '' : '');
+  const [filterExpiry, setFilterExpiry] = useState<ExpiryFilter>(initialExpiry);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form state
@@ -179,8 +204,23 @@ export default function AdminInventoryPage() {
     }
   };
 
-  // Client-side search filter
+  // Compute expiry counts from loaded items
+  const expiryCounts = useMemo(() => {
+    let expired = 0;
+    let expiringSoon = 0;
+    for (const item of items) {
+      if (isItemExpired(item)) expired++;
+      else if (isItemExpiringSoon(item)) expiringSoon++;
+    }
+    return { expired, expiringSoon };
+  }, [items]);
+
+  // Client-side search + expiry filter
   const filteredItems = items.filter((item) => {
+    // Expiry filter (client-side, date-based)
+    if (filterExpiry === 'EXPIRED' && !isItemExpired(item)) return false;
+    if (filterExpiry === 'EXPIRING_SOON' && !isItemExpiringSoon(item)) return false;
+
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -228,7 +268,10 @@ export default function AdminInventoryPage() {
             <div
               key={status}
               className={`summary-card ${filterStatus === status ? 'selected' : ''}`}
-              onClick={() => setFilterStatus(filterStatus === status ? '' : status)}
+              onClick={() => {
+                setFilterExpiry('');
+                setFilterStatus(filterStatus === status ? '' : status);
+              }}
               style={{
                 borderColor: filterStatus === status ? STATUS_COLORS[status].color : 'transparent',
                 cursor: 'pointer',
@@ -243,6 +286,32 @@ export default function AdminInventoryPage() {
               <div className="summary-label">{status.replace('_', ' ')}</div>
             </div>
           ))}
+          <div
+            className={`summary-card expiry-card expiry-expired ${filterExpiry === 'EXPIRED' ? 'selected' : ''} ${expiryCounts.expired > 0 ? 'has-items' : ''}`}
+            onClick={() => {
+              setFilterStatus('');
+              setFilterExpiry(filterExpiry === 'EXPIRED' ? '' : 'EXPIRED');
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="summary-value expiry-expired-value">
+              {expiryCounts.expired}
+            </div>
+            <div className="summary-label">Expired</div>
+          </div>
+          <div
+            className={`summary-card expiry-card expiry-soon ${filterExpiry === 'EXPIRING_SOON' ? 'selected' : ''} ${expiryCounts.expiringSoon > 0 ? 'has-items' : ''}`}
+            onClick={() => {
+              setFilterStatus('');
+              setFilterExpiry(filterExpiry === 'EXPIRING_SOON' ? '' : 'EXPIRING_SOON');
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="summary-value expiry-soon-value">
+              {expiryCounts.expiringSoon}
+            </div>
+            <div className="summary-label">Expiring Soon</div>
+          </div>
         </div>
 
         <div className="actions-bar">
@@ -290,13 +359,14 @@ export default function AdminInventoryPage() {
                 <option key={loc.id} value={loc.id}>{loc.name}</option>
               ))}
             </select>
-            {(filterCatalog || filterLocation || filterStatus || searchQuery) && (
+            {(filterCatalog || filterLocation || filterStatus || filterExpiry || searchQuery) && (
               <button
                 className="btn btn-secondary btn-xs"
                 onClick={() => {
                   setFilterCatalog('');
                   setFilterLocation('');
                   setFilterStatus('');
+                  setFilterExpiry('');
                   setSearchQuery('');
                 }}
               >
@@ -305,6 +375,14 @@ export default function AdminInventoryPage() {
             )}
           </div>
         </div>
+
+        {filterExpiry && (
+          <div className={`expiry-banner ${filterExpiry === 'EXPIRED' ? 'expiry-banner-critical' : 'expiry-banner-warning'}`}>
+            {filterExpiry === 'EXPIRED'
+              ? `Showing ${filteredItems.length} expired item${filteredItems.length !== 1 ? 's' : ''}`
+              : `Showing ${filteredItems.length} item${filteredItems.length !== 1 ? 's' : ''} expiring within ${EXPIRY_WINDOW_DAYS} days`}
+          </div>
+        )}
 
         {/* Create/Edit Form */}
         {(showCreateForm || editingItem) && (
@@ -571,6 +649,54 @@ export default function AdminInventoryPage() {
           font-size: 0.875rem;
           color: #718096;
           text-transform: capitalize;
+        }
+
+        /* Expiry cards — visual emphasis */
+        .expiry-expired-value {
+          color: #718096;
+        }
+        .expiry-expired.has-items .expiry-expired-value {
+          color: #c53030;
+        }
+        .expiry-expired.has-items {
+          border-color: #fc8181;
+          background: #fff5f5;
+        }
+        .expiry-expired.selected {
+          border-color: #c53030 !important;
+        }
+
+        .expiry-soon-value {
+          color: #718096;
+        }
+        .expiry-soon.has-items .expiry-soon-value {
+          color: #c05621;
+        }
+        .expiry-soon.has-items {
+          border-color: #f6ad55;
+          background: #fffaf0;
+        }
+        .expiry-soon.selected {
+          border-color: #c05621 !important;
+        }
+
+        /* Expiry banner */
+        .expiry-banner {
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+          font-size: 0.85rem;
+          font-weight: 500;
+          margin-bottom: 1rem;
+        }
+        .expiry-banner-critical {
+          background: #fff5f5;
+          border: 1px solid #fc8181;
+          color: #c53030;
+        }
+        .expiry-banner-warning {
+          background: #fffaf0;
+          border: 1px solid #f6ad55;
+          color: #c05621;
         }
 
         .actions-bar {
@@ -875,6 +1001,24 @@ export default function AdminInventoryPage() {
           background: #22543d;
           border-color: #276749;
           color: #c6f6d5;
+        }
+        :global([data-theme="dark"]) .expiry-expired.has-items {
+          background: rgba(197, 48, 48, 0.15);
+          border-color: #c53030;
+        }
+        :global([data-theme="dark"]) .expiry-soon.has-items {
+          background: rgba(192, 86, 33, 0.15);
+          border-color: #c05621;
+        }
+        :global([data-theme="dark"]) .expiry-banner-critical {
+          background: rgba(197, 48, 48, 0.15);
+          border-color: #c53030;
+          color: #fc8181;
+        }
+        :global([data-theme="dark"]) .expiry-banner-warning {
+          background: rgba(192, 86, 33, 0.15);
+          border-color: #c05621;
+          color: #f6ad55;
         }
       `}</style>
     </>

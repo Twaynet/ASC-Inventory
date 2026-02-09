@@ -26,6 +26,7 @@ export interface InventoryItem {
   locationId: string | null;
   locationName: string | null;
   sterilityStatus: string;
+  sterilityExpiresAt: string | null;
   availabilityStatus: string;
   lastVerifiedAt: string | null;
 }
