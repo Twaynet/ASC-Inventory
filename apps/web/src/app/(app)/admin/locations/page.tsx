@@ -152,7 +152,7 @@ export default function AdminLocationsPage() {
     <>
       <Header title="Location Management" />
 
-      <main className="container py-6">
+      <main className="container-full py-6">
         <PageAlerts
           error={error}
           success={successMessage}
@@ -295,7 +295,8 @@ export default function AdminLocationsPage() {
                       </td>
                       <td>{loc.childCount}</td>
                       <td>{loc.itemCount}</td>
-                      <td className="flex gap-1.5">
+                      <td>
+                        <div className="flex gap-1.5">
                         <button
                           className="btn btn-secondary btn-xs"
                           onClick={() => startEdit(loc)}
@@ -317,6 +318,7 @@ export default function AdminLocationsPage() {
                             Activate
                           </button>
                         )}
+                        </div>
                       </td>
                     </tr>
                   ))

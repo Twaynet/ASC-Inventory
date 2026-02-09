@@ -252,7 +252,7 @@ export default function CatalogSetsPage() {
     <>
       <Header title="Catalog Set Definitions" />
 
-      <main className="container sets-page">
+      <main className="container-full sets-page">
         <PageAlerts
           error={error}
           success={successMessage}

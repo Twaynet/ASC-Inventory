@@ -215,7 +215,7 @@ export default function AdminInventoryPage() {
     <>
       <Header title="Inventory Management" />
 
-      <main className="container admin-inventory-page">
+      <main className="container-full admin-inventory-page px-6">
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && (
           <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
@@ -248,7 +248,7 @@ export default function AdminInventoryPage() {
         <div className="actions-bar">
           <div className="actions-left">
             <button
-              className="btn btn-create"
+              className="btn btn-create btn-sm"
               onClick={() => {
                 setShowCreateForm(true);
                 setEditingItem(null);
@@ -258,7 +258,7 @@ export default function AdminInventoryPage() {
               + Add Inventory Item
             </button>
             <button
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={() => router.push('/admin/inventory/check-in')}
             >
               Scanner Check-In
@@ -292,7 +292,7 @@ export default function AdminInventoryPage() {
             </select>
             {(filterCatalog || filterLocation || filterStatus || searchQuery) && (
               <button
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-xs"
                 onClick={() => {
                   setFilterCatalog('');
                   setFilterLocation('');
@@ -468,19 +468,21 @@ export default function AdminInventoryPage() {
                           ? new Date(item.lastVerifiedAt).toLocaleDateString()
                           : '-'}
                       </td>
-                      <td className="actions-cell">
+                      <td>
+                        <div className="flex gap-1.5">
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-xs"
                           onClick={() => startEdit(item)}
                         >
                           Edit
                         </button>
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-xs"
                           onClick={() => viewHistory(item)}
                         >
                           History
                         </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -715,10 +717,6 @@ export default function AdminInventoryPage() {
           padding: 2rem !important;
         }
 
-        .actions-cell {
-          display: flex;
-          gap: 0.5rem;
-        }
 
         .modal-overlay {
           position: fixed;

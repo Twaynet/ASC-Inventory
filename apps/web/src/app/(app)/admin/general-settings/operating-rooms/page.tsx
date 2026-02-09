@@ -299,7 +299,8 @@ export default function OperatingRoomsPage() {
                           </span>
                         </td>
                         <td>{new Date(room.createdAt).toLocaleDateString()}</td>
-                        <td className="flex gap-2">
+                        <td>
+                          <div className="flex gap-1.5">
                           <button
                             className="btn btn-secondary btn-xs"
                             onClick={() => startEdit(room)}
@@ -321,6 +322,7 @@ export default function OperatingRoomsPage() {
                               Activate
                             </button>
                           )}
+                          </div>
                         </td>
                       </tr>
                     ))

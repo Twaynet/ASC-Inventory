@@ -178,7 +178,7 @@ export default function AdminUsersPage() {
     <>
       <Header title="User Management" />
 
-      <main className="container py-8">
+      <main className="container-full py-8">
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && (
           <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
@@ -351,7 +351,7 @@ export default function AdminUsersPage() {
                         {u.active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="flex gap-2">
+                    <td><div className="flex gap-1.5">
                       <button
                         className="btn btn-secondary btn-xs"
                         onClick={() => startEdit(u)}
@@ -375,7 +375,7 @@ export default function AdminUsersPage() {
                           Activate
                         </button>
                       )}
-                    </td>
+                    </div></td>
                   </tr>
                 );
                 })}

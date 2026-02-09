@@ -253,7 +253,7 @@ export default function AdminCasesPage() {
     <>
       <Header title="Cases" />
 
-      <main className="container admin-cases-page">
+      <main className="container-full admin-cases-page px-6">
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && (
           <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
@@ -263,7 +263,7 @@ export default function AdminCasesPage() {
 
         <div className="actions-bar">
           <button
-            className="btn btn-create"
+            className="btn btn-create btn-sm"
             onClick={() => {
               setShowCreateForm(true);
               setActivatingCase(null);
@@ -587,7 +587,8 @@ export default function AdminCasesPage() {
                         <span className="status-badge pending">Pending</span>
                       )}
                     </td>
-                    <td className="actions-cell">
+                    <td>
+                      <div className="flex gap-1.5">
                       {c.status === 'REQUESTED' && !c.isCancelled ? (
                         <>
                           <button
@@ -627,6 +628,7 @@ export default function AdminCasesPage() {
                           Cancel
                         </button>
                       )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -880,19 +882,6 @@ export default function AdminCasesPage() {
           background: #fef2f2;
         }
 
-        .actions-cell {
-          display: flex;
-          gap: 0.5rem;
-        }
-
-        .btn-danger {
-          background: #e53e3e;
-          color: white;
-        }
-
-        .btn-danger:hover {
-          background: #c53030;
-        }
 
         .no-cases {
           text-align: center;

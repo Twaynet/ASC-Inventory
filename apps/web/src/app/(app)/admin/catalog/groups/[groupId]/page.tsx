@@ -166,7 +166,7 @@ export default function CatalogGroupDetailPage() {
     return (
       <>
         <Header title="Group Details" />
-        <main className="container">
+        <main className="container-full">
           <div className="alert alert-error">Group not found.</div>
           <Link href="/admin/catalog/groups" className="btn btn-secondary">
             Back to Groups
@@ -180,7 +180,7 @@ export default function CatalogGroupDetailPage() {
     <>
       <Header title={group.name} />
 
-      <main className="container py-8">
+      <main className="container-full py-8">
         <PageAlerts
           error={error}
           success={successMessage}
@@ -344,13 +344,15 @@ export default function CatalogGroupDetailPage() {
                           size="sm"
                         />
                       </td>
-                      <td className="flex gap-2">
+                      <td>
+                        <div className="flex gap-1.5">
                         <button
                           className="btn btn-danger btn-xs"
                           onClick={() => handleRemoveItem(item.id)}
                         >
                           Remove
                         </button>
+                        </div>
                       </td>
                     </tr>
                   ))

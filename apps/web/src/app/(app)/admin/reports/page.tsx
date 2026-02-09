@@ -300,7 +300,7 @@ export default function AdminReportsPage() {
   return (
     <>
       <Header title="Reports" />
-      <main className="admin-main max-w-[1400px] mx-auto p-4">
+      <main className="container-full py-4 px-6">
 
         {error && (
           <div className="error-message mb-4">

@@ -85,7 +85,7 @@ export default function RiskQueuePage() {
     <>
       <Header title="Inventory Risk Queue" />
 
-      <main className="container py-8">
+      <main className="container-full py-8">
         {error && <div className="alert alert-error">{error}</div>}
 
         {/* Summary Cards */}

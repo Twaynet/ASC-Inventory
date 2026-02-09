@@ -454,7 +454,7 @@ export default function AdminCatalogPage() {
     <>
       <Header title="Catalog Management" />
 
-      <main className="container admin-catalog-page">
+      <main className="container-full admin-catalog-page px-6">
         <PageAlerts
           error={error}
           success={successMessage}

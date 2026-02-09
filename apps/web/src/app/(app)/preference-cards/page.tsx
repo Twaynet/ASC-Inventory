@@ -204,7 +204,7 @@ export default function PreferenceCardsPage() {
     <>
       <Header title="Surgeon Preference Cards" />
 
-      <main className="container preference-cards-page">
+      <main className="container-full preference-cards-page px-6">
         {error && <div className="alert alert-error" onClick={() => setError('')}>{error}</div>}
         {successMessage && (
           <div className="alert alert-success" onClick={() => setSuccessMessage('')}>

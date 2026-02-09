@@ -135,7 +135,7 @@ export default function AdminCatalogGroupsPage() {
     <>
       <Header title="Catalog Groups" />
 
-      <main className="container py-8">
+      <main className="container-full py-8">
         <PageAlerts
           error={error}
           success={successMessage}
@@ -274,7 +274,8 @@ export default function AdminCatalogGroupsPage() {
                           size="sm"
                         />
                       </td>
-                      <td className="flex gap-2">
+                      <td>
+                        <div className="flex gap-1.5">
                         <Link
                           href={`/admin/catalog/groups/${group.id}`}
                           className="btn btn-secondary btn-xs"
@@ -302,6 +303,7 @@ export default function AdminCatalogGroupsPage() {
                             Activate
                           </button>
                         )}
+                        </div>
                       </td>
                     </tr>
                   ))
