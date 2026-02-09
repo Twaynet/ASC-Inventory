@@ -454,7 +454,7 @@ export default function AdminCatalogPage() {
     <>
       <Header title="Catalog Management" />
 
-      <main className="container-full admin-catalog-page px-6">
+      <main className="container-full admin-catalog-page">
         <PageAlerts
           error={error}
           success={successMessage}
@@ -1045,7 +1045,7 @@ export default function AdminCatalogPage() {
 
       <style jsx>{`
         .admin-catalog-page {
-          padding: 2rem 0;
+          padding: 2rem 1.5rem;
         }
 
         .catalog-nav {

@@ -215,7 +215,7 @@ export default function AdminInventoryPage() {
     <>
       <Header title="Inventory Management" />
 
-      <main className="container-full admin-inventory-page px-6">
+      <main className="container-full admin-inventory-page">
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && (
           <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
@@ -538,7 +538,7 @@ export default function AdminInventoryPage() {
 
       <style jsx>{`
         .admin-inventory-page {
-          padding: 2rem 0;
+          padding: 2rem 1.5rem;
         }
 
         .summary-cards {

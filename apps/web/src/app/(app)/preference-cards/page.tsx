@@ -204,7 +204,7 @@ export default function PreferenceCardsPage() {
     <>
       <Header title="Surgeon Preference Cards" />
 
-      <main className="container-full preference-cards-page px-6">
+      <main className="container-full preference-cards-page">
         {error && <div className="alert alert-error" onClick={() => setError('')}>{error}</div>}
         {successMessage && (
           <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
@@ -748,7 +748,7 @@ export default function PreferenceCardsPage() {
 
       <style jsx>{`
         .preference-cards-page {
-          padding: 2rem 0;
+          padding: 2rem 1.5rem;
         }
 
         .summary-cards {

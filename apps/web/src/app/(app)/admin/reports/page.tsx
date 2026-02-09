@@ -316,7 +316,7 @@ export default function AdminReportsPage() {
               <button
                 key={report.id}
                 onClick={() => setSelectedReport(report.id)}
-                className={`px-4 py-2 rounded cursor-pointer ${
+                className={`px-3 py-1.5 rounded cursor-pointer text-sm ${
                   selectedReport === report.id
                     ? 'border-2 border-accent bg-accent text-white'
                     : 'border border-border bg-surface-primary text-text-primary'
@@ -569,10 +569,10 @@ export default function AdminReportsPage() {
               </div>
             )}
 
-            <button onClick={loadReport} className="btn-primary">
+            <button onClick={loadReport} className="btn btn-primary btn-sm">
               {isLoadingData ? 'Loading...' : 'Run Report'}
             </button>
-            <button onClick={handleExportCSV} className="btn-secondary">
+            <button onClick={handleExportCSV} className="btn btn-secondary btn-sm">
               Export CSV
             </button>
           </div>

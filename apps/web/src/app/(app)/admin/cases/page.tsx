@@ -253,7 +253,7 @@ export default function AdminCasesPage() {
     <>
       <Header title="Cases" />
 
-      <main className="container-full admin-cases-page px-6">
+      <main className="container-full admin-cases-page">
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && (
           <div className="alert alert-success" onClick={() => setSuccessMessage('')}>
@@ -640,7 +640,7 @@ export default function AdminCasesPage() {
 
       <style jsx>{`
         .admin-cases-page {
-          padding: 2rem 0;
+          padding: 2rem 1.5rem;
         }
 
         .actions-bar {
