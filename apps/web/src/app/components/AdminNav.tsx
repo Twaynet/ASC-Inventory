@@ -48,15 +48,11 @@ export function AdminNav({ userRoles }: AdminNavProps) {
     return null;
   }
 
-  const isAdminPage = pathname?.startsWith('/admin');
-
   return (
     <div className="relative" ref={menuRef}>
       <button
-        className={`flex items-center gap-2 py-2 px-4 text-white border-none rounded text-sm font-medium cursor-pointer transition-colors ${
-          isAdminPage
-            ? `bg-accent ${isOpen ? 'bg-[var(--color-blue-700)]' : 'hover:bg-[var(--color-blue-700)]'}`
-            : `bg-[var(--color-gray-600)] ${isOpen ? 'bg-[var(--color-gray-800)]' : 'hover:bg-[var(--color-gray-800)]'}`
+        className={`flex items-center gap-1.5 py-1 px-3 text-white border-none rounded text-xs font-medium cursor-pointer transition-colors bg-accent ${
+          isOpen ? 'bg-[var(--color-blue-700)]' : 'hover:bg-[var(--color-blue-700)]'
         }`}
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}

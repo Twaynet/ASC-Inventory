@@ -33,8 +33,8 @@ export function Header({ title }: HeaderProps) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '36px',
-                height: '36px',
+                width: '28px',
+                height: '28px',
                 background: 'var(--color-accent)',
                 border: 'none',
                 borderRadius: '6px',
@@ -70,8 +70,8 @@ export function Header({ title }: HeaderProps) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '32px',
-              height: '32px',
+              width: '28px',
+              height: '28px',
               background: 'var(--surface-tertiary)',
               border: '1px solid var(--border-default)',
               borderRadius: '50%',
@@ -106,8 +106,8 @@ export function Header({ title }: HeaderProps) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '32px',
-              height: '32px',
+              width: '28px',
+              height: '28px',
               background: 'var(--surface-tertiary)',
               border: '1px solid var(--border-default)',
               borderRadius: '50%',
@@ -151,7 +151,7 @@ export function Header({ title }: HeaderProps) {
             )}
           </span>
           <span>{user?.facilityName}</span>
-          <button className="btn btn-secondary btn-sm" onClick={logout}>
+          <button className="btn btn-secondary btn-xs" onClick={logout}>
             Sign Out
           </button>
         </div>
