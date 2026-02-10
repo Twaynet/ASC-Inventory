@@ -300,6 +300,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
         preferenceCardId?: string;
         notes?: string;
         status?: string;
+        primaryOrganizationId?: string;
       };
       const { facilityId } = request.user;
 
@@ -341,10 +342,20 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     // PHI Phase 1: Resolve primary organization for case attribution
-    // Defaults to facility's ASC organization if not provided
+    // Use explicit org from request if provided, otherwise default to facility's ASC org
     const orgRepo = getOrganizationRepository();
-    const ascOrg = await orgRepo.findAscOrganization(facilityId);
-    const primaryOrganizationId = ascOrg?.id ?? null;
+    let primaryOrganizationId: string | null = null;
+    if (data.primaryOrganizationId) {
+      // Validate the org exists and belongs to this facility
+      const org = await orgRepo.findById(data.primaryOrganizationId, facilityId);
+      if (!org) {
+        return fail(reply, 'VALIDATION_ERROR', 'Organization not found in this facility', 400);
+      }
+      primaryOrganizationId = org.id;
+    } else {
+      const ascOrg = await orgRepo.findAscOrganization(facilityId);
+      primaryOrganizationId = ascOrg?.id ?? null;
+    }
 
     // Create the case
     const newCase = await caseRepo.create({

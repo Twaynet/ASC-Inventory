@@ -46,6 +46,8 @@ export const CaseApiSchema = z.object({
   roomName: nullableString,
   estimatedDurationMinutes: z.number().nullable(),
   sortOrder: z.number().nullable(),
+  // PHI Phase 1: Case attribution
+  primaryOrganizationId: nullableString,
 });
 export type CaseApi = z.infer<typeof CaseApiSchema>;
 
@@ -97,6 +99,8 @@ export const CreateCaseBodySchema = z.object({
   preferenceCardId: z.string().uuid().optional(),
   notes: z.string().optional(),
   status: z.enum(['REQUESTED', 'SCHEDULED']).optional(),
+  // PHI Phase 1: Primary organization attribution (defaults to facility ASC org)
+  primaryOrganizationId: z.string().uuid().optional(),
 });
 
 export const ActivateCaseBodySchema = z.object({
