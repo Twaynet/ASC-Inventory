@@ -250,11 +250,17 @@ export default function AdminReportsPage() {
   const handleExportCSV = async () => {
     if (!token) return;
     const url = getReportExportUrl(selectedReport, filters);
-    // Open in new window with auth header
+    // PHI: resolve access purpose for report CSV export (bypasses client.ts for blob download)
+    const REPORT_PURPOSE: Record<string, string> = {
+      'case-summary': 'AUDIT', 'cancelled-cases': 'AUDIT', 'case-timelines': 'AUDIT',
+      'case-event-log': 'AUDIT', 'checklist-compliance': 'AUDIT', 'debrief-summary': 'AUDIT',
+      'vendor-concessions': 'BILLING', 'inventory-valuation': 'BILLING', 'loaner-exposure': 'BILLING',
+    };
+    const purpose = REPORT_PURPOSE[selectedReport];
     try {
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+      if (purpose) headers['X-Access-Purpose'] = purpose;
+      const response = await fetch(url, { headers });
       if (!response.ok) throw new Error('Export failed');
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
