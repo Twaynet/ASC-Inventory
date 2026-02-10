@@ -35,6 +35,7 @@ import { logPhiAccess, logPhiExport, type PhiAccessContext } from '../services/p
 import { getOrganizationRepository } from '../repositories/index.js';
 import { query } from '../db/index.js';
 import { getEffectiveConfigValue } from '../services/config.service.js';
+import { buildBreachContext } from '../services/phi-breach.service.js';
 
 // ============================================================================
 // Request decoration types
@@ -137,6 +138,7 @@ function buildAuditContext(
     httpMethod: request.method,
     isEmergency: isEmergency || false,
     emergencyJustification: emergencyJustification || null,
+    breachContext: buildBreachContext(request),
   };
 }
 

@@ -79,6 +79,14 @@ export const CLINICAL_CARE_WINDOW_DEFAULTS = {
   postCompletionDays: 30, // Days after case completion
 } as const;
 
+// PHI Retention defaults (configurable per facility via config_registry)
+// Phase 4: Advisory only — NO DELETES
+export const PHI_RETENTION_DEFAULTS = {
+  billingYears: 7,
+  auditYears: 7,
+  clinicalYears: 7,
+} as const;
+
 // Maps PHI classification to required capability
 export const PHI_CLASSIFICATION_TO_CAPABILITY = {
   PHI_CLINICAL: 'PHI_CLINICAL_ACCESS',

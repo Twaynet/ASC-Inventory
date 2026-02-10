@@ -47,6 +47,8 @@ import { organizationRoutes } from './routes/organization.routes.js';
 import { phiAuditRoutes } from './routes/phi-audit.routes.js';
 import { personaPlugin } from './plugins/persona.js';
 import { requestIdPlugin } from './plugins/request-id.js';
+// PHI Phase 4D: Governance guardrails
+import { validatePhiGovernance, type CollectedRoute } from './plugins/phi-governance.js';
 
 const PORT = parseInt(process.env.PORT || '3001');
 const HOST = process.env.HOST || '0.0.0.0';
@@ -138,6 +140,37 @@ async function main() {
   // Health check (at /api/health to be consistent with all other routes)
   fastify.get('/api/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
+  // ── PHI Phase 4D: Collect routes for governance validation ──
+  const collectedRoutes: CollectedRoute[] = [];
+
+  fastify.addHook('onRoute', (routeOptions) => {
+    // Only collect /api/* routes (skip health, static, etc.)
+    if (!routeOptions.url.startsWith('/api/')) return;
+
+    const methods = Array.isArray(routeOptions.method)
+      ? routeOptions.method
+      : [routeOptions.method];
+
+    // Detect PHI guard in preHandler chain
+    const preHandlers = Array.isArray(routeOptions.preHandler)
+      ? routeOptions.preHandler
+      : routeOptions.preHandler
+        ? [routeOptions.preHandler]
+        : [];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hasPhiGuard = preHandlers.some((fn: any) => typeof fn === 'function' && fn.name === 'phiGuard');
+
+    for (const method of methods) {
+      if (method === 'HEAD') continue; // Skip auto-generated HEAD routes
+      collectedRoutes.push({
+        method: method.toUpperCase(),
+        url: routeOptions.url,
+        hasPhiGuard,
+      });
+    }
+  });
+
   // Register routes
   await fastify.register(authRoutes, { prefix: '/api/auth' });
   await fastify.register(usersRoutes, { prefix: '/api/users' });
@@ -168,6 +201,41 @@ async function main() {
   // PHI Phase 1: Organization model
   await fastify.register(organizationRoutes, { prefix: '/api/organizations' });
   await fastify.register(phiAuditRoutes, { prefix: '/api/phi-audit' });
+
+  // ── PHI Phase 4D: Governance validation on ready ──
+  fastify.addHook('onReady', async () => {
+    const violations = validatePhiGovernance(collectedRoutes);
+
+    if (violations.length === 0) {
+      fastify.log.info('PHI Governance: All routes validated — no violations');
+      return;
+    }
+
+    const undeclared = violations.filter(v => v.violation === 'UNDECLARED_PHI_ROUTE');
+    const missing = violations.filter(v => v.violation === 'MISSING_MANIFEST_ENTRY');
+
+    for (const v of undeclared) {
+      fastify.log.error(v, 'PHI Governance violation: undeclared PHI route');
+    }
+
+    for (const v of missing) {
+      fastify.log.warn(v, 'PHI Governance: manifest entry has no matching route');
+    }
+
+    if (undeclared.length > 0 && process.env.NODE_ENV !== 'development') {
+      throw new Error(
+        `PHI Governance: ${undeclared.length} undeclared PHI route(s) detected. Startup aborted. ` +
+        `Add missing routes to phi-route-manifest.ts or remove requirePhiAccess from them.`
+      );
+    }
+
+    if (violations.length > 0) {
+      fastify.log.warn(
+        { violationCount: violations.length, undeclared: undeclared.length, missing: missing.length },
+        'PHI Governance violations detected (dev mode — continuing)'
+      );
+    }
+  });
 
   // Start server
   try {

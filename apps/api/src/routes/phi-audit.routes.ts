@@ -19,6 +19,8 @@ import {
   type AccessPurposeType,
   type AccessOutcome,
 } from '../services/phi-audit.service.js';
+import { getAuditSessions, getExcessiveDenials, getAuditAnalytics } from '../services/phi-audit-analytics.service.js';
+import { getRetentionStatus, getRetentionEligibility } from '../services/phi-retention.service.js';
 
 export async function phiAuditRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -99,6 +101,142 @@ export async function phiAuditRoutes(fastify: FastifyInstance): Promise<void> {
       },
     });
   });
+
+  // ============================================================================
+  // Phase 4: Audit Analytics + Retention Endpoints
+  // ============================================================================
+
+  /**
+   * GET /phi-audit/sessions
+   * Session-grouped audit entries with correlation and suspicious flags.
+   *
+   * Phase 4B: Audit UX backend support.
+   */
+  fastify.get<{
+    Querystring: {
+      userId?: string;
+      startDate?: string;
+      endDate?: string;
+      onlySuspicious?: string;
+      limit?: string;
+      offset?: string;
+    };
+  }>('/sessions', {
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_AUDIT')],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const q = request.query;
+
+    const result = await getAuditSessions(facilityId, {
+      userId: q.userId,
+      startDate: q.startDate,
+      endDate: q.endDate,
+      onlySuspicious: q.onlySuspicious === 'true',
+      limit: q.limit ? parseInt(q.limit, 10) : 50,
+      offset: q.offset ? parseInt(q.offset, 10) : 0,
+    });
+
+    return reply.send(result);
+  });
+
+  /**
+   * GET /phi-audit/excessive-denials
+   * Threshold-based excessive denial detection.
+   *
+   * Phase 4B: Audit UX backend support.
+   */
+  fastify.get<{
+    Querystring: {
+      startDate?: string;
+      endDate?: string;
+      limit?: string;
+    };
+  }>('/excessive-denials', {
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_AUDIT')],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const q = request.query;
+
+    const entries = await getExcessiveDenials(facilityId, {
+      startDate: q.startDate,
+      endDate: q.endDate,
+      limit: q.limit ? parseInt(q.limit, 10) : 50,
+    });
+
+    return reply.send({ entries });
+  });
+
+  /**
+   * GET /phi-audit/analytics
+   * Combined analytics summary (sessions + denials + top users).
+   *
+   * Phase 4B: Audit UX backend support.
+   */
+  fastify.get<{
+    Querystring: {
+      startDate?: string;
+      endDate?: string;
+    };
+  }>('/analytics', {
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_AUDIT')],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { startDate, endDate } = request.query;
+
+    const analytics = await getAuditAnalytics(facilityId, startDate, endDate);
+
+    return reply.send(analytics);
+  });
+
+  /**
+   * GET /phi-audit/retention
+   * Paginated case retention status (advisory only).
+   *
+   * Phase 4A: Retention enforcement (read-only).
+   */
+  fastify.get<{
+    Querystring: {
+      limit?: string;
+      offset?: string;
+      onlyPurgeable?: string;
+    };
+  }>('/retention', {
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_AUDIT')],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const q = request.query;
+
+    const result = await getRetentionEligibility(facilityId, {
+      limit: q.limit ? parseInt(q.limit, 10) : 50,
+      offset: q.offset ? parseInt(q.offset, 10) : 0,
+      onlyPurgeable: q.onlyPurgeable === 'true',
+    });
+
+    return reply.send(result);
+  });
+
+  /**
+   * GET /phi-audit/retention/:entityId
+   * Single entity retention status (advisory only).
+   *
+   * Phase 4A: Retention enforcement (read-only).
+   */
+  fastify.get<{
+    Params: { entityId: string };
+  }>('/retention/:entityId', {
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_AUDIT')],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { entityId } = request.params;
+
+    const status = await getRetentionStatus(entityId, facilityId);
+
+    return reply.send(status);
+  });
+
+  // ============================================================================
+  // Single entry detail (must be LAST to avoid catch-all conflict)
+  // ============================================================================
 
   /**
    * GET /phi-audit/:id

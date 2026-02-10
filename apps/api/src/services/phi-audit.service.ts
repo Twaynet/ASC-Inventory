@@ -17,6 +17,7 @@
  */
 
 import { query } from '../db/index.js';
+import type { BreachContext } from './phi-breach.service.js';
 
 // ============================================================================
 // Types
@@ -42,6 +43,8 @@ export interface PhiAccessContext {
   // Phase 3: Emergency
   isEmergency?: boolean;
   emergencyJustification?: string | null;
+  // Phase 4: Breach readiness
+  breachContext?: BreachContext | null;
 }
 
 export interface PhiAccessLogEntry {
@@ -60,6 +63,7 @@ export interface PhiAccessLogEntry {
   httpMethod: string | null;
   isEmergency: boolean;
   emergencyJustification: string | null;
+  breachContext: BreachContext | null;
   createdAt: Date;
 }
 
@@ -114,8 +118,9 @@ export async function logPhiAccess(context: PhiAccessContext): Promise<string> {
       endpoint,
       http_method,
       is_emergency,
-      emergency_justification
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      emergency_justification,
+      breach_context
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     RETURNING id`,
     [
       context.userId,
@@ -132,6 +137,7 @@ export async function logPhiAccess(context: PhiAccessContext): Promise<string> {
       context.httpMethod || null,
       context.isEmergency || false,
       context.emergencyJustification || null,
+      context.breachContext ? JSON.stringify(context.breachContext) : null,
     ]
   );
   return result.rows[0].id;
@@ -252,6 +258,7 @@ export async function getPhiAccessLog(
       http_method,
       is_emergency,
       emergency_justification,
+      breach_context,
       created_at
     FROM phi_access_audit_log
     ${whereClause}
@@ -276,6 +283,7 @@ export async function getPhiAccessLog(
     httpMethod: row.http_method,
     isEmergency: row.is_emergency,
     emergencyJustification: row.emergency_justification,
+    breachContext: row.breach_context || null,
     createdAt: row.created_at,
   }));
 
@@ -306,6 +314,7 @@ export async function getPhiAccessLogEntry(
       http_method,
       is_emergency,
       emergency_justification,
+      breach_context,
       created_at
     FROM phi_access_audit_log
     WHERE id = $1 AND facility_id = $2`,
@@ -331,6 +340,7 @@ export async function getPhiAccessLogEntry(
     httpMethod: row.http_method,
     isEmergency: row.is_emergency,
     emergencyJustification: row.emergency_justification,
+    breachContext: row.breach_context || null,
     createdAt: row.created_at,
   };
 }
