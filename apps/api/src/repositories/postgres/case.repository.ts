@@ -50,6 +50,8 @@ interface CaseRow {
   room_name?: string | null;
   estimated_duration_minutes: number;
   sort_order: number;
+  // PHI Phase 1: Case attribution
+  primary_organization_id: string | null;
 }
 
 interface RequirementRow {
@@ -95,6 +97,7 @@ function mapCaseRow(row: CaseRow): SurgicalCase {
     roomName: row.room_name,
     estimatedDurationMinutes: row.estimated_duration_minutes ?? 60,
     sortOrder: row.sort_order ?? 0,
+    primaryOrganizationId: row.primary_organization_id,
   };
 }
 
@@ -182,8 +185,8 @@ export class PostgresCaseRepository implements ICaseRepository {
       INSERT INTO surgical_case (
         facility_id, case_number, scheduled_date, scheduled_time, requested_date, requested_time,
         surgeon_id, procedure_name, preference_card_version_id, status, notes,
-        is_active, is_cancelled
-      ) VALUES ($1, generate_case_number($1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false)
+        is_active, is_cancelled, primary_organization_id
+      ) VALUES ($1, generate_case_number($1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, $12)
       RETURNING *, (SELECT name FROM app_user WHERE id = $6) as surgeon_name
     `, [
       data.facilityId,
@@ -197,6 +200,7 @@ export class PostgresCaseRepository implements ICaseRepository {
       status,
       data.notes ?? null,
       isActive,
+      data.primaryOrganizationId ?? null,
     ]);
 
     const created = mapCaseRow(result.rows[0]);

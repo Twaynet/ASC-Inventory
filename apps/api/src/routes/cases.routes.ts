@@ -14,7 +14,7 @@ import {
 } from '../schemas/index.js';
 import { requireCapabilities, getUserRoles, deriveCapabilities } from '../plugins/auth.js';
 import { canStartCase, canCompleteCase } from '../services/checklists.service.js';
-import { getCaseRepository, SurgicalCase } from '../repositories/index.js';
+import { getCaseRepository, getOrganizationRepository, SurgicalCase } from '../repositories/index.js';
 import { getStatusEvents } from '../services/case-status.service.js';
 import { ok, fail, validated } from '../utils/reply.js';
 import { idempotent } from '../plugins/idempotency.js';
@@ -74,6 +74,8 @@ function formatCase(c: SurgicalCase) {
     roomName: c.roomName ?? null,
     estimatedDurationMinutes: c.estimatedDurationMinutes ?? 60,
     sortOrder: c.sortOrder ?? 0,
+    // PHI Phase 1: Case attribution
+    primaryOrganizationId: c.primaryOrganizationId ?? null,
   };
 }
 
@@ -338,6 +340,12 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       status = 'SCHEDULED';
     }
 
+    // PHI Phase 1: Resolve primary organization for case attribution
+    // Defaults to facility's ASC organization if not provided
+    const orgRepo = getOrganizationRepository();
+    const ascOrg = await orgRepo.findAscOrganization(facilityId);
+    const primaryOrganizationId = ascOrg?.id ?? null;
+
     // Create the case
     const newCase = await caseRepo.create({
       facilityId,
@@ -350,6 +358,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
       preferenceCardVersionId,
       notes: data.notes,
       status,
+      primaryOrganizationId,
     });
 
     // If preference card version set, copy its items to case requirements

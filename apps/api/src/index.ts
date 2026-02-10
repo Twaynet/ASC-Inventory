@@ -41,6 +41,8 @@ import { platformRoutes } from './routes/platform.routes.js';
 import { vendorsRoutes } from './routes/vendors.routes.js';
 import { loanerSetsRoutes } from './routes/loaner-sets.routes.js';
 import { attentionRoutes } from './routes/attention.routes.js';
+// PHI Phase 1: Organization model
+import { organizationRoutes } from './routes/organization.routes.js';
 import { personaPlugin } from './plugins/persona.js';
 import { requestIdPlugin } from './plugins/request-id.js';
 
@@ -61,7 +63,7 @@ async function main() {
   await fastify.register(cors, {
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Persona', 'X-Request-Id', 'Idempotency-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Persona', 'X-Request-Id', 'Idempotency-Key', 'X-Access-Purpose'],
     exposedHeaders: ['X-Request-Id'],
   });
 
@@ -161,6 +163,8 @@ async function main() {
   await fastify.register(vendorsRoutes, { prefix: '/api/vendors' });
   await fastify.register(loanerSetsRoutes, { prefix: '/api/loaner-sets' });
   await fastify.register(attentionRoutes, { prefix: '/api/attention' });
+  // PHI Phase 1: Organization model
+  await fastify.register(organizationRoutes, { prefix: '/api/organizations' });
 
   // Start server
   try {

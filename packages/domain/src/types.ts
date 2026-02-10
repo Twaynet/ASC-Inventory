@@ -17,6 +17,10 @@ export type InventoryEventId = string & { readonly __brand: 'InventoryEventId' }
 export type AttestationId = string & { readonly __brand: 'AttestationId' };
 export type DeviceId = string & { readonly __brand: 'DeviceId' };
 export type DeviceEventId = string & { readonly __brand: 'DeviceEventId' };
+export type OrganizationId = string & { readonly __brand: 'OrganizationId' };
+export type AffiliationId = string & { readonly __brand: 'AffiliationId' };
+export type PhiAccessLogId = string & { readonly __brand: 'PhiAccessLogId' };
+export type AccessGrantId = string & { readonly __brand: 'AccessGrantId' };
 
 // ============================================================================
 // ENUMS
@@ -33,6 +37,54 @@ export const UserRole = z.enum([
   'ANESTHESIA',
 ]);
 export type UserRole = z.infer<typeof UserRole>;
+
+// ============================================================================
+// PHI CLASSIFICATION & ACCESS (PHI_ACCESS_AND_RETENTION_LAW)
+// ============================================================================
+
+// PHI Classification — determines visibility rules and retention policy
+export const PhiClassification = z.enum(['PHI_CLINICAL', 'PHI_BILLING', 'PHI_AUDIT']);
+export type PhiClassification = z.infer<typeof PhiClassification>;
+
+// Purpose of Access — must be declared on every PHI access request
+export const AccessPurpose = z.enum([
+  'CLINICAL_CARE',   // Active clinical workflows
+  'SCHEDULING',      // Case scheduling and coordination
+  'BILLING',         // Claims, payment, reconciliation
+  'AUDIT',           // Compliance, legal, investigations
+  'EMERGENCY',       // Break-glass access (LAW §Emergency)
+]);
+export type AccessPurpose = z.infer<typeof AccessPurpose>;
+
+// Organization Type — entities that exist within a facility
+export const OrganizationType = z.enum([
+  'ASC',              // The facility itself as an organization
+  'SURGEON_GROUP',    // Multi-surgeon practice
+  'OFFICE',           // Surgeon's office staff
+  'BILLING_ENTITY',   // External billing (under BAA)
+]);
+export type OrganizationType = z.infer<typeof OrganizationType>;
+
+// Affiliation Type — relationship between user and organization
+export const AffiliationType = z.enum([
+  'PRIMARY',     // Primary organizational membership
+  'SECONDARY',   // Additional organizational membership
+]);
+export type AffiliationType = z.infer<typeof AffiliationType>;
+
+// Clinical Care Window defaults (configurable per facility via config_registry)
+// Enforcement deferred to Phase 2; constants established now
+export const CLINICAL_CARE_WINDOW_DEFAULTS = {
+  preOpDays: 7,           // Days before scheduled date
+  postCompletionDays: 30, // Days after case completion
+} as const;
+
+// Maps PHI classification to required capability
+export const PHI_CLASSIFICATION_TO_CAPABILITY = {
+  PHI_CLINICAL: 'PHI_CLINICAL_ACCESS',
+  PHI_BILLING: 'PHI_BILLING_ACCESS',
+  PHI_AUDIT: 'PHI_AUDIT_ACCESS',
+} as const;
 
 // ============================================================================
 // CONFIGURATION REGISTRY (LAW §5)
@@ -78,6 +130,13 @@ export type Capability =
   | 'CATALOG_MANAGE'
   | 'REPORTS_VIEW'
   | 'SETTINGS_MANAGE'
+  // PHI access capabilities (PHI_ACCESS_AND_RETENTION_LAW)
+  | 'PHI_CLINICAL_ACCESS'     // Access PHI_CLINICAL data
+  | 'PHI_BILLING_ACCESS'      // Access PHI_BILLING data
+  | 'PHI_AUDIT_ACCESS'        // Access PHI_AUDIT data
+  // Organization management
+  | 'ORG_MANAGE'              // Create/update organizations
+  | 'ORG_AFFILIATION_MANAGE'  // Manage user affiliations
   // Platform capabilities (LAW §4.2: distinct from tenant capabilities)
   | 'PLATFORM_ADMIN'          // Access to Control Plane
   | 'PLATFORM_CONFIG_VIEW'    // View platform configuration
@@ -99,8 +158,8 @@ export const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
     'PLATFORM_CONFIG_MANAGE',
     // Note: NO tenant capabilities - PLATFORM_ADMIN cannot access tenant data directly
   ],
-  SCRUB: ['CASE_VIEW', 'VERIFY_SCAN', 'CHECKLIST_ATTEST'],
-  CIRCULATOR: ['CASE_VIEW', 'CHECKLIST_ATTEST', 'OR_DEBRIEF', 'OR_TIMEOUT', 'CASE_CHECKIN_PREOP'],
+  SCRUB: ['CASE_VIEW', 'VERIFY_SCAN', 'CHECKLIST_ATTEST', 'PHI_CLINICAL_ACCESS'],
+  CIRCULATOR: ['CASE_VIEW', 'CHECKLIST_ATTEST', 'OR_DEBRIEF', 'OR_TIMEOUT', 'CASE_CHECKIN_PREOP', 'PHI_CLINICAL_ACCESS'],
   INVENTORY_TECH: ['CASE_VIEW', 'INVENTORY_READ', 'INVENTORY_CHECKIN'],
   ADMIN: [
     'USER_MANAGE', 'LOCATION_MANAGE', 'CATALOG_MANAGE',
@@ -108,13 +167,14 @@ export const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
     'CASE_VIEW', 'CASE_CREATE', 'CASE_UPDATE',
     'CASE_APPROVE', 'CASE_REJECT', 'CASE_ASSIGN_ROOM',
     'CASE_ACTIVATE', 'CASE_CHECKIN_PREOP', 'CASE_DELETE', 'CASE_CANCEL', 'CASE_PREFERENCE_CARD_LINK',
+    'PHI_CLINICAL_ACCESS', 'ORG_MANAGE', 'ORG_AFFILIATION_MANAGE',
   ],
   SURGEON: ['CASE_VIEW', 'CASE_CREATE', 'CASE_UPDATE', 'CASE_CANCEL',
-    'CASE_PREFERENCE_CARD_LINK', 'CHECKLIST_ATTEST'],
+    'CASE_PREFERENCE_CARD_LINK', 'CHECKLIST_ATTEST', 'PHI_CLINICAL_ACCESS'],
   SCHEDULER: ['CASE_VIEW', 'CASE_CREATE', 'CASE_UPDATE',
     'CASE_APPROVE', 'CASE_REJECT', 'CASE_ASSIGN_ROOM',
-    'CASE_ACTIVATE', 'CASE_CHECKIN_PREOP', 'CASE_CANCEL'],
-  ANESTHESIA: ['CASE_VIEW', 'CHECKLIST_ATTEST'],
+    'CASE_ACTIVATE', 'CASE_CHECKIN_PREOP', 'CASE_CANCEL', 'PHI_CLINICAL_ACCESS'],
+  ANESTHESIA: ['CASE_VIEW', 'CHECKLIST_ATTEST', 'PHI_CLINICAL_ACCESS'],
 };
 
 /**

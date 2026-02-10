@@ -36,6 +36,8 @@ export interface SurgicalCase {
   roomName?: string | null;
   estimatedDurationMinutes: number;
   sortOrder: number;
+  // PHI Phase 1: Case attribution
+  primaryOrganizationId: string | null;
 }
 
 export interface CaseRequirement {
@@ -60,6 +62,8 @@ export interface CreateCaseData {
   notes?: string | null;
   /** Optional status override - defaults to REQUESTED. Admin/Scheduler can use SCHEDULED for direct scheduling */
   status?: 'REQUESTED' | 'SCHEDULED';
+  /** PHI Phase 1: Primary Organization of Record. Defaults to facility ASC org if not provided. */
+  primaryOrganizationId?: string | null;
 }
 
 export interface UpdateCaseData {

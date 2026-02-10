@@ -8,3 +8,5 @@ export { PostgresDeviceRepository } from './device.repository.js';
 // Wave 1: Financial Attribution
 export { PostgresVendorRepository } from './vendor.repository.js';
 export { PostgresLoanerSetRepository } from './loaner-set.repository.js';
+// PHI Phase 1: Organization model
+export { PostgresOrganizationRepository } from './organization.repository.js';

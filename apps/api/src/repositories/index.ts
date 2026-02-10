@@ -5,13 +5,14 @@
  * Future: can be configured to use SQLite/offline adapters based on environment.
  */
 
-import { IInventoryRepository, ICaseRepository, IDeviceRepository, IVendorRepository, ILoanerSetRepository } from './interfaces/index.js';
+import { IInventoryRepository, ICaseRepository, IDeviceRepository, IVendorRepository, ILoanerSetRepository, IOrganizationRepository } from './interfaces/index.js';
 import {
   PostgresInventoryRepository,
   PostgresCaseRepository,
   PostgresDeviceRepository,
   PostgresVendorRepository,
   PostgresLoanerSetRepository,
+  PostgresOrganizationRepository,
 } from './postgres/index.js';
 
 // Singleton instances
@@ -20,6 +21,7 @@ let caseRepository: ICaseRepository | null = null;
 let deviceRepository: IDeviceRepository | null = null;
 let vendorRepository: IVendorRepository | null = null;
 let loanerSetRepository: ILoanerSetRepository | null = null;
+let organizationRepository: IOrganizationRepository | null = null;
 
 /**
  * Get the inventory repository instance
@@ -74,6 +76,17 @@ export function getLoanerSetRepository(): ILoanerSetRepository {
 }
 
 /**
+ * Get the organization repository instance
+ * PHI Phase 1: Organization model
+ */
+export function getOrganizationRepository(): IOrganizationRepository {
+  if (!organizationRepository) {
+    organizationRepository = new PostgresOrganizationRepository();
+  }
+  return organizationRepository;
+}
+
+/**
  * Reset all repository instances (useful for testing)
  */
 export function resetRepositories(): void {
@@ -82,6 +95,7 @@ export function resetRepositories(): void {
   deviceRepository = null;
   vendorRepository = null;
   loanerSetRepository = null;
+  organizationRepository = null;
 }
 
 // Re-export interfaces for convenience

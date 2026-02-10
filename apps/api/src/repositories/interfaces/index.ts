@@ -9,3 +9,5 @@ export * from './device.repository.js';
 // Wave 1: Financial Attribution
 export * from './vendor.repository.js';
 export * from './loaner-set.repository.js';
+// PHI Phase 1: Organization model
+export * from './organization.repository.js';
