@@ -1359,7 +1359,12 @@ export interface operations {
                                 sterilityStatus: string;
                                 sterilityExpiresAt: string | null;
                                 availabilityStatus: string;
-                                reservedForCaseId?: string | null;
+                                caseLink: {
+                                    /** Format: uuid */
+                                    caseId?: string;
+                                    hasCase: boolean;
+                                    redacted: boolean;
+                                };
                                 lastVerifiedAt: string | null;
                                 lastVerifiedByUserId: string | null;
                                 lastVerifiedByName?: string | null;
@@ -1427,7 +1432,12 @@ export interface operations {
                                 sterilityStatus: string;
                                 sterilityExpiresAt: string | null;
                                 availabilityStatus: string;
-                                reservedForCaseId?: string | null;
+                                caseLink: {
+                                    /** Format: uuid */
+                                    caseId?: string;
+                                    hasCase: boolean;
+                                    redacted: boolean;
+                                };
                                 lastVerifiedAt: string | null;
                                 lastVerifiedByUserId: string | null;
                                 lastVerifiedByName?: string | null;
@@ -1475,7 +1485,12 @@ export interface operations {
                                 sterilityStatus: string;
                                 sterilityExpiresAt: string | null;
                                 availabilityStatus: string;
-                                reservedForCaseId?: string | null;
+                                caseLink: {
+                                    /** Format: uuid */
+                                    caseId?: string;
+                                    hasCase: boolean;
+                                    redacted: boolean;
+                                };
                                 lastVerifiedAt: string | null;
                                 lastVerifiedByUserId: string | null;
                                 lastVerifiedByName?: string | null;
@@ -1537,7 +1552,12 @@ export interface operations {
                                 sterilityStatus: string;
                                 sterilityExpiresAt: string | null;
                                 availabilityStatus: string;
-                                reservedForCaseId?: string | null;
+                                caseLink: {
+                                    /** Format: uuid */
+                                    caseId?: string;
+                                    hasCase: boolean;
+                                    redacted: boolean;
+                                };
                                 lastVerifiedAt: string | null;
                                 lastVerifiedByUserId: string | null;
                                 lastVerifiedByName?: string | null;
@@ -1573,8 +1593,12 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 eventType: string;
-                                caseId: string | null;
-                                caseName?: string | null;
+                                caseLink: {
+                                    /** Format: uuid */
+                                    caseId?: string;
+                                    hasCase: boolean;
+                                    redacted: boolean;
+                                };
                                 locationId: string | null;
                                 locationName?: string | null;
                                 previousLocationId: string | null;

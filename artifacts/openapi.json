@@ -3373,10 +3373,23 @@
                               "availabilityStatus": {
                                 "type": "string"
                               },
-                              "reservedForCaseId": {
-                                "type": [
-                                  "string",
-                                  "null"
+                              "caseLink": {
+                                "type": "object",
+                                "properties": {
+                                  "caseId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "hasCase": {
+                                    "type": "boolean"
+                                  },
+                                  "redacted": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "hasCase",
+                                  "redacted"
                                 ]
                               },
                               "lastVerifiedAt": {
@@ -3414,6 +3427,7 @@
                               "sterilityStatus",
                               "sterilityExpiresAt",
                               "availabilityStatus",
+                              "caseLink",
                               "lastVerifiedAt",
                               "lastVerifiedByUserId",
                               "createdAt",
@@ -3581,10 +3595,23 @@
                             "availabilityStatus": {
                               "type": "string"
                             },
-                            "reservedForCaseId": {
-                              "type": [
-                                "string",
-                                "null"
+                            "caseLink": {
+                              "type": "object",
+                              "properties": {
+                                "caseId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "hasCase": {
+                                  "type": "boolean"
+                                },
+                                "redacted": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "hasCase",
+                                "redacted"
                               ]
                             },
                             "lastVerifiedAt": {
@@ -3622,6 +3649,7 @@
                             "sterilityStatus",
                             "sterilityExpiresAt",
                             "availabilityStatus",
+                            "caseLink",
                             "lastVerifiedAt",
                             "lastVerifiedByUserId",
                             "createdAt",
@@ -3732,10 +3760,23 @@
                             "availabilityStatus": {
                               "type": "string"
                             },
-                            "reservedForCaseId": {
-                              "type": [
-                                "string",
-                                "null"
+                            "caseLink": {
+                              "type": "object",
+                              "properties": {
+                                "caseId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "hasCase": {
+                                  "type": "boolean"
+                                },
+                                "redacted": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "hasCase",
+                                "redacted"
                               ]
                             },
                             "lastVerifiedAt": {
@@ -3773,6 +3814,7 @@
                             "sterilityStatus",
                             "sterilityExpiresAt",
                             "availabilityStatus",
+                            "caseLink",
                             "lastVerifiedAt",
                             "lastVerifiedByUserId",
                             "createdAt",
@@ -3936,10 +3978,23 @@
                             "availabilityStatus": {
                               "type": "string"
                             },
-                            "reservedForCaseId": {
-                              "type": [
-                                "string",
-                                "null"
+                            "caseLink": {
+                              "type": "object",
+                              "properties": {
+                                "caseId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "hasCase": {
+                                  "type": "boolean"
+                                },
+                                "redacted": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "hasCase",
+                                "redacted"
                               ]
                             },
                             "lastVerifiedAt": {
@@ -3977,6 +4032,7 @@
                             "sterilityStatus",
                             "sterilityExpiresAt",
                             "availabilityStatus",
+                            "caseLink",
                             "lastVerifiedAt",
                             "lastVerifiedByUserId",
                             "createdAt",
@@ -4037,16 +4093,23 @@
                               "eventType": {
                                 "type": "string"
                               },
-                              "caseId": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "caseName": {
-                                "type": [
-                                  "string",
-                                  "null"
+                              "caseLink": {
+                                "type": "object",
+                                "properties": {
+                                  "caseId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "hasCase": {
+                                    "type": "boolean"
+                                  },
+                                  "redacted": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "hasCase",
+                                  "redacted"
                                 ]
                               },
                               "locationId": {
@@ -4111,7 +4174,7 @@
                             "required": [
                               "id",
                               "eventType",
-                              "caseId",
+                              "caseLink",
                               "locationId",
                               "previousLocationId",
                               "sterilityStatus",

@@ -3,6 +3,7 @@
  *
  * Responsibilities:
  * - Authorization header injection
+ * - X-Access-Purpose header injection (PHI compliance)
  * - X-Active-Persona header injection (UX metadata, not auth)
  * - JSON request/response handling
  * - Error normalization to ApiError
@@ -13,9 +14,56 @@
  */
 
 import { PERSONA_STORAGE_KEY, PERSONA_HEADER } from '@asc/domain';
+import type { AccessPurpose } from '@asc/domain';
 import type { ZodTypeAny } from 'zod';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+// ============================================================================
+// PHI: X-Access-Purpose header — centralized resolution
+// ============================================================================
+
+/**
+ * PHI_EXPOSING endpoint patterns and their required access purposes.
+ *
+ * Only PHI_EXPOSING endpoints get the header — NON_PHI and PHI_ADJACENT
+ * endpoints are intentionally excluded (no match → no header).
+ *
+ * Pattern order matters: first match wins.
+ */
+const PHI_PURPOSE_RULES: Array<{ pattern: RegExp; purpose: AccessPurpose }> = [
+  // Financial reports
+  { pattern: /^\/reports\/vendor-concessions/, purpose: 'BILLING' },
+  { pattern: /^\/reports\/inventory-valuation/, purpose: 'BILLING' },
+  { pattern: /^\/reports\/loaner-exposure/, purpose: 'BILLING' },
+  // Clinical reports
+  { pattern: /^\/reports\/case-/, purpose: 'AUDIT' },
+  { pattern: /^\/reports\/cancelled-cases/, purpose: 'AUDIT' },
+  { pattern: /^\/reports\/checklist-compliance/, purpose: 'AUDIT' },
+  { pattern: /^\/reports\/debrief-summary/, purpose: 'AUDIT' },
+  // Schedule
+  { pattern: /^\/schedule\/day/, purpose: 'SCHEDULING' },
+  { pattern: /^\/schedule\/unassigned/, purpose: 'SCHEDULING' },
+  // Clinical endpoints
+  { pattern: /^\/cases/, purpose: 'CLINICAL_CARE' },
+  { pattern: /^\/case-dashboard/, purpose: 'CLINICAL_CARE' },
+  { pattern: /^\/readiness/, purpose: 'CLINICAL_CARE' },
+  { pattern: /^\/inventory\/events/, purpose: 'CLINICAL_CARE' },
+  { pattern: /^\/ai\//, purpose: 'CLINICAL_CARE' },
+];
+
+/**
+ * Resolve the access purpose for a given endpoint.
+ * Returns null for NON_PHI endpoints (no header should be attached).
+ */
+function resolveAccessPurpose(endpoint: string): AccessPurpose | null {
+  for (const rule of PHI_PURPOSE_RULES) {
+    if (rule.pattern.test(endpoint)) {
+      return rule.purpose;
+    }
+  }
+  return null;
+}
 
 // ============================================================================
 // Error class
@@ -50,6 +98,8 @@ export interface RequestOptions {
   responseSchema?: ZodTypeAny;
   /** Zod schema — validates request body before sending */
   requestSchema?: ZodTypeAny;
+  /** Explicit access purpose — overrides automatic resolution from endpoint path */
+  accessPurpose?: AccessPurpose;
 }
 
 // ============================================================================
@@ -68,7 +118,7 @@ export interface RequestOptions {
  *   - Legacy:       { error: "string" }                     → throws ApiError
  */
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, token, requestSchema, responseSchema } = options;
+  const { method = 'GET', body, token, requestSchema, responseSchema, accessPurpose } = options;
 
   // Validate request body if schema provided
   if (requestSchema && body !== undefined) {
@@ -99,6 +149,12 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
     if (persona) {
       headers[PERSONA_HEADER] = persona;
     }
+  }
+
+  // PHI: attach X-Access-Purpose for PHI_EXPOSING endpoints
+  const purpose = accessPurpose ?? resolveAccessPurpose(endpoint);
+  if (purpose) {
+    headers['X-Access-Purpose'] = purpose;
   }
 
   const response = await fetch(`${API_BASE}${endpoint}`, {

@@ -16,6 +16,12 @@ import {
 // Types
 // ============================================================================
 
+export interface CaseLink {
+  caseId?: string;
+  hasCase: boolean;
+  redacted: boolean;
+}
+
 export interface InventoryItem {
   id: string;
   catalogId: string;
@@ -29,6 +35,7 @@ export interface InventoryItem {
   sterilityExpiresAt: string | null;
   availabilityStatus: string;
   lastVerifiedAt: string | null;
+  caseLink: CaseLink;
 }
 
 export interface InventoryItemDetail {
@@ -45,6 +52,7 @@ export interface InventoryItemDetail {
   sterilityStatus: string;
   sterilityExpiresAt: string | null;
   availabilityStatus: string;
+  caseLink: CaseLink;
   lastVerifiedAt: string | null;
   lastVerifiedByUserId: string | null;
   lastVerifiedByName: string | null;
@@ -80,8 +88,7 @@ export interface UpdateInventoryItemRequest {
 export interface InventoryItemEvent {
   id: string;
   eventType: string;
-  caseId: string | null;
-  caseName?: string | null;
+  caseLink: CaseLink;
   locationId: string | null;
   locationName?: string | null;
   previousLocationId: string | null;

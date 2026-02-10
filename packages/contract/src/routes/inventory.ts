@@ -13,6 +13,12 @@ import { SuccessEnvelope } from '../envelope.js';
 
 const nullableString = z.string().nullable();
 
+const CaseLinkSchema = z.object({
+  caseId: z.string().uuid().optional(),
+  hasCase: z.boolean(),
+  redacted: z.boolean(),
+});
+
 export const InventoryItemApiSchema = z.object({
   id: z.string().uuid(),
   catalogId: z.string().uuid(),
@@ -27,7 +33,7 @@ export const InventoryItemApiSchema = z.object({
   sterilityStatus: z.string(),
   sterilityExpiresAt: nullableString,
   availabilityStatus: z.string(),
-  reservedForCaseId: nullableString.optional(),
+  caseLink: CaseLinkSchema,
   lastVerifiedAt: nullableString,
   lastVerifiedByUserId: nullableString,
   lastVerifiedByName: nullableString.optional(),
@@ -38,8 +44,7 @@ export const InventoryItemApiSchema = z.object({
 export const InventoryEventApiSchema = z.object({
   id: z.string().uuid(),
   eventType: z.string(),
-  caseId: nullableString,
-  caseName: nullableString.optional(),
+  caseLink: CaseLinkSchema,
   locationId: nullableString,
   locationName: nullableString.optional(),
   previousLocationId: nullableString,

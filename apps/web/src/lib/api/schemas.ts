@@ -17,6 +17,12 @@ import { z } from 'zod';
 const nullableString = z.string().nullable();
 const nullableNumber = z.number().nullable();
 
+const CaseLinkSchema = z.object({
+  caseId: z.string().optional(),
+  hasCase: z.boolean(),
+  redacted: z.boolean(),
+});
+
 // ============================================================================
 // Cases
 // ============================================================================
@@ -93,6 +99,7 @@ export const InventoryItemApiSchema = z.object({
   locationName: nullableString,
   sterilityStatus: z.string(),
   availabilityStatus: z.string(),
+  caseLink: CaseLinkSchema,
   lastVerifiedAt: nullableString,
 });
 
@@ -110,6 +117,7 @@ export const InventoryItemDetailApiSchema = z.object({
   sterilityStatus: z.string(),
   sterilityExpiresAt: nullableString,
   availabilityStatus: z.string(),
+  caseLink: CaseLinkSchema,
   lastVerifiedAt: nullableString,
   lastVerifiedByUserId: nullableString,
   lastVerifiedByName: nullableString,
