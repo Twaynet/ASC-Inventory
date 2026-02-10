@@ -266,7 +266,7 @@ export default function CatalogSetsPage() {
           <Link href="/admin/catalog/sets" className="nav-link active">Set Definitions</Link>
         </div>
 
-        <div className="page-header">
+        <div className="sets-page-header">
           <div className="header-row">
             <Breadcrumbs items={[
               { label: 'Catalog', href: '/admin/catalog' },
@@ -655,7 +655,7 @@ export default function CatalogSetsPage() {
 
       <style jsx>{`
         .sets-page {
-          padding: 2rem 0;
+          padding: 2rem 1.5rem;
         }
 
         .catalog-nav {
@@ -684,7 +684,7 @@ export default function CatalogSetsPage() {
           color: var(--text-on-primary);
         }
 
-        .page-header {
+        .sets-page-header {
           margin-bottom: 1.5rem;
         }
 
@@ -718,8 +718,9 @@ export default function CatalogSetsPage() {
 
         .description {
           color: var(--text-muted);
-          margin: 0.5rem 0;
+          margin: 0.15rem 0;
           font-size: 0.875rem;
+          text-align: start;
         }
 
         .sets-layout {
