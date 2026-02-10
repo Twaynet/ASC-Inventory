@@ -47,6 +47,8 @@ export interface PhiRequestContext {
   isEmergency: boolean;
   /** Audit log entry ID — used by export logging */
   auditLogId?: string;
+  /** Promise that resolves to audit log ID — awaited by logExportEvent to avoid race */
+  auditLogReady?: Promise<string | undefined>;
 }
 
 // Extend Fastify request with PHI context
@@ -254,7 +256,11 @@ export async function logExportEvent(
   rowCount: number
 ): Promise<void> {
   try {
-    const auditLogId = request.phiContext?.auditLogId;
+    // Await the audit log promise to ensure the audit log ID is available
+    // (guards against race between fire-and-forget audit log and route handler)
+    const auditLogId = request.phiContext?.auditLogReady
+      ? await request.phiContext.auditLogReady
+      : request.phiContext?.auditLogId;
     if (!auditLogId) return;
     await logPhiExport(auditLogId, format, rowCount);
   } catch (err) {
@@ -604,22 +610,27 @@ export function requirePhiAccess(
       'ALLOWED', undefined, isEmergency, emergencyJustification
     );
 
-    // ALLOWED: fire-and-forget (non-blocking), but capture audit log ID for export linking
-    logPhiAccess(allowedCtx)
-      .then(auditLogId => {
-        if (request.phiContext) {
-          request.phiContext.auditLogId = auditLogId;
-        }
-      })
-      .catch(err =>
-        request.log.error(err, 'Failed to log ALLOWED PHI access event')
-      );
-
+    // Set phiContext FIRST so it's available immediately to route handlers
     request.phiContext = {
       classification,
       purpose,
       organizationIds,
       isEmergency,
     };
+
+    // ALLOWED: fire-and-forget (non-blocking), but capture audit log ID for export linking
+    const auditPromise = logPhiAccess(allowedCtx)
+      .then(auditLogId => {
+        if (request.phiContext) {
+          request.phiContext.auditLogId = auditLogId;
+        }
+        return auditLogId;
+      })
+      .catch(err => {
+        request.log.error(err, 'Failed to log ALLOWED PHI access event');
+        return undefined;
+      });
+
+    request.phiContext.auditLogReady = auditPromise;
   };
 }
