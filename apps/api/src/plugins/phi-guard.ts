@@ -161,7 +161,7 @@ export function requirePhiAccess(
     const purposeHeader = request.headers['x-access-purpose'] as string | undefined;
     if (!purposeHeader) {
       const ctx = buildAuditContext(
-        request, user, classification, 'UNKNOWN', [], null, 'DENIED', 'MISSING_PURPOSE_HEADER'
+        request, user, classification, 'CLINICAL_CARE', [], null, 'DENIED', 'MISSING_PURPOSE_HEADER'
       );
       await logPhiAccess(ctx);
       return reply.status(403).send({
@@ -176,7 +176,8 @@ export function requirePhiAccess(
     const purposeResult = AccessPurposeEnum.safeParse(purposeHeader);
     if (!purposeResult.success) {
       const ctx = buildAuditContext(
-        request, user, classification, purposeHeader, [], null, 'DENIED', 'INVALID_PURPOSE'
+        request, user, classification, 'CLINICAL_CARE', [], null,
+        'DENIED', `INVALID_PURPOSE:${purposeHeader}`
       );
       await logPhiAccess(ctx);
       return reply.status(403).send({
