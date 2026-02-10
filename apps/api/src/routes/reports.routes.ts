@@ -5,6 +5,7 @@
 
 import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
+import { requirePhiAccess } from '../plugins/phi-guard.js';
 
 // ============================================================================
 // Types
@@ -421,7 +422,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       format?: 'json' | 'csv';
     };
   }>('/checklist-compliance', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { startDate, endDate, checklistType, format = 'json' } = request.query;
@@ -555,7 +556,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       format?: 'json' | 'csv';
     };
   }>('/case-summary', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { startDate, endDate, status, surgeonId, format = 'json' } = request.query;
@@ -689,7 +690,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       format?: 'json' | 'csv';
     };
   }>('/vendor-concessions', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_BILLING')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { startDate, endDate, vendorId, overrideReason, format = 'json' } = request.query;
@@ -880,7 +881,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       format?: 'json' | 'csv';
     };
   }>('/inventory-valuation', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_BILLING')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { ownershipType, category, format = 'json' } = request.query;
@@ -1036,7 +1037,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       format?: 'json' | 'csv';
     };
   }>('/loaner-exposure', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_BILLING')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { vendorId, isOverdue, format = 'json' } = request.query;
@@ -1217,7 +1218,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       format?: 'json' | 'csv';
     };
   }>('/cancelled-cases', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { startDate, endDate, surgeonId, format = 'json' } = request.query;
@@ -1328,7 +1329,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       format?: 'json' | 'csv';
     };
   }>('/case-timelines', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { startDate, endDate, surgeonId, toStatus, format = 'json' } = request.query;
@@ -1431,7 +1432,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       format?: 'json' | 'csv';
     };
   }>('/debrief-summary', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { startDate, endDate, surgeonId, debriefStatus, format = 'json' } = request.query;
@@ -1559,7 +1560,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
       format?: 'json' | 'csv';
     };
   }>('/case-event-log', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request, reply) => {
     const { facilityId } = request.user;
     const { startDate, endDate, eventType, format = 'json' } = request.query;

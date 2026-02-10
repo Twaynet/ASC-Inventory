@@ -32,6 +32,7 @@ import {
   updateSurgeonFeedback,
 } from '../services/checklists.service.js';
 import { requireCapabilities } from '../plugins/auth.js';
+import { requirePhiAccess } from '../plugins/phi-guard.js';
 import { ok, fail } from '../utils/reply.js';
 
 export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> {
@@ -281,7 +282,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
    * Get all checklists for a case
    */
   fastify.get('/cases/:id/checklists', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request: FastifyRequest<{
     Params: { id: string };
   }>, reply: FastifyReply) => {
@@ -301,7 +302,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
    * Start a checklist for a case
    */
   fastify.post('/cases/:id/checklists/start', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request: FastifyRequest<{
     Params: { id: string };
   }>, reply: FastifyReply) => {
@@ -335,7 +336,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
    * Record a response to a checklist item
    */
   fastify.post('/cases/:id/checklists/:type/respond', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request: FastifyRequest<{
     Params: { id: string; type: string };
   }>, reply: FastifyReply) => {
@@ -377,7 +378,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
    * Add a signature to a checklist
    */
   fastify.post('/cases/:id/checklists/:type/sign', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request: FastifyRequest<{
     Params: { id: string; type: string };
   }>, reply: FastifyReply) => {
@@ -432,7 +433,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
    * Complete a checklist
    */
   fastify.post('/cases/:id/checklists/:type/complete', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request: FastifyRequest<{
     Params: { id: string; type: string };
   }>, reply: FastifyReply) => {
@@ -471,7 +472,7 @@ export async function checklistsRoutes(fastify: FastifyInstance): Promise<void> 
    * Record an async review for a completed debrief (SCRUB or SURGEON)
    */
   fastify.post('/cases/:id/checklists/debrief/async-review', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request: FastifyRequest<{
     Params: { id: string };
     Body: { notes?: string; method: string };

@@ -8,10 +8,13 @@ import { query } from '../db/index.js';
 import {
   CreateDeviceEventRequestSchema,
 } from '../schemas/index.js';
-import { requireCapabilities } from '../plugins/auth.js';
+import { requireCapabilities, getUserRoles } from '../plugins/auth.js';
 import { getVendorRepository } from '../repositories/index.js';
 import { ok, fail, validated } from '../utils/reply.js';
 import { idempotent } from '../plugins/idempotency.js';
+import { requirePhiAccess } from '../plugins/phi-guard.js';
+import { deriveCapabilities } from '@asc/domain';
+import { redactCaseLink, type CaseLink } from '../utils/case-link.redaction.js';
 import {
   getInventoryRepository,
   getDeviceRepository,
@@ -42,7 +45,7 @@ function formatInventoryItem(item: {
   lastVerifiedByName?: string | null;
   createdAt: Date;
   updatedAt: Date;
-}) {
+}, caseLink: CaseLink) {
   return {
     id: item.id,
     catalogId: item.catalogId,
@@ -57,7 +60,7 @@ function formatInventoryItem(item: {
     sterilityStatus: item.sterilityStatus,
     sterilityExpiresAt: item.sterilityExpiresAt?.toISOString() || null,
     availabilityStatus: item.availabilityStatus,
-    reservedForCaseId: item.reservedForCaseId,
+    caseLink,
     lastVerifiedAt: item.lastVerifiedAt?.toISOString() || null,
     lastVerifiedByUserId: item.lastVerifiedByUserId,
     lastVerifiedByName: item.lastVerifiedByName,
@@ -83,12 +86,11 @@ function formatInventoryEvent(event: {
   deviceEventId: string | null;
   occurredAt: Date;
   createdAt: Date;
-}) {
+}, caseLink: CaseLink) {
   return {
     id: event.id,
     eventType: event.eventType,
-    caseId: event.caseId,
-    caseName: event.caseName,
+    caseLink,
     locationId: event.locationId,
     locationName: event.locationName,
     previousLocationId: event.previousLocationId,
@@ -159,7 +161,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /inventory/events — Record single event ────────
   registerContractRoute(fastify, contract.inventory.createEvent, PREFIX, {
-    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE'), idempotent()],
+    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true }), idempotent()],
     handler: async (request, reply) => {
       const data = request.contractData.body as {
         inventoryItemId: string;
@@ -205,7 +207,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /inventory/events/bulk — Bulk events ───────────
   registerContractRoute(fastify, contract.inventory.bulkEvents, PREFIX, {
-    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE'), idempotent()],
+    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE'), requirePhiAccess('PHI_CLINICAL'), idempotent()],
     handler: async (request, reply) => {
       const body = request.contractData.body as {
         events: Array<{
@@ -305,7 +307,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       gratisReason?: string;
     };
   }>('/events/financial', {
-    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
+    preHandler: [requireCapabilities('INVENTORY_MANAGE'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request: FastifyRequest<{
     Body: {
       inventoryItemId: string;
@@ -458,6 +460,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     if (!data) return;
     const { facilityId } = request.user;
 
+    const userCaps = deriveCapabilities(getUserRoles(request.user));
     const isKeyboardWedge = data.deviceId === KEYBOARD_WEDGE_DEVICE_ID;
     let actualDeviceId = data.deviceId;
 
@@ -491,7 +494,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       // Get full item details for candidate display
       const itemDetails = await inventoryRepo.findByIdWithDetails(item.id, facilityId);
       if (itemDetails) {
-        candidateItem = formatInventoryItem(itemDetails);
+        candidateItem = formatInventoryItem(itemDetails, redactCaseLink(itemDetails.reservedForCaseId, userCaps));
       }
     } else {
       processingError = 'No matching inventory item found';
@@ -601,7 +604,8 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
         status,
       });
 
-      return ok(reply, { items: items.map(formatInventoryItem) });
+      const userCaps = deriveCapabilities(getUserRoles(request.user));
+      return ok(reply, { items: items.map(i => formatInventoryItem(i, redactCaseLink(i.reservedForCaseId, userCaps))) });
     },
   });
 
@@ -617,7 +621,8 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
         return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
       }
 
-      return ok(reply, { item: formatInventoryItem(item) });
+      const userCaps = deriveCapabilities(getUserRoles(request.user));
+      return ok(reply, { item: formatInventoryItem(item, redactCaseLink(item.reservedForCaseId, userCaps)) });
     },
   });
 
@@ -765,7 +770,8 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       attestedByUserId: data.attestationReason ? request.user.userId : null,
     });
 
-    return ok(reply, { item: formatInventoryItem(item) }, 201);
+    const userCaps = deriveCapabilities(getUserRoles(request.user));
+    return ok(reply, { item: formatInventoryItem(item, redactCaseLink(item.reservedForCaseId, userCaps)) }, 201);
     },
   });
 
@@ -827,7 +833,8 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
     }
 
-    return ok(reply, { item: formatInventoryItem(updated) });
+    const userCaps = deriveCapabilities(getUserRoles(request.user));
+    return ok(reply, { item: formatInventoryItem(updated, redactCaseLink(updated.reservedForCaseId, userCaps)) });
     },
   });
 
@@ -848,7 +855,8 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
         }
       }
 
-      return ok(reply, { events: events.map(formatInventoryEvent) });
+      const userCaps = deriveCapabilities(getUserRoles(request.user));
+      return ok(reply, { events: events.map(e => formatInventoryEvent(e, redactCaseLink(e.caseId, userCaps))) });
     },
   });
 

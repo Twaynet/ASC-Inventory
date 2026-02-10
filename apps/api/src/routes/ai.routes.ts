@@ -14,6 +14,7 @@ import { ok, fail, validated } from '../utils/reply.js';
 import { getUserRoles } from '../plugins/auth.js';
 import { deriveCapabilities } from '@asc/domain';
 import { explainReadiness, type ExplainReadinessInput } from '../services/ai.service.js';
+import { requirePhiAccess } from '../plugins/phi-guard.js';
 
 // ── Request Schema ────────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ function isRateLimited(userId: string): boolean {
 export async function aiRoutes(fastify: FastifyInstance): Promise<void> {
 
   fastify.post('/explain-readiness', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request: FastifyRequest, reply) => {
     // Feature flag check
     if (process.env.AI_EXPLAIN_READINESS_ENABLED !== 'true') {

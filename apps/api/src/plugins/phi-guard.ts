@@ -51,15 +51,14 @@ declare module 'fastify' {
 // Helper: resolve caseId from request params, body, or query
 // ============================================================================
 
-function resolveCaseId(request: FastifyRequest): string | null {
-  // Check route params
+function resolveCaseId(request: FastifyRequest, caseIdFrom?: string): string | null {
   const params = request.params as Record<string, string> | undefined;
+
+  // If caller specifies param name, use that (e.g. 'id' for /cases/:id/*)
+  if (caseIdFrom && params?.[caseIdFrom]) return params[caseIdFrom];
+
+  // Default: check params.caseId
   if (params?.caseId) return params.caseId;
-  if (params?.id) {
-    // Only use params.id if the route is a case-specific route
-    // (checked by caller context, not here)
-    return null;
-  }
 
   // Check body
   const body = request.body as Record<string, unknown> | undefined;
@@ -118,9 +117,9 @@ function buildAuditContext(
  */
 export function requirePhiAccess(
   classification: PhiClassification,
-  options: { evaluateCase?: boolean } = {}
+  options: { evaluateCase?: boolean; caseIdFrom?: string } = {}
 ) {
-  const { evaluateCase = false } = options;
+  const { evaluateCase = false, caseIdFrom } = options;
 
   return async function phiGuard(request: FastifyRequest, reply: FastifyReply) {
     const user = request.user;
@@ -256,7 +255,7 @@ export function requirePhiAccess(
     let caseId: string | null = null;
 
     if (evaluateCase) {
-      caseId = resolveCaseId(request);
+      caseId = resolveCaseId(request, caseIdFrom);
 
       if (caseId) {
         // Resolve case's primary_organization_id and verify same facility

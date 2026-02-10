@@ -11,6 +11,7 @@ import {
   SetRoomDayConfigRequestSchema,
 } from '../schemas/index.js';
 import { requireCapabilities } from '../plugins/auth.js';
+import { requirePhiAccess } from '../plugins/phi-guard.js';
 import { ok, fail } from '../utils/reply.js';
 
 interface CaseRow {
@@ -63,7 +64,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
    * Get the day schedule with rooms, cases, and block times
    */
   fastify.get('/day', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request: FastifyRequest<{
     Querystring: { date: string };
   }>, reply: FastifyReply) => {
@@ -283,7 +284,7 @@ export async function scheduleRoutes(fastify: FastifyInstance): Promise<void> {
    * Get all unassigned cases (scheduled but no room assigned)
    */
   fastify.get('/unassigned', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { facilityId } = request.user;
 

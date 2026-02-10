@@ -13,6 +13,7 @@
 import { FastifyInstance } from 'fastify';
 import { query, transaction } from '../db/index.js';
 import { ok, fail } from '../utils/reply.js';
+import { requirePhiAccess } from '../plugins/phi-guard.js';
 
 /**
  * Format a Date to YYYY-MM-DD string without timezone conversion.
@@ -111,7 +112,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Get full dashboard data for a case
    */
   fastify.get<{ Params: { caseId: string } }>('/:caseId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId } = request.user;
@@ -361,7 +362,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Attest case readiness
    */
   fastify.post<{ Params: { caseId: string } }>('/:caseId/attest', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
@@ -441,7 +442,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Void attestation (requires reason)
    */
   fastify.post<{ Params: { caseId: string } }>('/:caseId/void', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
@@ -492,7 +493,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Update anesthesia plan
    */
   fastify.put<{ Params: { caseId: string } }>('/:caseId/anesthesia', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
@@ -548,7 +549,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Legacy body: { caseCardVersionId }  (backward compat, no snapshot)
    */
   fastify.put<{ Params: { caseId: string } }>('/:caseId/link-case-card', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
@@ -724,7 +725,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Unlink the current case card
    */
   fastify.post<{ Params: { caseId: string } }>('/:caseId/case-card-unlink', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
@@ -777,7 +778,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Get current link status + full history
    */
   fastify.get<{ Params: { caseId: string } }>('/:caseId/case-card-link', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId } = request.user;
@@ -851,7 +852,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Add a case-specific override
    */
   fastify.post<{ Params: { caseId: string } }>('/:caseId/overrides', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
@@ -898,7 +899,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Modify an existing override
    */
   fastify.put<{ Params: { caseId: string; overrideId: string } }>('/:caseId/overrides/:overrideId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId, overrideId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
@@ -939,7 +940,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Revert/remove an override
    */
   fastify.delete<{ Params: { caseId: string; overrideId: string } }>('/:caseId/overrides/:overrideId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId, overrideId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
@@ -973,7 +974,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Get event log for a case
    */
   fastify.get<{ Params: { caseId: string } }>('/:caseId/event-log', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId } = request.user;
@@ -1020,7 +1021,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Update case summary fields
    */
   fastify.put<{ Params: { caseId: string } }>('/:caseId/case-summary', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;
@@ -1093,7 +1094,7 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
    * Update case scheduled date, time, and OR room
    */
   fastify.put<{ Params: { caseId: string } }>('/:caseId/scheduling', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request, reply) => {
     const { caseId } = request.params;
     const { facilityId, userId, name: userName, role: userRole } = request.user;

@@ -13,6 +13,7 @@ import {
   SelectPreferenceCardRequestSchema,
 } from '../schemas/index.js';
 import { requireCapabilities, getUserRoles, deriveCapabilities } from '../plugins/auth.js';
+import { requirePhiAccess } from '../plugins/phi-guard.js';
 import { canStartCase, canCompleteCase } from '../services/checklists.service.js';
 import { getCaseRepository, getOrganizationRepository, SurgicalCase } from '../repositories/index.js';
 import { getStatusEvents } from '../services/case-status.service.js';
@@ -85,7 +86,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] GET /cases — List cases ─────────────────────────────
   registerContractRoute(fastify, contract.cases.list, PREFIX, {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
     handler: async (request, reply) => {
       const { facilityId } = request.user;
       const { date, status, active, search } = request.contractData.query as {
@@ -105,7 +106,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] GET /cases/:caseId — Get case details ───────────────
   registerContractRoute(fastify, contract.cases.get, PREFIX, {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId } = request.user;
@@ -133,7 +134,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] PATCH /cases/:caseId — Update case ──────────────────
   registerContractRoute(fastify, contract.cases.update, PREFIX, {
-    preHandler: [requireCapabilities('CASE_UPDATE')],
+    preHandler: [requireCapabilities('CASE_UPDATE'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId } = request.user;
@@ -197,7 +198,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/approve — Approve case ─────────
   registerContractRoute(fastify, contract.cases.approve, PREFIX, {
-    preHandler: [requireCapabilities('CASE_APPROVE'), idempotent()],
+    preHandler: [requireCapabilities('CASE_APPROVE'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true }), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId, userId } = request.user;
@@ -225,7 +226,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/reject — Reject case ───────────
   registerContractRoute(fastify, contract.cases.reject, PREFIX, {
-    preHandler: [requireCapabilities('CASE_REJECT'), idempotent()],
+    preHandler: [requireCapabilities('CASE_REJECT'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true }), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId, userId } = request.user;
@@ -243,7 +244,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] PATCH /cases/:caseId/assign-room — Assign room ─────
   registerContractRoute(fastify, contract.cases.assignRoom, PREFIX, {
-    preHandler: [requireCapabilities('CASE_ASSIGN_ROOM'), idempotent()],
+    preHandler: [requireCapabilities('CASE_ASSIGN_ROOM'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true }), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId } = request.user;
@@ -288,7 +289,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases — Create case ────────────────────────────
   registerContractRoute(fastify, contract.cases.create, PREFIX, {
-    preHandler: [requireCapabilities('CASE_CREATE')],
+    preHandler: [requireCapabilities('CASE_CREATE'), requirePhiAccess('PHI_CLINICAL')],
     handler: async (request, reply) => {
       const data = request.contractData.body as {
         surgeonId: string;
@@ -383,7 +384,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/activate — Activate case ────────
   registerContractRoute(fastify, contract.cases.activate, PREFIX, {
-    preHandler: [requireCapabilities('CASE_ACTIVATE'), idempotent()],
+    preHandler: [requireCapabilities('CASE_ACTIVATE'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true }), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId, userId } = request.user;
@@ -421,7 +422,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/deactivate — Deactivate case ────
   registerContractRoute(fastify, contract.cases.deactivate, PREFIX, {
-    preHandler: [requireCapabilities('CASE_ACTIVATE'), idempotent()],
+    preHandler: [requireCapabilities('CASE_ACTIVATE'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true }), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId } = request.user;
@@ -450,7 +451,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/cancel — Cancel case ────────────
   registerContractRoute(fastify, contract.cases.cancel, PREFIX, {
-    preHandler: [requireCapabilities('CASE_CANCEL'), idempotent()],
+    preHandler: [requireCapabilities('CASE_CANCEL'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true }), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId, userId } = request.user;
@@ -477,7 +478,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] POST /cases/:caseId/check-in-preop — Check in to PreOp ────
   registerContractRoute(fastify, contract.cases.checkInPreop, PREFIX, {
-    preHandler: [requireCapabilities('CASE_CHECKIN_PREOP'), idempotent()],
+    preHandler: [requireCapabilities('CASE_CHECKIN_PREOP'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true }), idempotent()],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId, userId } = request.user;
@@ -502,7 +503,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── [CONTRACT] GET /cases/:caseId/status-events — Status events ────
   registerContractRoute(fastify, contract.cases.statusEvents, PREFIX, {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
     handler: async (request, reply) => {
       const { caseId } = request.contractData.params as { caseId: string };
       const { facilityId } = request.user;
@@ -536,7 +537,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
    * Select preference card for case
    */
   fastify.post<{ Params: { id: string } }>('/:id/preference-card', {
-    preHandler: [requireCapabilities('CASE_PREFERENCE_CARD_LINK')],
+    preHandler: [requireCapabilities('CASE_PREFERENCE_CARD_LINK'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;
@@ -584,7 +585,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
    * Set case requirements.
    */
   fastify.put<{ Params: { id: string } }>('/:id/requirements', {
-    preHandler: [requireCapabilities('CASE_VIEW')],
+    preHandler: [requireCapabilities('CASE_VIEW'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId, userId } = request.user;
@@ -637,7 +638,7 @@ export async function casesRoutes(fastify: FastifyInstance): Promise<void> {
    * Delete an inactive case (CASE_DELETE capability — ADMIN only)
    */
   fastify.delete<{ Params: { id: string } }>('/:id', {
-    preHandler: [requireCapabilities('CASE_DELETE')],
+    preHandler: [requireCapabilities('CASE_DELETE'), requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request, reply) => {
     const { id } = request.params;
     const { facilityId } = request.user;

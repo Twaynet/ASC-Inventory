@@ -7,6 +7,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { query } from '../db/index.js';
 import { CreateAttestationRequestSchema } from '../schemas/index.js';
 import { ok, fail } from '../utils/reply.js';
+import { requirePhiAccess } from '../plugins/phi-guard.js';
 import {
   getDayBeforeReadiness,
   computeSingleCaseReadiness,
@@ -33,7 +34,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
    * Get readiness for all cases on a specific date (tomorrow by default)
    */
   fastify.get('/day-before', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request: FastifyRequest<{
     Querystring: { date?: string; refresh?: string };
   }>, reply: FastifyReply) => {
@@ -171,7 +172,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
    * Get readiness for a single case (computed fresh)
    */
   fastify.get('/cases/:id', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request: FastifyRequest<{
     Params: { id: string };
   }>, reply: FastifyReply) => {
@@ -215,7 +216,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
    * Create attestation (staff readiness attestation or surgeon acknowledgment)
    */
   fastify.post('/attestations', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const parseResult = CreateAttestationRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -294,7 +295,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
    * Get all attestations for a case
    */
   fastify.get('/cases/:id/attestations', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request: FastifyRequest<{
     Params: { id: string };
   }>, reply: FastifyReply) => {
@@ -427,7 +428,7 @@ export async function readinessRoutes(fastify: FastifyInstance): Promise<void> {
    * Used for scanner-based verification workflow
    */
   fastify.get('/cases/:id/verification', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', { evaluateCase: true, caseIdFrom: 'id' })],
   }, async (request: FastifyRequest<{
     Params: { id: string };
   }>, reply: FastifyReply) => {
