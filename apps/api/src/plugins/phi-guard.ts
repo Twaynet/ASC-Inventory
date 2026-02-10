@@ -2,18 +2,22 @@
  * PHI Access Guard — Fastify preHandler middleware
  *
  * PHI_ACCESS_AND_RETENTION_LAW — Access Model
+ * PHI_TIMEBOUND_ACCESS_AND_EXCEPTION_LAW — Phase 3
  *
  * Enforces PHI access control:
  * 1. Validates X-Access-Purpose header
- * 2. Resolves user's organization affiliations
+ * 1b. Emergency handling (justification, rate limit, bypass flags)
+ * 2. Resolves user's organization affiliations (skipped for EMERGENCY)
  * 3. Checks PHI capability from role
+ * 3.5. Clinical care window enforcement (Phase 3)
  * 4. Evaluates case-level access (org affiliation, grants, purpose override)
  * 5. Logs every access attempt to phi_access_audit_log
  *
  * Constraints:
  * - Constraint 4: Every attempt logged, including malformed
  * - Constraint 5: Deny if ANY prerequisite unresolvable
- * - Constraint 6: NOT attached to existing endpoints in Phase 1
+ * - Phase 3: Time reduces access, never expands it
+ * - Phase 3: Emergency bypasses org + time, NOT facility + capability
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
@@ -22,13 +26,15 @@ import {
   type AccessPurpose,
   AccessPurpose as AccessPurposeEnum,
   PHI_CLASSIFICATION_TO_CAPABILITY,
+  CLINICAL_CARE_WINDOW_DEFAULTS,
   deriveCapabilities,
   type Capability,
 } from '@asc/domain';
 import { getUserRoles, type JwtPayload } from './auth.js';
-import { logPhiAccess, type PhiAccessContext } from '../services/phi-audit.service.js';
+import { logPhiAccess, logPhiExport, type PhiAccessContext } from '../services/phi-audit.service.js';
 import { getOrganizationRepository } from '../repositories/index.js';
 import { query } from '../db/index.js';
+import { getEffectiveConfigValue } from '../services/config.service.js';
 
 // ============================================================================
 // Request decoration types
@@ -38,6 +44,9 @@ export interface PhiRequestContext {
   classification: PhiClassification;
   purpose: AccessPurpose;
   organizationIds: string[];
+  isEmergency: boolean;
+  /** Audit log entry ID — used by export logging */
+  auditLogId?: string;
 }
 
 // Extend Fastify request with PHI context
@@ -45,6 +54,30 @@ declare module 'fastify' {
   interface FastifyRequest {
     phiContext?: PhiRequestContext;
   }
+}
+
+// ============================================================================
+// Emergency rate limiting (in-memory, per user per hour)
+// ============================================================================
+
+const EMERGENCY_RATE_LIMIT = 10; // max emergency accesses per user per hour
+const emergencyRateMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkEmergencyRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = emergencyRateMap.get(userId);
+
+  if (!entry || now >= entry.resetAt) {
+    emergencyRateMap.set(userId, { count: 1, resetAt: now + 3600_000 });
+    return true;
+  }
+
+  if (entry.count >= EMERGENCY_RATE_LIMIT) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
 }
 
 // ============================================================================
@@ -83,7 +116,9 @@ function buildAuditContext(
   organizationIds: string[],
   caseId: string | null,
   outcome: 'ALLOWED' | 'DENIED',
-  denialReason?: string
+  denialReason?: string,
+  isEmergency?: boolean,
+  emergencyJustification?: string
 ): PhiAccessContext {
   return {
     userId: user.userId,
@@ -98,7 +133,133 @@ function buildAuditContext(
     requestId: request.requestId,
     endpoint: request.url,
     httpMethod: request.method,
+    isEmergency: isEmergency || false,
+    emergencyJustification: emergencyJustification || null,
   };
+}
+
+// ============================================================================
+// Helper: clinical care window evaluation (Phase 3)
+// ============================================================================
+
+async function evaluateClinicalCareWindow(
+  caseId: string,
+  facilityId: string
+): Promise<{ allowed: boolean }> {
+  const now = new Date();
+
+  // Get case scheduled_date
+  const caseResult = await query<{
+    scheduled_date: Date | null;
+  }>(
+    `SELECT scheduled_date FROM surgical_case WHERE id = $1 AND facility_id = $2`,
+    [caseId, facilityId]
+  );
+
+  if (caseResult.rows.length === 0) {
+    // Case not found — caller already handles this; but defensive return
+    return { allowed: false };
+  }
+
+  const scheduledDate = caseResult.rows[0].scheduled_date;
+
+  // Use same query pattern as getStatusEvents (case-status.service.ts)
+  // Find COMPLETED status event for this case
+  const completionResult = await query<{ created_at: Date }>(
+    `SELECT created_at FROM surgical_case_status_event
+     WHERE surgical_case_id = $1 AND to_status = 'COMPLETED'
+     ORDER BY created_at DESC LIMIT 1`,
+    [caseId]
+  );
+
+  const completionTimestamp = completionResult.rows.length > 0
+    ? completionResult.rows[0].created_at
+    : null;
+
+  // Resolve facility config overrides, falling back to defaults
+  let preOpDays: number = CLINICAL_CARE_WINDOW_DEFAULTS.preOpDays;
+  let postCompletionDays: number = CLINICAL_CARE_WINDOW_DEFAULTS.postCompletionDays;
+
+  try {
+    const preOpOverride = await getEffectiveConfigValue(
+      'phi.clinical_care_window.pre_op_days', facilityId
+    );
+    if (typeof preOpOverride === 'number' && preOpOverride > 0) {
+      preOpDays = preOpOverride;
+    }
+
+    const postCompletionOverride = await getEffectiveConfigValue(
+      'phi.clinical_care_window.post_completion_days', facilityId
+    );
+    if (typeof postCompletionOverride === 'number' && postCompletionOverride > 0) {
+      postCompletionDays = postCompletionOverride;
+    }
+  } catch {
+    // Config lookup failure → use defaults (don't block access for config issues)
+  }
+
+  // Evaluate window: [scheduledDate - preOpDays, completionTimestamp + postCompletionDays]
+
+  // Check pre-op boundary (if scheduledDate exists)
+  if (scheduledDate) {
+    const windowStart = new Date(scheduledDate);
+    windowStart.setDate(windowStart.getDate() - preOpDays);
+    if (now < windowStart) {
+      return { allowed: false };
+    }
+  }
+  // If scheduledDate is NULL: start is unbounded — no pre-op denial
+
+  // Check post-completion boundary (if case is completed)
+  if (completionTimestamp) {
+    const windowEnd = new Date(completionTimestamp);
+    windowEnd.setDate(windowEnd.getDate() + postCompletionDays);
+    if (now > windowEnd) {
+      return { allowed: false };
+    }
+  }
+  // If completionTimestamp is NULL: case is not completed — end is unbounded
+
+  return { allowed: true };
+}
+
+// ============================================================================
+// Export purpose enforcement (centralized for all export endpoints)
+// ============================================================================
+
+const VALID_EXPORT_PURPOSES: AccessPurpose[] = ['AUDIT', 'BILLING'];
+
+/**
+ * Check if the current request's PHI purpose is valid for export.
+ * Returns null if valid, or an error message if invalid.
+ */
+export function validateExportPurpose(request: FastifyRequest): string | null {
+  const purpose = request.phiContext?.purpose;
+  if (!purpose) return 'No PHI context available';
+
+  if (!VALID_EXPORT_PURPOSES.includes(purpose)) {
+    return `Export requires AUDIT or BILLING purpose; received ${purpose}`;
+  }
+
+  return null;
+}
+
+/**
+ * Log export metadata after a successful export response.
+ * Best-effort: errors are caught internally and do not break the response.
+ */
+export async function logExportEvent(
+  request: FastifyRequest,
+  format: string,
+  rowCount: number
+): Promise<void> {
+  try {
+    const auditLogId = request.phiContext?.auditLogId;
+    if (!auditLogId) return;
+    await logPhiExport(auditLogId, format, rowCount);
+  } catch (err) {
+    request.log.error(err, 'Failed to log PHI export event (best-effort)');
+  }
 }
 
 // ============================================================================
@@ -112,8 +273,8 @@ function buildAuditContext(
  *
  * Options:
  * - evaluateCase: if true, resolves caseId from request and evaluates
- *   case-level access (org affiliation, grants, purpose override).
- *   Default: false (for Phase 1; Phase 2 will enable on case endpoints).
+ *   case-level access (org affiliation, grants, purpose override, time window).
+ * - caseIdFrom: custom param name to resolve caseId from (e.g. 'id').
  */
 export function requirePhiAccess(
   classification: PhiClassification,
@@ -126,15 +287,13 @@ export function requirePhiAccess(
 
     // Pre-check: user must be authenticated with facility context
     if (!user || !user.facilityId) {
-      // No user or no facility = cannot evaluate PHI access
-      // Log with minimal context available
       const minCtx: PhiAccessContext = {
         userId: user?.userId || 'unknown',
         userRoles: [],
         facilityId: '',
         organizationIds: [],
         phiClassification: classification,
-        accessPurpose: 'CLINICAL_CARE', // placeholder for malformed
+        accessPurpose: 'CLINICAL_CARE',
         outcome: 'DENIED',
         denialReason: 'NO_FACILITY_CONTEXT',
         requestId: request.requestId,
@@ -191,45 +350,95 @@ export function requirePhiAccess(
     const purpose = purposeResult.data;
 
     // ------------------------------------------------------------------
-    // Step 2: Resolve user's org affiliations — DENY if none
+    // Step 1b: Emergency handling (Phase 3)
     // ------------------------------------------------------------------
-    const orgRepo = getOrganizationRepository();
-    let affiliations;
-    try {
-      affiliations = await orgRepo.getUserAffiliations(user.userId, facilityId);
-    } catch (err) {
-      request.log.error(err, 'Failed to resolve user org affiliations');
-      const ctx = buildAuditContext(
-        request, user, classification, purpose, [], null, 'DENIED', 'AFFILIATION_RESOLUTION_ERROR'
-      );
-      await logPhiAccess(ctx);
-      return reply.status(403).send({
-        error: {
-          code: 'PHI_ACCESS_DENIED',
-          message: 'Unable to resolve organizational affiliations',
-          requestId: request.requestId,
-        },
-      });
+    let isEmergency = false;
+    let emergencyJustification: string | undefined;
+
+    if (purpose === 'EMERGENCY') {
+      // Extract justification
+      const justification = request.headers['x-emergency-justification'] as string | undefined;
+      if (!justification || justification.trim().length < 10) {
+        const ctx = buildAuditContext(
+          request, user, classification, purpose, [], null,
+          'DENIED', 'EMERGENCY_JUSTIFICATION_REQUIRED', true, justification
+        );
+        await logPhiAccess(ctx);
+        return reply.status(403).send({
+          error: {
+            code: 'PHI_ACCESS_DENIED',
+            message: 'Emergency access requires X-Emergency-Justification header (minimum 10 characters)',
+            requestId: request.requestId,
+          },
+        });
+      }
+
+      // Rate limit check
+      if (!checkEmergencyRateLimit(user.userId)) {
+        const ctx = buildAuditContext(
+          request, user, classification, purpose, [], null,
+          'DENIED', 'EMERGENCY_RATE_LIMIT', true, justification
+        );
+        await logPhiAccess(ctx);
+        return reply.status(429).send({
+          error: {
+            code: 'PHI_ACCESS_DENIED',
+            message: 'Emergency access rate limit exceeded. Maximum 10 per hour.',
+            requestId: request.requestId,
+          },
+        });
+      }
+
+      isEmergency = true;
+      emergencyJustification = justification.trim();
     }
 
-    const organizationIds = affiliations.map(a => a.organizationId);
+    // ------------------------------------------------------------------
+    // Step 2: Resolve user's org affiliations — DENY if none
+    // (SKIPPED for EMERGENCY — emergency bypasses org affiliation)
+    // ------------------------------------------------------------------
+    const orgRepo = getOrganizationRepository();
+    let organizationIds: string[] = [];
 
-    if (affiliations.length === 0) {
-      const ctx = buildAuditContext(
-        request, user, classification, purpose, [], null, 'DENIED', 'NO_ORG_AFFILIATIONS'
-      );
-      await logPhiAccess(ctx);
-      return reply.status(403).send({
-        error: {
-          code: 'PHI_ACCESS_DENIED',
-          message: 'User has no active organizational affiliations',
-          requestId: request.requestId,
-        },
-      });
+    if (!isEmergency) {
+      let affiliations;
+      try {
+        affiliations = await orgRepo.getUserAffiliations(user.userId, facilityId);
+      } catch (err) {
+        request.log.error(err, 'Failed to resolve user org affiliations');
+        const ctx = buildAuditContext(
+          request, user, classification, purpose, [], null, 'DENIED', 'AFFILIATION_RESOLUTION_ERROR'
+        );
+        await logPhiAccess(ctx);
+        return reply.status(403).send({
+          error: {
+            code: 'PHI_ACCESS_DENIED',
+            message: 'Unable to resolve organizational affiliations',
+            requestId: request.requestId,
+          },
+        });
+      }
+
+      organizationIds = affiliations.map(a => a.organizationId);
+
+      if (affiliations.length === 0) {
+        const ctx = buildAuditContext(
+          request, user, classification, purpose, [], null, 'DENIED', 'NO_ORG_AFFILIATIONS'
+        );
+        await logPhiAccess(ctx);
+        return reply.status(403).send({
+          error: {
+            code: 'PHI_ACCESS_DENIED',
+            message: 'User has no active organizational affiliations',
+            requestId: request.requestId,
+          },
+        });
+      }
     }
 
     // ------------------------------------------------------------------
     // Step 3: Check PHI capability — DENY if missing
+    // (NOT skipped for emergency — LAW §4.1: EMERGENCY does not bypass capability)
     // ------------------------------------------------------------------
     const userCaps = deriveCapabilities(userRoles);
     const requiredCap: Capability = PHI_CLASSIFICATION_TO_CAPABILITY[classification];
@@ -237,7 +446,7 @@ export function requirePhiAccess(
     if (!userCaps.includes(requiredCap)) {
       const ctx = buildAuditContext(
         request, user, classification, purpose, organizationIds, null,
-        'DENIED', 'MISSING_PHI_CAPABILITY'
+        'DENIED', 'MISSING_PHI_CAPABILITY', isEmergency, emergencyJustification
       );
       await logPhiAccess(ctx);
       return reply.status(403).send({
@@ -250,7 +459,7 @@ export function requirePhiAccess(
     }
 
     // ------------------------------------------------------------------
-    // Step 4: Case-level evaluation (full primitives, built now)
+    // Step 4: Case-level evaluation (includes time window)
     // ------------------------------------------------------------------
     let caseId: string | null = null;
 
@@ -270,7 +479,7 @@ export function requirePhiAccess(
         if (caseResult.rows.length === 0) {
           const ctx = buildAuditContext(
             request, user, classification, purpose, organizationIds, caseId,
-            'DENIED', 'CASE_NOT_FOUND'
+            'DENIED', 'CASE_NOT_FOUND', isEmergency, emergencyJustification
           );
           await logPhiAccess(ctx);
           return reply.status(403).send({
@@ -285,10 +494,11 @@ export function requirePhiAccess(
         const caseRow = caseResult.rows[0];
 
         // Verify case belongs to same facility
+        // (NOT bypassed by EMERGENCY — LAW §4.1)
         if (caseRow.facility_id !== facilityId) {
           const ctx = buildAuditContext(
             request, user, classification, purpose, organizationIds, caseId,
-            'DENIED', 'CROSS_FACILITY_ACCESS'
+            'DENIED', 'CROSS_FACILITY_ACCESS', isEmergency, emergencyJustification
           );
           await logPhiAccess(ctx);
           return reply.status(403).send({
@@ -300,53 +510,88 @@ export function requirePhiAccess(
           });
         }
 
-        // If attribution missing/unresolvable → DENY + log
-        if (!caseRow.primary_organization_id) {
-          const ctx = buildAuditContext(
-            request, user, classification, purpose, organizationIds, caseId,
-            'DENIED', 'CASE_ATTRIBUTION_MISSING'
-          );
-          await logPhiAccess(ctx);
-          return reply.status(403).send({
-            error: {
-              code: 'PHI_ACCESS_DENIED',
-              message: 'Case has no primary organization attribution',
-              requestId: request.requestId,
-            },
-          });
+        // ----------------------------------------------------------------
+        // Step 3.5: Clinical care window enforcement (Phase 3)
+        // Applies to PHI_CLINICAL with CLINICAL_CARE or SCHEDULING purpose.
+        // EMERGENCY bypasses time window.
+        // BILLING and AUDIT are not affected by time window.
+        // ----------------------------------------------------------------
+        if (
+          !isEmergency &&
+          classification === 'PHI_CLINICAL' &&
+          (purpose === 'CLINICAL_CARE' || purpose === 'SCHEDULING')
+        ) {
+          const windowResult = await evaluateClinicalCareWindow(caseId, facilityId);
+
+          if (!windowResult.allowed) {
+            const ctx = buildAuditContext(
+              request, user, classification, purpose, organizationIds, caseId,
+              'DENIED', 'OUTSIDE_CLINICAL_WINDOW'
+            );
+            await logPhiAccess(ctx);
+            return reply.status(403).send({
+              error: {
+                code: 'PHI_ACCESS_DENIED',
+                message: 'Access denied: outside clinical care window',
+                denialReason: 'OUTSIDE_CLINICAL_WINDOW',
+                requestId: request.requestId,
+              },
+            });
+          }
         }
 
-        const caseOrgId = caseRow.primary_organization_id;
+        // ----------------------------------------------------------------
+        // Case-level org evaluation (SKIPPED for EMERGENCY)
+        // ----------------------------------------------------------------
+        if (!isEmergency) {
+          // If attribution missing/unresolvable → DENY + log
+          if (!caseRow.primary_organization_id) {
+            const ctx = buildAuditContext(
+              request, user, classification, purpose, organizationIds, caseId,
+              'DENIED', 'CASE_ATTRIBUTION_MISSING'
+            );
+            await logPhiAccess(ctx);
+            return reply.status(403).send({
+              error: {
+                code: 'PHI_ACCESS_DENIED',
+                message: 'Case has no primary organization attribution',
+                requestId: request.requestId,
+              },
+            });
+          }
 
-        // Evaluate access:
-        // ALLOW if (user affiliated with primary org)
-        //     OR (has active case_access_grant for that case)
-        //     OR (purpose=BILLING/AUDIT with appropriate capability)
-        const isAffiliated = organizationIds.includes(caseOrgId);
+          const caseOrgId = caseRow.primary_organization_id;
 
-        let hasGrant = false;
-        if (!isAffiliated) {
-          const grants = await orgRepo.getActiveCaseGrants(caseId);
-          hasGrant = grants.some(g => g.grantedToUserId === user.userId);
-        }
+          // Evaluate access:
+          // ALLOW if (user affiliated with primary org)
+          //     OR (has active case_access_grant for that case)
+          //     OR (purpose=BILLING/AUDIT with appropriate capability)
+          const isAffiliated = organizationIds.includes(caseOrgId);
 
-        const isPurposeOverride =
-          (purpose === 'BILLING' && userCaps.includes('PHI_BILLING_ACCESS')) ||
-          (purpose === 'AUDIT' && userCaps.includes('PHI_AUDIT_ACCESS'));
+          let hasGrant = false;
+          if (!isAffiliated) {
+            const grants = await orgRepo.getActiveCaseGrants(caseId);
+            hasGrant = grants.some(g => g.grantedToUserId === user.userId);
+          }
 
-        if (!isAffiliated && !hasGrant && !isPurposeOverride) {
-          const ctx = buildAuditContext(
-            request, user, classification, purpose, organizationIds, caseId,
-            'DENIED', 'NO_CASE_ACCESS'
-          );
-          await logPhiAccess(ctx);
-          return reply.status(403).send({
-            error: {
-              code: 'PHI_ACCESS_DENIED',
-              message: 'User is not authorized to access PHI for this case',
-              requestId: request.requestId,
-            },
-          });
+          const isPurposeOverride =
+            (purpose === 'BILLING' && userCaps.includes('PHI_BILLING_ACCESS')) ||
+            (purpose === 'AUDIT' && userCaps.includes('PHI_AUDIT_ACCESS'));
+
+          if (!isAffiliated && !hasGrant && !isPurposeOverride) {
+            const ctx = buildAuditContext(
+              request, user, classification, purpose, organizationIds, caseId,
+              'DENIED', 'NO_CASE_ACCESS'
+            );
+            await logPhiAccess(ctx);
+            return reply.status(403).send({
+              error: {
+                code: 'PHI_ACCESS_DENIED',
+                message: 'User is not authorized to access PHI for this case',
+                requestId: request.requestId,
+              },
+            });
+          }
         }
       }
     }
@@ -354,18 +599,27 @@ export function requirePhiAccess(
     // ------------------------------------------------------------------
     // Step 5: ACCESS ALLOWED — decorate request and log
     // ------------------------------------------------------------------
+    const allowedCtx = buildAuditContext(
+      request, user, classification, purpose, organizationIds, caseId,
+      'ALLOWED', undefined, isEmergency, emergencyJustification
+    );
+
+    // ALLOWED: fire-and-forget (non-blocking), but capture audit log ID for export linking
+    logPhiAccess(allowedCtx)
+      .then(auditLogId => {
+        if (request.phiContext) {
+          request.phiContext.auditLogId = auditLogId;
+        }
+      })
+      .catch(err =>
+        request.log.error(err, 'Failed to log ALLOWED PHI access event')
+      );
+
     request.phiContext = {
       classification,
       purpose,
       organizationIds,
+      isEmergency,
     };
-
-    // ALLOWED: fire-and-forget (non-blocking)
-    const allowedCtx = buildAuditContext(
-      request, user, classification, purpose, organizationIds, caseId, 'ALLOWED'
-    );
-    logPhiAccess(allowedCtx).catch(err =>
-      request.log.error(err, 'Failed to log ALLOWED PHI access event')
-    );
   };
 }

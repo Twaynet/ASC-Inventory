@@ -5,7 +5,7 @@
 
 import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
-import { requirePhiAccess } from '../plugins/phi-guard.js';
+import { requirePhiAccess, validateExportPurpose, logExportEvent } from '../plugins/phi-guard.js';
 
 // ============================================================================
 // Types
@@ -144,6 +144,25 @@ function generateCSV(headers: string[], rows: Record<string, unknown>[]): string
     headers.map(h => escapeCSVField(row[h])).join(',')
   );
   return [headerLine, ...dataLines].join('\n');
+}
+
+/**
+ * Centralized export purpose enforcement (Phase 3 — LAW §5.2)
+ * Returns a 403 reply if the purpose is invalid for export, or null if valid.
+ */
+function enforceExportPurpose(request: import('fastify').FastifyRequest, reply: import('fastify').FastifyReply): boolean {
+  const error = validateExportPurpose(request);
+  if (error) {
+    reply.status(403).send({
+      error: {
+        code: 'EXPORT_PURPOSE_INVALID',
+        message: error,
+        requestId: request.requestId,
+      },
+    });
+    return false; // invalid
+  }
+  return true; // valid
 }
 
 // ============================================================================
@@ -528,12 +547,14 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     };
 
     if (format === 'csv') {
+      if (!enforceExportPurpose(request, reply)) return;
       const headers = [
         'scheduledDate', 'procedureName', 'surgeonName', 'checklistType', 'checklistStatus',
         'startedAt', 'completedAt', 'circulatorSigned', 'surgeonSigned', 'scrubSigned',
         'anesthesiaSigned', 'pendingScrubReview', 'pendingSurgeonReview', 'signatureCount',
       ];
       const csv = generateCSV(headers, rows);
+      logExportEvent(request, 'csv', rows.length).catch(() => {});
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="checklist-compliance_${start}_${end}.csv"`)
@@ -657,12 +678,14 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     };
 
     if (format === 'csv') {
+      if (!enforceExportPurpose(request, reply)) return;
       const headers = [
         'scheduledDate', 'scheduledTime', 'procedureName', 'surgeonName', 'orRoom',
         'status', 'isActive', 'isCancelled', 'cancelledAt', 'estimatedDuration',
         'readinessState', 'hasAttestation', 'caseCardName', 'checklistsCompleted',
       ];
       const csv = generateCSV(headers, rows);
+      logExportEvent(request, 'csv', rows.length).catch(() => {});
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="case-summary_${start}_${end}.csv"`)
@@ -852,6 +875,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     };
 
     if (format === 'csv') {
+      if (!enforceExportPurpose(request, reply)) return;
       const headers = [
         'occurredAt', 'vendorName', 'repName', 'catalogName', 'category',
         'serialNumber', 'lotNumber', 'caseName', 'caseDate',
@@ -860,6 +884,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
         'performedBy', 'attestedBy',
       ];
       const csv = generateCSV(headers, rows);
+      logExportEvent(request, 'csv', rows.length).catch(() => {});
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="vendor-concessions_${start}_${end}.csv"`)
@@ -1010,12 +1035,14 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     };
 
     if (format === 'csv') {
+      if (!enforceExportPurpose(request, reply)) return;
       const headers = [
         'catalogName', 'category', 'manufacturer', 'serialNumber', 'lotNumber',
         'barcode', 'expiresAt', 'availabilityStatus', 'ownershipType',
         'unitCostDollars', 'consignmentVendor', 'loanerSetId', 'loanerVendor',
       ];
       const csv = generateCSV(headers, rows);
+      logExportEvent(request, 'csv', rows.length).catch(() => {});
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="inventory-valuation_${new Date().toISOString().split('T')[0]}.csv"`)
@@ -1186,6 +1213,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     };
 
     if (format === 'csv') {
+      if (!enforceExportPurpose(request, reply)) return;
       const headers = [
         'setIdentifier', 'vendorName', 'description', 'caseName', 'caseDate',
         'receivedAt', 'receivedBy', 'expectedReturnDate', 'isOverdue', 'daysOverdue',
@@ -1193,6 +1221,7 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
         'vendorContact', 'vendorEmail', 'vendorPhone', 'notes',
       ];
       const csv = generateCSV(headers, rows);
+      logExportEvent(request, 'csv', rows.length).catch(() => {});
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="loaner-exposure_${new Date().toISOString().split('T')[0]}.csv"`)
@@ -1302,11 +1331,13 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     };
 
     if (format === 'csv') {
+      if (!enforceExportPurpose(request, reply)) return;
       const headers = [
         'scheduledDate', 'procedureName', 'surgeonName', 'orRoom',
         'priorStatus', 'cancellationReason', 'cancelledByName', 'cancelledAt',
       ];
       const csv = generateCSV(headers, rows);
+      logExportEvent(request, 'csv', rows.length).catch(() => {});
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="cancelled-cases_${start}_${end}.csv"`)
@@ -1406,10 +1437,12 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     };
 
     if (format === 'csv') {
+      if (!enforceExportPurpose(request, reply)) return;
       const headers = [
         'occurredAt', 'procedureName', 'surgeonName', 'fromStatus', 'toStatus', 'reason', 'actorName',
       ];
       const csv = generateCSV(headers, rows);
+      logExportEvent(request, 'csv', rows.length).catch(() => {});
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="case-timelines_${start}_${end}.csv"`)
@@ -1533,12 +1566,14 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     };
 
     if (format === 'csv') {
+      if (!enforceExportPurpose(request, reply)) return;
       const headers = [
         'scheduledDate', 'procedureName', 'surgeonName', 'checklistStatus',
         'startedAt', 'completedAt', 'durationMinutes',
         'circulatorSigned', 'surgeonSigned', 'scrubSigned', 'pendingReviews', 'flagged',
       ];
       const csv = generateCSV(headers, rows);
+      logExportEvent(request, 'csv', rows.length).catch(() => {});
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="debrief-summary_${start}_${end}.csv"`)
@@ -1626,10 +1661,12 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     };
 
     if (format === 'csv') {
+      if (!enforceExportPurpose(request, reply)) return;
       const headers = [
         'occurredAt', 'eventType', 'procedureName', 'userName', 'userRole', 'description',
       ];
       const csv = generateCSV(headers, rows);
+      logExportEvent(request, 'csv', rows.length).catch(() => {});
       return reply
         .header('Content-Type', 'text/csv')
         .header('Content-Disposition', `attachment; filename="case-event-log_${start}_${end}.csv"`)

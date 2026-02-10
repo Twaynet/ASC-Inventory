@@ -32,6 +32,8 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:300
  * Pattern order matters: first match wins.
  */
 const PHI_PURPOSE_RULES: Array<{ pattern: RegExp; purpose: AccessPurpose }> = [
+  // PHI audit visibility (Phase 3)
+  { pattern: /^\/phi-audit/, purpose: 'AUDIT' },
   // Financial reports
   { pattern: /^\/reports\/vendor-concessions/, purpose: 'BILLING' },
   { pattern: /^\/reports\/inventory-valuation/, purpose: 'BILLING' },
@@ -100,6 +102,8 @@ export interface RequestOptions {
   requestSchema?: ZodTypeAny;
   /** Explicit access purpose — overrides automatic resolution from endpoint path */
   accessPurpose?: AccessPurpose;
+  /** Emergency justification text — attached as X-Emergency-Justification header (Phase 3) */
+  emergencyJustification?: string;
 }
 
 // ============================================================================
@@ -118,7 +122,7 @@ export interface RequestOptions {
  *   - Legacy:       { error: "string" }                     → throws ApiError
  */
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, token, requestSchema, responseSchema, accessPurpose } = options;
+  const { method = 'GET', body, token, requestSchema, responseSchema, accessPurpose, emergencyJustification } = options;
 
   // Validate request body if schema provided
   if (requestSchema && body !== undefined) {
@@ -155,6 +159,11 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
   const purpose = accessPurpose ?? resolveAccessPurpose(endpoint);
   if (purpose) {
     headers['X-Access-Purpose'] = purpose;
+  }
+
+  // PHI Phase 3: attach emergency justification if provided
+  if (emergencyJustification) {
+    headers['X-Emergency-Justification'] = emergencyJustification;
   }
 
   const response = await fetch(`${API_BASE}${endpoint}`, {
