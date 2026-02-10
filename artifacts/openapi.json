@@ -230,6 +230,12 @@
                                   "number",
                                   "null"
                                 ]
+                              },
+                              "primaryOrganizationId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               }
                             },
                             "required": [
@@ -262,7 +268,8 @@
                               "roomId",
                               "roomName",
                               "estimatedDurationMinutes",
-                              "sortOrder"
+                              "sortOrder",
+                              "primaryOrganizationId"
                             ]
                           }
                         }
@@ -328,6 +335,10 @@
                       "REQUESTED",
                       "SCHEDULED"
                     ]
+                  },
+                  "primaryOrganizationId": {
+                    "type": "string",
+                    "format": "uuid"
                   }
                 },
                 "required": [
@@ -512,6 +523,12 @@
                                 "number",
                                 "null"
                               ]
+                            },
+                            "primaryOrganizationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -544,7 +561,8 @@
                             "roomId",
                             "roomName",
                             "estimatedDurationMinutes",
-                            "sortOrder"
+                            "sortOrder",
+                            "primaryOrganizationId"
                           ]
                         }
                       },
@@ -752,6 +770,12 @@
                                 "number",
                                 "null"
                               ]
+                            },
+                            "primaryOrganizationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -784,7 +808,8 @@
                             "roomId",
                             "roomName",
                             "estimatedDurationMinutes",
-                            "sortOrder"
+                            "sortOrder",
+                            "primaryOrganizationId"
                           ]
                         }
                       },
@@ -1048,6 +1073,12 @@
                                 "number",
                                 "null"
                               ]
+                            },
+                            "primaryOrganizationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -1080,7 +1111,8 @@
                             "roomId",
                             "roomName",
                             "estimatedDurationMinutes",
-                            "sortOrder"
+                            "sortOrder",
+                            "primaryOrganizationId"
                           ]
                         }
                       },
@@ -1322,6 +1354,12 @@
                                 "number",
                                 "null"
                               ]
+                            },
+                            "primaryOrganizationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -1354,7 +1392,8 @@
                             "roomId",
                             "roomName",
                             "estimatedDurationMinutes",
-                            "sortOrder"
+                            "sortOrder",
+                            "primaryOrganizationId"
                           ]
                         }
                       },
@@ -1581,6 +1620,12 @@
                                 "number",
                                 "null"
                               ]
+                            },
+                            "primaryOrganizationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -1613,7 +1658,8 @@
                             "roomId",
                             "roomName",
                             "estimatedDurationMinutes",
-                            "sortOrder"
+                            "sortOrder",
+                            "primaryOrganizationId"
                           ]
                         }
                       },
@@ -1851,6 +1897,12 @@
                                 "number",
                                 "null"
                               ]
+                            },
+                            "primaryOrganizationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -1883,7 +1935,8 @@
                             "roomId",
                             "roomName",
                             "estimatedDurationMinutes",
-                            "sortOrder"
+                            "sortOrder",
+                            "primaryOrganizationId"
                           ]
                         }
                       },
@@ -2113,6 +2166,12 @@
                                 "number",
                                 "null"
                               ]
+                            },
+                            "primaryOrganizationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -2145,7 +2204,8 @@
                             "roomId",
                             "roomName",
                             "estimatedDurationMinutes",
-                            "sortOrder"
+                            "sortOrder",
+                            "primaryOrganizationId"
                           ]
                         }
                       },
@@ -2353,6 +2413,12 @@
                                 "number",
                                 "null"
                               ]
+                            },
+                            "primaryOrganizationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -2385,7 +2451,8 @@
                             "roomId",
                             "roomName",
                             "estimatedDurationMinutes",
-                            "sortOrder"
+                            "sortOrder",
+                            "primaryOrganizationId"
                           ]
                         }
                       },
@@ -2607,6 +2674,12 @@
                                 "number",
                                 "null"
                               ]
+                            },
+                            "primaryOrganizationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -2639,7 +2712,8 @@
                             "roomId",
                             "roomName",
                             "estimatedDurationMinutes",
-                            "sortOrder"
+                            "sortOrder",
+                            "primaryOrganizationId"
                           ]
                         }
                       },
@@ -2847,6 +2921,12 @@
                                 "number",
                                 "null"
                               ]
+                            },
+                            "primaryOrganizationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -2879,7 +2959,8 @@
                             "roomId",
                             "roomName",
                             "estimatedDurationMinutes",
-                            "sortOrder"
+                            "sortOrder",
+                            "primaryOrganizationId"
                           ]
                         }
                       },

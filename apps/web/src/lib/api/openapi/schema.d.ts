@@ -497,6 +497,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             }[];
                         };
                     };
@@ -526,6 +527,8 @@ export interface operations {
                     notes?: string;
                     /** @enum {string} */
                     status?: "REQUESTED" | "SCHEDULED";
+                    /** Format: uuid */
+                    primaryOrganizationId?: string;
                 };
             };
         };
@@ -573,6 +576,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             };
                         };
                     };
@@ -634,6 +638,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             };
                         };
                     };
@@ -710,6 +715,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             };
                         };
                     };
@@ -781,6 +787,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             };
                         };
                     };
@@ -848,6 +855,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             };
                         };
                     };
@@ -918,6 +926,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             };
                         };
                     };
@@ -986,6 +995,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             };
                         };
                     };
@@ -1047,6 +1057,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             };
                         };
                     };
@@ -1114,6 +1125,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             };
                         };
                     };
@@ -1175,6 +1187,7 @@ export interface operations {
                                 roomName: string | null;
                                 estimatedDurationMinutes: number | null;
                                 sortOrder: number | null;
+                                primaryOrganizationId: string | null;
                             };
                         };
                     };
