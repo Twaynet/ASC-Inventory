@@ -21,7 +21,7 @@ No documents, exports, or external transmission mechanisms are introduced.
 
 ### In Scope (Phase 6A)
 - Patient identity records
-- Patient identifiers (name, DOB, MRN, etc.)
+- Patient identifiers (name, DOB, MRN, gender)
 - Association of patient identity to surgical cases
 - Read access to identity data for authorized clinical workflows
 
@@ -42,7 +42,7 @@ For Phase 6, **PHI Identity** consists of the following data elements:
 - Patient full name
 - Date of birth
 - Medical record number (MRN) or facility-scoped identifier
-- Optional demographic identifiers explicitly approved by future law
+- Gender (Amendment 1: constrained to MALE, FEMALE, OTHER, UNKNOWN; required for surgical timeout patient verification)
 
 No other clinical or administrative data is considered PHI under this phase unless explicitly added by later law.
 
@@ -178,7 +178,7 @@ Phase 6 is considered complete when:
 
 ## Future Phases
 
-- Phase 6B: Clinical documents
+- Phase 6B: Clinical documents (deferred — see _drafts/)
 - Phase 7: Outbound PHI transmission / integrations
 
 These phases require separate LAW documents.

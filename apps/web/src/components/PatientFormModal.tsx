@@ -7,6 +7,7 @@ import {
   type PatientIdentity,
   type CreatePatientBody,
 } from '@/lib/api/phi-patient';
+import { GENDER_VALUES, type Gender } from '@asc/domain';
 
 interface PatientFormModalProps {
   token: string;
@@ -28,6 +29,7 @@ export function PatientFormModal({
   const [lastName, setLastName] = useState(patient?.lastName ?? '');
   const [dateOfBirth, setDateOfBirth] = useState(patient?.dateOfBirth ?? '');
   const [mrn, setMrn] = useState(patient?.mrn ?? '');
+  const [gender, setGender] = useState<Gender>(patient?.gender ?? 'UNKNOWN');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -46,6 +48,7 @@ export function PatientFormModal({
         if (lastName.trim() !== patient.lastName) body.lastName = lastName.trim();
         if (dateOfBirth !== patient.dateOfBirth) body.dateOfBirth = dateOfBirth;
         if (mrn.trim() !== patient.mrn) body.mrn = mrn.trim();
+        if (gender !== patient.gender) body.gender = gender;
 
         if (Object.keys(body).length === 0) {
           onClose();
@@ -60,6 +63,7 @@ export function PatientFormModal({
           lastName: lastName.trim(),
           dateOfBirth,
           mrn: mrn.trim(),
+          gender,
         });
         onSaved(result.patient);
       }
@@ -119,6 +123,17 @@ export function PatientFormModal({
               placeholder="Medical Record Number"
               required
             />
+          </div>
+          <div className="form-group">
+            <label>Gender</label>
+            <select
+              value={gender}
+              onChange={e => setGender(e.target.value as Gender)}
+            >
+              {GENDER_VALUES.map(g => (
+                <option key={g} value={g}>{g.charAt(0) + g.slice(1).toLowerCase()}</option>
+              ))}
+            </select>
           </div>
 
           <div className="flex gap-2 justify-end mt-4">

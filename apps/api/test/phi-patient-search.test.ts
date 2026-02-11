@@ -1,10 +1,10 @@
 /**
- * PHI Patient Search — Tripwire Tests
+ * PHI Patient — Tripwire Tests
  *
- * Minimal smoke tests to detect PHI boundary regressions on the
- * /api/phi-patient/search endpoint:
+ * Minimal smoke tests to detect PHI boundary regressions:
  *   1. Empty search (no criteria) must be rejected (no "show all patients")
  *   2. Users without PHI_PATIENT_SEARCH capability must be denied
+ *   3. Create patient accepts gender and rejects invalid values
  *
  * These tests mock the database and phi-guard to isolate handler logic.
  */
@@ -78,7 +78,7 @@ async function buildApp(userOverrides: Record<string, unknown> = {}): Promise<Fa
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('PHI Patient Search — tripwire tests', () => {
+describe('PHI Patient — tripwire tests', () => {
   let app: FastifyInstance;
 
   beforeEach(() => {
@@ -146,5 +146,114 @@ describe('PHI Patient Search — tripwire tests', () => {
 
     // No database query should have been made
     expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // TEST 3: Create patient rejects invalid gender value
+  // -------------------------------------------------------------------------
+  it('rejects create with invalid gender (400) — no PHI in error', async () => {
+    app = await buildApp({ role: 'ADMIN', roles: ['ADMIN'] });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/phi-patient',
+      payload: {
+        firstName: 'Jane',
+        lastName: 'Doe',
+        dateOfBirth: '1990-01-01',
+        mrn: 'MRN-001',
+        gender: 'INVALID_VALUE',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+
+    const body = response.json();
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(body.error.message).toMatch(/gender/i);
+    // No PHI leaked in error
+    expect(body.error.message).not.toMatch(/Jane|Doe|MRN-001/);
+  });
+
+  // -------------------------------------------------------------------------
+  // TEST 4: Create patient accepts valid gender and defaults UNKNOWN
+  // -------------------------------------------------------------------------
+  it('accepts create with valid gender (MALE) and persists it', async () => {
+    app = await buildApp({ role: 'ADMIN', roles: ['ADMIN'] });
+
+    // Mock: no existing patient with this MRN
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    // Mock: INSERT RETURNING
+    mockQuery.mockResolvedValueOnce({
+      rows: [{
+        id: 'new-patient-id',
+        first_name: 'John',
+        last_name: 'Smith',
+        date_of_birth: '1985-06-15',
+        mrn: 'MRN-002',
+        gender: 'MALE',
+      }],
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/phi-patient',
+      payload: {
+        firstName: 'John',
+        lastName: 'Smith',
+        dateOfBirth: '1985-06-15',
+        mrn: 'MRN-002',
+        gender: 'MALE',
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const body = response.json();
+    expect(body.data.patient.gender).toBe('MALE');
+
+    // Verify INSERT included gender parameter
+    const insertCall = mockQuery.mock.calls[1];
+    expect(insertCall[0]).toContain('gender');
+    expect(insertCall[1]).toContain('MALE');
+  });
+
+  it('defaults gender to UNKNOWN when not provided on create', async () => {
+    app = await buildApp({ role: 'ADMIN', roles: ['ADMIN'] });
+
+    // Mock: no existing patient with this MRN
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    // Mock: INSERT RETURNING
+    mockQuery.mockResolvedValueOnce({
+      rows: [{
+        id: 'new-patient-id',
+        first_name: 'Alex',
+        last_name: 'Jones',
+        date_of_birth: '2000-03-20',
+        mrn: 'MRN-003',
+        gender: 'UNKNOWN',
+      }],
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/phi-patient',
+      payload: {
+        firstName: 'Alex',
+        lastName: 'Jones',
+        dateOfBirth: '2000-03-20',
+        mrn: 'MRN-003',
+        // gender omitted — should default to UNKNOWN
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const body = response.json();
+    expect(body.data.patient.gender).toBe('UNKNOWN');
+
+    // Verify INSERT used UNKNOWN for gender
+    const insertCall = mockQuery.mock.calls[1];
+    expect(insertCall[1]).toContain('UNKNOWN');
   });
 });

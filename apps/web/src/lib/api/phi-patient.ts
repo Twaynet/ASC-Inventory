@@ -7,6 +7,7 @@
  */
 
 import { request } from './client';
+import type { Gender } from '@asc/domain';
 
 // ============================================================================
 // Types
@@ -18,6 +19,7 @@ export interface PatientIdentity {
   lastName: string;
   dateOfBirth: string;
   mrn: string;
+  gender: Gender;
 }
 
 export interface CreatePatientBody {
@@ -25,6 +27,7 @@ export interface CreatePatientBody {
   lastName: string;
   dateOfBirth: string;
   mrn: string;
+  gender?: Gender;
 }
 
 export interface UpdatePatientBody {
@@ -32,6 +35,7 @@ export interface UpdatePatientBody {
   lastName?: string;
   dateOfBirth?: string;
   mrn?: string;
+  gender?: Gender;
 }
 
 export interface PatientSearchParams {

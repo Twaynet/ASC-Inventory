@@ -16,7 +16,7 @@ import { query } from '../db/index.js';
 import { ok, fail } from '../utils/reply.js';
 import { requirePhiAccess } from '../plugins/phi-guard.js';
 import { logPhiAccess } from '../services/phi-audit.service.js';
-import { deriveCapabilities, type UserRole } from '@asc/domain';
+import { deriveCapabilities, type UserRole, type Gender, GENDER_VALUES } from '@asc/domain';
 
 // ============================================================================
 // Helpers
@@ -61,8 +61,9 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
       last_name: string | null;
       date_of_birth: string | null;
       mrn: string | null;
+      gender: string | null;
     }>(`
-      SELECT p.id as patient_id, p.first_name, p.last_name, p.date_of_birth, p.mrn
+      SELECT p.id as patient_id, p.first_name, p.last_name, p.date_of_birth, p.mrn, p.gender
       FROM surgical_case sc
       LEFT JOIN patient p ON sc.patient_id = p.id
       WHERE sc.id = $1 AND sc.facility_id = $2
@@ -79,6 +80,7 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
       lastName: row.last_name,
       dateOfBirth: row.date_of_birth,
       mrn: row.mrn,
+      gender: row.gender as Gender,
     } : null;
 
     return ok(reply, { patient });
@@ -110,8 +112,9 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
       last_name: string;
       date_of_birth: string;
       mrn: string;
+      gender: string;
     }>(`
-      SELECT id, first_name, last_name, date_of_birth, mrn
+      SELECT id, first_name, last_name, date_of_birth, mrn, gender
       FROM patient
       WHERE facility_id = $1 AND mrn = $2
     `, [facilityId, mrn.trim()]);
@@ -128,6 +131,7 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
         lastName: row.last_name,
         dateOfBirth: row.date_of_birth,
         mrn: row.mrn,
+        gender: row.gender as Gender,
       },
     });
   });
@@ -242,8 +246,9 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
       last_name: string;
       date_of_birth: string;
       mrn: string;
+      gender: string;
     }>(`
-      SELECT id, first_name, last_name, date_of_birth, mrn
+      SELECT id, first_name, last_name, date_of_birth, mrn, gender
       FROM patient
       WHERE ${whereClause}
       ORDER BY last_name, first_name
@@ -257,6 +262,7 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
         lastName: row.last_name,
         dateOfBirth: row.date_of_birth,
         mrn: row.mrn,
+        gender: row.gender as Gender,
       })),
       total,
       limit,
@@ -270,7 +276,7 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
    * Requires PHI_WRITE_CLINICAL capability (ADMIN only).
    */
   fastify.post<{
-    Body: { firstName: string; lastName: string; dateOfBirth: string; mrn: string };
+    Body: { firstName: string; lastName: string; dateOfBirth: string; mrn: string; gender?: string };
   }>('/', {
     preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request, reply) => {
@@ -292,7 +298,7 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
     }
 
     const { facilityId } = request.user;
-    const { firstName, lastName, dateOfBirth, mrn } = request.body;
+    const { firstName, lastName, dateOfBirth, mrn, gender } = request.body;
 
     // Validate required fields
     if (!firstName?.trim() || !lastName?.trim() || !dateOfBirth?.trim() || !mrn?.trim()) {
@@ -304,6 +310,11 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
       return fail(reply, 'VALIDATION_ERROR', 'dateOfBirth must be in YYYY-MM-DD format', 400);
     }
 
+    // Validate gender if provided
+    if (gender && !GENDER_VALUES.includes(gender as Gender)) {
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid gender value', 400);
+    }
+
     // Check for duplicate MRN within facility
     const existing = await query<{ id: string }>(`
       SELECT id FROM patient WHERE facility_id = $1 AND mrn = $2
@@ -313,17 +324,19 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
       return fail(reply, 'CONFLICT', 'A patient with this MRN already exists at this facility', 409);
     }
 
+    const genderValue = (gender as Gender) || 'UNKNOWN';
     const result = await query<{
       id: string;
       first_name: string;
       last_name: string;
       date_of_birth: string;
       mrn: string;
+      gender: string;
     }>(`
-      INSERT INTO patient (facility_id, first_name, last_name, date_of_birth, mrn)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, first_name, last_name, date_of_birth, mrn
-    `, [facilityId, firstName.trim(), lastName.trim(), dateOfBirth, mrn.trim()]);
+      INSERT INTO patient (facility_id, first_name, last_name, date_of_birth, mrn, gender)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, first_name, last_name, date_of_birth, mrn, gender
+    `, [facilityId, firstName.trim(), lastName.trim(), dateOfBirth, mrn.trim(), genderValue]);
 
     const row = result.rows[0];
     return ok(reply, {
@@ -333,6 +346,7 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
         lastName: row.last_name,
         dateOfBirth: row.date_of_birth,
         mrn: row.mrn,
+        gender: row.gender as Gender,
       },
     }, 201);
   });
@@ -344,7 +358,7 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
    */
   fastify.put<{
     Params: { patientId: string };
-    Body: { firstName?: string; lastName?: string; dateOfBirth?: string; mrn?: string };
+    Body: { firstName?: string; lastName?: string; dateOfBirth?: string; mrn?: string; gender?: string };
   }>('/:patientId', {
     preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
   }, async (request, reply) => {
@@ -367,11 +381,16 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
 
     const { facilityId } = request.user;
     const { patientId } = request.params;
-    const { firstName, lastName, dateOfBirth, mrn } = request.body;
+    const { firstName, lastName, dateOfBirth, mrn, gender } = request.body;
 
     // Validate date format if provided
     if (dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
       return fail(reply, 'VALIDATION_ERROR', 'dateOfBirth must be in YYYY-MM-DD format', 400);
+    }
+
+    // Validate gender if provided
+    if (gender && !GENDER_VALUES.includes(gender as Gender)) {
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid gender value', 400);
     }
 
     // Verify patient exists and belongs to facility
@@ -403,6 +422,7 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
     if (lastName?.trim()) { sets.push(`last_name = $${paramIdx++}`); values.push(lastName.trim()); }
     if (dateOfBirth) { sets.push(`date_of_birth = $${paramIdx++}`); values.push(dateOfBirth); }
     if (mrn?.trim()) { sets.push(`mrn = $${paramIdx++}`); values.push(mrn.trim()); }
+    if (gender) { sets.push(`gender = $${paramIdx++}`); values.push(gender); }
 
     if (sets.length === 0) {
       return fail(reply, 'VALIDATION_ERROR', 'At least one field must be provided', 400);
@@ -416,10 +436,11 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
       last_name: string;
       date_of_birth: string;
       mrn: string;
+      gender: string;
     }>(`
       UPDATE patient SET ${sets.join(', ')}
       WHERE id = $${paramIdx++} AND facility_id = $${paramIdx}
-      RETURNING id, first_name, last_name, date_of_birth, mrn
+      RETURNING id, first_name, last_name, date_of_birth, mrn, gender
     `, values);
 
     const row = result.rows[0];
@@ -430,6 +451,7 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
         lastName: row.last_name,
         dateOfBirth: row.date_of_birth,
         mrn: row.mrn,
+        gender: row.gender as Gender,
       },
     });
   });

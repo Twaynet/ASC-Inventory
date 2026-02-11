@@ -173,6 +173,7 @@ export function PatientSearchModal({
                       <th>Name</th>
                       <th>DOB</th>
                       <th>MRN</th>
+                      <th>Gender</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -182,6 +183,7 @@ export function PatientSearchModal({
                         <td>{p.lastName}, {p.firstName}</td>
                         <td>{p.dateOfBirth}</td>
                         <td>{p.mrn}</td>
+                        <td>{p.gender}</td>
                         <td>
                           <div className="flex gap-1">
                             {caseId && onLinkToCase && (

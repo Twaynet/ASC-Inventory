@@ -653,6 +653,7 @@ export function CaseDashboardContent({
                     {patient.lastName}, {patient.firstName}
                     <span className="ml-3 text-text-muted">DOB: {patient.dateOfBirth}</span>
                     <span className="ml-3 text-text-muted">MRN: {patient.mrn}</span>
+                    <span className="ml-3 text-text-muted">Gender: {patient.gender}</span>
                   </div>
                   <div className="flex gap-1">
                     <button

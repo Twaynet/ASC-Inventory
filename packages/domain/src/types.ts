@@ -72,6 +72,11 @@ export const AffiliationType = z.enum([
 ]);
 export type AffiliationType = z.infer<typeof AffiliationType>;
 
+// Gender — minimal patient identity for surgical timeout (Phase 6A.1)
+export const GenderEnum = z.enum(['MALE', 'FEMALE', 'OTHER', 'UNKNOWN']);
+export type Gender = z.infer<typeof GenderEnum>;
+export const GENDER_VALUES: readonly Gender[] = GenderEnum.options;
+
 // Clinical Care Window defaults (configurable per facility via config_registry)
 // Enforcement deferred to Phase 2; constants established now
 export const CLINICAL_CARE_WINDOW_DEFAULTS = {
