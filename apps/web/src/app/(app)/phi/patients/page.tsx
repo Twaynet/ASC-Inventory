@@ -192,7 +192,8 @@ export default function PatientSearchPage() {
   };
 
   const navigateToCase = (caseItem: PatientCase) => {
-    const date = caseItem.scheduledDate || new Date().toISOString().split('T')[0];
+    const raw = caseItem.scheduledDate || new Date().toISOString();
+    const date = raw.includes('T') ? raw.split('T')[0] : raw;
     router.push(`/calendar?view=day&date=${date}&openCase=${caseItem.id}`);
   };
 

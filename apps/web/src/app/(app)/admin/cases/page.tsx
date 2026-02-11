@@ -40,6 +40,8 @@ export default function AdminCasesPage() {
   const [surgeons, setSurgeons] = useState<User[]>([]);
   const [caseCards, setCaseCards] = useState<CaseCardSummary[]>([]);
   const [filter, setFilter] = useState<'all' | 'inactive' | 'active' | 'cancelled'>('inactive');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [surgeonFilter, setSurgeonFilter] = useState('');
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -95,16 +97,30 @@ export default function AdminCasesPage() {
   }, [token, hasRole, loadData]);
 
   const filteredCases = cases.filter((c) => {
+    // Status filter
     switch (filter) {
       case 'inactive':
-        return !c.isActive && !c.isCancelled;
+        if (c.isActive || c.isCancelled) return false;
+        break;
       case 'active':
-        return c.isActive && !c.isCancelled;
+        if (!c.isActive || c.isCancelled) return false;
+        break;
       case 'cancelled':
-        return c.isCancelled;
-      default:
-        return true;
+        if (!c.isCancelled) return false;
+        break;
     }
+    // Surgeon filter
+    if (surgeonFilter && c.surgeonId !== surgeonFilter) return false;
+    // Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      if (
+        !c.procedureName.toLowerCase().includes(q) &&
+        !c.surgeonName.toLowerCase().includes(q) &&
+        !c.caseNumber.toLowerCase().includes(q)
+      ) return false;
+    }
+    return true;
   });
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -273,6 +289,74 @@ export default function AdminCasesPage() {
           </button>
         </div>
 
+        {/* Summary Cards */}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-4 mb-4">
+          <div
+            className={`bg-surface-primary p-4 rounded-lg text-center cursor-pointer border-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${filter === 'inactive' ? 'border-accent' : 'border-transparent'} ${inactiveCount > 0 ? 'border-l-4 !border-l-[var(--color-orange)]' : 'border-l-4 !border-l-[var(--color-green)]'}`}
+            onClick={() => setFilter('inactive')}
+          >
+            <div className="text-3xl font-bold text-text-primary">{inactiveCount}</div>
+            <div className="text-sm text-text-muted">Pending Approval</div>
+          </div>
+          <div
+            className={`bg-surface-primary p-4 rounded-lg text-center cursor-pointer border-2 transition-all hover:-translate-y-0.5 hover:shadow-md border-l-4 !border-l-[var(--color-green)] ${filter === 'active' ? 'border-accent' : 'border-transparent'}`}
+            onClick={() => setFilter('active')}
+          >
+            <div className="text-3xl font-bold text-text-primary">{activeCount}</div>
+            <div className="text-sm text-text-muted">Active</div>
+          </div>
+          <div
+            className={`bg-surface-primary p-4 rounded-lg text-center cursor-pointer border-2 transition-all hover:-translate-y-0.5 hover:shadow-md border-l-4 !border-l-[var(--color-red)] ${filter === 'cancelled' ? 'border-accent' : 'border-transparent'}`}
+            onClick={() => setFilter('cancelled')}
+          >
+            <div className="text-3xl font-bold text-text-primary">{cancelledCount}</div>
+            <div className="text-sm text-text-muted">Cancelled</div>
+          </div>
+          <div
+            className={`bg-surface-primary p-4 rounded-lg text-center cursor-pointer border-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${filter === 'all' ? 'border-accent' : 'border-transparent'}`}
+            onClick={() => setFilter('all')}
+          >
+            <div className="text-3xl font-bold text-text-primary">{cases.length}</div>
+            <div className="text-sm text-text-muted">Total</div>
+          </div>
+        </div>
+
+        {/* Search & Filters */}
+        <div className="flex flex-wrap gap-3 mb-4 items-end">
+          <div className="flex-1 min-w-[200px]">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by procedure, surgeon, or case #..."
+              className="w-full p-2 border border-border rounded bg-surface-primary text-text-primary text-sm"
+            />
+          </div>
+          <div>
+            <select
+              value={surgeonFilter}
+              onChange={(e) => setSurgeonFilter(e.target.value)}
+              className="p-2 border border-border rounded bg-surface-primary text-text-primary text-sm"
+            >
+              <option value="">All Surgeons</option>
+              {surgeons.map(s => (
+                <option key={s.id} value={s.id}>Dr. {s.name}</option>
+              ))}
+            </select>
+          </div>
+          {(searchQuery || surgeonFilter) && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => { setSearchQuery(''); setSurgeonFilter(''); }}
+            >
+              Clear
+            </button>
+          )}
+          <span className="text-sm text-text-muted">
+            {filteredCases.length} case{filteredCases.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
         {/* Create Case Form */}
         {showCreateForm && (
           <div className="form-card">
@@ -357,37 +441,6 @@ export default function AdminCasesPage() {
           </div>
         )}
 
-        {/* Summary Cards */}
-        <div className="summary-cards">
-          <div
-            className={`summary-card ${filter === 'inactive' ? 'selected' : ''} ${inactiveCount > 0 ? 'orange' : 'green'}`}
-            onClick={() => setFilter('inactive')}
-          >
-            <div className="summary-value">{inactiveCount}</div>
-            <div className="summary-label">Pending Approval</div>
-          </div>
-          <div
-            className={`summary-card ${filter === 'active' ? 'selected' : ''} green`}
-            onClick={() => setFilter('active')}
-          >
-            <div className="summary-value">{activeCount}</div>
-            <div className="summary-label">Active</div>
-          </div>
-          <div
-            className={`summary-card ${filter === 'cancelled' ? 'selected' : ''} red`}
-            onClick={() => setFilter('cancelled')}
-          >
-            <div className="summary-value">{cancelledCount}</div>
-            <div className="summary-label">Cancelled</div>
-          </div>
-          <div
-            className={`summary-card ${filter === 'all' ? 'selected' : ''}`}
-            onClick={() => setFilter('all')}
-          >
-            <div className="summary-value">{cases.length}</div>
-            <div className="summary-label">Total</div>
-          </div>
-        </div>
 
         {/* Activation Form */}
         {activatingCase && (
@@ -680,62 +733,6 @@ export default function AdminCasesPage() {
           color: #4a5568;
         }
 
-        .summary-cards {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 1rem;
-          margin-bottom: 2rem;
-        }
-
-        @media (max-width: 768px) {
-          .summary-cards {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-
-        .summary-card {
-          background: white;
-          border-radius: 8px;
-          padding: 1.5rem;
-          text-align: center;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          border: 2px solid transparent;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .summary-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .summary-card.selected {
-          border-color: #3b82f6;
-        }
-
-        .summary-card.green {
-          border-left: 4px solid #38a169;
-        }
-
-        .summary-card.orange {
-          border-left: 4px solid #dd6b20;
-        }
-
-        .summary-card.red {
-          border-left: 4px solid #e53e3e;
-        }
-
-        .summary-value {
-          font-size: 2.5rem;
-          font-weight: bold;
-          color: #333;
-        }
-
-        .summary-label {
-          color: #666;
-          font-size: 0.875rem;
-          margin-top: 0.25rem;
-        }
 
         .form-card {
           background: white;
@@ -901,16 +898,11 @@ export default function AdminCasesPage() {
           cursor: pointer;
         }
 
-        :global([data-theme="dark"]) .summary-card,
         :global([data-theme="dark"]) .form-card,
         :global([data-theme="dark"]) .cases-table-container {
           background: var(--surface-secondary);
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
-        :global([data-theme="dark"]) .summary-value {
-          color: var(--text-primary);
-        }
-        :global([data-theme="dark"]) .summary-label,
         :global([data-theme="dark"]) .form-subtitle,
         :global([data-theme="dark"]) .form-note,
         :global([data-theme="dark"]) .form-hint,

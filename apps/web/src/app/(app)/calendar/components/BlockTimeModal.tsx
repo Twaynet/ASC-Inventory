@@ -108,6 +108,7 @@ export function BlockTimeModal({
     setDurationMinutes(60);
     setNotes('');
     setError('');
+    setIsSubmitting(false);
     onClose();
   };
 

@@ -56,6 +56,7 @@ services:
       - api
     volumes:
       - ./apps/web/src:/app/apps/web/src:ro
+      - ./packages:/app/packages:ro
 
 volumes:
   postgres_data:
