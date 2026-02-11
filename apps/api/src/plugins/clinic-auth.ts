@@ -2,12 +2,37 @@
  * Clinic API Key Authentication Plugin
  *
  * Authenticates clinics via X-Clinic-Key header.
- * Key format: {prefix}.{secret} — prefix used for DB lookup, full key verified via SHA-256 hash.
+ * Key format: random 64-char hex — first 8 chars used for DB prefix lookup,
+ * full key verified via HMAC-SHA256 with a server-side secret.
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { createHash } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { query } from '../db/index.js';
+
+const DEV_CLINIC_KEY_SECRET = 'dev-clinic-key-secret-change-in-production';
+
+function resolveClinicKeySecret(): string {
+  const secret = process.env.CLINIC_KEY_SECRET;
+  if (secret) return secret;
+
+  const isProd = process.env.NODE_ENV === 'production';
+  if (isProd) {
+    throw new Error(
+      'CLINIC_KEY_SECRET environment variable is required in production. '
+      + 'Set it to a random 64+ character string.',
+    );
+  }
+
+  // Dev/test only — warn once
+  console.warn(
+    '[clinic-auth] CLINIC_KEY_SECRET not set — using insecure dev default. '
+    + 'Set CLINIC_KEY_SECRET in production.',
+  );
+  return DEV_CLINIC_KEY_SECRET;
+}
+
+const CLINIC_KEY_SECRET = resolveClinicKeySecret();
 
 export interface ClinicContext {
   clinicId: string;
@@ -22,10 +47,11 @@ declare module 'fastify' {
 }
 
 /**
- * Hash a raw API key with SHA-256 (deterministic, suitable for random API keys).
+ * Hash a raw API key with HMAC-SHA256 using a server-side secret.
+ * The secret prevents offline rainbow-table attacks if the DB is compromised.
  */
 export function hashApiKey(rawKey: string): string {
-  return createHash('sha256').update(rawKey).digest('hex');
+  return createHmac('sha256', CLINIC_KEY_SECRET).update(rawKey).digest('hex');
 }
 
 /**
@@ -75,7 +101,12 @@ export async function requireClinicAuth(
   }
 
   // Find matching key by hash (prefix might not be unique across clinics)
-  const matchedKey = result.rows.find(row => row.key_hash === keyHash);
+  // Use constant-time comparison to prevent timing attacks
+  const keyHashBuf = Buffer.from(keyHash, 'hex');
+  const matchedKey = result.rows.find(row => {
+    const storedBuf = Buffer.from(row.key_hash, 'hex');
+    return storedBuf.length === keyHashBuf.length && timingSafeEqual(storedBuf, keyHashBuf);
+  });
   if (!matchedKey) {
     return reply.status(401).send({
       error: { code: 'UNAUTHENTICATED', message: 'Invalid API key' },

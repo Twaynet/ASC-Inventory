@@ -8,10 +8,8 @@
 import { transaction, query } from '../db/index.js';
 import {
   type SurgeryRequestStatus,
-  type SurgeryRequestEventType,
   SURGERY_REQUEST_TRANSITIONS,
 } from '@asc/domain';
-import { recordStatusEvent } from './case-status.service.js';
 import type pg from 'pg';
 
 /** Typed submit request body (matches SubmitRequestBodySchema output) */
@@ -452,10 +450,19 @@ export async function convert(
     ]);
     const surgicalCase = caseResult.rows[0];
 
-    // Record case status event
-    await recordStatusEvent(surgicalCase.id, null, surgicalCase.status, userId, {
-      context: { source: 'surgery_request_conversion', surgeryRequestId: requestId },
-    });
+    // Record case status event (inline — must use same transaction client)
+    await client.query(`
+      INSERT INTO surgical_case_status_event
+        (surgical_case_id, from_status, to_status, reason, context, actor_user_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [
+      surgicalCase.id,
+      null,
+      surgicalCase.status,
+      null,
+      JSON.stringify({ source: 'surgery_request_conversion', surgeryRequestId: requestId }),
+      userId,
+    ]);
 
     // Create conversion bridge record
     await client.query(`

@@ -58,7 +58,7 @@ Invalid transitions return **409 Conflict**.
 - Header: `X-Clinic-Key: <raw-key>`
 - Key format: random 64-character hex string
 - Lookup: first 8 chars (prefix) used for DB index lookup
-- Verification: full key hashed with SHA-256 and compared to stored hash
+- Verification: full key hashed with HMAC-SHA256 (server-side secret via `CLINIC_KEY_SECRET` env var) and compared to stored hash using constant-time comparison
 - Context: `clinicId` derived from key — never accepted from request body
 
 ### ASC User (JWT)

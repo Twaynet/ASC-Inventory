@@ -107,10 +107,11 @@ const APPEND_ONLY_TABLES = [
   'catalog_event',
   // Wave 1: Financial attribution
   'catalog_cost_event',
-  // Phase 1 Readiness: Surgery Request (append-only)
+  // Phase 1 Readiness: Surgery Request (append-only / immutable)
   'surgery_request_submission',
   'surgery_request_checklist_response',
   'surgery_request_audit_event',
+  'surgery_request_conversion',
 ];
 
 /** Tables that should have rows after seeding */

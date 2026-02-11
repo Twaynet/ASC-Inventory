@@ -40,14 +40,15 @@ async function apiCall(
   path: string,
   opts: { body?: unknown; token?: string; clinicKey?: string } = {},
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {};
+  if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (opts.token) headers['Authorization'] = `Bearer ${opts.token}`;
   if (opts.clinicKey) headers['X-Clinic-Key'] = opts.clinicKey;
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
 
   const body = await res.json() as Record<string, unknown>;
@@ -70,10 +71,11 @@ async function getClinicApiKeyAndFacility(): Promise<{ clinicApiKey: string; fac
 
   const client = await pool.connect();
   try {
-    const { randomBytes, createHash } = await import('crypto');
+    const { randomBytes, createHmac } = await import('crypto');
     const rawKey = randomBytes(32).toString('hex');
     const keyPrefix = rawKey.substring(0, 8);
-    const keyHash = createHash('sha256').update(rawKey).digest('hex');
+    const clinicKeySecret = process.env.CLINIC_KEY_SECRET || 'dev-clinic-key-secret-change-in-production';
+    const keyHash = createHmac('sha256', clinicKeySecret).update(rawKey).digest('hex');
 
     // Create test clinic
     const clinicRes = await client.query(`
@@ -155,6 +157,7 @@ async function runTests(): Promise<void> {
     sourceRequestId: `SMOKE-${Date.now()}`,
     submittedAt: new Date().toISOString(),
     procedureName: 'Smoke Test Procedure',
+    surgeonUsername: 'drsmith',
     scheduledDate: '2026-03-15',
     patient: { clinicPatientKey: 'SMOKE-PAT-001', displayName: 'Smoke Test Patient', birthYear: 1980 },
     checklist: {

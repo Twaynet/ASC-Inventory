@@ -5,7 +5,7 @@
 
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes, createHmac } from 'crypto';
 
 const { Pool } = pg;
 
@@ -29,13 +29,14 @@ async function seed() {
     // Check if already seeded
     const forceReseed = process.argv.includes('--reset');
     const { rows: facilities } = await client.query('SELECT id FROM facility LIMIT 1');
-    if (facilities.length > 0) {
-      if (!forceReseed) {
-        console.log('Database already seeded. Skipping. Use --reset to reseed.');
-        return;
-      }
+    if (facilities.length > 0 && !forceReseed) {
+      console.log('Database already seeded. Skipping. Use --reset to reseed.');
+      return;
+    }
+    if (forceReseed) {
       console.log('Resetting existing data...');
       await client.query('TRUNCATE facility CASCADE');
+      await client.query('TRUNCATE clinic CASCADE');
     }
 
     await client.query('BEGIN');
@@ -408,7 +409,8 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     // Create clinic API key
     const rawKey = randomBytes(32).toString('hex');
     const keyPrefix = rawKey.substring(0, 8);
-    const keyHash = createHash('sha256').update(rawKey).digest('hex');
+    const clinicKeySecret = process.env.CLINIC_KEY_SECRET || 'dev-clinic-key-secret-change-in-production';
+    const keyHash = createHmac('sha256', clinicKeySecret).update(rawKey).digest('hex');
 
     await client.query(`
       INSERT INTO clinic_api_key (clinic_id, key_prefix, key_hash)
@@ -428,7 +430,7 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
           { key: 'hp_on_file', label: 'H&P on file', type: 'boolean', required: true },
           { key: 'labs_complete', label: 'Labs complete', type: 'boolean', required: true },
           { key: 'consent_signed', label: 'Consent signed', type: 'boolean', required: true },
-          { key: 'insurance_verified', label: 'Insurance verified', type: 'boolean', required: false },
+          { key: 'surgical_site_marked', label: 'Surgical site marked', type: 'boolean', required: false },
         ],
       }),
     ]);
@@ -470,7 +472,7 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
       VALUES ($1, $2, $3, 'COMPLETE') RETURNING id
     `, [sr1.rows[0].id, sr1Sub.rows[0].id, templateVersionId]);
 
-    for (const item of ['hp_on_file', 'labs_complete', 'consent_signed', 'insurance_verified']) {
+    for (const item of ['hp_on_file', 'labs_complete', 'consent_signed', 'surgical_site_marked']) {
       await client.query(`
         INSERT INTO surgery_request_checklist_response (instance_id, item_key, response, actor_type, actor_clinic_id)
         VALUES ($1, $2, $3, 'CLINIC', $4)

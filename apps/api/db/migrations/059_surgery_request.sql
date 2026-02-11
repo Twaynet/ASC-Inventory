@@ -26,7 +26,7 @@ CREATE TYPE surgery_request_event_type AS ENUM (
   'CONVERTED'
 );
 
-CREATE TYPE surgery_request_surgery_request_checklist_status AS ENUM (
+CREATE TYPE surgery_request_checklist_status AS ENUM (
   'PENDING',
   'COMPLETE'
 );
@@ -67,7 +67,7 @@ CREATE TABLE clinic_api_key (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE clinic_api_key IS 'API keys for clinic authentication. key_hash is SHA-256; raw key never stored.';
+COMMENT ON TABLE clinic_api_key IS 'API keys for clinic authentication. key_hash is HMAC-SHA256 with server-side secret; raw key never stored.';
 
 CREATE INDEX idx_clinic_api_key_prefix ON clinic_api_key(key_prefix) WHERE active = true;
 
@@ -259,4 +259,12 @@ CREATE TABLE surgery_request_conversion (
   converted_by_user_id UUID NOT NULL REFERENCES app_user(id)
 );
 
-COMMENT ON TABLE surgery_request_conversion IS 'Links a converted surgery request to its resulting surgical_case. One-to-one.';
+COMMENT ON TABLE surgery_request_conversion IS 'Links a converted surgery request to its resulting surgical_case. One-to-one. Immutable.';
+
+CREATE TRIGGER surgery_request_conversion_no_update
+  BEFORE UPDATE ON surgery_request_conversion
+  FOR EACH ROW EXECUTE FUNCTION prevent_modification();
+
+CREATE TRIGGER surgery_request_conversion_no_delete
+  BEFORE DELETE ON surgery_request_conversion
+  FOR EACH ROW EXECUTE FUNCTION prevent_modification();
