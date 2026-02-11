@@ -77,6 +77,13 @@ export interface CaseDashboardData {
   caseCard: CaseDashboardCaseCard | null;
   caseCardLink: CaseDashboardCaseCardLink | null;
   anesthesiaPlan: CaseDashboardAnesthesiaPlan | null;
+  patient: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    dateOfBirth: string;
+    mrn: string;
+  } | null;
   overrides: CaseDashboardOverride[];
   readinessState: 'GREEN' | 'ORANGE' | 'RED';
   missingItems: MissingItem[];

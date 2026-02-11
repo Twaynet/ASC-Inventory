@@ -591,6 +591,15 @@ export function CaseDashboardContent({
                 (ID: {dashboard.caseId.slice(0, 8)}...)
               </span>
             </p>
+            {/* Phase 6A: Patient Identity (PHI — only for PHI_CLINICAL_ACCESS holders) */}
+            {hasCapability('PHI_CLINICAL_ACCESS') && dashboard.patient && (
+              <div className="my-2 py-2 px-3 bg-surface-secondary rounded border border-border text-sm">
+                <strong>Patient:</strong>{' '}
+                {dashboard.patient.lastName}, {dashboard.patient.firstName}
+                <span className="ml-3 text-text-muted">DOB: {dashboard.patient.dateOfBirth}</span>
+                <span className="ml-3 text-text-muted">MRN: {dashboard.patient.mrn}</span>
+              </div>
+            )}
             {/* Deactivate/Reactivate button for ADMIN and SCHEDULER */}
             {((user.roles || [user.role]).includes('ADMIN') || (user.roles || [user.role]).includes('SCHEDULER')) && (
               <div className="my-2">

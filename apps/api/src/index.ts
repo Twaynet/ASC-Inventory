@@ -45,6 +45,8 @@ import { attentionRoutes } from './routes/attention.routes.js';
 import { organizationRoutes } from './routes/organization.routes.js';
 // PHI Phase 3: Audit visibility
 import { phiAuditRoutes } from './routes/phi-audit.routes.js';
+// PHI Phase 6A: Patient identity domain
+import { phiPatientRoutes } from './routes/phi-patient.routes.js';
 import { personaPlugin } from './plugins/persona.js';
 import { requestIdPlugin } from './plugins/request-id.js';
 // PHI Phase 4D: Governance guardrails
@@ -201,6 +203,8 @@ async function main() {
   // PHI Phase 1: Organization model
   await fastify.register(organizationRoutes, { prefix: '/api/organizations' });
   await fastify.register(phiAuditRoutes, { prefix: '/api/phi-audit' });
+  // PHI Phase 6A: Patient identity domain
+  await fastify.register(phiPatientRoutes, { prefix: '/api/phi-patient' });
 
   // ── PHI Phase 4D: Governance validation on ready ──
   fastify.addHook('onReady', async () => {

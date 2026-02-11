@@ -193,4 +193,19 @@ export const PHI_ROUTE_MANIFEST: PhiRouteEntry[] = [
   { method: 'GET',    url: '/api/phi-audit/retention',             classification: 'PHI_AUDIT' },
   // GET /phi-audit/retention/:entityId — Single entity retention
   { method: 'GET',    url: '/api/phi-audit/retention/:entityId',   classification: 'PHI_AUDIT' },
+
+  // ============================================================================
+  // PHI PATIENT (/api/phi-patient) — Phase 6A: Identity Domain
+  // ============================================================================
+
+  // GET /phi-patient/by-case/:caseId — Patient identity for a case
+  { method: 'GET',    url: '/api/phi-patient/by-case/:caseId',     classification: 'PHI_CLINICAL' },
+  // GET /phi-patient/lookup — Lookup patient by MRN
+  { method: 'GET',    url: '/api/phi-patient/lookup',              classification: 'PHI_CLINICAL' },
+  // POST /phi-patient — Create patient identity
+  { method: 'POST',   url: '/api/phi-patient',                     classification: 'PHI_CLINICAL' },
+  // PUT /phi-patient/:patientId — Update patient identity
+  { method: 'PUT',    url: '/api/phi-patient/:patientId',          classification: 'PHI_CLINICAL' },
+  // PUT /phi-patient/link-case/:caseId — Link/unlink patient to case
+  { method: 'PUT',    url: '/api/phi-patient/link-case/:caseId',   classification: 'PHI_CLINICAL' },
 ];

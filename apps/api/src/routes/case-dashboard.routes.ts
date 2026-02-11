@@ -6,7 +6,7 @@
  * Rules:
  * - Case Dashboard is the only place to Attest/Void readiness
  * - Case Card is a template; instance overrides must not modify the template
- * - No patient-identifiable data allowed
+ * - Phase 6A: Patient identity included via LEFT JOIN (PHI_CLINICAL guarded)
  * - Event log is append-only
  */
 
@@ -98,6 +98,13 @@ interface CaseDashboardData {
     createdBy: string;
     createdAt: string;
   }>;
+  patient: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    dateOfBirth: string;
+    mrn: string;
+  } | null;
   readinessState: string;
   missingItems: any[];
 }
@@ -141,6 +148,11 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       patient_flags: any;
       admission_types: any;
       case_card_version_id: string | null;
+      patient_id: string | null;
+      patient_first_name: string | null;
+      patient_last_name: string | null;
+      patient_dob: string | null;
+      patient_mrn: string | null;
     }>(`
       SELECT
         sc.id, sc.case_number, sc.facility_id, f.name as facility_name,
@@ -151,11 +163,15 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
         sc.estimated_duration_minutes, sc.laterality,
         COALESCE(sc.or_room, r.name) as or_room, sc.scheduler_notes,
         sc.case_type, sc.procedure_codes, sc.patient_flags, sc.admission_types,
-        sc.case_card_version_id
+        sc.case_card_version_id,
+        p.id as patient_id, p.first_name as patient_first_name,
+        p.last_name as patient_last_name, p.date_of_birth as patient_dob,
+        p.mrn as patient_mrn
       FROM surgical_case sc
       JOIN facility f ON sc.facility_id = f.id
       JOIN app_user u ON sc.surgeon_id = u.id
       LEFT JOIN room r ON sc.room_id = r.id
+      LEFT JOIN patient p ON sc.patient_id = p.id
       WHERE sc.id = $1 AND sc.facility_id = $2
     `, [caseId, facilityId]);
 
@@ -341,6 +357,13 @@ export async function caseDashboardRoutes(fastify: FastifyInstance): Promise<voi
       caseCard,
       caseCardLink,
       anesthesiaPlan,
+      patient: caseData.patient_id ? {
+        id: caseData.patient_id,
+        firstName: caseData.patient_first_name!,
+        lastName: caseData.patient_last_name!,
+        dateOfBirth: caseData.patient_dob!,
+        mrn: caseData.patient_mrn!,
+      } : null,
       overrides: overridesResult.rows.map(o => ({
         id: o.id,
         target: o.override_target,

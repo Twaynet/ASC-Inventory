@@ -34,6 +34,8 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:300
 const PHI_PURPOSE_RULES: Array<{ pattern: RegExp; purpose: AccessPurpose }> = [
   // PHI audit visibility (Phase 3)
   { pattern: /^\/phi-audit/, purpose: 'AUDIT' },
+  // PHI patient identity (Phase 6A)
+  { pattern: /^\/phi-patient/, purpose: 'CLINICAL_CARE' },
   // Financial reports
   { pattern: /^\/reports\/vendor-concessions/, purpose: 'BILLING' },
   { pattern: /^\/reports\/inventory-valuation/, purpose: 'BILLING' },
