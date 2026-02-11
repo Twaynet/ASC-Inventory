@@ -21,6 +21,12 @@ export type OrganizationId = string & { readonly __brand: 'OrganizationId' };
 export type AffiliationId = string & { readonly __brand: 'AffiliationId' };
 export type PhiAccessLogId = string & { readonly __brand: 'PhiAccessLogId' };
 export type AccessGrantId = string & { readonly __brand: 'AccessGrantId' };
+// Surgery Request (Phase 1 Readiness)
+export type ClinicId = string & { readonly __brand: 'ClinicId' };
+export type SurgeryRequestId = string & { readonly __brand: 'SurgeryRequestId' };
+export type PatientRefId = string & { readonly __brand: 'PatientRefId' };
+export type SurgeryRequestChecklistTemplateVersionId = string & { readonly __brand: 'SurgeryRequestChecklistTemplateVersionId' };
+export type SurgeryRequestChecklistInstanceId = string & { readonly __brand: 'SurgeryRequestChecklistInstanceId' };
 
 // ============================================================================
 // ENUMS
@@ -152,6 +158,9 @@ export type Capability =
   // Organization management
   | 'ORG_MANAGE'              // Create/update organizations
   | 'ORG_AFFILIATION_MANAGE'  // Manage user affiliations
+  // Surgery Request (Phase 1 Readiness)
+  | 'SURGERY_REQUEST_REVIEW'  // View, return, accept, reject surgery requests
+  | 'SURGERY_REQUEST_CONVERT' // Convert accepted surgery request to surgical_case
   // Platform capabilities (LAW §4.2: distinct from tenant capabilities)
   | 'PLATFORM_ADMIN'          // Access to Control Plane
   | 'PLATFORM_CONFIG_VIEW'    // View platform configuration
@@ -183,12 +192,14 @@ export const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
     'CASE_APPROVE', 'CASE_REJECT', 'CASE_ASSIGN_ROOM',
     'CASE_ACTIVATE', 'CASE_CHECKIN_PREOP', 'CASE_DELETE', 'CASE_CANCEL', 'CASE_PREFERENCE_CARD_LINK',
     'PHI_CLINICAL_ACCESS', 'PHI_WRITE_CLINICAL', 'PHI_PATIENT_SEARCH', 'PHI_AUDIT_ACCESS', 'ORG_MANAGE', 'ORG_AFFILIATION_MANAGE',
+    'SURGERY_REQUEST_REVIEW', 'SURGERY_REQUEST_CONVERT',
   ],
   SURGEON: ['CASE_VIEW', 'CASE_CREATE', 'CASE_UPDATE', 'CASE_CANCEL',
     'CASE_PREFERENCE_CARD_LINK', 'CHECKLIST_ATTEST', 'PHI_CLINICAL_ACCESS', 'PHI_PATIENT_SEARCH'],
   SCHEDULER: ['CASE_VIEW', 'CASE_CREATE', 'CASE_UPDATE',
     'CASE_APPROVE', 'CASE_REJECT', 'CASE_ASSIGN_ROOM',
-    'CASE_ACTIVATE', 'CASE_CHECKIN_PREOP', 'CASE_CANCEL', 'PHI_CLINICAL_ACCESS', 'PHI_PATIENT_SEARCH'],
+    'CASE_ACTIVATE', 'CASE_CHECKIN_PREOP', 'CASE_CANCEL', 'PHI_CLINICAL_ACCESS', 'PHI_PATIENT_SEARCH',
+    'SURGERY_REQUEST_REVIEW'],
   ANESTHESIA: ['CASE_VIEW', 'CHECKLIST_ATTEST', 'PHI_CLINICAL_ACCESS', 'PHI_PATIENT_SEARCH'],
 };
 
@@ -279,6 +290,60 @@ export const AttestationType = z.enum([
   'SURGEON_ACKNOWLEDGMENT', // Surgeon acknowledges red state
 ]);
 export type AttestationType = z.infer<typeof AttestationType>;
+
+// ============================================================================
+// SURGERY REQUEST ENUMS & STATE MACHINE (Phase 1 Readiness)
+// ============================================================================
+
+export const SurgeryRequestStatus = z.enum([
+  'SUBMITTED',
+  'RETURNED_TO_CLINIC',
+  'ACCEPTED',
+  'REJECTED',
+  'WITHDRAWN',
+  'CONVERTED',
+]);
+export type SurgeryRequestStatus = z.infer<typeof SurgeryRequestStatus>;
+
+export const SurgeryRequestEventType = z.enum([
+  'SUBMITTED',
+  'RESUBMITTED',
+  'RETURNED',
+  'ACCEPTED',
+  'REJECTED',
+  'WITHDRAWN',
+  'CONVERTED',
+]);
+export type SurgeryRequestEventType = z.infer<typeof SurgeryRequestEventType>;
+
+export const SurgeryRequestActorType = z.enum(['CLINIC', 'ASC']);
+export type SurgeryRequestActorType = z.infer<typeof SurgeryRequestActorType>;
+
+export const SurgeryRequestChecklistStatus = z.enum(['PENDING', 'COMPLETE']);
+export type SurgeryRequestChecklistStatus = z.infer<typeof SurgeryRequestChecklistStatus>;
+
+export const SurgeryRequestReasonCode = z.enum([
+  'MISSING_INFO',
+  'INVALID_SURGEON',
+  'PROCEDURE_UNCLEAR',
+  'DUPLICATE',
+  'WRONG_FACILITY',
+  'OTHER',
+]);
+export type SurgeryRequestReasonCode = z.infer<typeof SurgeryRequestReasonCode>;
+
+/**
+ * Surgery Request state machine: allowed transitions.
+ * Key = current status, Value = array of allowed next statuses.
+ */
+export const SURGERY_REQUEST_TRANSITIONS: Record<SurgeryRequestStatus, SurgeryRequestStatus[]> = {
+  SUBMITTED: ['RETURNED_TO_CLINIC', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'],
+  RETURNED_TO_CLINIC: ['SUBMITTED', 'WITHDRAWN'],
+  ACCEPTED: ['CONVERTED', 'WITHDRAWN'],
+  REJECTED: [],    // terminal
+  WITHDRAWN: [],   // terminal
+  CONVERTED: [],   // terminal
+};
 
 // ============================================================================
 // CORE DOMAIN ENTITIES (Zod Schemas)

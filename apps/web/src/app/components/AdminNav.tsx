@@ -21,6 +21,7 @@ const ADMIN_LINKS = [
   { href: '/admin/phi-audit', label: 'PHI Audit' },
   { href: '/admin/general-settings', label: 'General Settings' },
   { href: '/admin/pending-reviews', label: 'Pending Reviews' },
+  { href: '/admin/surgery-requests', label: 'Surgery Requests' },
 ];
 
 export function AdminNav({ userRoles }: AdminNavProps) {

@@ -5,6 +5,7 @@
 
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
+import { randomBytes, createHash } from 'crypto';
 
 const { Pool } = pg;
 
@@ -391,6 +392,171 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
 
     console.log('Created sample device');
 
+    // ========================================================================
+    // Surgery Request Seed Data (Phase 1 Readiness)
+    // ========================================================================
+
+    // Create clinic
+    const clinicResult = await client.query(`
+      INSERT INTO clinic (name, clinic_key)
+      VALUES ('Demo Ortho Clinic', 'DEMO_CLINIC')
+      RETURNING id
+    `);
+    const clinicId = clinicResult.rows[0].id;
+    console.log(`Created clinic: ${clinicId}`);
+
+    // Create clinic API key
+    const rawKey = randomBytes(32).toString('hex');
+    const keyPrefix = rawKey.substring(0, 8);
+    const keyHash = createHash('sha256').update(rawKey).digest('hex');
+
+    await client.query(`
+      INSERT INTO clinic_api_key (clinic_id, key_prefix, key_hash)
+      VALUES ($1, $2, $3)
+    `, [clinicId, keyPrefix, keyHash]);
+
+    // Create checklist template version
+    const templateResult = await client.query(`
+      INSERT INTO surgery_request_checklist_template_version
+        (target_facility_id, name, version, schema)
+      VALUES ($1, 'Clinic Readiness', 1, $2)
+      RETURNING id
+    `, [
+      facilityId,
+      JSON.stringify({
+        items: [
+          { key: 'hp_on_file', label: 'H&P on file', type: 'boolean', required: true },
+          { key: 'labs_complete', label: 'Labs complete', type: 'boolean', required: true },
+          { key: 'consent_signed', label: 'Consent signed', type: 'boolean', required: true },
+          { key: 'insurance_verified', label: 'Insurance verified', type: 'boolean', required: false },
+        ],
+      }),
+    ]);
+    const templateVersionId = templateResult.rows[0].id;
+    console.log('Created checklist template version');
+
+    // Create sample patient refs
+    const patientRef1 = await client.query(`
+      INSERT INTO patient_ref (clinic_id, clinic_patient_key, display_name, birth_year)
+      VALUES ($1, 'PAT-001', 'John Doe', 1965) RETURNING id
+    `, [clinicId]);
+    const patientRef2 = await client.query(`
+      INSERT INTO patient_ref (clinic_id, clinic_patient_key, display_name, birth_year)
+      VALUES ($1, 'PAT-002', 'Jane Smith', 1978) RETURNING id
+    `, [clinicId]);
+    const patientRef3 = await client.query(`
+      INSERT INTO patient_ref (clinic_id, clinic_patient_key, display_name, birth_year)
+      VALUES ($1, 'PAT-003', 'Bob Wilson', 1952) RETURNING id
+    `, [clinicId]);
+
+    // Sample surgery request 1: SUBMITTED
+    const sr1 = await client.query(`
+      INSERT INTO surgery_request (
+        target_facility_id, source_clinic_id, source_request_id,
+        status, procedure_name, surgeon_id, scheduled_date, patient_ref_id,
+        submitted_at
+      ) VALUES ($1, $2, 'CLN-REQ-001', 'SUBMITTED', 'Right Total Knee Arthroplasty',
+        $3, $4, $5, NOW())
+      RETURNING id
+    `, [facilityId, clinicId, drJonesId, tomorrowStr, patientRef1.rows[0].id]);
+
+    const sr1Sub = await client.query(`
+      INSERT INTO surgery_request_submission (request_id, submission_seq, submitted_at)
+      VALUES ($1, 1, NOW()) RETURNING id
+    `, [sr1.rows[0].id]);
+
+    const sr1Inst = await client.query(`
+      INSERT INTO surgery_request_checklist_instance (request_id, submission_id, template_version_id, status)
+      VALUES ($1, $2, $3, 'COMPLETE') RETURNING id
+    `, [sr1.rows[0].id, sr1Sub.rows[0].id, templateVersionId]);
+
+    for (const item of ['hp_on_file', 'labs_complete', 'consent_signed', 'insurance_verified']) {
+      await client.query(`
+        INSERT INTO surgery_request_checklist_response (instance_id, item_key, response, actor_type, actor_clinic_id)
+        VALUES ($1, $2, $3, 'CLINIC', $4)
+      `, [sr1Inst.rows[0].id, item, JSON.stringify({ value: true }), clinicId]);
+    }
+
+    await client.query(`
+      INSERT INTO surgery_request_audit_event (request_id, submission_id, event_type, actor_type, actor_clinic_id)
+      VALUES ($1, $2, 'SUBMITTED', 'CLINIC', $3)
+    `, [sr1.rows[0].id, sr1Sub.rows[0].id, clinicId]);
+
+    // Sample surgery request 2: ACCEPTED
+    const sr2 = await client.query(`
+      INSERT INTO surgery_request (
+        target_facility_id, source_clinic_id, source_request_id,
+        status, procedure_name, surgeon_id, scheduled_date, patient_ref_id,
+        submitted_at
+      ) VALUES ($1, $2, 'CLN-REQ-002', 'ACCEPTED', 'Left Hip Arthroplasty',
+        $3, $4, $5, NOW() - interval '2 days')
+      RETURNING id
+    `, [facilityId, clinicId, drSmithId, dayAfterStr, patientRef2.rows[0].id]);
+
+    const sr2Sub = await client.query(`
+      INSERT INTO surgery_request_submission (request_id, submission_seq, submitted_at)
+      VALUES ($1, 1, NOW() - interval '2 days') RETURNING id
+    `, [sr2.rows[0].id]);
+
+    await client.query(`
+      INSERT INTO surgery_request_audit_event (request_id, submission_id, event_type, actor_type, actor_clinic_id)
+      VALUES ($1, $2, 'SUBMITTED', 'CLINIC', $3)
+    `, [sr2.rows[0].id, sr2Sub.rows[0].id, clinicId]);
+    await client.query(`
+      INSERT INTO surgery_request_audit_event (request_id, event_type, actor_type, actor_user_id)
+      VALUES ($1, 'ACCEPTED', 'ASC', $2)
+    `, [sr2.rows[0].id, adminId]);
+
+    // Sample surgery request 3: CONVERTED
+    const sr3 = await client.query(`
+      INSERT INTO surgery_request (
+        target_facility_id, source_clinic_id, source_request_id,
+        status, procedure_name, surgeon_id, scheduled_date, patient_ref_id,
+        submitted_at
+      ) VALUES ($1, $2, 'CLN-REQ-003', 'CONVERTED', 'Lumbar Decompression',
+        $3, $4, $5, NOW() - interval '5 days')
+      RETURNING id
+    `, [facilityId, clinicId, drSmithId, day3Str, patientRef3.rows[0].id]);
+
+    const sr3Sub = await client.query(`
+      INSERT INTO surgery_request_submission (request_id, submission_seq, submitted_at)
+      VALUES ($1, 1, NOW() - interval '5 days') RETURNING id
+    `, [sr3.rows[0].id]);
+
+    // Create a surgical case for the converted request
+    const convertedCase = await client.query(`
+      INSERT INTO surgical_case (
+        facility_id, case_number, scheduled_date, surgeon_id,
+        procedure_name, status, is_active, is_cancelled
+      ) VALUES ($1, generate_case_number($1), $2, $3, 'Lumbar Decompression', 'REQUESTED', false, false)
+      RETURNING id
+    `, [facilityId, day3Str, drSmithId]);
+
+    await client.query(`
+      INSERT INTO surgery_request_conversion (request_id, surgical_case_id, converted_by_user_id)
+      VALUES ($1, $2, $3)
+    `, [sr3.rows[0].id, convertedCase.rows[0].id, adminId]);
+
+    await client.query(`
+      INSERT INTO surgical_case_status_event (surgical_case_id, from_status, to_status, context, actor_user_id)
+      VALUES ($1, NULL, 'REQUESTED', '{"source":"surgery_request_conversion"}'::jsonb, $2)
+    `, [convertedCase.rows[0].id, adminId]);
+
+    await client.query(`
+      INSERT INTO surgery_request_audit_event (request_id, submission_id, event_type, actor_type, actor_clinic_id)
+      VALUES ($1, $2, 'SUBMITTED', 'CLINIC', $3)
+    `, [sr3.rows[0].id, sr3Sub.rows[0].id, clinicId]);
+    await client.query(`
+      INSERT INTO surgery_request_audit_event (request_id, event_type, actor_type, actor_user_id)
+      VALUES ($1, 'ACCEPTED', 'ASC', $2)
+    `, [sr3.rows[0].id, adminId]);
+    await client.query(`
+      INSERT INTO surgery_request_audit_event (request_id, event_type, actor_type, actor_user_id)
+      VALUES ($1, 'CONVERTED', 'ASC', $2)
+    `, [sr3.rows[0].id, adminId]);
+
+    console.log('Created 3 sample surgery requests (SUBMITTED, ACCEPTED, CONVERTED)');
+
     await client.query('COMMIT');
     console.log('\nSeeding completed successfully!');
     console.log('\nTest Accounts (login with username, not email):');
@@ -401,6 +567,8 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     console.log('  scrub / password123 (Scrub Tech)');
     console.log('  drsmith / password123 (Surgeon)');
     console.log('  drjones / password123 (Surgeon)');
+    console.log('\nClinic API Key (X-Clinic-Key header):');
+    console.log(`  ${rawKey}`);
 
   } catch (err) {
     await client.query('ROLLBACK');

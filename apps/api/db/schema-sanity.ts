@@ -49,6 +49,17 @@ const CRITICAL_TABLES = [
   'vendor',
   'loaner_set',
   'catalog_cost_event',
+  // Phase 1 Readiness: Surgery Request
+  'clinic',
+  'clinic_api_key',
+  'patient_ref',
+  'surgery_request',
+  'surgery_request_submission',
+  'surgery_request_checklist_template_version',
+  'surgery_request_checklist_instance',
+  'surgery_request_checklist_response',
+  'surgery_request_audit_event',
+  'surgery_request_conversion',
 ];
 
 /** Specific columns that MUST exist */
@@ -72,6 +83,12 @@ const EXPECTED_COLUMNS: Array<{ table: string; column: string }> = [
   { table: 'inventory_event', column: 'is_gratis' },
   { table: 'item_catalog', column: 'unit_cost_cents' },
   { table: 'item_catalog', column: 'ownership_type' },
+  // Phase 1 Readiness: Surgery Request
+  { table: 'surgery_request', column: 'status' },
+  { table: 'surgery_request', column: 'target_facility_id' },
+  { table: 'surgery_request', column: 'source_clinic_id' },
+  { table: 'surgery_request', column: 'patient_ref_id' },
+  { table: 'surgery_request_conversion', column: 'surgical_case_id' },
 ];
 
 /** DB functions that MUST exist */
@@ -90,6 +107,10 @@ const APPEND_ONLY_TABLES = [
   'catalog_event',
   // Wave 1: Financial attribution
   'catalog_cost_event',
+  // Phase 1 Readiness: Surgery Request (append-only)
+  'surgery_request_submission',
+  'surgery_request_checklist_response',
+  'surgery_request_audit_event',
 ];
 
 /** Tables that should have rows after seeding */
