@@ -196,6 +196,16 @@ export const FEATURES: FeatureDefinition[] = [
     badge: 'Admin',
   },
   {
+    id: 'admin-phi-audit',
+    title: 'PHI Audit',
+    description: 'View PHI access audit log, sessions, analytics, and retention status',
+    path: '/admin/phi-audit',
+    group: 'admin',
+    requiredRoles: ['ADMIN'],
+    requiredCapabilities: ['PHI_AUDIT_ACCESS'],
+    badge: 'Admin',
+  },
+  {
     id: 'admin-general-settings',
     title: 'General Settings',
     description: 'Configure rooms, feature toggles, and case options',

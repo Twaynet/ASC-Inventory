@@ -18,6 +18,7 @@ const ADMIN_LINKS = [
   { href: '/admin/loaner-sets', label: 'Loaner Sets' },
   { href: '/preference-cards', label: 'Surgeon Preference Cards' },
   { href: '/admin/reports', label: 'Reports' },
+  { href: '/admin/phi-audit', label: 'PHI Audit' },
   { href: '/admin/general-settings', label: 'General Settings' },
   { href: '/admin/pending-reviews', label: 'Pending Reviews' },
 ];
