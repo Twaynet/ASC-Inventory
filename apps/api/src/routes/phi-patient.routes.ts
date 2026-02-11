@@ -31,6 +31,10 @@ function hasWriteCapability(roles: UserRole[]): boolean {
   return deriveCapabilities(roles).includes('PHI_WRITE_CLINICAL');
 }
 
+function hasSearchCapability(roles: UserRole[]): boolean {
+  return deriveCapabilities(roles).includes('PHI_PATIENT_SEARCH');
+}
+
 function normalizeRoles(user: { role: UserRole; roles?: UserRole[] }): UserRole[] {
   return user.roles && user.roles.length > 0 ? user.roles : [user.role];
 }
@@ -125,6 +129,138 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
         dateOfBirth: row.date_of_birth,
         mrn: row.mrn,
       },
+    });
+  });
+
+  /**
+   * GET /phi-patient/search
+   * Search patients by combinable criteria within the user's facility.
+   * Requires PHI_PATIENT_SEARCH capability.
+   *
+   * Query params:
+   *   mrn       — partial or exact MRN match (ILIKE)
+   *   lastName  — partial last name (ILIKE)
+   *   firstName — partial first name (ILIKE)
+   *   dob       — exact date of birth (YYYY-MM-DD)
+   *   dobYear   — year of birth (YYYY)
+   *   limit     — page size (default 25, max 50)
+   *   offset    — pagination offset (default 0)
+   *
+   * At least one search criterion is required (no "show all" queries).
+   */
+  fastify.get<{
+    Querystring: {
+      mrn?: string;
+      lastName?: string;
+      firstName?: string;
+      dob?: string;
+      dobYear?: string;
+      limit?: string;
+      offset?: string;
+    };
+  }>('/search', {
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
+  }, async (request, reply) => {
+    const roles = normalizeRoles(request.user);
+    if (!hasSearchCapability(roles)) {
+      await logPhiAccess({
+        userId: request.user.userId,
+        userRoles: roles,
+        facilityId: request.user.facilityId,
+        organizationIds: request.phiContext?.organizationIds ?? [],
+        phiClassification: 'PHI_CLINICAL',
+        accessPurpose: request.phiContext?.purpose ?? 'CLINICAL_CARE',
+        outcome: 'DENIED',
+        denialReason: 'Missing PHI_PATIENT_SEARCH capability',
+        endpoint: '/phi-patient/search',
+        httpMethod: 'GET',
+      });
+      return fail(reply, 'FORBIDDEN', 'Patient search access required', 403);
+    }
+
+    const { facilityId } = request.user;
+    const { mrn, lastName, firstName, dob, dobYear } = request.query;
+
+    // Require at least one criterion
+    const hasCriteria = [mrn, lastName, firstName, dob, dobYear].some(v => v && v.trim().length > 0);
+    if (!hasCriteria) {
+      return fail(reply, 'VALIDATION_ERROR', 'At least one search criterion is required', 400);
+    }
+
+    // Validate dob format if provided
+    if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      return fail(reply, 'VALIDATION_ERROR', 'dob must be in YYYY-MM-DD format', 400);
+    }
+
+    // Validate dobYear format if provided
+    if (dobYear && !/^\d{4}$/.test(dobYear)) {
+      return fail(reply, 'VALIDATION_ERROR', 'dobYear must be a 4-digit year', 400);
+    }
+
+    // Pagination
+    const limit = Math.min(Math.max(parseInt(request.query.limit || '25', 10) || 25, 1), 50);
+    const offset = Math.max(parseInt(request.query.offset || '0', 10) || 0, 0);
+
+    // Build WHERE clause
+    const conditions: string[] = ['facility_id = $1'];
+    const values: unknown[] = [facilityId];
+    let paramIdx = 2;
+
+    if (mrn?.trim()) {
+      conditions.push(`mrn ILIKE $${paramIdx++}`);
+      values.push(`%${mrn.trim()}%`);
+    }
+    if (lastName?.trim()) {
+      conditions.push(`last_name ILIKE $${paramIdx++}`);
+      values.push(`%${lastName.trim()}%`);
+    }
+    if (firstName?.trim()) {
+      conditions.push(`first_name ILIKE $${paramIdx++}`);
+      values.push(`%${firstName.trim()}%`);
+    }
+    if (dob) {
+      conditions.push(`date_of_birth = $${paramIdx++}`);
+      values.push(dob);
+    }
+    if (dobYear?.trim()) {
+      conditions.push(`EXTRACT(YEAR FROM date_of_birth) = $${paramIdx++}`);
+      values.push(parseInt(dobYear.trim(), 10));
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    // Count total matches
+    const countResult = await query<{ count: string }>(`
+      SELECT COUNT(*) as count FROM patient WHERE ${whereClause}
+    `, values);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Fetch page
+    const dataResult = await query<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      date_of_birth: string;
+      mrn: string;
+    }>(`
+      SELECT id, first_name, last_name, date_of_birth, mrn
+      FROM patient
+      WHERE ${whereClause}
+      ORDER BY last_name, first_name
+      LIMIT $${paramIdx++} OFFSET $${paramIdx}
+    `, [...values, limit, offset]);
+
+    return ok(reply, {
+      patients: dataResult.rows.map(row => ({
+        id: row.id,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        dateOfBirth: row.date_of_birth,
+        mrn: row.mrn,
+      })),
+      total,
+      limit,
+      offset,
     });
   });
 

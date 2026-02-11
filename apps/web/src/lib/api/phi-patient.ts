@@ -34,6 +34,23 @@ export interface UpdatePatientBody {
   mrn?: string;
 }
 
+export interface PatientSearchParams {
+  mrn?: string;
+  lastName?: string;
+  firstName?: string;
+  dob?: string;
+  dobYear?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface PatientSearchResult {
+  patients: PatientIdentity[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 // ============================================================================
 // API functions
 // ============================================================================
@@ -46,6 +63,19 @@ export async function getPatientByCase(token: string, caseId: string): Promise<{
 /** Lookup patient by MRN within the user's facility */
 export async function lookupPatientByMrn(token: string, mrn: string): Promise<{ patient: PatientIdentity | null }> {
   return request<{ patient: PatientIdentity | null }>(`/phi-patient/lookup?mrn=${encodeURIComponent(mrn)}`, { token });
+}
+
+/** Search patients by combinable criteria (requires PHI_PATIENT_SEARCH) */
+export async function searchPatients(token: string, params: PatientSearchParams): Promise<PatientSearchResult> {
+  const qs = new URLSearchParams();
+  if (params.mrn) qs.set('mrn', params.mrn);
+  if (params.lastName) qs.set('lastName', params.lastName);
+  if (params.firstName) qs.set('firstName', params.firstName);
+  if (params.dob) qs.set('dob', params.dob);
+  if (params.dobYear) qs.set('dobYear', params.dobYear);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  return request<PatientSearchResult>(`/phi-patient/search?${qs.toString()}`, { token });
 }
 
 /** Create a new patient identity record (requires PHI_WRITE_CLINICAL) */

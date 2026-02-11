@@ -202,6 +202,8 @@ export const PHI_ROUTE_MANIFEST: PhiRouteEntry[] = [
   { method: 'GET',    url: '/api/phi-patient/by-case/:caseId',     classification: 'PHI_CLINICAL' },
   // GET /phi-patient/lookup — Lookup patient by MRN
   { method: 'GET',    url: '/api/phi-patient/lookup',              classification: 'PHI_CLINICAL' },
+  // GET /phi-patient/search — Search patients by combinable criteria (Phase 6B)
+  { method: 'GET',    url: '/api/phi-patient/search',              classification: 'PHI_CLINICAL' },
   // POST /phi-patient — Create patient identity
   { method: 'POST',   url: '/api/phi-patient',                     classification: 'PHI_CLINICAL' },
   // PUT /phi-patient/:patientId — Update patient identity

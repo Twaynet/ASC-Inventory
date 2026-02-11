@@ -31,7 +31,9 @@ import {
   type CaseChecklistsResponse,
 } from '@/lib/api';
 import { CaseDashboardPrintView } from './CaseDashboardPrintView';
-import { getPatientByCase, type PatientIdentity } from '@/lib/api/phi-patient';
+import { getPatientByCase, linkPatientToCase, type PatientIdentity } from '@/lib/api/phi-patient';
+import { PatientSearchModal } from '@/components/PatientSearchModal';
+import { PatientFormModal } from '@/components/PatientFormModal';
 import { useAccessControl } from '@/lib/auth';
 import { computeReadinessSummary, type ReadinessSummary } from '@/lib/readiness/summary';
 import { ReadinessBadge } from '@/components/ReadinessBadge';
@@ -110,13 +112,51 @@ export function CaseDashboardContent({
 
   // PHI: Patient identity fetched separately via /phi-patient endpoint
   const [patient, setPatient] = useState<PatientIdentity | null>(null);
-  useEffect(() => {
-    let cancelled = false;
+  const [patientLoading, setPatientLoading] = useState(true);
+  const refreshPatient = useCallback(() => {
+    setPatientLoading(true);
     getPatientByCase(token, caseId)
-      .then(res => { if (!cancelled) setPatient(res.patient ?? null); })
-      .catch(() => { /* 403 or network error — silently hide patient identity */ });
-    return () => { cancelled = true; };
+      .then(res => setPatient(res.patient ?? null))
+      .catch(() => setPatient(null))
+      .finally(() => setPatientLoading(false));
   }, [token, caseId]);
+  useEffect(() => { refreshPatient(); }, [refreshPatient]);
+
+  // Patient modals
+  const [showPatientSearch, setShowPatientSearch] = useState(false);
+  const [showPatientCreate, setShowPatientCreate] = useState(false);
+  const [showPatientEdit, setShowPatientEdit] = useState(false);
+
+  const handleLinkPatient = async (p: PatientIdentity) => {
+    try {
+      await linkPatientToCase(token, caseId, p.id);
+      setPatient(p);
+      setShowPatientSearch(false);
+      setSuccessMessage('Patient linked to case');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to link patient');
+    }
+  };
+
+  const handlePatientCreated = async (p: PatientIdentity) => {
+    setShowPatientCreate(false);
+    // Auto-link the newly created patient to the case
+    try {
+      await linkPatientToCase(token, caseId, p.id);
+      setPatient(p);
+      setSuccessMessage('Patient created and linked to case');
+    } catch (err) {
+      // Created but failed to link — still show the patient
+      setPatient(p);
+      setError(err instanceof Error ? err.message : 'Patient created but linking failed');
+    }
+  };
+
+  const handlePatientUpdated = (p: PatientIdentity) => {
+    setPatient(p);
+    setShowPatientEdit(false);
+    setSuccessMessage('Patient updated');
+  };
 
   // Inline editing states
   const [isEditingScheduling, setIsEditingScheduling] = useState(false);
@@ -602,15 +642,57 @@ export function CaseDashboardContent({
                 (ID: {dashboard.caseId.slice(0, 8)}...)
               </span>
             </p>
-            {/* Phase 6A: Patient Identity (PHI — fetched via /phi-patient endpoint) */}
-            {patient && (
-              <div className="my-2 py-2 px-3 bg-surface-secondary rounded border border-border text-sm">
-                <strong>Patient:</strong>{' '}
-                {patient.lastName}, {patient.firstName}
-                <span className="ml-3 text-text-muted">DOB: {patient.dateOfBirth}</span>
-                <span className="ml-3 text-text-muted">MRN: {patient.mrn}</span>
-              </div>
-            )}
+            {/* Phase 6A/6B: Patient Identity Panel (PHI — fetched via /phi-patient endpoint) */}
+            <div className="my-2 py-2 px-3 bg-surface-secondary rounded border border-border text-sm">
+              {patientLoading ? (
+                <span className="text-text-muted">Loading patient...</span>
+              ) : patient ? (
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <strong>Patient:</strong>{' '}
+                    {patient.lastName}, {patient.firstName}
+                    <span className="ml-3 text-text-muted">DOB: {patient.dateOfBirth}</span>
+                    <span className="ml-3 text-text-muted">MRN: {patient.mrn}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setShowPatientSearch(true)}
+                      className="btn-sm btn-secondary"
+                    >
+                      Change Patient
+                    </button>
+                    {hasCapability('PHI_WRITE_CLINICAL') && (
+                      <button
+                        onClick={() => setShowPatientEdit(true)}
+                        className="btn-sm btn-secondary"
+                      >
+                        Edit Patient
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-text-muted">No patient linked</span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setShowPatientSearch(true)}
+                      className="btn-sm btn-primary"
+                    >
+                      Link Patient
+                    </button>
+                    {hasCapability('PHI_WRITE_CLINICAL') && (
+                      <button
+                        onClick={() => setShowPatientCreate(true)}
+                        className="btn-sm btn-secondary"
+                      >
+                        Create Patient
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             {/* Deactivate/Reactivate button for ADMIN and SCHEDULER */}
             {((user.roles || [user.role]).includes('ADMIN') || (user.roles || [user.role]).includes('SCHEDULER')) && (
               <div className="my-2">
@@ -1721,6 +1803,44 @@ export function CaseDashboardContent({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Patient Search Modal */}
+      {showPatientSearch && (
+        <PatientSearchModal
+          token={token}
+          caseId={caseId}
+          onSelect={(p) => {
+            handleLinkPatient(p);
+          }}
+          onLinkToCase={(p) => {
+            handleLinkPatient(p);
+          }}
+          onCreateNew={hasCapability('PHI_WRITE_CLINICAL') ? () => {
+            setShowPatientSearch(false);
+            setShowPatientCreate(true);
+          } : undefined}
+          onClose={() => setShowPatientSearch(false)}
+        />
+      )}
+
+      {/* Patient Create Modal */}
+      {showPatientCreate && (
+        <PatientFormModal
+          token={token}
+          onSaved={handlePatientCreated}
+          onClose={() => setShowPatientCreate(false)}
+        />
+      )}
+
+      {/* Patient Edit Modal */}
+      {showPatientEdit && patient && (
+        <PatientFormModal
+          token={token}
+          patient={patient}
+          onSaved={handlePatientUpdated}
+          onClose={() => setShowPatientEdit(false)}
+        />
       )}
 
       {/* Print styles - must use global style jsx for body * selectors */}
