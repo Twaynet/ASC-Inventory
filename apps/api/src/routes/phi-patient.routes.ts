@@ -271,6 +271,95 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
   });
 
   /**
+   * GET /phi-patient/:patientId/cases
+   * Get all surgical cases associated with a patient.
+   * Requires PHI_PATIENT_SEARCH capability.
+   *
+   * Returns navigation-only case metadata — no patient identifiers in response.
+   *
+   * Design decision: This endpoint uses facility-scoped PHI_CLINICAL access
+   * without evaluateCase. Patient search is a cross-case navigation workflow
+   * (viewing a patient's full surgical history), so no single case window
+   * applies. The phi-guard still enforces PHI_CLINICAL_ACCESS and logs the
+   * access. Returns only case navigation metadata — no patient identifiers
+   * in response.
+   */
+  fastify.get<{ Params: { patientId: string } }>('/:patientId/cases', {
+    preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
+  }, async (request, reply) => {
+    const roles = normalizeRoles(request.user);
+    if (!hasSearchCapability(roles)) {
+      await logPhiAccess({
+        userId: request.user.userId,
+        userRoles: roles,
+        facilityId: request.user.facilityId,
+        organizationIds: request.phiContext?.organizationIds ?? [],
+        phiClassification: 'PHI_CLINICAL',
+        accessPurpose: request.phiContext?.purpose ?? 'CLINICAL_CARE',
+        outcome: 'DENIED',
+        denialReason: 'Missing PHI_PATIENT_SEARCH capability',
+        endpoint: `/phi-patient/${request.params.patientId}/cases`,
+        httpMethod: 'GET',
+      });
+      return fail(reply, 'FORBIDDEN', 'Patient search access required', 403);
+    }
+
+    const { facilityId } = request.user;
+    const { patientId } = request.params;
+
+    // Verify patient exists and belongs to facility (404, not 403 — no cross-facility leak)
+    const patientCheck = await query<{ id: string }>(`
+      SELECT id FROM patient WHERE id = $1 AND facility_id = $2
+    `, [patientId, facilityId]);
+
+    if (patientCheck.rows.length === 0) {
+      return fail(reply, 'NOT_FOUND', 'Patient not found', 404);
+    }
+
+    const result = await query<{
+      id: string;
+      case_number: string;
+      scheduled_date: string | null;
+      scheduled_time: string | null;
+      surgeon_name: string;
+      procedure_name: string;
+      status: string;
+      room_name: string | null;
+      created_at: string;
+    }>(`
+      SELECT
+        c.id,
+        c.case_number,
+        c.scheduled_date,
+        c.scheduled_time,
+        u.name as surgeon_name,
+        c.procedure_name,
+        c.status,
+        r.name as room_name,
+        c.created_at
+      FROM surgical_case c
+      JOIN app_user u ON c.surgeon_id = u.id
+      LEFT JOIN room r ON c.room_id = r.id
+      WHERE c.patient_id = $1 AND c.facility_id = $2
+      ORDER BY c.scheduled_date DESC NULLS LAST, c.created_at DESC
+    `, [patientId, facilityId]);
+
+    return ok(reply, {
+      cases: result.rows.map(row => ({
+        id: row.id,
+        caseNumber: row.case_number,
+        scheduledDate: row.scheduled_date,
+        scheduledTime: row.scheduled_time,
+        surgeonName: row.surgeon_name,
+        procedureName: row.procedure_name,
+        status: row.status,
+        roomName: row.room_name,
+        createdAt: row.created_at,
+      })),
+    });
+  });
+
+  /**
    * POST /phi-patient
    * Create a new patient identity record.
    * Requires PHI_WRITE_CLINICAL capability (ADMIN only).

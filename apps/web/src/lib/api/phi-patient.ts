@@ -38,6 +38,18 @@ export interface UpdatePatientBody {
   gender?: Gender;
 }
 
+export interface PatientCase {
+  id: string;
+  caseNumber: string;
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  surgeonName: string;
+  procedureName: string;
+  status: string;
+  roomName: string | null;
+  createdAt: string;
+}
+
 export interface PatientSearchParams {
   mrn?: string;
   lastName?: string;
@@ -80,6 +92,11 @@ export async function searchPatients(token: string, params: PatientSearchParams)
   if (params.limit) qs.set('limit', String(params.limit));
   if (params.offset) qs.set('offset', String(params.offset));
   return request<PatientSearchResult>(`/phi-patient/search?${qs.toString()}`, { token });
+}
+
+/** Get surgical cases for a patient (navigation metadata only, no PHI in response) */
+export async function getPatientCases(token: string, patientId: string): Promise<{ cases: PatientCase[] }> {
+  return request<{ cases: PatientCase[] }>(`/phi-patient/${patientId}/cases`, { token });
 }
 
 /** Create a new patient identity record (requires PHI_WRITE_CLINICAL) */

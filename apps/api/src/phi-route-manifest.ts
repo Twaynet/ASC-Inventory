@@ -208,6 +208,8 @@ export const PHI_ROUTE_MANIFEST: PhiRouteEntry[] = [
   { method: 'POST',   url: '/api/phi-patient',                     classification: 'PHI_CLINICAL' },
   // PUT /phi-patient/:patientId — Update patient identity
   { method: 'PUT',    url: '/api/phi-patient/:patientId',          classification: 'PHI_CLINICAL' },
+  // GET /phi-patient/:patientId/cases — Patient's surgical cases (navigation metadata)
+  { method: 'GET',    url: '/api/phi-patient/:patientId/cases',    classification: 'PHI_CLINICAL' },
   // PUT /phi-patient/link-case/:caseId — Link/unlink patient to case
   { method: 'PUT',    url: '/api/phi-patient/link-case/:caseId',   classification: 'PHI_CLINICAL' },
 ];

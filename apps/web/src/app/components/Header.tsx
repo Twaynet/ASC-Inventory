@@ -21,6 +21,7 @@ export function Header({ title }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const { hasCapability } = useAccessControl();
   const isOnDashboard = pathname === '/dashboard';
 
   // Attention state
@@ -85,6 +86,14 @@ export function Header({ title }: HeaderProps) {
           <h1>{title}</h1>
         </div>
         <div className="header-user">
+          {hasCapability('PHI_PATIENT_SEARCH') && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => router.push('/phi/patients')}
+            >
+              Patient Search
+            </button>
+          )}
           <AdminNav userRoles={roles} />
           <div style={{ position: 'relative' }}>
             <button
