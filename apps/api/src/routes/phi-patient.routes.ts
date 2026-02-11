@@ -15,6 +15,7 @@ import { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
 import { ok, fail } from '../utils/reply.js';
 import { requirePhiAccess } from '../plugins/phi-guard.js';
+import { logPhiAccess } from '../services/phi-audit.service.js';
 import { deriveCapabilities, type UserRole } from '@asc/domain';
 
 // ============================================================================
@@ -83,6 +84,11 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
    * GET /phi-patient/lookup
    * Lookup patient by MRN within the user's facility.
    * Query param: ?mrn=...
+   *
+   * Design decision: This endpoint uses facility-scoped PHI_CLINICAL access
+   * without evaluateCase. MRN lookup is a pre-case-creation workflow (e.g.
+   * linking an existing patient to a new case), so no case window exists yet.
+   * The phi-guard still enforces PHI_CLINICAL_ACCESS and logs the access.
    */
   fastify.get<{ Querystring: { mrn: string } }>('/lookup', {
     preHandler: [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')],
@@ -134,6 +140,18 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
   }, async (request, reply) => {
     const roles = normalizeRoles(request.user);
     if (!hasWriteCapability(roles)) {
+      await logPhiAccess({
+        userId: request.user.userId,
+        userRoles: roles,
+        facilityId: request.user.facilityId,
+        organizationIds: request.phiContext?.organizationIds ?? [],
+        phiClassification: 'PHI_CLINICAL',
+        accessPurpose: request.phiContext?.purpose ?? 'CLINICAL_CARE',
+        outcome: 'DENIED',
+        denialReason: 'Missing PHI_WRITE_CLINICAL capability',
+        endpoint: '/phi-patient',
+        httpMethod: 'POST',
+      });
       return fail(reply, 'FORBIDDEN', 'PHI write access required', 403);
     }
 
@@ -196,6 +214,18 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
   }, async (request, reply) => {
     const roles = normalizeRoles(request.user);
     if (!hasWriteCapability(roles)) {
+      await logPhiAccess({
+        userId: request.user.userId,
+        userRoles: roles,
+        facilityId: request.user.facilityId,
+        organizationIds: request.phiContext?.organizationIds ?? [],
+        phiClassification: 'PHI_CLINICAL',
+        accessPurpose: request.phiContext?.purpose ?? 'CLINICAL_CARE',
+        outcome: 'DENIED',
+        denialReason: 'Missing PHI_WRITE_CLINICAL capability',
+        endpoint: `/phi-patient/${request.params.patientId}`,
+        httpMethod: 'PUT',
+      });
       return fail(reply, 'FORBIDDEN', 'PHI write access required', 403);
     }
 
@@ -281,6 +311,19 @@ export async function phiPatientRoutes(fastify: FastifyInstance): Promise<void> 
   }, async (request, reply) => {
     const roles = normalizeRoles(request.user);
     if (!hasWriteCapability(roles)) {
+      await logPhiAccess({
+        userId: request.user.userId,
+        userRoles: roles,
+        facilityId: request.user.facilityId,
+        organizationIds: request.phiContext?.organizationIds ?? [],
+        caseId: request.params.caseId,
+        phiClassification: 'PHI_CLINICAL',
+        accessPurpose: request.phiContext?.purpose ?? 'CLINICAL_CARE',
+        outcome: 'DENIED',
+        denialReason: 'Missing PHI_WRITE_CLINICAL capability',
+        endpoint: `/phi-patient/link-case/${request.params.caseId}`,
+        httpMethod: 'PUT',
+      });
       return fail(reply, 'FORBIDDEN', 'PHI write access required', 403);
     }
 

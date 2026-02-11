@@ -31,6 +31,7 @@ import {
   type CaseChecklistsResponse,
 } from '@/lib/api';
 import { CaseDashboardPrintView } from './CaseDashboardPrintView';
+import { getPatientByCase, type PatientIdentity } from '@/lib/api/phi-patient';
 import { useAccessControl } from '@/lib/auth';
 import { computeReadinessSummary, type ReadinessSummary } from '@/lib/readiness/summary';
 import { ReadinessBadge } from '@/components/ReadinessBadge';
@@ -106,6 +107,16 @@ export function CaseDashboardContent({
   const [selectedCaseCardId, setSelectedCaseCardId] = useState<string | null>(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printingCard, setPrintingCard] = useState<{ card: CaseCardDetail; currentVersion: CaseCardVersionData | null } | null>(null);
+
+  // PHI: Patient identity fetched separately via /phi-patient endpoint
+  const [patient, setPatient] = useState<PatientIdentity | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getPatientByCase(token, caseId)
+      .then(res => { if (!cancelled) setPatient(res.patient ?? null); })
+      .catch(() => { /* 403 or network error — silently hide patient identity */ });
+    return () => { cancelled = true; };
+  }, [token, caseId]);
 
   // Inline editing states
   const [isEditingScheduling, setIsEditingScheduling] = useState(false);
@@ -591,13 +602,13 @@ export function CaseDashboardContent({
                 (ID: {dashboard.caseId.slice(0, 8)}...)
               </span>
             </p>
-            {/* Phase 6A: Patient Identity (PHI — only for PHI_CLINICAL_ACCESS holders) */}
-            {hasCapability('PHI_CLINICAL_ACCESS') && dashboard.patient && (
+            {/* Phase 6A: Patient Identity (PHI — fetched via /phi-patient endpoint) */}
+            {patient && (
               <div className="my-2 py-2 px-3 bg-surface-secondary rounded border border-border text-sm">
                 <strong>Patient:</strong>{' '}
-                {dashboard.patient.lastName}, {dashboard.patient.firstName}
-                <span className="ml-3 text-text-muted">DOB: {dashboard.patient.dateOfBirth}</span>
-                <span className="ml-3 text-text-muted">MRN: {dashboard.patient.mrn}</span>
+                {patient.lastName}, {patient.firstName}
+                <span className="ml-3 text-text-muted">DOB: {patient.dateOfBirth}</span>
+                <span className="ml-3 text-text-muted">MRN: {patient.mrn}</span>
               </div>
             )}
             {/* Deactivate/Reactivate button for ADMIN and SCHEDULER */}
