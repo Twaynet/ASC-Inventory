@@ -6,7 +6,7 @@
  * X-Access-Purpose: AUDIT is auto-injected by client.ts for /phi-audit/* paths.
  */
 
-import { request, API_BASE } from './client';
+import { request } from './client';
 
 // ============================================================================
 // Types — mirror backend response shapes exactly
@@ -204,11 +204,3 @@ export async function getRetentionStatus(token: string, entityId: string): Promi
   return request<RetentionCase>(`/phi-audit/retention/${entityId}`, { token });
 }
 
-// ============================================================================
-// CSV export URL builder (for manual blob download with AUDIT purpose header)
-// ============================================================================
-
-export function getPhiAuditExportUrl(tab: string, filters: Record<string, string | undefined>): string {
-  const qs = toQueryString(filters as Record<string, string | undefined>);
-  return `${API_BASE}/phi-audit/${tab}/export${qs}`;
-}

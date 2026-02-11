@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
-import { API_BASE } from '@/lib/api/client';
 import {
   getAuditStats,
   getAuditAnalytics,
@@ -149,37 +148,6 @@ export default function PhiAuditPage() {
     }
   };
 
-  // CSV export (manual fetch for blob, matching reports page pattern)
-  const handleExportCSV = async (exportTab: string) => {
-    if (!token) return;
-    const params = new URLSearchParams();
-    if (startDate) params.set('startDate', startDate);
-    if (endDate) params.set('endDate', endDate);
-    if (exportTab === 'retention' && onlyPurgeable) params.set('onlyPurgeable', 'true');
-    const qs = params.toString() ? `?${params.toString()}` : '';
-    const url = `${API_BASE}/phi-audit/${exportTab}/export${qs}`;
-    try {
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'X-Access-Purpose': 'AUDIT',
-        },
-      });
-      if (!response.ok) throw new Error('Export failed');
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = `phi-audit-${exportTab}_${startDate}_${endDate}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(downloadUrl);
-      a.remove();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Export failed');
-    }
-  };
-
   if (!user?.roles?.includes('ADMIN')) {
     return (
       <>
@@ -267,11 +235,6 @@ export default function PhiAuditPage() {
             <button onClick={loadData} className="btn btn-primary btn-sm">
               {isLoading ? 'Loading...' : 'Apply'}
             </button>
-            {activeTab !== 'overview' && (
-              <button onClick={() => handleExportCSV(activeTab)} className="btn btn-secondary btn-sm">
-                Export CSV
-              </button>
-            )}
           </div>
         </div>
 
