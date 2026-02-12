@@ -27,6 +27,10 @@ export type SurgeryRequestId = string & { readonly __brand: 'SurgeryRequestId' }
 export type PatientRefId = string & { readonly __brand: 'PatientRefId' };
 export type SurgeryRequestChecklistTemplateVersionId = string & { readonly __brand: 'SurgeryRequestChecklistTemplateVersionId' };
 export type SurgeryRequestChecklistInstanceId = string & { readonly __brand: 'SurgeryRequestChecklistInstanceId' };
+// Financial Readiness (Phase 2)
+export type ClinicFinancialDeclarationId = string & { readonly __brand: 'ClinicFinancialDeclarationId' };
+export type AscFinancialVerificationId = string & { readonly __brand: 'AscFinancialVerificationId' };
+export type FinancialOverrideId = string & { readonly __brand: 'FinancialOverrideId' };
 
 // ============================================================================
 // ENUMS
@@ -161,6 +165,9 @@ export type Capability =
   // Surgery Request (Phase 1 Readiness)
   | 'SURGERY_REQUEST_REVIEW'  // View, return, accept, reject surgery requests
   | 'SURGERY_REQUEST_CONVERT' // Convert accepted surgery request to surgical_case
+  // Financial Readiness (Phase 2)
+  | 'FINANCIAL_READINESS_VIEW'  // Dashboard + detail view
+  | 'FINANCIAL_READINESS_EDIT'  // Record verification + overrides
   // Platform capabilities (LAW §4.2: distinct from tenant capabilities)
   | 'PLATFORM_ADMIN'          // Access to Control Plane
   | 'PLATFORM_CONFIG_VIEW'    // View platform configuration
@@ -193,6 +200,7 @@ export const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
     'CASE_ACTIVATE', 'CASE_CHECKIN_PREOP', 'CASE_DELETE', 'CASE_CANCEL', 'CASE_PREFERENCE_CARD_LINK',
     'PHI_CLINICAL_ACCESS', 'PHI_WRITE_CLINICAL', 'PHI_PATIENT_SEARCH', 'PHI_AUDIT_ACCESS', 'ORG_MANAGE', 'ORG_AFFILIATION_MANAGE',
     'SURGERY_REQUEST_REVIEW', 'SURGERY_REQUEST_CONVERT',
+    'FINANCIAL_READINESS_VIEW', 'FINANCIAL_READINESS_EDIT',
   ],
   SURGEON: ['CASE_VIEW', 'CASE_CREATE', 'CASE_UPDATE', 'CASE_CANCEL',
     'CASE_PREFERENCE_CARD_LINK', 'CHECKLIST_ATTEST', 'PHI_CLINICAL_ACCESS', 'PHI_PATIENT_SEARCH'],
@@ -344,6 +352,37 @@ export const SURGERY_REQUEST_TRANSITIONS: Record<SurgeryRequestStatus, SurgeryRe
   WITHDRAWN: [],   // terminal
   CONVERTED: [],   // terminal
 };
+
+// ============================================================================
+// FINANCIAL READINESS ENUMS (Phase 2)
+// ============================================================================
+
+export const ClinicFinancialState = z.enum(['UNKNOWN', 'DECLARED_CLEARED', 'DECLARED_AT_RISK']);
+export type ClinicFinancialState = z.infer<typeof ClinicFinancialState>;
+
+export const AscFinancialState = z.enum(['UNKNOWN', 'VERIFIED_CLEARED', 'VERIFIED_AT_RISK']);
+export type AscFinancialState = z.infer<typeof AscFinancialState>;
+
+export const OverrideState = z.enum(['NONE', 'OVERRIDE_CLEARED', 'OVERRIDE_AT_RISK']);
+export type OverrideState = z.infer<typeof OverrideState>;
+
+export const FinancialRiskState = z.enum(['UNKNOWN', 'LOW', 'MEDIUM', 'HIGH']);
+export type FinancialRiskState = z.infer<typeof FinancialRiskState>;
+
+export const OverrideReasonCode = z.enum([
+  'ADMIN_JUDGMENT', 'URGENT_CASE', 'CLINIC_CONFIRMED', 'PATIENT_PAID', 'OTHER',
+]);
+export type OverrideReasonCode = z.infer<typeof OverrideReasonCode>;
+
+export const ClinicFinancialReasonCode = z.enum([
+  'MISSING_AUTH', 'HIGH_DEDUCTIBLE', 'COVERAGE_UNCERTAIN', 'SELF_PAY_UNCONFIRMED', 'OTHER',
+]);
+export type ClinicFinancialReasonCode = z.infer<typeof ClinicFinancialReasonCode>;
+
+export const AscFinancialReasonCode = z.enum([
+  'BENEFIT_UNCONFIRMED', 'AUTH_PENDING', 'PATIENT_BALANCE_UNRESOLVED', 'COVERAGE_DENIED', 'OTHER',
+]);
+export type AscFinancialReasonCode = z.infer<typeof AscFinancialReasonCode>;
 
 // ============================================================================
 // CORE DOMAIN ENTITIES (Zod Schemas)

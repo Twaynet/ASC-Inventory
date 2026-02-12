@@ -50,6 +50,8 @@ import { phiPatientRoutes } from './routes/phi-patient.routes.js';
 // Phase 1 Readiness: Surgery Request
 import { clinicSurgeryRequestRoutes } from './routes/clinic-surgery-requests.routes.js';
 import { adminSurgeryRequestRoutes } from './routes/admin-surgery-requests.routes.js';
+// Phase 2: Financial Readiness
+import { financialReadinessRoutes } from './routes/financial-readiness.routes.js';
 import { personaPlugin } from './plugins/persona.js';
 import { requestIdPlugin } from './plugins/request-id.js';
 // PHI Phase 4D: Governance guardrails
@@ -211,6 +213,7 @@ async function main() {
   // Phase 1 Readiness: Surgery Request
   await fastify.register(clinicSurgeryRequestRoutes, { prefix: '/api/clinic/surgery-requests' });
   await fastify.register(adminSurgeryRequestRoutes, { prefix: '/api/admin/surgery-requests' });
+  await fastify.register(financialReadinessRoutes, { prefix: '/api/admin/financial-readiness' });
 
   // ── PHI Phase 4D: Governance validation on ready ──
   fastify.addHook('onReady', async () => {

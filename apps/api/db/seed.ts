@@ -559,6 +559,69 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
 
     console.log('Created 3 sample surgery requests (SUBMITTED, ACCEPTED, CONVERTED)');
 
+    // ========================================================================
+    // Financial Readiness Seed Data (Phase 2)
+    // ========================================================================
+
+    // SR1 (SUBMITTED): clinic declared CLEARED, ASC not verified → UNKNOWN risk
+    await client.query(`
+      INSERT INTO clinic_financial_declaration
+        (surgery_request_id, state, reason_codes, note, actor_clinic_id, recorded_by_user_id)
+      VALUES ($1, 'DECLARED_CLEARED', '{}', 'Insurance verified by clinic', $2, $3)
+    `, [sr1.rows[0].id, clinicId, adminId]);
+
+    await client.query(`
+      INSERT INTO financial_readiness_cache
+        (surgery_request_id, target_facility_id, clinic_state, asc_state, override_state, risk_state, recomputed_at)
+      VALUES ($1, $2, 'DECLARED_CLEARED', 'UNKNOWN', 'NONE', 'UNKNOWN', NOW())
+    `, [sr1.rows[0].id, facilityId]);
+
+    // SR2 (ACCEPTED): both CLEARED → LOW risk
+    await client.query(`
+      INSERT INTO clinic_financial_declaration
+        (surgery_request_id, state, reason_codes, note, actor_clinic_id, recorded_by_user_id)
+      VALUES ($1, 'DECLARED_CLEARED', '{}', NULL, $2, $3)
+    `, [sr2.rows[0].id, clinicId, adminId]);
+
+    await client.query(`
+      INSERT INTO asc_financial_verification
+        (surgery_request_id, state, reason_codes, note, verified_by_user_id)
+      VALUES ($1, 'VERIFIED_CLEARED', '{}', 'Benefits confirmed', $2)
+    `, [sr2.rows[0].id, adminId]);
+
+    await client.query(`
+      INSERT INTO financial_readiness_cache
+        (surgery_request_id, target_facility_id, clinic_state, asc_state, override_state, risk_state, recomputed_at)
+      VALUES ($1, $2, 'DECLARED_CLEARED', 'VERIFIED_CLEARED', 'NONE', 'LOW', NOW())
+    `, [sr2.rows[0].id, facilityId]);
+
+    // SR3 (CONVERTED): both AT_RISK + override CLEARED → LOW risk (override wins)
+    await client.query(`
+      INSERT INTO clinic_financial_declaration
+        (surgery_request_id, state, reason_codes, note, actor_clinic_id, recorded_by_user_id)
+      VALUES ($1, 'DECLARED_AT_RISK', '{HIGH_DEDUCTIBLE}', 'Patient has high deductible', $2, $3)
+    `, [sr3.rows[0].id, clinicId, adminId]);
+
+    await client.query(`
+      INSERT INTO asc_financial_verification
+        (surgery_request_id, state, reason_codes, note, verified_by_user_id)
+      VALUES ($1, 'VERIFIED_AT_RISK', '{PATIENT_BALANCE_UNRESOLVED}', 'Balance outstanding', $2)
+    `, [sr3.rows[0].id, adminId]);
+
+    await client.query(`
+      INSERT INTO financial_override
+        (surgery_request_id, state, reason_code, note, overridden_by_user_id)
+      VALUES ($1, 'OVERRIDE_CLEARED', 'PATIENT_PAID', 'Patient paid balance in full', $2)
+    `, [sr3.rows[0].id, adminId]);
+
+    await client.query(`
+      INSERT INTO financial_readiness_cache
+        (surgery_request_id, target_facility_id, clinic_state, asc_state, override_state, risk_state, recomputed_at)
+      VALUES ($1, $2, 'DECLARED_AT_RISK', 'VERIFIED_AT_RISK', 'OVERRIDE_CLEARED', 'LOW', NOW())
+    `, [sr3.rows[0].id, facilityId]);
+
+    console.log('Created financial readiness seed data for 3 surgery requests');
+
     await client.query('COMMIT');
     console.log('\nSeeding completed successfully!');
     console.log('\nTest Accounts (login with username, not email):');

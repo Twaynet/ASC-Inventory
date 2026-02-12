@@ -60,6 +60,11 @@ const CRITICAL_TABLES = [
   'surgery_request_checklist_response',
   'surgery_request_audit_event',
   'surgery_request_conversion',
+  // Phase 2: Financial Readiness
+  'clinic_financial_declaration',
+  'asc_financial_verification',
+  'financial_override',
+  'financial_readiness_cache',
 ];
 
 /** Specific columns that MUST exist */
@@ -89,6 +94,17 @@ const EXPECTED_COLUMNS: Array<{ table: string; column: string }> = [
   { table: 'surgery_request', column: 'source_clinic_id' },
   { table: 'surgery_request', column: 'patient_ref_id' },
   { table: 'surgery_request_conversion', column: 'surgical_case_id' },
+  // Phase 2: Financial Readiness
+  { table: 'clinic_financial_declaration', column: 'surgery_request_id' },
+  { table: 'clinic_financial_declaration', column: 'actor_clinic_id' },
+  { table: 'clinic_financial_declaration', column: 'recorded_by_user_id' },
+  { table: 'asc_financial_verification', column: 'surgery_request_id' },
+  { table: 'asc_financial_verification', column: 'verified_by_user_id' },
+  { table: 'financial_override', column: 'surgery_request_id' },
+  { table: 'financial_override', column: 'overridden_by_user_id' },
+  { table: 'financial_readiness_cache', column: 'surgery_request_id' },
+  { table: 'financial_readiness_cache', column: 'target_facility_id' },
+  { table: 'financial_readiness_cache', column: 'risk_state' },
 ];
 
 /** DB functions that MUST exist */
@@ -112,6 +128,10 @@ const APPEND_ONLY_TABLES = [
   'surgery_request_checklist_response',
   'surgery_request_audit_event',
   'surgery_request_conversion',
+  // Phase 2: Financial Readiness (append-only event tables — NOT cache)
+  'clinic_financial_declaration',
+  'asc_financial_verification',
+  'financial_override',
 ];
 
 /** Tables that should have rows after seeding */

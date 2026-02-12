@@ -22,6 +22,7 @@ const ADMIN_LINKS = [
   { href: '/admin/general-settings', label: 'General Settings' },
   { href: '/admin/pending-reviews', label: 'Pending Reviews' },
   { href: '/admin/surgery-requests', label: 'Surgery Requests' },
+  { href: '/admin/financial-readiness', label: 'Financial Readiness' },
 ];
 
 export function AdminNav({ userRoles }: AdminNavProps) {
