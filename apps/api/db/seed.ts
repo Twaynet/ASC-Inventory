@@ -56,6 +56,15 @@ const facilityResult = await client.query(
 const facilityId = facilityResult.rows[0].id;
 console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
 
+    // Create ASC organization for the facility (migrations backfill won't cover seed-created facilities)
+    const orgResult = await client.query(`
+      INSERT INTO organization (facility_id, name, organization_type)
+      VALUES ($1, 'Demo Surgery Center', 'ASC')
+      RETURNING id
+    `, [facilityId]);
+    const ascOrgId = orgResult.rows[0].id;
+    console.log(`Created ASC organization: ${ascOrgId}`);
+
     // Create users with hashed passwords
     const passwordHash = await bcrypt.hash('password123', 10);
 
@@ -268,11 +277,11 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     const case1Result = await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number, primary_organization_id
       )
-      VALUES ($1, $2, '08:00', $3, 'Total Hip Arthroplasty', $4, 'SCHEDULED', true, NOW(), $5, generate_case_number($1))
+      VALUES ($1, $2, '08:00', $3, 'Total Hip Arthroplasty', $4, 'SCHEDULED', true, NOW(), $5, generate_case_number($1), $6)
       RETURNING id
-    `, [facilityId, tomorrowStr, drSmithId, hipVersionResult.rows[0].id, adminId]);
+    `, [facilityId, tomorrowStr, drSmithId, hipVersionResult.rows[0].id, adminId, ascOrgId]);
 
     // Add requirements from preference card
     await client.query(`
@@ -294,11 +303,11 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     const case2Result = await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number, primary_organization_id
       )
-      VALUES ($1, $2, '10:30', $3, 'Total Knee Arthroplasty', $4, 'SCHEDULED', true, NOW(), $5, generate_case_number($1))
+      VALUES ($1, $2, '10:30', $3, 'Total Knee Arthroplasty', $4, 'SCHEDULED', true, NOW(), $5, generate_case_number($1), $6)
       RETURNING id
-    `, [facilityId, tomorrowStr, drJonesId, kneeVersionResult.rows[0].id, adminId]);
+    `, [facilityId, tomorrowStr, drJonesId, kneeVersionResult.rows[0].id, adminId, ascOrgId]);
 
     await client.query(`
       INSERT INTO case_requirement (case_id, catalog_id, quantity, is_surgeon_override)
@@ -315,11 +324,11 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     const case3Result = await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number, primary_organization_id
       )
-      VALUES ($1, $2, '13:00', $3, 'Lumbar Fusion', $4, 'SCHEDULED', true, NOW(), $5, generate_case_number($1))
+      VALUES ($1, $2, '13:00', $3, 'Lumbar Fusion', $4, 'SCHEDULED', true, NOW(), $5, generate_case_number($1), $6)
       RETURNING id
-    `, [facilityId, tomorrowStr, drSmithId, spineVersionResult.rows[0].id, adminId]);
+    `, [facilityId, tomorrowStr, drSmithId, spineVersionResult.rows[0].id, adminId, ascOrgId]);
 
     await client.query(`
       INSERT INTO case_requirement (case_id, catalog_id, quantity, is_surgeon_override)
@@ -351,43 +360,43 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number, primary_organization_id
       )
       VALUES
-        ($1, $2, '07:30', $3, 'Hip Replacement - Test 1', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '09:00', $3, 'Hip Replacement - Test 2', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '10:30', $5, 'Knee Replacement - Test 1', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '12:00', $5, 'Knee Replacement - Test 2', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '14:00', $3, 'Hip Replacement - Test 3', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1))
-    `, [facilityId, dayAfterStr, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId]);
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 1', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 2', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 1', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 2', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 3', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8)
+    `, [facilityId, dayAfterStr, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId, ascOrgId]);
 
     // Test cases for debrief testing - Day +3 (all active)
     await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number, primary_organization_id
       )
       VALUES
-        ($1, $2, '07:30', $3, 'Hip Replacement - Test 4', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '09:00', $3, 'Hip Replacement - Test 5', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '10:30', $5, 'Knee Replacement - Test 3', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '12:00', $5, 'Knee Replacement - Test 4', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '14:00', $3, 'Hip Replacement - Test 6', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1))
-    `, [facilityId, day3Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId]);
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 4', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 5', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 3', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 4', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 6', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8)
+    `, [facilityId, day3Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId, ascOrgId]);
 
     // Test cases for debrief testing - Day +4 (all active)
     await client.query(`
       INSERT INTO surgical_case (
         facility_id, scheduled_date, scheduled_time, surgeon_id,
-        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number
+        procedure_name, preference_card_version_id, status, is_active, activated_at, activated_by_user_id, case_number, primary_organization_id
       )
       VALUES
-        ($1, $2, '07:30', $3, 'Hip Replacement - Test 7', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '09:00', $3, 'Hip Replacement - Test 8', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '10:30', $5, 'Knee Replacement - Test 5', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '12:00', $5, 'Knee Replacement - Test 6', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1)),
-        ($1, $2, '14:00', $3, 'Hip Replacement - Test 9', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1))
-    `, [facilityId, day4Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId]);
+        ($1, $2, '07:30', $3, 'Hip Replacement - Test 7', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '09:00', $3, 'Hip Replacement - Test 8', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '10:30', $5, 'Knee Replacement - Test 5', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '12:00', $5, 'Knee Replacement - Test 6', $6, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8),
+        ($1, $2, '14:00', $3, 'Hip Replacement - Test 9', $4, 'SCHEDULED', true, NOW(), $7, generate_case_number($1), $8)
+    `, [facilityId, day4Str, drSmithId, hipVersionResult.rows[0].id, drJonesId, kneeVersionResult.rows[0].id, adminId, ascOrgId]);
 
     console.log('Created 15 additional test cases for debrief testing');
 
@@ -543,10 +552,10 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
     const convertedCase = await client.query(`
       INSERT INTO surgical_case (
         facility_id, case_number, scheduled_date, surgeon_id,
-        procedure_name, status, is_active, is_cancelled
-      ) VALUES ($1, generate_case_number($1), $2, $3, 'Lumbar Decompression', 'REQUESTED', false, false)
+        procedure_name, status, is_active, is_cancelled, primary_organization_id
+      ) VALUES ($1, generate_case_number($1), $2, $3, 'Lumbar Decompression', 'REQUESTED', false, false, $4)
       RETURNING id
-    `, [facilityId, day3Str, drSmithId]);
+    `, [facilityId, day3Str, drSmithId, ascOrgId]);
 
     await client.query(`
       INSERT INTO surgery_request_conversion (request_id, surgical_case_id, converted_by_user_id)
