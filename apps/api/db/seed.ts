@@ -80,6 +80,20 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
       console.log(`Created user: ${user.name} (${user.username})`);
     }
 
+    // Auto-affiliate all seeded users with the facility's ASC organization
+    await client.query(`
+      INSERT INTO user_organization_affiliation (user_id, organization_id, affiliation_type)
+      SELECT u.id, o.id, 'PRIMARY'
+      FROM app_user u
+      JOIN organization o ON o.facility_id = u.facility_id AND o.organization_type = 'ASC'
+      WHERE u.facility_id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM user_organization_affiliation
+          WHERE user_id = u.id AND organization_id = o.id AND is_active = true
+        )
+    `, [facilityId]);
+    console.log('Affiliated all users with ASC organization');
+
     const drSmithId = users['SURGEON_Dr. John Smith'];
     const drJonesId = users['SURGEON_Dr. Sarah Jones'];
     const techId = users['INVENTORY_TECH_Tom Tech'];

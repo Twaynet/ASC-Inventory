@@ -183,6 +183,15 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     `, [facilityId, data.username, data.email || null, data.name, primaryRole, userRoles, passwordHash]);
 
     const row = result.rows[0];
+
+    // Auto-affiliate new user with their facility's ASC organization
+    await query(`
+      INSERT INTO user_organization_affiliation (user_id, organization_id, affiliation_type, granted_by_user_id)
+      SELECT $1, o.id, 'PRIMARY', $2
+      FROM organization o
+      WHERE o.facility_id = $3 AND o.organization_type = 'ASC' AND o.is_active = true
+    `, [row.id, request.user.id, facilityId]);
+
     const resultRoles = normalizeRoles(row.roles, row.role);
     return reply.status(201).send({
       user: {
