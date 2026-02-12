@@ -34,18 +34,55 @@ async function apiCall(
   path: string,
   opts: { body?: unknown; token?: string } = {},
 ): Promise<{ status: number; body: Record<string, unknown> }> {
+  const url = `${API_BASE}${path}`;
   const headers: Record<string, string> = {};
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (opts.token) headers['Authorization'] = `Bearer ${opts.token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(url, {
     method,
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
 
-  const body = await res.json() as Record<string, unknown>;
+  const text = await res.text();
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    throw new Error(`${method} ${url} → ${res.status} (non-JSON response): ${text.substring(0, 200)}`);
+  }
   return { status: res.status, body };
+}
+
+/**
+ * Require a specific status code. Throws a clear diagnostic on mismatch.
+ */
+function requireStatus(
+  result: { status: number; body: Record<string, unknown> },
+  expected: number,
+  context: string,
+): void {
+  if (result.status !== expected) {
+    throw new Error(
+      `${context}: expected ${expected}, got ${result.status}\n` +
+      `  Response: ${JSON.stringify(result.body, null, 2).substring(0, 500)}`
+    );
+  }
+}
+
+/**
+ * Extract the `data` envelope from a successful response.
+ * Throws if body.data is missing (indicates wrong envelope or error response).
+ */
+function getData<T>(result: { status: number; body: Record<string, unknown> }, context: string): T {
+  if (!result.body || result.body.data === undefined) {
+    throw new Error(
+      `${context}: response missing 'data' envelope (status ${result.status})\n` +
+      `  Response: ${JSON.stringify(result.body, null, 2).substring(0, 500)}`
+    );
+  }
+  return result.body.data as T;
 }
 
 async function loginAdmin(): Promise<string> {
@@ -54,7 +91,7 @@ async function loginAdmin(): Promise<string> {
     body: { facilityKey, username: 'admin', password: 'password123' },
   });
   if (status !== 200) {
-    throw new Error(`Admin login failed: ${JSON.stringify(body)}`);
+    throw new Error(`Admin login failed (${status}): ${JSON.stringify(body)}`);
   }
   return (body as { token: string }).token;
 }
@@ -101,8 +138,7 @@ async function runTests(): Promise<void> {
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || 'postgres',
   });
-  // Delete cache first (no append-only trigger), then event tables via CASCADE or direct delete
-  // Actually the append-only triggers block DELETE. We need to temporarily disable them.
+  // Append-only triggers block DELETE. Temporarily disable them for cleanup.
   await pool.query(`ALTER TABLE clinic_financial_declaration DISABLE TRIGGER ALL`);
   await pool.query(`ALTER TABLE asc_financial_verification DISABLE TRIGGER ALL`);
   await pool.query(`ALTER TABLE financial_override DISABLE TRIGGER ALL`);
@@ -118,6 +154,7 @@ async function runTests(): Promise<void> {
   // Step 1: GET dashboard before any financial events
   console.log('\n1. Dashboard before financial events:');
   const r1 = await apiCall('GET', '/admin/financial-readiness/dashboard', { token: adminToken });
+  requireStatus(r1, 200, 'GET /admin/financial-readiness/dashboard');
   assert(r1.status === 200, `Dashboard returns 200 (got ${r1.status})`);
 
   // Step 2: POST verify AT_RISK
@@ -126,15 +163,17 @@ async function runTests(): Promise<void> {
     token: adminToken,
     body: { state: 'VERIFIED_AT_RISK', reasonCodes: ['PATIENT_BALANCE_UNRESOLVED'], note: 'Smoke test verification' },
   });
+  requireStatus(r2, 201, `POST /admin/financial-readiness/${requestId}/verify`);
   assert(r2.status === 201, `Verify returns 201 (got ${r2.status})`);
-  const cache2 = ((r2.body as { data: { cache: { riskState: string } } }).data).cache;
+  const cache2 = getData<{ cache: { riskState: string } }>(r2, 'verify response').cache;
   assert(cache2.riskState === 'HIGH', `Risk state is HIGH after ASC AT_RISK (got ${cache2.riskState})`);
 
   // Step 3: GET dashboard — filter for HIGH
   console.log('\n3. Dashboard with HIGH filter:');
   const r3 = await apiCall('GET', '/admin/financial-readiness/dashboard?riskState=HIGH', { token: adminToken });
+  requireStatus(r3, 200, 'GET /admin/financial-readiness/dashboard?riskState=HIGH');
   assert(r3.status === 200, `Dashboard returns 200`);
-  const data3 = (r3.body as { data: { rows: { surgeryRequestId: string; riskState: string }[]; total: number } }).data;
+  const data3 = getData<{ rows: { surgeryRequestId: string; riskState: string }[]; total: number }>(r3, 'dashboard HIGH');
   const ourRow3 = data3.rows.find(r => r.surgeryRequestId === requestId);
   assert(ourRow3 !== undefined, `Our request appears in HIGH-filtered dashboard`);
   assert(ourRow3?.riskState === 'HIGH', `Risk state is HIGH in dashboard`);
@@ -145,15 +184,17 @@ async function runTests(): Promise<void> {
     token: adminToken,
     body: { state: 'OVERRIDE_CLEARED', reasonCode: 'PATIENT_PAID', note: 'Patient paid in full' },
   });
+  requireStatus(r4, 201, `POST /admin/financial-readiness/${requestId}/override`);
   assert(r4.status === 201, `Override returns 201 (got ${r4.status})`);
-  const cache4 = ((r4.body as { data: { cache: { riskState: string } } }).data).cache;
+  const cache4 = getData<{ cache: { riskState: string } }>(r4, 'override response').cache;
   assert(cache4.riskState === 'LOW', `Risk state is LOW after override CLEARED (got ${cache4.riskState})`);
 
   // Step 5: GET dashboard — verify LOW
   console.log('\n5. Dashboard after override — risk is LOW:');
   const r5 = await apiCall('GET', `/admin/financial-readiness/dashboard?riskState=LOW`, { token: adminToken });
+  requireStatus(r5, 200, 'GET /admin/financial-readiness/dashboard?riskState=LOW');
   assert(r5.status === 200, `Dashboard returns 200`);
-  const data5 = (r5.body as { data: { rows: { surgeryRequestId: string; riskState: string }[] } }).data;
+  const data5 = getData<{ rows: { surgeryRequestId: string; riskState: string }[] }>(r5, 'dashboard LOW');
   const ourRow5 = data5.rows.find(r => r.surgeryRequestId === requestId);
   assert(ourRow5 !== undefined, `Our request appears in LOW-filtered dashboard`);
 
@@ -163,19 +204,21 @@ async function runTests(): Promise<void> {
     token: adminToken,
     body: { state: 'NONE', reasonCode: null },
   });
+  requireStatus(r6, 201, `POST /admin/financial-readiness/${requestId}/override (NONE)`);
   assert(r6.status === 201, `Override clear returns 201 (got ${r6.status})`);
-  const cache6 = ((r6.body as { data: { cache: { riskState: string } } }).data).cache;
+  const cache6 = getData<{ cache: { riskState: string } }>(r6, 'override clear response').cache;
   assert(cache6.riskState === 'HIGH', `Risk state back to HIGH after clearing override (got ${cache6.riskState})`);
 
   // Step 7: GET detail — verify timeline
   console.log('\n7. Detail view — verify timeline:');
   const r7 = await apiCall('GET', `/admin/financial-readiness/${requestId}`, { token: adminToken });
+  requireStatus(r7, 200, `GET /admin/financial-readiness/${requestId}`);
   assert(r7.status === 200, `Detail returns 200 (got ${r7.status})`);
-  const data7 = (r7.body as { data: {
+  const data7 = getData<{
     verifications: { state: string }[];
     overrides: { state: string }[];
     cache: { riskState: string };
-  } }).data;
+  }>(r7, 'detail response');
   assert(data7.verifications.length === 1, `Has 1 verification event`);
   assert(data7.overrides.length === 2, `Has 2 override events (set + clear)`);
   assert(data7.cache.riskState === 'HIGH', `Cache shows HIGH risk`);
@@ -186,9 +229,10 @@ async function runTests(): Promise<void> {
     token: adminToken,
     body: { state: 'DECLARED_CLEARED', reasonCodes: [], note: 'Clinic reports cleared' },
   });
+  requireStatus(r8, 201, `POST /admin/financial-readiness/${requestId}/declare`);
   assert(r8.status === 201, `Declaration returns 201 (got ${r8.status})`);
   // ASC is AT_RISK → still HIGH (ASC AT_RISK takes precedence over clinic CLEARED)
-  const cache8 = ((r8.body as { data: { cache: { riskState: string; clinicState: string } } }).data).cache;
+  const cache8 = getData<{ cache: { riskState: string; clinicState: string } }>(r8, 'declare response').cache;
   assert(cache8.clinicState === 'DECLARED_CLEARED', `Clinic state is DECLARED_CLEARED`);
   assert(cache8.riskState === 'HIGH', `Risk still HIGH because ASC is AT_RISK (got ${cache8.riskState})`);
 
@@ -200,7 +244,7 @@ async function runTests(): Promise<void> {
       try {
         await pool.query(`UPDATE asc_financial_verification SET note = 'hacked' WHERE id = $1`, [verRes.rows[0].id]);
         assert(false, 'UPDATE on asc_financial_verification should have been blocked');
-      } catch (err) {
+      } catch {
         assert(true, 'UPDATE on asc_financial_verification blocked by trigger');
       }
     }
