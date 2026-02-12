@@ -147,3 +147,41 @@ When an ACCEPTED request is converted:
 
 - **`/admin/surgery-requests`** — List view with status/clinic/date filters
 - **`/admin/surgery-requests/:id`** — Detail view with read-only clinic data, checklist responses, submission history, audit timeline, and action buttons
+
+---
+
+## Operational Notes
+
+### CLINIC_KEY_SECRET
+
+The `CLINIC_KEY_SECRET` environment variable provides the server-side secret for HMAC-SHA256 key hashing.
+
+| Environment | Behavior |
+|-------------|----------|
+| **Production** (`NODE_ENV=production`) | **Required.** Server refuses to start if not set. |
+| **Development** | Optional. Falls back to a hardcoded dev default with a console warning. |
+
+**Requirements:**
+- Minimum 64 characters, random hex or base64
+- Must be identical across all API server instances (stateless auth)
+- Changing the secret invalidates all existing clinic API keys — full key re-issuance required
+
+### Key Rotation
+
+Clinic API keys are stored as HMAC-SHA256 hashes. Rotating `CLINIC_KEY_SECRET` breaks all existing keys because the hash output changes. To rotate:
+
+1. Generate new API keys for all clinics using the new secret
+2. Distribute new keys to clinics
+3. Update `CLINIC_KEY_SECRET` on all API instances simultaneously
+4. Old keys become permanently invalid
+
+There is no graceful dual-secret migration path in Phase 1. Plan key rotation as a coordinated cutover.
+
+### Surgeon Mapping Requirement
+
+Conversion from `ACCEPTED` → `CONVERTED` requires a mapped `surgeon_id` on the surgery request. The `surgical_case.surgeon_id` column is `NOT NULL`.
+
+- If a clinic submits with `surgeonUsername` or `surgeonId`, the service resolves it against `app_user` (facility-scoped, `SURGEON` role)
+- If resolution fails (unknown surgeon), `surgeon_id` is stored as `NULL`
+- Conversion will fail with `422 SURGEON_NOT_MAPPED` if `surgeon_id` is `NULL`
+- Resolution: return the request to the clinic for resubmission with a valid surgeon identifier

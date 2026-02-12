@@ -246,6 +246,43 @@ async function runTests(): Promise<void> {
   assert(data10.conversion !== null, `Conversion record exists`);
   assert(data10.conversion?.surgicalCaseId === data8.surgicalCaseId, `Conversion links to correct case`);
 
+  // Step 11: Terminal conversion invariants (DB verification)
+  console.log('\n11. Terminal conversion invariants (DB verification):');
+  const pg3 = await import('pg');
+  const pool3 = new pg3.default.Pool({
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432'),
+    database: process.env.DB_NAME || 'asc_inventory',
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || 'postgres',
+  });
+  try {
+    // Verify surgical_case row exists
+    const caseRes = await pool3.query(
+      `SELECT id, status, procedure_name FROM surgical_case WHERE id = $1`,
+      [data8.surgicalCaseId],
+    );
+    assert(caseRes.rows.length === 1, `surgical_case row exists in DB`);
+    assert(caseRes.rows[0].status === 'REQUESTED', `surgical_case status is REQUESTED`);
+    assert(caseRes.rows[0].procedure_name === 'Smoke Test Procedure', `surgical_case procedure_name matches`);
+
+    // Verify audit event sequence includes ACCEPTED and CONVERTED
+    const auditRes = await pool3.query(
+      `SELECT event_type FROM surgery_request_audit_event
+       WHERE request_id = $1 ORDER BY created_at ASC`,
+      [ctx.requestId],
+    );
+    const eventTypes = auditRes.rows.map((r: { event_type: string }) => r.event_type);
+    assert(eventTypes.includes('ACCEPTED'), `Audit trail includes ACCEPTED event`);
+    assert(eventTypes.includes('CONVERTED'), `Audit trail includes CONVERTED event`);
+    assert(
+      eventTypes.indexOf('ACCEPTED') < eventTypes.indexOf('CONVERTED'),
+      `ACCEPTED precedes CONVERTED in audit trail`,
+    );
+  } finally {
+    await pool3.end();
+  }
+
   // Summary
   console.log(`\n${'='.repeat(50)}`);
   console.log(`Results: ${passed} passed, ${failed} failed`);

@@ -3,6 +3,14 @@
  *
  * Business logic for clinic submissions and ASC review/conversion.
  * All state transitions are enforced here via the SURGERY_REQUEST_TRANSITIONS map.
+ *
+ * TRANSACTION DISCIPLINE:
+ * All DB writes inside SurgeryRequest operations must use the passed
+ * transaction client (pg.PoolClient). Do NOT call the pooled `query()`
+ * function inside a transaction path — it acquires a separate connection
+ * that cannot see uncommitted rows, causing FK violations and data races.
+ * The global `query()` import is used ONLY by read-only query functions
+ * (findByClinic, findByFacility, etc.) that run outside transactions.
  */
 
 import { transaction, query } from '../db/index.js';
@@ -432,6 +440,17 @@ export async function convert(
   return transaction(async (client) => {
     const req = await loadAndLock(client, requestId, facilityId);
     assertTransition(req.status, 'CONVERTED');
+
+    // Surgeon mapping is required — surgical_case.surgeon_id is NOT NULL
+    if (!req.surgeon_id) {
+      const err = new Error(
+        'Cannot convert: surgeon_id is not mapped. '
+        + 'Return the request to the clinic for resubmission with a valid surgeon.',
+      );
+      (err as Error & { statusCode: number; code: string }).statusCode = 422;
+      (err as Error & { code: string }).code = 'SURGEON_NOT_MAPPED';
+      throw err;
+    }
 
     // Create surgical_case from request data
     const caseResult = await client.query<{ id: string; status: string }>(`

@@ -274,6 +274,9 @@ function handleServiceError(reply: FastifyReply, err: unknown): FastifyReply {
   if (e.statusCode === 409) {
     return fail(reply, e.code || 'CONFLICT', e.message, 409);
   }
+  if (e.statusCode === 422) {
+    return fail(reply, e.code || 'UNPROCESSABLE_ENTITY', e.message, 422);
+  }
   if (e.statusCode === 404) {
     return fail(reply, 'NOT_FOUND', e.message, 404);
   }

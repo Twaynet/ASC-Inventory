@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
+import { ApiError } from '@/lib/api/client';
 import {
   getSurgeryRequest,
   returnSurgeryRequest,
@@ -138,7 +139,11 @@ export default function SurgeryRequestDetailPage() {
       setSuccessMessage(`Converted to surgical case (ID: ${result.surgicalCaseId}).`);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to convert request');
+      if (err instanceof ApiError && err.code === 'SURGEON_NOT_MAPPED') {
+        setError('Surgeon not mapped. Return to clinic with INVALID_SURGEON or map surgeon before converting.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to convert request');
+      }
     } finally {
       setIsSubmitting(false);
     }
