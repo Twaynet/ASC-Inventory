@@ -7,6 +7,7 @@ version: '3.8'
 # REQUIRED environment variables (set in .env file on droplet):
 #   - POSTGRES_PASSWORD: Database password
 #   - JWT_SECRET: JWT signing secret
+#   - CLINIC_KEY_SECRET: HMAC secret for clinic API key auth (64+ chars)
 #   - IMAGE_TAG: Docker image version (e.g., 1.5.5)
 #
 # Deploy commands:
@@ -61,6 +62,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      CLINIC_KEY_SECRET: ${CLINIC_KEY_SECRET}
       CORS_ORIGIN: https://beta.orthowise.dev
     expose:
       - "3001"
