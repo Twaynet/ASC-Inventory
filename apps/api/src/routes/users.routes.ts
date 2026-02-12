@@ -190,7 +190,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       SELECT $1, o.id, 'PRIMARY', $2
       FROM organization o
       WHERE o.facility_id = $3 AND o.organization_type = 'ASC' AND o.is_active = true
-    `, [row.id, request.user.id, facilityId]);
+    `, [row.id, request.user.userId, facilityId]);
 
     const resultRoles = normalizeRoles(row.roles, row.role);
     return reply.status(201).send({
