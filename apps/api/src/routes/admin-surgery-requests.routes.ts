@@ -163,6 +163,30 @@ export async function adminSurgeryRequestRoutes(
     }
   });
 
+  // POST /:id/checklist/complete — Complete a checklist instance
+  fastify.post('/:id/checklist/complete', {
+    preHandler: [requireCapabilities('SURGERY_REQUEST_REVIEW')],
+  }, async (request: FastifyRequest<{ Params: { id: string }; Body: { instanceId: string } }>, reply: FastifyReply) => {
+    const { facilityId, userId } = request.user;
+    if (!facilityId) {
+      return fail(reply, 'FORBIDDEN', 'Facility context required', 403);
+    }
+
+    const body = request.body as { instanceId?: string };
+    if (!body?.instanceId) {
+      return fail(reply, 'VALIDATION_ERROR', 'instanceId is required', 400);
+    }
+
+    try {
+      const instance = await srService.completeChecklist(
+        facilityId, userId, request.params.id, body.instanceId,
+      );
+      return ok(reply, { checklistInstance: formatChecklistInstance(instance) });
+    } catch (err) {
+      return handleServiceError(reply, err);
+    }
+  });
+
   // POST /:id/convert — Convert accepted request to surgical_case
   fastify.post('/:id/convert', {
     preHandler: [requireCapabilities('SURGERY_REQUEST_CONVERT')],

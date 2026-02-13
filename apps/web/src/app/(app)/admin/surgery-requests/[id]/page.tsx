@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useAccessControl } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import { ApiError } from '@/lib/api/client';
@@ -11,6 +11,7 @@ import {
   acceptSurgeryRequest,
   rejectSurgeryRequest,
   convertSurgeryRequest,
+  completeSurgeryRequestChecklist,
   type SurgeryRequestDetail,
   type SurgeryRequestStatus,
 } from '@/lib/api/surgery-requests';
@@ -43,17 +44,33 @@ const EVENT_LABELS: Record<string, string> = {
   CONVERTED: 'Converted to surgical case',
 };
 
+type TabId = 'overview' | 'timeline' | 'checklist' | 'financial';
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'timeline', label: 'Timeline' },
+  { id: 'checklist', label: 'Checklist' },
+  { id: 'financial', label: 'Financial' },
+];
+
+const TERMINAL_STATES: SurgeryRequestStatus[] = ['REJECTED', 'WITHDRAWN', 'CONVERTED'];
+
 export default function SurgeryRequestDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, token } = useAuth();
   const { hasRole } = useAccessControl();
   const requestId = params.id as string;
 
+  const initialTab = (searchParams.get('tab') as TabId) || 'overview';
   const [detail, setDetail] = useState<SurgeryRequestDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  const [isCompletingChecklist, setIsCompletingChecklist] = useState(false);
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
 
   // Modal state
   const [showReturnModal, setShowReturnModal] = useState(false);
@@ -130,6 +147,29 @@ export default function SurgeryRequestDetailPage() {
     }
   };
 
+  const handleTabChange = (tab: TabId) => {
+    setActiveTab(tab);
+    const p = new URLSearchParams(searchParams.toString());
+    if (tab === 'overview') p.delete('tab'); else p.set('tab', tab);
+    const qs = p.toString();
+    router.replace(`${window.location.pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+  };
+
+  const handleCompleteChecklist = async (instanceId: string) => {
+    if (!token) return;
+    setIsCompletingChecklist(true);
+    try {
+      await completeSurgeryRequestChecklist(token, requestId, instanceId);
+      setShowCompleteConfirm(false);
+      setSuccessMessage('Checklist marked as complete.');
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to complete checklist');
+    } finally {
+      setIsCompletingChecklist(false);
+    }
+  };
+
   const handleConvert = async () => {
     if (!token) return;
     setIsSubmitting(true);
@@ -192,6 +232,26 @@ export default function SurgeryRequestDetailPage() {
         {error && <div className="alert alert-error mb-4">{error}</div>}
         {successMessage && <div className="alert alert-success mb-4">{successMessage}</div>}
 
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6 border-b border-border pb-2">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'text-accent border-b-2 border-accent'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ──── OVERVIEW TAB ──── */}
+        {activeTab === 'overview' && (
+          <>
         {/* Read-only banner */}
         <div className="alert alert-info mb-4">
           Clinic-submitted fields are read-only. To request corrections, return the request to the clinic.
@@ -322,6 +382,190 @@ export default function SurgeryRequestDetailPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+          </>
+        )}
+
+        {/* ──── TIMELINE TAB (Phase 7.2) ──── */}
+        {activeTab === 'timeline' && (
+          <div className="bg-surface-primary rounded-lg border border-border p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-text-primary">Request Timeline</h3>
+              <span className="inline-block px-3 py-1 rounded text-xs font-medium bg-[var(--color-blue-bg)] text-[var(--color-blue-700)]">
+                Phase 7 — Not yet implemented
+              </span>
+            </div>
+            <p className="text-sm text-text-secondary mb-4">
+              Full chronological timeline of surgery request events including status changes,
+              actor type (CLINIC / ASC), conversion events, and timestamps.
+            </p>
+            <div className="bg-surface-secondary rounded p-4 text-sm text-text-muted space-y-2">
+              <p><strong>Planned data sources:</strong></p>
+              <ul className="list-disc list-inside space-y-1">
+                <li><code>getSurgeryRequest(token, requestId)</code> — detail.auditEvents</li>
+                <li><code>detail.submissions</code> — submission history</li>
+                <li><code>detail.conversion</code> — conversion event</li>
+              </ul>
+              <p className="mt-3"><strong>Planned UI:</strong></p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Unified chronological timeline merging audit events + submissions</li>
+                <li>Visual actor type badges (CLINIC vs ASC)</li>
+                <li>Status transition arrows with reason codes</li>
+                <li>Conversion highlight with linked case ID</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* ──── CHECKLIST TAB ──── */}
+        {activeTab === 'checklist' && (
+          <div className="bg-surface-primary rounded-lg border border-border p-6">
+            {detail.checklistInstances.length === 0 ? (
+              <>
+                <h3 className="text-lg font-semibold text-text-primary mb-4">Checklist</h3>
+                <div className="text-center py-8 text-text-muted">
+                  No checklist was submitted with this request.
+                </div>
+              </>
+            ) : (
+              <>
+                {detail.checklistInstances.map((inst) => {
+                  const isComplete = inst.status === 'COMPLETE';
+                  const isTerminal = TERMINAL_STATES.includes(status);
+                  // Show responses that belong to this instance
+                  const responses = detail.checklistResponses.filter(
+                    r => r.instanceId === inst.id
+                  );
+
+                  return (
+                    <div key={inst.id} className="mb-6 last:mb-0">
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-text-primary">
+                            {inst.templateName || 'Checklist'}
+                            {inst.templateVersion != null && (
+                              <span className="text-sm text-text-muted ml-2">v{inst.templateVersion}</span>
+                            )}
+                          </h3>
+                          <p className="text-xs text-text-muted mt-1">
+                            Submitted: {formatDateTime(inst.createdAt)}
+                          </p>
+                        </div>
+                        <span className={`inline-block px-3 py-1 rounded text-sm font-medium ${
+                          isComplete
+                            ? 'bg-[var(--color-green-bg)] text-[var(--color-green-700)]'
+                            : 'bg-[var(--color-orange-bg)] text-[var(--color-orange-700)]'
+                        }`}>
+                          {inst.status}
+                        </span>
+                      </div>
+
+                      {/* Checklist responses */}
+                      {responses.length > 0 ? (
+                        <div className="space-y-2 mb-4">
+                          {responses.map((resp) => (
+                            <div
+                              key={resp.id}
+                              className="flex items-start gap-3 py-2 px-3 rounded bg-surface-secondary"
+                            >
+                              <span className="text-sm font-medium text-text-primary min-w-[180px]">
+                                {resp.itemKey.replace(/_/g, ' ')}
+                              </span>
+                              <span className="text-sm text-text-secondary">
+                                {formatResponseValue(resp.response)}
+                              </span>
+                              <span className="text-xs text-text-muted ml-auto whitespace-nowrap">
+                                {resp.actorType === 'CLINIC' ? 'Clinic' : 'ASC'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-text-muted mb-4">
+                          No responses recorded for this checklist.
+                        </div>
+                      )}
+
+                      {/* Complete button */}
+                      {!isComplete && !isTerminal && (
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => setShowCompleteConfirm(true)}
+                        >
+                          Complete Checklist
+                        </button>
+                      )}
+                      {isComplete && (
+                        <div className="text-xs text-text-muted">
+                          Completed {inst.updatedAt ? formatDateTime(inst.updatedAt) : ''}
+                        </div>
+                      )}
+                      {isTerminal && !isComplete && (
+                        <div className="text-xs text-text-muted">
+                          Request is in terminal state ({status}). Checklist cannot be completed.
+                        </div>
+                      )}
+
+                      {/* Complete Confirm Modal */}
+                      {showCompleteConfirm && (
+                        <div className="modal-overlay">
+                          <div className="bg-surface-primary rounded-lg shadow-[0_4px_20px_var(--shadow-md)] w-full max-w-[400px]">
+                            <div className="flex justify-between items-center py-4 px-6 border-b border-border">
+                              <h2 className="text-lg font-semibold text-text-primary">Complete Checklist</h2>
+                              <button className="text-text-muted hover:text-text-primary text-xl" onClick={() => setShowCompleteConfirm(false)}>&times;</button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                              <p className="text-sm text-text-secondary">
+                                Mark this checklist as complete? This action cannot be undone.
+                              </p>
+                              <div className="flex gap-3 justify-end">
+                                <button className="btn btn-secondary" onClick={() => setShowCompleteConfirm(false)}>Cancel</button>
+                                <button
+                                  className="btn btn-success"
+                                  onClick={() => handleCompleteChecklist(inst.id)}
+                                  disabled={isCompletingChecklist}
+                                >
+                                  {isCompletingChecklist ? 'Completing...' : 'Confirm Complete'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ──── FINANCIAL TAB (Phase 7.2) ──── */}
+        {activeTab === 'financial' && (
+          <div className="bg-surface-primary rounded-lg border border-border p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-text-primary">Financial Details</h3>
+              <span className="inline-block px-3 py-1 rounded text-xs font-medium bg-[var(--color-blue-bg)] text-[var(--color-blue-700)]">
+                Phase 7 — Not yet implemented
+              </span>
+            </div>
+            <p className="text-sm text-text-secondary mb-4">
+              Financial attribution and readiness information linked to this surgery request.
+            </p>
+            <div className="bg-surface-secondary rounded p-4 text-sm text-text-muted space-y-2">
+              <p><strong>Planned data sources:</strong></p>
+              <ul className="list-disc list-inside space-y-1">
+                <li><code>getFinancialReadinessDetail(token, requestId)</code> — if linked</li>
+                <li>Financial readiness declarations, verifications, overrides</li>
+              </ul>
+              <p className="mt-3"><strong>Planned UI:</strong></p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Financial readiness state summary</li>
+                <li>Link to full financial readiness detail page</li>
+                <li>Insurance/authorization status indicators</li>
+              </ul>
             </div>
           </div>
         )}

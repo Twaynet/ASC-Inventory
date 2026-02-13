@@ -192,3 +192,15 @@ export async function convertSurgeryRequest(
     token,
   });
 }
+
+export async function completeSurgeryRequestChecklist(
+  token: string,
+  requestId: string,
+  instanceId: string,
+): Promise<{ checklistInstance: ChecklistInstance }> {
+  return request(`/admin/surgery-requests/${requestId}/checklist/complete`, {
+    method: 'POST',
+    body: { instanceId },
+    token,
+  });
+}

@@ -507,6 +507,61 @@ export async function convert(
 }
 
 // ============================================================================
+// ASC: COMPLETE CHECKLIST
+// ============================================================================
+
+export async function completeChecklist(
+  facilityId: string,
+  userId: string,
+  requestId: string,
+  instanceId: string,
+): Promise<ChecklistInstanceRow> {
+  return transaction(async (client) => {
+    // Verify request belongs to facility
+    const req = await client.query<SurgeryRequestRow>(`
+      SELECT * FROM surgery_request
+      WHERE id = $1 AND target_facility_id = $2
+    `, [requestId, facilityId]);
+    if (req.rows.length === 0) {
+      const err = new Error('Surgery request not found');
+      (err as Error & { statusCode: number; code: string }).statusCode = 404;
+      (err as Error & { code: string }).code = 'NOT_FOUND';
+      throw err;
+    }
+
+    // Verify checklist instance belongs to this request and is PENDING
+    const inst = await client.query<ChecklistInstanceRow>(`
+      SELECT ci.*, tv.name AS template_name, tv.version AS template_version
+      FROM surgery_request_checklist_instance ci
+      JOIN surgery_request_checklist_template_version tv ON tv.id = ci.template_version_id
+      WHERE ci.id = $1 AND ci.request_id = $2
+    `, [instanceId, requestId]);
+    if (inst.rows.length === 0) {
+      const err = new Error('Checklist instance not found for this request');
+      (err as Error & { statusCode: number; code: string }).statusCode = 404;
+      (err as Error & { code: string }).code = 'NOT_FOUND';
+      throw err;
+    }
+    if (inst.rows[0].status === 'COMPLETE') {
+      const err = new Error('Checklist is already complete');
+      (err as Error & { statusCode: number; code: string }).statusCode = 409;
+      (err as Error & { code: string }).code = 'ALREADY_COMPLETE';
+      throw err;
+    }
+
+    // Complete the instance
+    const updated = await client.query<ChecklistInstanceRow>(`
+      UPDATE surgery_request_checklist_instance
+      SET status = 'COMPLETE', updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `, [instanceId]);
+
+    return { ...updated.rows[0], template_name: inst.rows[0].template_name, template_version: inst.rows[0].template_version };
+  });
+}
+
+// ============================================================================
 // QUERIES
 // ============================================================================
 
