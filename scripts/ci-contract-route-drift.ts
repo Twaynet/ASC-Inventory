@@ -25,9 +25,10 @@ interface RouteFileSpec {
 // Files with contracted endpoints and how many contract routes each should have
 const ROUTE_FILES: RouteFileSpec[] = [
   { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'cases.routes.ts'), expectedContractRoutes: 12 },
-  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'inventory.routes.ts'), expectedContractRoutes: 8 },
+  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'inventory.routes.ts'), expectedContractRoutes: 11 },
   { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'catalog.routes.ts'), expectedContractRoutes: 9 },
   { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'catalog-images.routes.ts'), expectedContractRoutes: 2 },
+  { path: join(ROOT, 'apps', 'api', 'src', 'routes', 'operations-health.routes.ts'), expectedContractRoutes: 1 },
 ];
 
 let failures = 0;
