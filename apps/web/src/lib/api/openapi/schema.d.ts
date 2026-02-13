@@ -289,6 +289,57 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/inventory/missing-analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Analytics over missing/found inventory events */
+        get: operations["inventory.missingAnalytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/missing-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Drill-down list of individual missing/found events */
+        get: operations["inventory.missingEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/open-missing-aging": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Currently missing items with aging metrics */
+        get: operations["inventory.openMissingAging"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/catalog": {
         parameters: {
             query?: never;
@@ -423,6 +474,23 @@ export type paths = {
         post?: never;
         /** Delete a catalog image */
         delete: operations["catalog.deleteImage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operations/health-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Aggregated operational health metrics */
+        get: operations["operations.healthSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1257,6 +1325,11 @@ export interface operations {
                     deviceEventId?: string;
                     /** Format: date-time */
                     occurredAt?: string;
+                    adjustment?: {
+                        /** @enum {string} */
+                        availabilityStatus: "MISSING" | "AVAILABLE";
+                    };
+                    reason?: string;
                 };
             };
         };
@@ -1302,6 +1375,11 @@ export interface operations {
                         deviceEventId?: string;
                         /** Format: date-time */
                         occurredAt?: string;
+                        adjustment?: {
+                            /** @enum {string} */
+                            availabilityStatus: "MISSING" | "AVAILABLE";
+                        };
+                        reason?: string;
                     }[];
                 };
             };
@@ -1651,6 +1729,136 @@ export interface operations {
                                 missingFields?: string[];
                                 explain: string;
                                 debug?: unknown;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "inventory.missingAnalytics": {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+                groupBy: "day" | "location" | "catalog" | "surgeon" | "staff";
+                resolution?: "MISSING" | "FOUND" | "BOTH";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            summary: {
+                                totalMissing: number;
+                                totalFound: number;
+                                netOpen: number;
+                                resolutionRate: number | null;
+                            };
+                            groups: {
+                                key: string;
+                                label: string;
+                                missingCount: number;
+                                foundCount: number;
+                            }[];
+                            topDrivers: {
+                                key: string;
+                                label: string;
+                                missingCount: number;
+                                foundCount: number;
+                            }[] | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "inventory.missingEvents": {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+                resolution?: "MISSING" | "FOUND" | "BOTH";
+                groupBy: "day" | "location" | "catalog" | "surgeon" | "staff";
+                groupKey?: string;
+                date?: string;
+                limit?: number;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            total: number;
+                            events: {
+                                /** Format: uuid */
+                                id: string;
+                                occurredAt: string;
+                                /** @enum {string} */
+                                type: "MISSING" | "FOUND";
+                                /** Format: uuid */
+                                inventoryItemId: string;
+                                catalogName: string;
+                                lotNumber: string | null;
+                                serialNumber: string | null;
+                                locationName: string | null;
+                                surgeonName: string | null;
+                                staffName: string | null;
+                                notes: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "inventory.openMissingAging": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            total: number;
+                            items: {
+                                /** Format: uuid */
+                                inventoryItemId: string;
+                                catalogName: string;
+                                lotNumber: string | null;
+                                serialNumber: string | null;
+                                locationName: string | null;
+                                missingSince: string;
+                                daysMissing: number;
+                                lastStaffName: string | null;
                             }[];
                         };
                     };
@@ -2126,6 +2334,51 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    "operations.healthSummary": {
+        parameters: {
+            query?: {
+                start?: string;
+                end?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            missing: {
+                                openCount: number;
+                                over7Days: number;
+                                over30Days: number;
+                                resolutionRate30d: number;
+                            };
+                            financial: {
+                                overrideCount30d: number;
+                                gratisCount30d: number;
+                            };
+                            devices: {
+                                totalEvents7d: number;
+                                errorEvents7d: number;
+                                errorRate7d: number;
+                            };
+                            cases: {
+                                completed30d: number;
+                                canceled30d: number;
+                            };
+                        };
+                    };
+                };
             };
         };
     };
