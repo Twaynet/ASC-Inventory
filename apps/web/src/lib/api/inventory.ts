@@ -110,6 +110,8 @@ export interface CreateInventoryEventRequest {
   sterilityStatus?: string;
   notes?: string;
   occurredAt?: string;
+  adjustment?: { availabilityStatus: 'MISSING' | 'AVAILABLE' };
+  reason?: string;
 }
 
 export interface GS1Data {
@@ -242,4 +244,265 @@ export async function getInventoryRiskQueue(token: string): Promise<{ riskItems:
   return callContract(contract.inventory.riskQueue, {
     token,
   }) as Promise<{ riskItems: RiskQueueItem[] }>;
+}
+
+// ============================================================================
+// Missing Analytics
+// ============================================================================
+
+export type MissingAnalyticsGroupBy = 'day' | 'location' | 'catalog' | 'surgeon' | 'staff';
+export type MissingAnalyticsResolution = 'MISSING' | 'FOUND' | 'BOTH';
+
+export interface MissingAnalyticsGroup {
+  key: string;
+  label: string;
+  missingCount: number;
+  foundCount: number;
+}
+
+export interface MissingAnalyticsResponse {
+  summary: {
+    totalMissing: number;
+    totalFound: number;
+    netOpen: number;
+    resolutionRate: number | null;
+  };
+  groups: MissingAnalyticsGroup[];
+  topDrivers: MissingAnalyticsGroup[] | null;
+}
+
+export async function getMissingAnalytics(
+  token: string,
+  params: {
+    start: string;
+    end: string;
+    groupBy: MissingAnalyticsGroupBy;
+    resolution?: MissingAnalyticsResolution;
+  }
+): Promise<MissingAnalyticsResponse> {
+  return callContract(contract.inventory.missingAnalytics, {
+    query: { resolution: 'BOTH', ...params },
+    token,
+  }) as Promise<MissingAnalyticsResponse>;
+}
+
+// ============================================================================
+// Missing Events Drill-Down
+// ============================================================================
+
+export interface MissingEventItem {
+  id: string;
+  occurredAt: string;
+  type: 'MISSING' | 'FOUND';
+  inventoryItemId: string;
+  catalogName: string;
+  lotNumber: string | null;
+  serialNumber: string | null;
+  locationName: string | null;
+  surgeonName: string | null;
+  staffName: string | null;
+  notes: string;
+}
+
+export interface MissingEventsResponse {
+  total: number;
+  events: MissingEventItem[];
+}
+
+export async function getMissingEvents(
+  token: string,
+  params: {
+    start: string;
+    end: string;
+    groupBy: MissingAnalyticsGroupBy;
+    resolution?: MissingAnalyticsResolution;
+    groupKey?: string;
+    date?: string;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<MissingEventsResponse> {
+  return callContract(contract.inventory.missingEvents, {
+    query: {
+      resolution: 'BOTH',
+      ...params,
+      limit: String(params.limit ?? 100),
+      offset: String(params.offset ?? 0),
+    },
+    token,
+  }) as Promise<MissingEventsResponse>;
+}
+
+// ============================================================================
+// Open Missing Aging
+// ============================================================================
+
+export interface OpenMissingAgingItem {
+  inventoryItemId: string;
+  catalogName: string;
+  lotNumber: string | null;
+  serialNumber: string | null;
+  locationName: string | null;
+  missingSince: string;
+  daysMissing: number;
+  lastStaffName: string | null;
+}
+
+export interface OpenMissingAgingResponse {
+  total: number;
+  items: OpenMissingAgingItem[];
+}
+
+export async function getOpenMissingAging(
+  token: string,
+): Promise<OpenMissingAgingResponse> {
+  return callContract(contract.inventory.openMissingAging, {
+    token,
+  }) as Promise<OpenMissingAgingResponse>;
+}
+
+// ============================================================================
+// Barcode / identifier lookup
+// ============================================================================
+
+export interface LookupItemSummary {
+  inventoryItemId: string;
+  catalogId: string;
+  catalogName: string;
+  barcode: string | null;
+  serialNumber: string | null;
+  lotNumber: string | null;
+  availabilityStatus: string;
+  sterilityStatus: string;
+  sterilityExpiresAt: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  caseLink: CaseLink;
+}
+
+export type LookupSource = 'BARCODE' | 'SERIAL' | 'GS1' | 'LOT';
+
+export type LookupResult =
+  | { match: 'SINGLE'; source: LookupSource; item: LookupItemSummary }
+  | { match: 'MULTIPLE'; source: LookupSource; capped: boolean; items: LookupItemSummary[] }
+  | { match: 'NONE' };
+
+export async function lookupInventoryItem(
+  token: string,
+  code: string,
+): Promise<LookupResult> {
+  const encoded = encodeURIComponent(code);
+  return request(`/inventory/items/lookup?code=${encoded}`, { token });
+}
+
+// ============================================================================
+// Device Events (read-only)
+// ============================================================================
+
+export interface DeviceEventListItem {
+  id: string;
+  deviceId: string;
+  deviceName: string;
+  deviceType: string;
+  payloadType: string;
+  rawValue: string;
+  processed: boolean;
+  processedItemId: string | null;
+  processingError: string | null;
+  occurredAt: string;
+  createdAt: string;
+}
+
+export interface DeviceEventListResponse {
+  events: DeviceEventListItem[];
+  nextCursor: string | null;
+}
+
+export async function getDeviceEvents(
+  token: string,
+  options?: {
+    deviceId?: string;
+    processed?: boolean;
+    hasError?: boolean;
+    start?: string;
+    end?: string;
+    q?: string;
+    limit?: number;
+    cursor?: string;
+  }
+): Promise<DeviceEventListResponse> {
+  const params = new URLSearchParams();
+  if (options?.deviceId) params.set('deviceId', options.deviceId);
+  if (options?.processed !== undefined) params.set('processed', String(options.processed));
+  if (options?.hasError !== undefined) params.set('hasError', String(options.hasError));
+  if (options?.start) params.set('start', options.start);
+  if (options?.end) params.set('end', options.end);
+  if (options?.q) params.set('q', options.q);
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.cursor) params.set('cursor', options.cursor);
+  const query = params.toString();
+  return request(`/inventory/device-events${query ? `?${query}` : ''}`, { token });
+}
+
+// ============================================================================
+// Inventory Events (read-only, with financial filter)
+// ============================================================================
+
+export interface InventoryEventListItem {
+  id: string;
+  eventType: string;
+  inventoryItemId: string;
+  catalogName: string;
+  caseId: string | null;
+  locationName: string | null;
+  previousLocationName: string | null;
+  sterilityStatus: string | null;
+  notes: string | null;
+  performedByName: string | null;
+  occurredAt: string;
+  createdAt: string;
+  costSnapshotCents: number | null;
+  costOverrideCents: number | null;
+  costOverrideReason: string | null;
+  costOverrideNote: string | null;
+  vendorId: string | null;
+  vendorName: string | null;
+  repName: string | null;
+  isGratis: boolean;
+  gratisReason: string | null;
+}
+
+export interface InventoryEventListResponse {
+  events: InventoryEventListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export async function getInventoryEvents(
+  token: string,
+  options?: {
+    financial?: boolean;
+    eventType?: string;
+    caseId?: string;
+    vendorId?: string;
+    gratis?: boolean;
+    start?: string;
+    end?: string;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<InventoryEventListResponse> {
+  const params = new URLSearchParams();
+  if (options?.financial !== undefined) params.set('financial', String(options.financial));
+  if (options?.eventType) params.set('eventType', options.eventType);
+  if (options?.caseId) params.set('caseId', options.caseId);
+  if (options?.vendorId) params.set('vendorId', options.vendorId);
+  if (options?.gratis !== undefined) params.set('gratis', String(options.gratis));
+  if (options?.start) params.set('start', options.start);
+  if (options?.end) params.set('end', options.end);
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.offset) params.set('offset', String(options.offset));
+  const query = params.toString();
+  return request(`/inventory/events${query ? `?${query}` : ''}`, { token });
 }

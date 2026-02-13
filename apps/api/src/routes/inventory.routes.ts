@@ -110,6 +110,8 @@ function computeItemUpdate(eventType: string, eventData: {
   locationId?: string;
   sterilityStatus?: string;
   caseId?: string;
+  notes?: string;
+  adjustment?: { availabilityStatus: string };
 }, userId: string): Record<string, unknown> {
   const now = new Date();
 
@@ -149,6 +151,37 @@ function computeItemUpdate(eventType: string, eventData: {
         ? { sterilityStatus: eventData.sterilityStatus, availabilityStatus: 'AVAILABLE' }
         : {};
 
+    case 'ADJUSTED': {
+      // Primary path: structured adjustment field
+      if (eventData.adjustment?.availabilityStatus) {
+        const status = eventData.adjustment.availabilityStatus;
+        if (status === 'MISSING') {
+          return { availabilityStatus: 'MISSING' };
+        }
+        if (status === 'AVAILABLE') {
+          const update: Record<string, unknown> = { availabilityStatus: 'AVAILABLE' };
+          if (eventData.locationId) update.locationId = eventData.locationId;
+          return update;
+        }
+        return {};
+      }
+
+      // Legacy compatibility — scheduled for removal after UI migration.
+      // Only triggers when structured adjustment is absent.
+      const notes = eventData.notes || '';
+      if (notes.startsWith('[MARK_MISSING]')) {
+        console.warn('[inventory] Legacy [MARK_MISSING] prefix used — migrate to structured adjustment field');
+        return { availabilityStatus: 'MISSING' };
+      }
+      if (notes.startsWith('[MARK_FOUND]')) {
+        console.warn('[inventory] Legacy [MARK_FOUND] prefix used — migrate to structured adjustment field');
+        const update: Record<string, unknown> = { availabilityStatus: 'AVAILABLE' };
+        if (eventData.locationId) update.locationId = eventData.locationId;
+        return update;
+      }
+      return {};
+    }
+
     default:
       return {};
   }
@@ -172,13 +205,34 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
         notes?: string;
         deviceEventId?: string;
         occurredAt?: string;
+        adjustment?: { availabilityStatus: string };
+        reason?: string;
       };
 
       const { facilityId, userId } = request.user;
 
+      // Validate structured adjustment fields
+      if (data.eventType === 'ADJUSTED' && data.adjustment?.availabilityStatus) {
+        if (data.adjustment.availabilityStatus === 'MISSING' && !data.reason?.trim()) {
+          return fail(reply, 'VALIDATION_ERROR', 'reason is required when setting availabilityStatus to MISSING', 400);
+        }
+      }
+
       const item = await inventoryRepo.findById(data.inventoryItemId, facilityId);
       if (!item) {
         return fail(reply, 'NOT_FOUND', 'Inventory item not found', 404);
+      }
+
+      // Compose notes deterministically from structured fields when adjustment is present
+      let composedNotes = data.notes;
+      if (data.eventType === 'ADJUSTED' && data.adjustment?.availabilityStatus) {
+        const status = data.adjustment.availabilityStatus;
+        if (status === 'MISSING') {
+          const base = `[MISSING] ${(data.reason ?? '').trim()}`;
+          composedNotes = data.notes?.trim() ? `${base} | ${data.notes.trim()}` : base;
+        } else if (status === 'AVAILABLE') {
+          composedNotes = data.notes?.trim() ? `[FOUND] ${data.notes.trim()}` : '[FOUND]';
+        }
       }
 
       const occurredAt = data.occurredAt ? new Date(data.occurredAt) : new Date();
@@ -193,7 +247,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
           locationId: data.locationId,
           previousLocationId: item.locationId,
           sterilityStatus: data.sterilityStatus,
-          notes: data.notes,
+          notes: composedNotes,
           performedByUserId: userId,
           deviceEventId: data.deviceEventId,
           occurredAt,
@@ -219,6 +273,8 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
           notes?: string;
           deviceEventId?: string;
           occurredAt?: string;
+          adjustment?: { availabilityStatus: string };
+          reason?: string;
         }>;
       };
 
@@ -437,6 +493,145 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     return ok(reply, { success: true }, 201);
   });
 
+  // ── GET /inventory/items/lookup — Resolve barcode/serial/lot to item(s) ──
+  fastify.get('/items/lookup', {
+    preHandler: [requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { code } = request.query as { code?: string };
+    if (!code || !code.trim()) {
+      return fail(reply, 'VALIDATION_ERROR', 'code query parameter is required', 400);
+    }
+    const raw = code.trim();
+    const { facilityId } = request.user;
+    const userCaps = deriveCapabilities(getUserRoles(request.user));
+
+    // Format a repository InventoryItem into a lookup summary
+    type RepoItem = NonNullable<Awaited<ReturnType<typeof inventoryRepo.findById>>>;
+    const formatRepoItem = (item: RepoItem) => ({
+      inventoryItemId: item.id,
+      catalogId: item.catalogId,
+      catalogName: item.catalogName || '',
+      barcode: item.barcode,
+      serialNumber: item.serialNumber,
+      lotNumber: item.lotNumber,
+      availabilityStatus: item.availabilityStatus,
+      sterilityStatus: item.sterilityStatus,
+      sterilityExpiresAt: item.sterilityExpiresAt?.toISOString() || null,
+      locationId: item.locationId,
+      locationName: item.locationName || null,
+      caseLink: redactCaseLink(item.reservedForCaseId, userCaps),
+    });
+
+    // Format a raw SQL row into the same shape
+    interface LookupRow {
+      id: string; catalog_id: string; catalog_name: string; barcode: string | null;
+      serial_number: string | null; lot_number: string | null;
+      availability_status: string; sterility_status: string;
+      sterility_expires_at: Date | null; location_id: string | null;
+      location_name: string | null; reserved_for_case_id: string | null;
+    }
+    const formatRow = (r: LookupRow) => ({
+      inventoryItemId: r.id,
+      catalogId: r.catalog_id,
+      catalogName: r.catalog_name || '',
+      barcode: r.barcode,
+      serialNumber: r.serial_number,
+      lotNumber: r.lot_number,
+      availabilityStatus: r.availability_status,
+      sterilityStatus: r.sterility_status,
+      sterilityExpiresAt: r.sterility_expires_at?.toISOString() || null,
+      locationId: r.location_id,
+      locationName: r.location_name || null,
+      caseLink: redactCaseLink(r.reserved_for_case_id, userCaps),
+    });
+
+    const CAP = 20;
+
+    // 1) Exact barcode match
+    const byBarcode = await inventoryRepo.findByBarcode(raw, facilityId);
+    if (byBarcode) {
+      return ok(reply, { match: 'SINGLE', source: 'BARCODE', item: formatRepoItem(byBarcode) });
+    }
+
+    // 2) Exact serial number match
+    const bySerial = await inventoryRepo.findBySerialNumber(raw, facilityId);
+    if (bySerial) {
+      return ok(reply, { match: 'SINGLE', source: 'SERIAL', item: formatRepoItem(bySerial) });
+    }
+
+    // 3) GS1 parse → GTIN catalog lookup → inventory items under that catalog
+    const gs1 = parseGS1(raw);
+    if (gs1.success && gs1.gtin) {
+      const catResult = await query<{ catalog_id: string }>(`
+        SELECT ci.catalog_id
+        FROM catalog_identifier ci
+        WHERE ci.facility_id = $1 AND ci.raw_value = $2 AND ci.identifier_type = 'GTIN'
+        LIMIT 1
+      `, [facilityId, gs1.gtin]);
+
+      if (catResult.rows.length > 0) {
+        const catalogId = catResult.rows[0].catalog_id;
+        // Narrow by parsed lot/serial if available
+        const conditions = ['i.facility_id = $1', 'i.catalog_id = $2'];
+        const params: unknown[] = [facilityId, catalogId];
+        if (gs1.lot) {
+          conditions.push(`i.lot_number = $${params.length + 1}`);
+          params.push(gs1.lot);
+        }
+        if (gs1.serial) {
+          conditions.push(`i.serial_number = $${params.length + 1}`);
+          params.push(gs1.serial);
+        }
+        const itemResult = await query<LookupRow>(`
+          SELECT i.id, i.catalog_id, c.name as catalog_name, i.barcode,
+                 i.serial_number, i.lot_number, i.availability_status,
+                 i.sterility_status, i.sterility_expires_at, i.location_id,
+                 l.name as location_name, i.reserved_for_case_id
+          FROM inventory_item i
+          JOIN item_catalog c ON i.catalog_id = c.id
+          LEFT JOIN location l ON i.location_id = l.id
+          WHERE ${conditions.join(' AND ')}
+          ORDER BY i.created_at DESC
+          LIMIT ${CAP + 1}
+        `, params);
+
+        if (itemResult.rows.length === 1) {
+          return ok(reply, { match: 'SINGLE', source: 'GS1', item: formatRow(itemResult.rows[0]) });
+        }
+        if (itemResult.rows.length > 1) {
+          const capped = itemResult.rows.length > CAP;
+          const rows = capped ? itemResult.rows.slice(0, CAP) : itemResult.rows;
+          return ok(reply, { match: 'MULTIPLE', source: 'GS1', capped, items: rows.map(formatRow) });
+        }
+      }
+    }
+
+    // 4) Lot number match (broad — may return multiple)
+    const lotResult = await query<LookupRow>(`
+      SELECT i.id, i.catalog_id, c.name as catalog_name, i.barcode,
+             i.serial_number, i.lot_number, i.availability_status,
+             i.sterility_status, i.sterility_expires_at, i.location_id,
+             l.name as location_name, i.reserved_for_case_id
+      FROM inventory_item i
+      JOIN item_catalog c ON i.catalog_id = c.id
+      LEFT JOIN location l ON i.location_id = l.id
+      WHERE i.lot_number = $1 AND i.facility_id = $2
+      ORDER BY i.created_at DESC
+      LIMIT ${CAP + 1}
+    `, [raw, facilityId]);
+
+    if (lotResult.rows.length === 1) {
+      return ok(reply, { match: 'SINGLE', source: 'LOT', item: formatRow(lotResult.rows[0]) });
+    }
+    if (lotResult.rows.length > 1) {
+      const capped = lotResult.rows.length > CAP;
+      const rows = capped ? lotResult.rows.slice(0, CAP) : lotResult.rows;
+      return ok(reply, { match: 'MULTIPLE', source: 'LOT', capped, items: rows.map(formatRow) });
+    }
+
+    return ok(reply, { match: 'NONE' });
+  });
+
   /**
    * POST /inventory/device-events
    * Receive device event from Device Adapter
@@ -586,6 +781,301 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
         locationName: d.locationName,
         active: d.active,
       })),
+    });
+  });
+
+  /**
+   * GET /inventory/device-events
+   * Read-only paginated list of device events for the facility.
+   * Auth: CASE_VIEW (scrubs, circulators, inventory techs, admins).
+   * Default range: last 7 days.  Max 30 days (admins exempt).
+   * Cursor pagination (newest first, tiebreak on id DESC for deterministic order).
+   * Cursor-based: high-volume append-only table; offset would degrade at depth.
+   */
+  fastify.get<{
+    Querystring: {
+      deviceId?: string;
+      processed?: string;
+      hasError?: string;
+      start?: string;
+      end?: string;
+      q?: string;
+      limit?: string;
+      cursor?: string;
+    };
+  }>('/device-events', {
+    preHandler: [requireCapabilities('CASE_VIEW')],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const {
+      deviceId,
+      processed,
+      hasError,
+      start,
+      end,
+      q,
+      limit: limitStr,
+      cursor,
+    } = request.query;
+
+    const limit = Math.min(Math.max(parseInt(limitStr || '50', 10) || 50, 1), 200);
+
+    // Date range defaults & enforcement
+    const now = new Date();
+    const defaultEnd = now.toISOString();
+    const defaultStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const rangeStart = start || defaultStart;
+    const rangeEnd = end || defaultEnd;
+
+    const startDate = new Date(rangeStart);
+    const endDate = new Date(rangeEnd);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return fail(reply, 'VALIDATION_ERROR', 'Invalid date format for start/end', 400);
+    }
+
+    const diffDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+    const userRoles = getUserRoles(request.user);
+    const isAdmin = userRoles.includes('ADMIN');
+    if (diffDays > 30 && !isAdmin) {
+      return fail(reply, 'VALIDATION_ERROR', 'Date range cannot exceed 30 days (admin override available)', 400);
+    }
+
+    const conditions: string[] = ['de.facility_id = $1', 'de.created_at >= $2', 'de.created_at <= $3'];
+    const values: unknown[] = [facilityId, rangeStart, rangeEnd];
+    let paramIdx = 4;
+
+    if (deviceId) {
+      conditions.push(`de.device_id = $${paramIdx++}`);
+      values.push(deviceId);
+    }
+    if (processed === 'true' || processed === 'false') {
+      conditions.push(`de.processed = $${paramIdx++}`);
+      values.push(processed === 'true');
+    }
+    if (hasError === 'true') {
+      conditions.push('de.processing_error IS NOT NULL');
+    } else if (hasError === 'false') {
+      conditions.push('de.processing_error IS NULL');
+    }
+    if (q?.trim()) {
+      conditions.push(`(de.raw_value ILIKE $${paramIdx} OR de.processing_error ILIKE $${paramIdx})`);
+      paramIdx++;
+      values.push(`%${q.trim()}%`);
+    }
+    if (cursor) {
+      conditions.push(`de.created_at < $${paramIdx++}`);
+      values.push(cursor);
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    const result = await query<{
+      id: string;
+      device_id: string;
+      device_name: string;
+      device_type: string;
+      payload_type: string;
+      raw_value: string;
+      processed: boolean;
+      processed_item_id: string | null;
+      processing_error: string | null;
+      occurred_at: Date;
+      created_at: Date;
+    }>(`
+      SELECT de.id, de.device_id, d.name AS device_name, de.device_type,
+             de.payload_type, de.raw_value, de.processed,
+             de.processed_item_id, de.processing_error,
+             de.occurred_at, de.created_at
+      FROM device_event de
+      JOIN device d ON d.id = de.device_id
+      WHERE ${whereClause}
+      ORDER BY de.created_at DESC, de.id DESC
+      LIMIT $${paramIdx}
+    `, [...values, limit + 1]);
+
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const nextCursor = hasMore ? rows[rows.length - 1].created_at.toISOString() : null;
+
+    return ok(reply, {
+      events: rows.map(r => ({
+        id: r.id,
+        deviceId: r.device_id,
+        deviceName: r.device_name,
+        deviceType: r.device_type,
+        payloadType: r.payload_type,
+        rawValue: r.raw_value,
+        processed: r.processed,
+        processedItemId: r.processed_item_id,
+        processingError: r.processing_error,
+        occurredAt: r.occurred_at.toISOString(),
+        createdAt: r.created_at.toISOString(),
+      })),
+      nextCursor,
+    });
+  });
+
+  /**
+   * GET /inventory/events
+   * Read-only paginated list of inventory events with optional financial filter.
+   * Auth: INVENTORY_MANAGE (admin only).
+   * financial=true narrows to events with financial columns populated
+   * (includes financial_attestation_user_id IS NOT NULL).
+   * Offset pagination (acceptable — admin-only, append-only table, tiebreak on id DESC).
+   */
+  fastify.get<{
+    Querystring: {
+      financial?: string;
+      eventType?: string;
+      caseId?: string;
+      vendorId?: string;
+      gratis?: string;
+      start?: string;
+      end?: string;
+      limit?: string;
+      offset?: string;
+    };
+  }>('/events', {
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const {
+      financial,
+      eventType,
+      caseId,
+      vendorId,
+      gratis,
+      start,
+      end,
+      limit: limitStr,
+      offset: offsetStr,
+    } = request.query;
+
+    const limit = Math.min(Math.max(parseInt(limitStr || '50', 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(offsetStr || '0', 10) || 0, 0);
+
+    const conditions: string[] = ['ie.facility_id = $1'];
+    const values: unknown[] = [facilityId];
+    let paramIdx = 2;
+
+    // Financial filter: events that have any financial column populated
+    if (financial === 'true') {
+      conditions.push(`(ie.cost_snapshot_cents IS NOT NULL OR ie.cost_override_cents IS NOT NULL
+        OR ie.provided_by_vendor_id IS NOT NULL OR ie.is_gratis = true
+        OR ie.financial_attestation_user_id IS NOT NULL)`);
+    }
+    if (eventType) {
+      conditions.push(`ie.event_type = $${paramIdx++}`);
+      values.push(eventType);
+    }
+    if (caseId) {
+      conditions.push(`ie.case_id = $${paramIdx++}`);
+      values.push(caseId);
+    }
+    if (vendorId) {
+      conditions.push(`ie.provided_by_vendor_id = $${paramIdx++}`);
+      values.push(vendorId);
+    }
+    if (gratis === 'true') {
+      conditions.push('ie.is_gratis = true');
+    } else if (gratis === 'false') {
+      conditions.push('(ie.is_gratis = false OR ie.is_gratis IS NULL)');
+    }
+    if (start) {
+      conditions.push(`ie.occurred_at >= $${paramIdx++}`);
+      values.push(start);
+    }
+    if (end) {
+      conditions.push(`ie.occurred_at <= $${paramIdx++}`);
+      values.push(end);
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    // Count total
+    const countResult = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM inventory_event ie WHERE ${whereClause}`,
+      values
+    );
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Fetch page
+    const result = await query<{
+      id: string;
+      event_type: string;
+      inventory_item_id: string;
+      catalog_name: string;
+      case_id: string | null;
+      location_name: string | null;
+      previous_location_name: string | null;
+      sterility_status: string | null;
+      notes: string | null;
+      performed_by_name: string | null;
+      occurred_at: Date;
+      created_at: Date;
+      cost_snapshot_cents: number | null;
+      cost_override_cents: number | null;
+      cost_override_reason: string | null;
+      cost_override_note: string | null;
+      provided_by_vendor_id: string | null;
+      vendor_name: string | null;
+      provided_by_rep_name: string | null;
+      is_gratis: boolean;
+      gratis_reason: string | null;
+    }>(`
+      SELECT ie.id, ie.event_type, ie.inventory_item_id,
+             ic.name AS catalog_name,
+             ie.case_id,
+             l.name AS location_name,
+             pl.name AS previous_location_name,
+             ie.sterility_status, ie.notes,
+             u.name AS performed_by_name,
+             ie.occurred_at, ie.created_at,
+             ie.cost_snapshot_cents, ie.cost_override_cents,
+             ie.cost_override_reason, ie.cost_override_note,
+             ie.provided_by_vendor_id,
+             v.name AS vendor_name,
+             ie.provided_by_rep_name,
+             ie.is_gratis, ie.gratis_reason
+      FROM inventory_event ie
+      JOIN inventory_item ii ON ii.id = ie.inventory_item_id
+      JOIN item_catalog ic ON ic.id = ii.catalog_id
+      LEFT JOIN location l ON l.id = ie.location_id
+      LEFT JOIN location pl ON pl.id = ie.previous_location_id
+      LEFT JOIN app_user u ON u.id = ie.performed_by_user_id
+      LEFT JOIN vendor v ON v.id = ie.provided_by_vendor_id
+      WHERE ${whereClause}
+      ORDER BY ie.occurred_at DESC, ie.id DESC
+      LIMIT $${paramIdx++} OFFSET $${paramIdx}
+    `, [...values, limit, offset]);
+
+    return ok(reply, {
+      events: result.rows.map(r => ({
+        id: r.id,
+        eventType: r.event_type,
+        inventoryItemId: r.inventory_item_id,
+        catalogName: r.catalog_name,
+        caseId: r.case_id,
+        locationName: r.location_name,
+        previousLocationName: r.previous_location_name,
+        sterilityStatus: r.sterility_status,
+        notes: r.notes,
+        performedByName: r.performed_by_name,
+        occurredAt: r.occurred_at.toISOString(),
+        createdAt: r.created_at.toISOString(),
+        costSnapshotCents: r.cost_snapshot_cents,
+        costOverrideCents: r.cost_override_cents,
+        costOverrideReason: r.cost_override_reason,
+        costOverrideNote: r.cost_override_note,
+        vendorId: r.provided_by_vendor_id,
+        vendorName: r.vendor_name,
+        repName: r.provided_by_rep_name,
+        isGratis: r.is_gratis,
+        gratisReason: r.gratis_reason,
+      })),
+      total,
+      limit,
+      offset,
     });
   });
 
@@ -1135,6 +1625,330 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     return ok(reply, { riskItems });
+    },
+  });
+
+  // ── [CONTRACT] GET /inventory/missing-analytics — Missing/Found analytics ──
+  registerContractRoute(fastify, contract.inventory.missingAnalytics, PREFIX, {
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
+    handler: async (request, reply) => {
+      const { facilityId } = request.user;
+      const { start, end, groupBy, resolution } = request.contractData.query as {
+        start: string;
+        end: string;
+        groupBy: 'day' | 'location' | 'catalog' | 'surgeon' | 'staff';
+        resolution: 'MISSING' | 'FOUND' | 'BOTH';
+      };
+
+      // Build resolution filter
+      const resolutionConditions: string[] = [];
+      if (resolution === 'MISSING' || resolution === 'BOTH') {
+        resolutionConditions.push("ie.notes LIKE '[MISSING]%'");
+      }
+      if (resolution === 'FOUND' || resolution === 'BOTH') {
+        resolutionConditions.push("ie.notes LIKE '[FOUND]%'");
+      }
+      const resolutionFilter = `(${resolutionConditions.join(' OR ')})`;
+
+      // Build group-by SQL fragment
+      let groupSelect: string;
+      let groupByClause: string;
+      let groupJoins = '';
+      let orderClause: string;
+
+      switch (groupBy) {
+        case 'day':
+          groupSelect = "ie.occurred_at::date::text AS group_key, ie.occurred_at::date::text AS group_label";
+          groupByClause = 'ie.occurred_at::date';
+          orderClause = 'group_key ASC';
+          break;
+        case 'location':
+          groupSelect = `COALESCE(COALESCE(ie.location_id, ii.location_id)::text, 'UNKNOWN') AS group_key,
+            COALESCE(l.name, 'Unknown Location') AS group_label`;
+          groupByClause = `COALESCE(COALESCE(ie.location_id, ii.location_id)::text, 'UNKNOWN'), COALESCE(l.name, 'Unknown Location')`;
+          groupJoins = 'LEFT JOIN location l ON l.id = COALESCE(ie.location_id, ii.location_id)';
+          orderClause = 'missing_count DESC';
+          break;
+        case 'catalog':
+          groupSelect = "ii.catalog_id::text AS group_key, COALESCE(ic.name, 'Unknown Catalog') AS group_label";
+          groupByClause = "ii.catalog_id::text, COALESCE(ic.name, 'Unknown Catalog')";
+          groupJoins = 'JOIN item_catalog ic ON ic.id = ii.catalog_id';
+          orderClause = 'missing_count DESC';
+          break;
+        case 'surgeon':
+          groupSelect = `CASE WHEN ie.case_id IS NULL OR sc.surgeon_id IS NULL THEN 'NO_CASE' ELSE sc.surgeon_id::text END AS group_key,
+            CASE WHEN ie.case_id IS NULL OR sc.surgeon_id IS NULL THEN 'No case linked' ELSE surgeon.name END AS group_label`;
+          groupByClause = `CASE WHEN ie.case_id IS NULL OR sc.surgeon_id IS NULL THEN 'NO_CASE' ELSE sc.surgeon_id::text END,
+            CASE WHEN ie.case_id IS NULL OR sc.surgeon_id IS NULL THEN 'No case linked' ELSE surgeon.name END`;
+          groupJoins = `
+            LEFT JOIN surgical_case sc ON sc.id = ie.case_id
+            LEFT JOIN app_user surgeon ON surgeon.id = sc.surgeon_id`;
+          orderClause = 'missing_count DESC';
+          break;
+        case 'staff':
+          groupSelect = "ie.performed_by_user_id::text AS group_key, COALESCE(staff.name, 'Unknown Staff') AS group_label";
+          groupByClause = "ie.performed_by_user_id::text, COALESCE(staff.name, 'Unknown Staff')";
+          groupJoins = 'LEFT JOIN app_user staff ON staff.id = ie.performed_by_user_id';
+          orderClause = 'missing_count DESC';
+          break;
+      }
+
+      const sql = `
+        SELECT
+          ${groupSelect},
+          COUNT(*) FILTER (WHERE ie.notes LIKE '[MISSING]%') AS missing_count,
+          COUNT(*) FILTER (WHERE ie.notes LIKE '[FOUND]%') AS found_count
+        FROM inventory_event ie
+        JOIN inventory_item ii ON ii.id = ie.inventory_item_id
+        ${groupJoins}
+        WHERE ie.facility_id = $1
+          AND ie.event_type = 'ADJUSTED'
+          AND ${resolutionFilter}
+          AND ie.occurred_at >= $2
+          AND ie.occurred_at <= $3
+        GROUP BY ${groupByClause}
+        ORDER BY ${orderClause}
+      `;
+
+      const result = await query<{
+        group_key: string;
+        group_label: string;
+        missing_count: string;
+        found_count: string;
+      }>(sql, [facilityId, start, end]);
+
+      const groups = result.rows.map(r => ({
+        key: r.group_key,
+        label: r.group_label,
+        missingCount: parseInt(r.missing_count, 10),
+        foundCount: parseInt(r.found_count, 10),
+      }));
+
+      const totalMissing = groups.reduce((sum, g) => sum + g.missingCount, 0);
+      const totalFound = groups.reduce((sum, g) => sum + g.foundCount, 0);
+      const netOpen = totalMissing - totalFound;
+      const resolutionRate = totalMissing > 0 ? Math.round((totalFound / totalMissing) * 100) / 100 : null;
+
+      // Top 3 drivers (for non-day groupings)
+      let topDrivers: typeof groups | null = null;
+      if (groupBy !== 'day' && groups.length > 0) {
+        topDrivers = [...groups]
+          .sort((a, b) => b.missingCount - a.missingCount)
+          .slice(0, 3);
+      }
+
+      return ok(reply, {
+        summary: { totalMissing, totalFound, netOpen, resolutionRate },
+        groups,
+        topDrivers,
+      });
+    },
+  });
+
+  // ── [CONTRACT] GET /inventory/missing-events — Drill-down event list ───
+  registerContractRoute(fastify, contract.inventory.missingEvents, PREFIX, {
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
+    handler: async (request, reply) => {
+      const { facilityId } = request.user;
+      const { start, end, resolution, groupBy, groupKey, date, limit, offset } = request.contractData.query as {
+        start: string;
+        end: string;
+        resolution: 'MISSING' | 'FOUND' | 'BOTH';
+        groupBy: 'day' | 'location' | 'catalog' | 'surgeon' | 'staff';
+        groupKey?: string;
+        date?: string;
+        limit: number;
+        offset: number;
+      };
+
+      // Validate required params per groupBy
+      if (groupBy === 'day' && !date) {
+        return fail(reply, 'VALIDATION_ERROR', 'date is required when groupBy=day', 400);
+      }
+      if (groupBy !== 'day' && !groupKey) {
+        return fail(reply, 'VALIDATION_ERROR', 'groupKey is required when groupBy is not day', 400);
+      }
+
+      const conditions: string[] = [
+        'ie.facility_id = $1',
+        "ie.event_type = 'ADJUSTED'",
+        'ie.occurred_at >= $2',
+        'ie.occurred_at <= $3',
+      ];
+      const values: unknown[] = [facilityId, start, end];
+      let paramIdx = 4;
+
+      // Resolution filter
+      if (resolution === 'MISSING') {
+        conditions.push("ie.notes LIKE '[MISSING]%'");
+      } else if (resolution === 'FOUND') {
+        conditions.push("ie.notes LIKE '[FOUND]%'");
+      } else {
+        conditions.push("(ie.notes LIKE '[MISSING]%' OR ie.notes LIKE '[FOUND]%')");
+      }
+
+      // Group filter
+      let extraJoins = '';
+      switch (groupBy) {
+        case 'day':
+          conditions.push(`ie.occurred_at::date = $${paramIdx++}`);
+          values.push(date!);
+          break;
+        case 'location':
+          if (groupKey === 'UNKNOWN') {
+            conditions.push('COALESCE(ie.location_id, ii.location_id) IS NULL');
+          } else {
+            conditions.push(`COALESCE(ie.location_id, ii.location_id) = $${paramIdx++}`);
+            values.push(groupKey!);
+          }
+          break;
+        case 'catalog':
+          conditions.push(`ii.catalog_id = $${paramIdx++}`);
+          values.push(groupKey!);
+          break;
+        case 'surgeon':
+          extraJoins += ' LEFT JOIN surgical_case sc_f ON sc_f.id = ie.case_id';
+          if (groupKey === 'NO_CASE') {
+            conditions.push('(ie.case_id IS NULL OR sc_f.surgeon_id IS NULL)');
+          } else {
+            conditions.push(`sc_f.surgeon_id = $${paramIdx++}`);
+            values.push(groupKey!);
+          }
+          break;
+        case 'staff':
+          conditions.push(`ie.performed_by_user_id = $${paramIdx++}`);
+          values.push(groupKey!);
+          break;
+      }
+
+      const whereClause = conditions.join(' AND ');
+
+      // Count
+      const countSql = `
+        SELECT COUNT(*) AS count
+        FROM inventory_event ie
+        JOIN inventory_item ii ON ii.id = ie.inventory_item_id
+        ${extraJoins}
+        WHERE ${whereClause}
+      `;
+      const countResult = await query<{ count: string }>(countSql, values);
+      const total = parseInt(countResult.rows[0].count, 10);
+
+      // Fetch — use effective location via COALESCE
+      const fetchSql = `
+        SELECT
+          ie.id,
+          ie.occurred_at,
+          ie.notes,
+          ie.inventory_item_id,
+          ic.name AS catalog_name,
+          ii.lot_number,
+          ii.serial_number,
+          l.name AS location_name,
+          surgeon_u.name AS surgeon_name,
+          staff_u.name AS staff_name
+        FROM inventory_event ie
+        JOIN inventory_item ii ON ii.id = ie.inventory_item_id
+        JOIN item_catalog ic ON ic.id = ii.catalog_id
+        LEFT JOIN location l ON l.id = COALESCE(ie.location_id, ii.location_id)
+        LEFT JOIN surgical_case sc ON sc.id = ie.case_id
+        LEFT JOIN app_user surgeon_u ON surgeon_u.id = sc.surgeon_id
+        LEFT JOIN app_user staff_u ON staff_u.id = ie.performed_by_user_id
+        ${extraJoins}
+        WHERE ${whereClause}
+        ORDER BY ie.occurred_at DESC, ie.id DESC
+        LIMIT $${paramIdx++} OFFSET $${paramIdx}
+      `;
+
+      const result = await query<{
+        id: string;
+        occurred_at: Date;
+        notes: string;
+        inventory_item_id: string;
+        catalog_name: string;
+        lot_number: string | null;
+        serial_number: string | null;
+        location_name: string | null;
+        surgeon_name: string | null;
+        staff_name: string | null;
+      }>(fetchSql, [...values, limit, offset]);
+
+      return ok(reply, {
+        total,
+        events: result.rows.map(r => ({
+          id: r.id,
+          occurredAt: r.occurred_at.toISOString(),
+          type: (r.notes?.startsWith('[MISSING]') ? 'MISSING' : 'FOUND') as 'MISSING' | 'FOUND',
+          inventoryItemId: r.inventory_item_id,
+          catalogName: r.catalog_name,
+          lotNumber: r.lot_number,
+          serialNumber: r.serial_number,
+          locationName: r.location_name,
+          surgeonName: r.surgeon_name,
+          staffName: r.staff_name,
+          notes: r.notes || '',
+        })),
+      });
+    },
+  });
+
+  // ── [CONTRACT] GET /inventory/open-missing-aging — Aging report ────────
+  registerContractRoute(fastify, contract.inventory.openMissingAging, PREFIX, {
+    preHandler: [requireCapabilities('INVENTORY_MANAGE')],
+    handler: async (request, reply) => {
+      const { facilityId } = request.user;
+
+      const sql = `
+        SELECT
+          ii.id AS inventory_item_id,
+          ic.name AS catalog_name,
+          ii.lot_number,
+          ii.serial_number,
+          l.name AS location_name,
+          missing_evt.occurred_at AS missing_since,
+          FLOOR(EXTRACT(EPOCH FROM (NOW() - missing_evt.occurred_at)) / 86400) AS days_missing,
+          staff_u.name AS last_staff_name
+        FROM inventory_item ii
+        JOIN item_catalog ic ON ic.id = ii.catalog_id
+        LEFT JOIN location l ON l.id = ii.location_id
+        LEFT JOIN LATERAL (
+          SELECT ie.occurred_at, ie.performed_by_user_id
+          FROM inventory_event ie
+          WHERE ie.inventory_item_id = ii.id
+            AND ie.event_type = 'ADJUSTED'
+            AND ie.notes LIKE '[MISSING]%'
+          ORDER BY ie.occurred_at DESC
+          LIMIT 1
+        ) missing_evt ON true
+        LEFT JOIN app_user staff_u ON staff_u.id = missing_evt.performed_by_user_id
+        WHERE ii.facility_id = $1
+          AND ii.availability_status = 'MISSING'
+        ORDER BY missing_evt.occurred_at ASC NULLS LAST
+      `;
+
+      const result = await query<{
+        inventory_item_id: string;
+        catalog_name: string;
+        lot_number: string | null;
+        serial_number: string | null;
+        location_name: string | null;
+        missing_since: Date | null;
+        days_missing: string | null;
+        last_staff_name: string | null;
+      }>(sql, [facilityId]);
+
+      const items = result.rows.map(r => ({
+        inventoryItemId: r.inventory_item_id,
+        catalogName: r.catalog_name,
+        lotNumber: r.lot_number,
+        serialNumber: r.serial_number,
+        locationName: r.location_name,
+        missingSince: r.missing_since?.toISOString() ?? new Date().toISOString(),
+        daysMissing: r.days_missing ? parseInt(r.days_missing, 10) : 0,
+        lastStaffName: r.last_staff_name,
+      }));
+
+      return ok(reply, { total: items.length, items });
     },
   });
 }

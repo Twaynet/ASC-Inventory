@@ -77,6 +77,10 @@ export const RiskQueueItemApiSchema = z.object({
 // Body / query schemas
 // ---------------------------------------------------------------------------
 
+export const AdjustmentPayloadSchema = z.object({
+  availabilityStatus: z.enum(['MISSING', 'AVAILABLE']),
+}).strict();
+
 export const CreateInventoryEventBodySchema = z.object({
   inventoryItemId: z.string().uuid(),
   eventType: InventoryEventType,
@@ -86,6 +90,8 @@ export const CreateInventoryEventBodySchema = z.object({
   notes: z.string().optional(),
   deviceEventId: z.string().uuid().optional(),
   occurredAt: z.string().datetime().optional(),
+  adjustment: AdjustmentPayloadSchema.optional(),
+  reason: z.string().max(2000).optional(),
 });
 
 export const BulkInventoryEventBodySchema = z.object({
@@ -121,6 +127,89 @@ export const UpdateInventoryItemBodySchema = z.object({
   locationId: z.string().uuid().nullable().optional(),
   sterilityStatus: SterilityStatus.optional(),
   sterilityExpiresAt: z.string().datetime().nullable().optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Missing Analytics schemas
+// ---------------------------------------------------------------------------
+
+export const MissingAnalyticsQuerySchema = z.object({
+  start: z.string().datetime(),
+  end: z.string().datetime(),
+  groupBy: z.enum(['day', 'location', 'catalog', 'surgeon', 'staff']),
+  resolution: z.enum(['MISSING', 'FOUND', 'BOTH']).default('BOTH'),
+});
+
+const MissingAnalyticsGroupSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  missingCount: z.number(),
+  foundCount: z.number(),
+});
+
+const MissingAnalyticsResponsePayload = z.object({
+  summary: z.object({
+    totalMissing: z.number(),
+    totalFound: z.number(),
+    netOpen: z.number(),
+    resolutionRate: z.number().nullable(),
+  }),
+  groups: z.array(MissingAnalyticsGroupSchema),
+  topDrivers: z.array(MissingAnalyticsGroupSchema).nullable(),
+});
+
+// ---------------------------------------------------------------------------
+// Missing Events drill-down schemas
+// ---------------------------------------------------------------------------
+
+export const MissingEventsQuerySchema = z.object({
+  start: z.string().datetime(),
+  end: z.string().datetime(),
+  resolution: z.enum(['MISSING', 'FOUND', 'BOTH']).default('BOTH'),
+  groupBy: z.enum(['day', 'location', 'catalog', 'surgeon', 'staff']),
+  groupKey: z.string().optional(),
+  date: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+const MissingEventItemSchema = z.object({
+  id: z.string().uuid(),
+  occurredAt: z.string(),
+  type: z.enum(['MISSING', 'FOUND']),
+  inventoryItemId: z.string().uuid(),
+  catalogName: z.string(),
+  lotNumber: nullableString,
+  serialNumber: nullableString,
+  locationName: nullableString,
+  surgeonName: nullableString,
+  staffName: nullableString,
+  notes: z.string(),
+});
+
+const MissingEventsResponsePayload = z.object({
+  total: z.number(),
+  events: z.array(MissingEventItemSchema),
+});
+
+// ---------------------------------------------------------------------------
+// Open Missing Aging schemas
+// ---------------------------------------------------------------------------
+
+const OpenMissingAgingItemSchema = z.object({
+  inventoryItemId: z.string().uuid(),
+  catalogName: z.string(),
+  lotNumber: nullableString,
+  serialNumber: nullableString,
+  locationName: nullableString,
+  missingSince: z.string(),
+  daysMissing: z.number(),
+  lastStaffName: nullableString,
+});
+
+const OpenMissingAgingResponsePayload = z.object({
+  total: z.number(),
+  items: z.array(OpenMissingAgingItemSchema),
 });
 
 // ---------------------------------------------------------------------------
@@ -201,5 +290,28 @@ export const inventoryRoutes = {
     path: '/inventory/risk-queue',
     summary: 'Computed inventory risk items',
     response: RiskQueueResponsePayload,
+  }),
+
+  missingAnalytics: defineRoute({
+    method: 'GET' as const,
+    path: '/inventory/missing-analytics',
+    summary: 'Analytics over missing/found inventory events',
+    query: MissingAnalyticsQuerySchema,
+    response: MissingAnalyticsResponsePayload,
+  }),
+
+  missingEvents: defineRoute({
+    method: 'GET' as const,
+    path: '/inventory/missing-events',
+    summary: 'Drill-down list of individual missing/found events',
+    query: MissingEventsQuerySchema,
+    response: MissingEventsResponsePayload,
+  }),
+
+  openMissingAging: defineRoute({
+    method: 'GET' as const,
+    path: '/inventory/open-missing-aging',
+    summary: 'Currently missing items with aging metrics',
+    response: OpenMissingAgingResponsePayload,
   }),
 };
