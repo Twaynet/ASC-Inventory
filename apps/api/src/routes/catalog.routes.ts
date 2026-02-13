@@ -613,4 +613,81 @@ export async function catalogRoutes(fastify: FastifyInstance): Promise<void> {
       return ok(reply, { success: true });
     },
   });
+
+  /**
+   * GET /catalog/:catalogId/cost-events
+   * Read-only paginated list of cost change events for a catalog item.
+   * Auth: CATALOG_MANAGE (admin only).
+   * Validates catalog belongs to the user's facility.
+   * Offset pagination (acceptable — admin-only, low-volume per-item table, tiebreak on id DESC).
+   */
+  fastify.get<{
+    Params: { catalogId: string };
+    Querystring: { limit?: string; offset?: string };
+  }>('/:catalogId/cost-events', {
+    preHandler: [requireCapabilities('CATALOG_MANAGE')],
+  }, async (request, reply) => {
+    const { facilityId } = request.user;
+    const { catalogId } = request.params;
+    const limit = Math.min(Math.max(parseInt(request.query.limit || '50', 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(request.query.offset || '0', 10) || 0, 0);
+
+    // Validate catalog belongs to facility
+    const catalogCheck = await query<{ id: string }>(
+      'SELECT id FROM item_catalog WHERE id = $1 AND facility_id = $2',
+      [catalogId, facilityId]
+    );
+    if (catalogCheck.rows.length === 0) {
+      return fail(reply, 'NOT_FOUND', 'Catalog item not found', 404);
+    }
+
+    // Count total
+    const countResult = await query<{ count: string }>(
+      'SELECT COUNT(*) AS count FROM catalog_cost_event WHERE catalog_id = $1',
+      [catalogId]
+    );
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Fetch page
+    const result = await query<{
+      id: string;
+      catalog_id: string;
+      previous_cost_cents: number | null;
+      new_cost_cents: number;
+      effective_at: Date;
+      reason: string;
+      changed_by_user_id: string;
+      changed_by_name: string | null;
+      created_at: Date;
+    }>(`
+      SELECT cce.id, cce.catalog_id,
+             cce.previous_cost_cents, cce.new_cost_cents,
+             cce.effective_at, cce.reason,
+             cce.changed_by_user_id,
+             u.name AS changed_by_name,
+             cce.created_at
+      FROM catalog_cost_event cce
+      LEFT JOIN app_user u ON u.id = cce.changed_by_user_id
+      WHERE cce.catalog_id = $1
+      ORDER BY cce.effective_at DESC, cce.id DESC
+      LIMIT $2 OFFSET $3
+    `, [catalogId, limit, offset]);
+
+    return ok(reply, {
+      events: result.rows.map(r => ({
+        id: r.id,
+        catalogId: r.catalog_id,
+        previousCostCents: r.previous_cost_cents,
+        newCostCents: r.new_cost_cents,
+        effectiveAt: r.effective_at.toISOString(),
+        reason: r.reason,
+        changedByUserId: r.changed_by_user_id,
+        changedByName: r.changed_by_name,
+        createdAt: r.created_at.toISOString(),
+      })),
+      total,
+      limit,
+      offset,
+    });
+  });
 }

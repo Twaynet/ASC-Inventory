@@ -474,3 +474,38 @@ export async function removeSetComponent(
 ): Promise<{ success: boolean }> {
   return request(`/catalog/sets/${catalogId}/components/${componentId}`, { method: 'DELETE', token });
 }
+
+// ============================================================================
+// Cost Events (read-only)
+// ============================================================================
+
+export interface CatalogCostEvent {
+  id: string;
+  catalogId: string;
+  previousCostCents: number | null;
+  newCostCents: number;
+  effectiveAt: string;
+  reason: string;
+  changedByUserId: string;
+  changedByName: string | null;
+  createdAt: string;
+}
+
+export interface CatalogCostEventListResponse {
+  events: CatalogCostEvent[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export async function getCatalogCostEvents(
+  token: string,
+  catalogId: string,
+  options?: { limit?: number; offset?: number }
+): Promise<CatalogCostEventListResponse> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.offset) params.set('offset', String(options.offset));
+  const query = params.toString();
+  return request(`/catalog/${catalogId}/cost-events${query ? `?${query}` : ''}`, { token });
+}

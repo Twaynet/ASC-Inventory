@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import {
@@ -35,6 +36,7 @@ import {
 type TabId = 'keys' | 'overrides' | 'audit' | 'auth-audit';
 
 export default function PlatformAdminPage() {
+  const router = useRouter();
   const { token } = useAuth();
 
   // Tab state
@@ -500,6 +502,14 @@ export default function PlatformAdminPage() {
             {/* Config Audit Log Tab */}
             {activeTab === 'audit' && (
               <div className="tab-content">
+                <div className="mb-3">
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => router.push('/platform/config-audit')}
+                  >
+                    Open Dedicated Audit Viewer &rarr;
+                  </button>
+                </div>
                 <div className="filters">
                   <label>
                     Key:
@@ -584,6 +594,14 @@ export default function PlatformAdminPage() {
             {/* Auth Audit Log Tab */}
             {activeTab === 'auth-audit' && (
               <div className="tab-content">
+                <div className="mb-3">
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => router.push('/platform/auth-audit')}
+                  >
+                    Open Dedicated Auth Dashboard &rarr;
+                  </button>
+                </div>
                 <div className="filters">
                   <label>
                     Facility:

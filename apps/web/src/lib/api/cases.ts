@@ -47,6 +47,18 @@ export interface ActivateCaseRequest {
   scheduledTime?: string;
 }
 
+export interface CaseStatusEvent {
+  id: string;
+  surgicalCaseId: string;
+  fromStatus: string | null;
+  toStatus: string;
+  reason: string | null;
+  context: unknown;
+  actorUserId: string;
+  actorName: string;
+  createdAt: string;
+}
+
 // ============================================================================
 // Endpoints
 // ============================================================================
@@ -151,4 +163,14 @@ export async function assignCaseRoom(
     body: data,
     token,
   }) as Promise<{ case: Case }>;
+}
+
+export async function getCaseStatusEvents(
+  token: string,
+  caseId: string
+): Promise<CaseStatusEvent[]> {
+  return callContract(contract.cases.statusEvents, {
+    params: { caseId },
+    token,
+  }) as Promise<CaseStatusEvent[]>;
 }

@@ -35,6 +35,13 @@ const SETTINGS_CARDS: SettingsCard[] = [
     path: '/admin/general-settings/case-dashboard',
     icon: '🏥',
   },
+  {
+    id: 'facility',
+    title: 'Facility Settings',
+    description: 'Configure facility-level features like Timeout & Debrief checklists',
+    path: '/admin/general-settings/facility',
+    icon: '🏢',
+  },
 ];
 
 export default function AdminGeneralSettingsPage() {

@@ -10,10 +10,10 @@ interface AttentionDrawerProps {
   onClose: () => void;
 }
 
-const SEVERITY_STYLES: Record<string, { bg: string; border: string; label: string }> = {
-  CRITICAL: { bg: 'var(--color-red-50, #fef2f2)', border: 'var(--color-red, #ef4444)', label: 'Critical' },
-  WARNING: { bg: 'var(--color-orange-50, #fff7ed)', border: 'var(--color-orange, #f97316)', label: 'Warning' },
-  INFO: { bg: 'var(--color-blue-50, #eff6ff)', border: 'var(--color-blue, #3b82f6)', label: 'Info' },
+const SEVERITY_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
+  CRITICAL: { bg: 'var(--color-red-bg)', border: 'var(--color-red)', text: 'var(--color-red-700)', label: 'Critical' },
+  WARNING: { bg: 'var(--color-orange-bg)', border: 'var(--color-orange)', text: 'var(--color-orange-700)', label: 'Warning' },
+  INFO: { bg: 'var(--color-blue-50)', border: 'var(--color-blue-500)', text: 'var(--color-blue-600)', label: 'Info' },
 };
 
 export function AttentionDrawer({ items, isOpen, onClose }: AttentionDrawerProps) {
@@ -149,7 +149,7 @@ export function AttentionDrawer({ items, isOpen, onClose }: AttentionDrawerProps
                     style={{
                       fontWeight: 600,
                       fontSize: '0.85rem',
-                      color: 'var(--text-primary)',
+                      color: style.text,
                       marginBottom: '2px',
                     }}
                   >
@@ -158,7 +158,8 @@ export function AttentionDrawer({ items, isOpen, onClose }: AttentionDrawerProps
                   <div
                     style={{
                       fontSize: '0.8rem',
-                      color: 'var(--text-secondary)',
+                      color: style.text,
+                      opacity: 0.85,
                       marginBottom: '6px',
                     }}
                   >

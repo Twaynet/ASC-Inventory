@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const SETTINGS_LINKS = [
   { label: 'General Settings', href: '/admin/general-settings' },
+  { label: 'Facility Settings', href: '/admin/general-settings/facility' },
   { label: 'Case Dashboard', href: '/admin/general-settings/case-dashboard' },
   { label: 'Operating Rooms', href: '/admin/general-settings/operating-rooms' },
   { label: 'Surgeons', href: '/admin/general-settings/surgeons' },
