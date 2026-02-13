@@ -2764,3 +2764,71 @@ body {
     overflow-x: auto;
   }
 }
+
+/* ── Print styles ─────────────────────────────────────────────── */
+@media print {
+  /* Hide interactive chrome */
+  .header,
+  .print-toolbar,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  .print-page {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .print-section {
+    page-break-inside: avoid;
+  }
+
+  .print-page-break {
+    page-break-before: always;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #999;
+    padding: 4px 6px;
+    text-align: left;
+  }
+
+  .print-table th {
+    background: #eee !important;
+    font-weight: 600;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-table tr:nth-child(even) {
+    background: #f9f9f9 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Repeat table headers on every printed page */
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+
+  /* Prevent rows from splitting across pages */
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  .print-table { break-inside: auto; }
+
+  /* Prevent section headers from orphaning at page bottom */
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+}
