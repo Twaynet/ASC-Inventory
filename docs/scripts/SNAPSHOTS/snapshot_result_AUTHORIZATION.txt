@@ -2,7 +2,7 @@
 
 **Source Repository:** C:\Users\missp\source\repos\ASC-Inventory
 
-**Scope:** Implemented authentication and authorization mechanisms as of 2026-02-08
+**Scope:** Implemented authentication and authorization mechanisms as of 2026-02-12
 
 **Methodology:** Static code analysis of implementation files (no speculation or external standards).
 
@@ -21,14 +21,24 @@ Secret source: process.env.JWT_SECRET (fallback: 'dev-secret-change-in-productio
 Token expiration: 24 hours
 Sign configuration: expiresIn='24h'
 
-**Server-Side JWT Registration:** Registered via authPlugin() in FastifyInstance at startup (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts)
+**Server-Side JWT Registration:**
+Registered TWICE:
+  1. Via authPlugin() in apps/api/src/plugins/auth.ts (plugin-scoped)
+  2. Via direct fastifyJwt registration in apps/api/src/index.ts (root-level, lines 101-106)
+The root-level registration in index.ts is the one that takes effect for all routes.
+The authenticate decorator is also defined in BOTH locations:
+  1. apps/api/src/plugins/auth.ts (line 76) -- inside authPlugin
+  2. apps/api/src/index.ts (line 110) -- root-level decorate
+The root-level definition in index.ts is what runs at runtime.
 
-**Client-Side Storage:** localStorage key 'asc_token' (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\auth.tsx)
+**NOTE ON DUPLICATION:** The authPlugin in auth.ts registers JWT and defines authenticate, but index.ts also registers JWT and defines authenticate at the root level. The authPlugin does NOT appear to be explicitly registered in index.ts (not imported as a plugin). The auth.ts file exports helper functions (requireRoles, requireCapabilities, etc.) that ARE used by routes. The authenticate decorator from index.ts is what routes see.
+
+**Client-Side Storage:** localStorage key 'asc_token' (apps/web/src/lib/auth.tsx)
 
 **Login Entry Points:**
-POST /auth/login - Unauthenticated endpoint accepting facilityKey, username, password
-GET /auth/me - Authenticated endpoint returning current user context
-POST /auth/logout - Authenticated endpoint with audit logging
+POST /api/auth/login - Unauthenticated endpoint accepting facilityKey, username, password
+GET /api/auth/me - Authenticated endpoint returning current user context
+POST /api/auth/logout - Authenticated endpoint with audit logging
 
 **Location of Login Routes:** C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts
 
@@ -39,11 +49,30 @@ Standard tenant login: facilityId = user.facility_id from database
 Platform admin login: facilityId = null (explicitly set when facilityKey='PLATFORM')
 Special facility key: "PLATFORM" triggers platform admin authentication path
 
+**Secondary Authentication Mechanism:** Clinic API Key Authentication
+
+**Location:** C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\clinic-auth.ts
+
+**Mechanism:**
+Header: X-Clinic-Key
+Key format: 64-char hex; first 8 chars = prefix for DB lookup
+Verification: HMAC-SHA256 with CLINIC_KEY_SECRET server-side secret
+Timing-safe comparison via crypto.timingSafeEqual
+Sets request.clinicContext = { clinicId, clinicName } on success
+Checks both key validity AND clinic.active status
+
+**Clinic Auth Configuration:**
+Secret: process.env.CLINIC_KEY_SECRET (required in production; dev fallback: 'dev-clinic-key-secret-change-in-production')
+
+**Clinic Auth Usage:**
+Applied as plugin-level preHandler hook on all routes in clinic-surgery-requests.routes.ts
+fastify.addHook('preHandler', requireClinicAuth) -- applies to entire plugin scope
+
 ---
 
 ### 2. SESSION & USER MODEL SHAPE
 
-**JWT Payload Type Definition:** JwtPayload interface (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts, lines 12-20)
+**JWT Payload Type Definition:** JwtPayload interface (apps/api/src/plugins/auth.ts, lines 12-20)
 
 **JWT Payload Fields:**
 userId: string (UUID)
@@ -51,320 +80,870 @@ facilityId: string | null (null for PLATFORM_ADMIN, otherwise facility UUID)
 username: string
 email: string | null
 name: string
-role: UserRole (primary role, backward compatibility field)
+role: UserRole (primary role, backward compatibility field -- deprecated)
 roles: UserRole[] (all assigned roles, canonical source)
 
-**User Database Schema:** app_user table (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql, lines 104-118)
+**Domain User Schema:** UserSchema (packages/domain/src/types.ts, lines 402-416)
 
-**User Fields in Database:**
-id: UUID primary key
-facility_id: UUID foreign key (NOT NULL, scoped to facility)
-username: VARCHAR (case-insensitive login supported)
-email: VARCHAR (nullable, required for ADMIN role)
-name: VARCHAR
-role: user_role enum (legacy, backward compatibility)
-roles: array of UserRole (canonical multi-role storage)
-password_hash: bcrypt hash
-active: boolean (account disable support)
-created_at: TIMESTAMPTZ
-updated_at: TIMESTAMPTZ
-Unique constraint: (facility_id, username) ensures username uniqueness per facility
+**User Fields in Domain Schema:**
+id: string (UUID)
+facilityId: string (UUID)
+username: string (3-100 chars)
+email: string (email, optional)
+name: string (1-255 chars)
+role: UserRole (deprecated)
+roles: UserRole[] (min 1)
+passwordHash: string (never exposed to API)
+active: boolean (default true)
+createdAt: Date
+updatedAt: Date
 
-**Multi-Role Support:**
-users.roles field stores array of assigned roles
-roles[] is canonical source (getUserRoles() prioritizes roles[] over legacy role field)
-Legacy fallback: if roles[] empty, falls back to single role field (emits AUTH_LEGACY_ROLE_FALLBACK error for tracking)
+**Login Response Shape (client-side):** LoginResponse interface (apps/web/src/lib/api/auth.ts)
+token: string
+user.id: string
+user.username: string
+user.email: string | null
+user.name: string
+user.role: string (primary role, backward compat)
+user.roles: string[]
+user.facilityId: string
+user.facilityName: string
 
-**Tenant Data Multi-Tenancy:**
-Facility-scoped users: facility_id NOT NULL (standard tenant user)
-Platform-only users: facility_id IS NULL (PLATFORM_ADMIN users only)
-
----
-
-### 3. ROLES & CAPABILITIES
-
-**Defined User Roles:** 8 roles (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts, lines 25-34)
-
-**Complete Role Enumeration:**
-PLATFORM_ADMIN (non-tenant identity for control plane)
-ADMIN (facility administrator)
-SCHEDULER (case scheduling and approval)
-INVENTORY_TECH (inventory management)
-CIRCULATOR (OR circulator duties)
-SURGEON (surgical case creation)
-SCRUB (scrub technician)
-ANESTHESIA (anesthesia provider)
-
-**Capability System:** Explicit capability-based access control
-
-**Capabilities Type:** Union type with 25 distinct capabilities (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts, lines 57-84)
-
-**Complete Capability List:**
-Case operations: CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_DELETE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK
-Verification: VERIFY_SCAN
-Attestation: CHECKLIST_ATTEST
-OR Procedures: OR_DEBRIEF, OR_TIMEOUT
-Inventory: INVENTORY_READ, INVENTORY_CHECKIN, INVENTORY_MANAGE
-Administration: USER_MANAGE, LOCATION_MANAGE, CATALOG_MANAGE, REPORTS_VIEW, SETTINGS_MANAGE
-Platform: PLATFORM_ADMIN, PLATFORM_CONFIG_VIEW, PLATFORM_CONFIG_MANAGE
-
-**Role-to-Capability Mapping (Canonical Source):** ROLE_CAPABILITIES constant (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts, lines 93-118)
-
-**ROLE_CAPABILITIES Mapping:**
-PLATFORM_ADMIN: [PLATFORM_ADMIN, PLATFORM_CONFIG_VIEW, PLATFORM_CONFIG_MANAGE]
-SCRUB: [CASE_VIEW, VERIFY_SCAN, CHECKLIST_ATTEST]
-CIRCULATOR: [CASE_VIEW, CHECKLIST_ATTEST, OR_DEBRIEF, OR_TIMEOUT, CASE_CHECKIN_PREOP]
-INVENTORY_TECH: [CASE_VIEW, INVENTORY_READ, INVENTORY_CHECKIN]
-ADMIN: [USER_MANAGE, LOCATION_MANAGE, CATALOG_MANAGE, INVENTORY_MANAGE, REPORTS_VIEW, SETTINGS_MANAGE, CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_DELETE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK]
-SURGEON: [CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK, CHECKLIST_ATTEST]
-SCHEDULER: [CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_CANCEL]
-ANESTHESIA: [CASE_VIEW, CHECKLIST_ATTEST]
-
-**Capability Derivation Logic:** deriveCapabilities(roles: UserRole[]): Capability[] (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts, lines 123-131)
-
-Derives UNION of all capabilities from all assigned roles
-Set-based deduplication (no duplicate capabilities in result)
-Rule: A multi-role user gets all capabilities from all assigned roles
-
-**Pre-Built Role Check Functions (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts, lines 144-150):**
-requireAdmin: requireRoles('ADMIN')
-requireScheduler: requireRoles('ADMIN', 'SCHEDULER')
-requireInventoryTech: requireRoles('ADMIN', 'INVENTORY_TECH')
-requireCirculator: requireRoles('ADMIN', 'CIRCULATOR', 'INVENTORY_TECH')
-requireSurgeon: requireRoles('SURGEON')
-requireAnyStaff: requireRoles('ADMIN', 'SCHEDULER', 'INVENTORY_TECH', 'CIRCULATOR')
-requireAttestation: requireRoles('ADMIN', 'CIRCULATOR', 'INVENTORY_TECH')
-
-**Policy: CASE_VIEW Availability**
-Granted to: ADMIN, SCHEDULER, SURGEON, CIRCULATOR, SCRUB, INVENTORY_TECH, ANESTHESIA (all current internal roles)
-Policy note: New roles get NO CASE_VIEW by default; must be explicitly added after review (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts, line 91)
+**Clinic Context Shape:** ClinicContext interface (apps/api/src/plugins/clinic-auth.ts)
+clinicId: string
+clinicName: string
 
 ---
 
-### 4. ENFORCEMENT POINTS
+### 3. ROLES
 
-**Web Client Authentication Guard:** AuthGuard component (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\AuthGuard.tsx)
+**Role Enum Definition:** UserRole (packages/domain/src/types.ts, lines 39-48)
 
-Checks: if (!isLoading && !user) redirect to /login
-Applied to: All routes under (app) route group via layout wrapper
-Location: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\layout.tsx wraps children in AuthGuard
+**Defined Roles (8 total):**
+PLATFORM_ADMIN -- No-tenant identity for platform operations (LAW 3.1)
+ADMIN -- Facility administrator
+SCHEDULER -- Case scheduling staff
+INVENTORY_TECH -- Inventory management staff
+CIRCULATOR -- Operating room circulating nurse
+SURGEON -- Surgeon
+SCRUB -- Scrub technician
+ANESTHESIA -- Anesthesia provider
 
-**API Request Authentication:** fastify.authenticate decorator (preHandler middleware)
-
-Authentication method: JWT verification via request.jwtVerify()
-Applied to: Routes marked with preHandler: [fastify.authenticate]
-Returns 401 UNAUTHENTICATED with code 'UNAUTHENTICATED' on JWT verification failure
-Logs: AUTH_FAILED code on failure
-
-**API Authorization Middleware Functions (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts):**
-
-requireRoles(...allowedRoles: UserRole[]) - Lines 96-116
-Enforces: User must have ANY of the listed roles (OR logic)
-Returns 403 FORBIDDEN with code 'FORBIDDEN' if no matching role
-Logs: AUTHZ_DENIED code on failure with requiredRoles
-Uses: getUserRoles() to normalize roles[] as canonical source
-
-requireCapabilities(...requiredCaps: Capability[]) - Lines 121-141
-Enforces: User must have ANY of the listed capabilities (OR logic)
-Capabilities derived from roles[] via deriveCapabilities()
-Returns 403 FORBIDDEN with code 'FORBIDDEN' if no matching capability
-Logs: AUTHZ_DENIED code on failure with requiredCapabilities
-
-requirePlatformAdmin() - Lines 161-183
-Enforces: User must have PLATFORM_ADMIN role
-Returns 403 FORBIDDEN with code 'FORBIDDEN' if role missing
-Logs: PLATFORM_ACCESS_DENIED code on failure
-Special semantics: Rejects tenant users (LAW §2.4: Tenant users must never access Control Plane)
-
-requireTenantContext() - Lines 190-211
-Enforces: User must have non-null facilityId (tenant context required)
-Rejects: PLATFORM_ADMIN users (facilityId=null)
-Returns 403 FORBIDDEN with code 'FORBIDDEN' if facilityId is null
-Logs: TENANT_CONTEXT_REQUIRED code on failure
-
-**Client-Side Feature Access Control:** useAccessControl hook (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\auth.tsx, lines 92-122)
-
-Features definition: FEATURES constant (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts, lines 35-217)
-
-Feature access decision logic: checkFeatureAccess() (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts, lines 251-303)
-Evaluates: requiredRoles (OR logic) and requiredCapabilities (OR logic)
-Returns: AccessDecision with allowed boolean and reason string
-
-Helper methods on useAccessControl result:
-hasRole(role: Role): boolean
-hasCapability(cap: Capability): boolean
-
-**Platform-Specific Layout Guard:** (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\layout.tsx)
-
-Checks: hasRole('PLATFORM_ADMIN') at layout render time
-Returns: Access denied message if !hasRole('PLATFORM_ADMIN')
-Applied to: /platform/* routes
-
-**Route-Level API Enforcement Examples:**
-
-GET /cases - preHandler: [fastify.authenticate]
-GET /cases/:caseId - preHandler: [fastify.authenticate]
-PATCH /cases/:caseId - preHandler: [requireCapabilities('CASE_UPDATE')]
-POST /cases - preHandler: [requireCapabilities('CASE_CREATE')]
-PATCH /cases/:caseId/approve - preHandler: [requireCapabilities('CASE_APPROVE')]
-PATCH /cases/:caseId/reject - preHandler: [requireCapabilities('CASE_REJECT')]
-POST /cases/:caseId/activate - preHandler: [requireCapabilities('CASE_ACTIVATE')]
-PATCH /cases/:caseId/cancel - preHandler: [requireCapabilities('CASE_CANCEL')]
-
-GET /users - preHandler: [requireCapabilities('USER_MANAGE')]
-GET /admin/settings/* - preHandler: [requireCapabilities('SETTINGS_MANAGE')]
-GET /platform/health - preHandler: [requirePlatformAdmin()]
-GET /platform/config/keys - preHandler: [requirePlatformAdmin()]
-PATCH /platform/config/keys/:key - preHandler: [requirePlatformAdmin()]
-
-**Data Access Filtering by Facility:**
-
-Pattern: All tenant endpoints extract { facilityId } = request.user (verified in JWT)
-All database queries filter by WHERE facilityId = $1 using request.user.facilityId
-Examples found in:
-C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts - const { facilityId } = request.user; caseRepo.findMany(facilityId, ...)
-C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts - const { facilityId } = request.user; query(sql, [facilityId])
-C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts - const { facilityId } = request.user; ...
-
-**Request Validation Schemas:**
-
-LoginRequestSchema (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts, lines 27-31)
-Fields: facilityKey (string 1-20), username (string 3-100), password (string 8+)
-Validated via: safeParse() with 400 VALIDATION_ERROR response on failure
-
-CreateUserRequestSchema (lines 56-76)
-Fields: username, email (optional), name, role (optional), roles (optional), password
-Refinements:
-- At least one role source required (role or roles)
-- If ADMIN role present, email required
+**Role Normalization:**
+Server-side: getUserRoles() in auth.ts uses roles[] as truth; falls back to [role] with ERROR-level logging (code: AUTH_LEGACY_ROLE_FALLBACK)
+Client-side: normalizeRoles() in access-control.ts casts string[] to Role[]
+Auth routes: normalizeRoles() in auth.routes.ts handles string[], string, or undefined input; parses PostgreSQL array format {val1,val2}
 
 ---
 
-### 5. DEBUG & TRACE TOOLING
+### 4. CAPABILITIES
 
-**Request ID Correlation:**
+**Capability Type Definition:** Capability union type (packages/domain/src/types.ts, lines 132-174)
 
-Generation: Fastify automatically generates request.requestId for each request
-Propagation: Included in all auth log entries via requestId field
-Audit use: Visible in error responses and audit logs
+**Defined Capabilities (30 total):**
 
-**Authentication Audit Service:** (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts)
+Case Management:
+  CASE_VIEW -- View surgical cases
+  CASE_CREATE -- Create new cases
+  CASE_UPDATE -- Update case details
+  CASE_APPROVE -- Approve pending cases
+  CASE_REJECT -- Reject pending cases
+  CASE_ASSIGN_ROOM -- Assign OR room to case
+  CASE_ACTIVATE -- Activate case for day-of workflow
+  CASE_CHECKIN_PREOP -- Check patient into preoperative area
+  CASE_DELETE -- Delete case
+  CASE_CANCEL -- Cancel case
+  CASE_PREFERENCE_CARD_LINK -- Link preference card to case
 
-Audit events table: auth_audit_log
-Events logged:
-LOGIN_SUCCESS - on successful login
-LOGIN_FAILED - on failed login attempts
-LOGOUT - on user logout
+Clinical:
+  VERIFY_SCAN -- Scan/verify readiness items
+  CHECKLIST_ATTEST -- Attest to checklist completion
+  OR_DEBRIEF -- Complete post-op debrief
+  OR_TIMEOUT -- Record surgical timeout
 
-Event context captured:
-eventType: string (LOGIN_SUCCESS|LOGIN_FAILED|LOGOUT)
-facilityId: string | null
-userId: string | null
-username: string
-userRoles: string[] | null
-success: boolean
-failureReason: string | null (user_not_found|bad_password|account_disabled|facility_not_found|invalid_token)
-requestId: string (from Fastify request)
-ipAddress: string
-userAgent: string
+Inventory:
+  INVENTORY_READ -- View inventory
+  INVENTORY_CHECKIN -- Check in inventory items
+  INVENTORY_MANAGE -- Full inventory management
 
-Logging calls: Located in C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts
-LOGIN_FAILED calls at lines: 59, 78, 96, 203, 222, 240
-LOGIN_SUCCESS calls at lines: 126, 275
-LOGOUT calls at lines: 344
+Administrative:
+  USER_MANAGE -- Manage user accounts
+  LOCATION_MANAGE -- Manage facility locations
+  CATALOG_MANAGE -- Manage equipment catalog
+  REPORTS_VIEW -- View reports
+  SETTINGS_MANAGE -- Manage facility settings
 
-**Request-Level Logging:**
+PHI Access:
+  PHI_CLINICAL_ACCESS -- Access PHI_CLINICAL data
+  PHI_WRITE_CLINICAL -- Write PHI_CLINICAL data (patient identity CRUD)
+  PHI_PATIENT_SEARCH -- Search patient identity records
+  PHI_BILLING_ACCESS -- Access PHI_BILLING data
+  PHI_AUDIT_ACCESS -- Access PHI_AUDIT data
 
-Pattern: All authorization denials logged with code + context
-Examples:
-AUTH_FAILED: "Authentication required" - JWT verification failed
-AUTHZ_DENIED: "Authorization denied — missing roles" - Role check failed (lines 110-112 in auth.ts)
-AUTHZ_DENIED: "Authorization denied — missing capabilities" - Capability check failed (line 135 in auth.ts)
-PLATFORM_ACCESS_DENIED: "Control Plane access denied — requires PLATFORM_ADMIN" (line 175 in auth.ts)
-TENANT_CONTEXT_REQUIRED: "Tenant endpoint requires facility context" (line 203 in auth.ts)
+Organization:
+  ORG_MANAGE -- Create/update organizations
+  ORG_AFFILIATION_MANAGE -- Manage user affiliations
 
-**Debug Panel Support:** (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\auth.tsx lines 110-111)
+Surgery Request:
+  SURGERY_REQUEST_REVIEW -- View, return, accept, reject surgery requests
+  SURGERY_REQUEST_CONVERT -- Convert accepted request to case
 
-DebugInfo type generated by generateDebugInfo() containing:
-roles: Role[]
-capabilities: Capability[]
-featureDecisions: array of {featureId, featureTitle, allowed, reason}
+Financial Readiness:
+  FINANCIAL_READINESS_VIEW -- Dashboard + detail view
+  FINANCIAL_READINESS_EDIT -- Record verification + overrides
 
-**Configuration Audit:** (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts)
-
-GET /api/platform/config/audit - Lists config changes with audit trail
-GET /api/platform/config/auth-audit - Lists authentication events
-Both require PLATFORM_ADMIN role
-
----
-
-### 6. INCONSISTENCIES & DUPLICATED LOGIC
-
-**Legacy Role Fallback Logic:** DUPLICATED in 3 locations
-
-Location 1: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts lines 49-64
-Location 2: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts lines 13-21 (normalizeRoles function)
-Location 3: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts lines 30-38 (normalizeRoles function)
-
-Logic duplicated: All three normalize roles[] | string | undefined to string[] with fallback to single role field
-TODO marker found: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts line 45 states "TODO(PERSONA-REMOVE-LEGACY): Remove the user.role fallback once all JWTs in circulation contain populated roles[] array"
-Gate condition: No ERROR_CODE AUTH_LEGACY_ROLE_FALLBACK seen in logs for 30 days (indicates readiness for removal)
-
-**Role Normalization in Web Client:** (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts lines 235-237)
-
-Current: normalizeRoles(roles: string[]): Role[] (only accepts array)
-Note: String overload removed; callers must pass array only
-Inconsistency: TypeScript-enforced contract but normalizeRoles in API routes still handles string | array
-
-**Feature Access Logic:** Two independent implementations
-
-Location 1: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts - checkFeatureAccess() (client-side)
-Location 2: API preHandler functions in plugins/auth.ts - requireRoles() and requireCapabilities() (server-side)
-
-Logic difference: Client uses feature definitions with OR logic on roles and capabilities; server uses preHandler with AND logic for multiple middleware (if stacked)
-
-**Persona System Not Used for Authorization:** (C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\persona.ts)
-
-Explicit statement line 5: "A persona is the active 'hat' a multi-role user wears for their session. It NEVER grants or restricts permissions."
-Personas sent to API as: X-Active-Persona header (untrusted, audit/logging only)
-Implementation: Personas stored client-side in localStorage (key: asc_active_persona)
-No server-side authorization checks based on persona (verified: grep shows no persona in preHandler authorization)
-
-**Facility Context Validation:** INCONSISTENT enforcement
-
-Enforced by preHandler: requireTenantContext() (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts lines 190-211)
-Not explicitly enforced on: All tenant routes (applied selectively, not universally)
-Pattern observed: Tenant routes implicitly assume facilityId exists via request.user.facilityId extraction
-No preHandler guard found on: GET /users, GET /cases routes (rely on manual facilityId extraction)
-
-**Feature Definition Location Mismatch:**
-
-Web features defined in: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts (FEATURES array)
-API routes defined in: Multiple routes files (no single feature registry)
-No generated API contract synchronizing features with actual route capabilities
-
-**Audit Log Inconsistency:** Facility ID representation
-
-Database field: facility_id (nullable, NULL for platform)
-Query filter: facilityId === 'platform' interpreted as NULL (C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts lines 361-365)
-Schema field type: Could be ambiguous (is null = platform or missing data?)
+Platform:
+  PLATFORM_ADMIN -- Access to Control Plane
+  PLATFORM_CONFIG_VIEW -- View platform configuration
+  PLATFORM_CONFIG_MANAGE -- Modify platform configuration
 
 ---
 
-### 7. VERIFICATION SUMMARY
+### 5. ROLE-TO-CAPABILITY MAPPING (SINGLE SOURCE OF TRUTH)
 
-All major authentication and authorization mechanisms are implemented in code. The following were verified as implemented (NOT inferred):
+**Location:** ROLE_CAPABILITIES in packages/domain/src/types.ts, lines 183-212
 
-JWT authentication workflow: verified in auth.routes.ts and plugins/auth.ts
-Multi-role user support: verified in types.ts ROLE_CAPABILITIES and getUserRoles()
-Capability-based access: verified in requireCapabilities() preHandler
-Facility scoping: verified in database schema (app_user.facility_id NOT NULL) and route implementations
-Platform admin separation: verified in requirePlatformAdmin() and separate login path
-Client-side auth guard: verified in AuthGuard.tsx
-Audit logging: verified in auth-audit.service.ts and route implementations
-Feature access control: verified in access-control.ts and FEATURES array
+PLATFORM_ADMIN:
+  PLATFORM_ADMIN, PLATFORM_CONFIG_VIEW, PLATFORM_CONFIG_MANAGE
+  NOTE: NO tenant capabilities -- cannot access tenant data directly
 
-**File references are absolute paths and all findings are traceable to implemented code.**
+ADMIN:
+  USER_MANAGE, LOCATION_MANAGE, CATALOG_MANAGE, INVENTORY_MANAGE, REPORTS_VIEW, SETTINGS_MANAGE,
+  CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM,
+  CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_DELETE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK,
+  PHI_CLINICAL_ACCESS, PHI_WRITE_CLINICAL, PHI_PATIENT_SEARCH, PHI_AUDIT_ACCESS,
+  ORG_MANAGE, ORG_AFFILIATION_MANAGE,
+  SURGERY_REQUEST_REVIEW, SURGERY_REQUEST_CONVERT,
+  FINANCIAL_READINESS_VIEW, FINANCIAL_READINESS_EDIT
+
+SCHEDULER:
+  CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM,
+  CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_CANCEL,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH,
+  SURGERY_REQUEST_REVIEW
+
+SURGEON:
+  CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK,
+  CHECKLIST_ATTEST,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
+
+CIRCULATOR:
+  CASE_VIEW, CHECKLIST_ATTEST, OR_DEBRIEF, OR_TIMEOUT, CASE_CHECKIN_PREOP,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
+
+INVENTORY_TECH:
+  CASE_VIEW, INVENTORY_READ, INVENTORY_CHECKIN,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
+
+SCRUB:
+  CASE_VIEW, VERIFY_SCAN, CHECKLIST_ATTEST,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
+
+ANESTHESIA:
+  CASE_VIEW, CHECKLIST_ATTEST,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
+
+**Capability Derivation:** deriveCapabilities() in packages/domain/src/types.ts
+Computes UNION of all capabilities across all roles for a user.
+Uses Set to deduplicate.
+
+---
+
+### 6. API-SIDE ENFORCEMENT POINTS
+
+#### 6A. Authentication Decorators
+
+**fastify.authenticate** (apps/api/src/index.ts, line 110)
+Type: Fastify decorator, used as preHandler
+Action: Calls request.jwtVerify(); returns 401 on failure
+Error response: { error: { code: 'UNAUTHENTICATED', message: 'Authentication required', requestId } }
+
+#### 6B. Role-Based Authorization Helpers (apps/api/src/plugins/auth.ts)
+
+**requireRoles(...allowedRoles: UserRole[])**
+Type: Factory returning preHandler function
+Action: Verifies JWT, then checks if user has ANY of listed roles
+Error: 401 if JWT invalid; 403 if missing roles
+Logging: Structured warn with code AUTH_FAILED or AUTHZ_DENIED
+
+**Pre-built role checks:**
+requireAdmin = requireRoles('ADMIN')
+requireScheduler = requireRoles('ADMIN', 'SCHEDULER')
+requireInventoryTech = requireRoles('ADMIN', 'INVENTORY_TECH')
+requireCirculator = requireRoles('ADMIN', 'CIRCULATOR', 'INVENTORY_TECH')
+requireSurgeon = requireRoles('SURGEON')
+requireAnyStaff = requireRoles('ADMIN', 'SCHEDULER', 'INVENTORY_TECH', 'CIRCULATOR')
+requireAttestation = requireRoles('ADMIN', 'CIRCULATOR', 'INVENTORY_TECH')
+
+NOTE: These pre-built role checks do NOT appear to be used by any route file.
+Routes use requireCapabilities() or fastify.authenticate instead.
+
+#### 6C. Capability-Based Authorization (apps/api/src/plugins/auth.ts)
+
+**requireCapabilities(...requiredCaps: Capability[])**
+Type: Factory returning preHandler function
+Action: Verifies JWT, derives capabilities from roles, checks if user has ANY listed capability
+Error: 401 if JWT invalid; 403 if missing capabilities
+NOTE: This function calls jwtVerify() internally, so routes using it do NOT need fastify.authenticate as well.
+
+#### 6D. Platform Admin Authorization (apps/api/src/plugins/auth.ts)
+
+**requirePlatformAdmin()**
+Type: Factory returning preHandler function
+Action: Verifies JWT, checks if roles include 'PLATFORM_ADMIN'
+Error: 401 if JWT invalid; 403 if not PLATFORM_ADMIN
+Logging: Structured warn with code PLATFORM_ACCESS_DENIED
+
+**requireTenantContext()**
+Type: Factory returning preHandler function
+Action: Verifies JWT, checks if facilityId is not null
+Error: 401 if JWT invalid; 403 if facilityId is null
+NOTE: This function is defined but does not appear to be used by any route.
+
+#### 6E. PHI Access Guard (apps/api/src/plugins/phi-guard.ts)
+
+**requirePhiAccess(classification, options?)**
+Type: Factory returning preHandler function named 'phiGuard'
+Parameters:
+  classification: 'PHI_CLINICAL' | 'PHI_BILLING' | 'PHI_AUDIT'
+  options.evaluateCase: boolean (default false) -- enables case-level access evaluation
+  options.caseIdFrom: string -- custom param name for caseId resolution
+
+**PHI Guard Enforcement Steps (in order):**
+1. Pre-check: User must be authenticated with non-null facilityId
+2. Step 1: Validate X-Access-Purpose header (required; must be valid enum value)
+3. Step 1b: Emergency handling (if purpose=EMERGENCY):
+   - Requires X-Emergency-Justification header (min 10 chars)
+   - Rate-limited: 10 emergency accesses per user per hour (in-memory)
+4. Step 2: Resolve user's organization affiliations (SKIPPED for EMERGENCY)
+   - Calls orgRepo.getUserAffiliations(userId, facilityId)
+   - DENY if no affiliations found
+5. Step 3: Check PHI capability (NOT skipped for emergency)
+   - Maps classification to capability via PHI_CLASSIFICATION_TO_CAPABILITY
+   - PHI_CLINICAL -> PHI_CLINICAL_ACCESS
+   - PHI_BILLING -> PHI_BILLING_ACCESS
+   - PHI_AUDIT -> PHI_AUDIT_ACCESS
+6. Step 3.5: Clinical care window enforcement (Phase 3)
+   - Only applies when: NOT emergency AND classification=PHI_CLINICAL AND purpose=CLINICAL_CARE|SCHEDULING
+   - Checks scheduled_date - preOpDays (configurable, default 7) to completion + postCompletionDays (configurable, default 30)
+   - BILLING and AUDIT purposes bypass time window
+   - EMERGENCY bypasses time window
+7. Step 4: Case-level evaluation (if evaluateCase=true and caseId resolved):
+   - Verify case exists and belongs to same facility (NOT bypassed by emergency)
+   - Check case primary_organization_id exists (DENY if missing, SKIPPED for emergency)
+   - Check user affiliation with case org OR active case_access_grant OR BILLING/AUDIT purpose override
+   - Emergency bypasses org affiliation check
+
+**PHI Guard DENY Reasons:**
+NO_FACILITY_CONTEXT
+MISSING_PURPOSE_HEADER
+INVALID_PURPOSE
+EMERGENCY_JUSTIFICATION_REQUIRED
+EMERGENCY_RATE_LIMIT (returns 429)
+AFFILIATION_RESOLUTION_ERROR
+NO_ORG_AFFILIATIONS
+MISSING_PHI_CAPABILITY
+CASE_NOT_FOUND
+CROSS_FACILITY_ACCESS
+OUTSIDE_CLINICAL_WINDOW
+CASE_ATTRIBUTION_MISSING
+NO_CASE_ACCESS
+
+**PHI Guard Decorates Request With:**
+request.phiContext = { classification, purpose, organizationIds, isEmergency, auditLogId?, auditLogReady? }
+
+#### 6F. Clinic API Key Auth (apps/api/src/plugins/clinic-auth.ts)
+
+**requireClinicAuth**
+Type: preHandler function
+Action: Validates X-Clinic-Key header, verifies key hash, checks clinic active status
+Error: 401 with code UNAUTHENTICATED if missing, invalid, or inactive
+Sets: request.clinicContext = { clinicId, clinicName }
+
+---
+
+### 7. ROUTE-LEVEL ENFORCEMENT MATRIX
+
+**Auth Routes (/api/auth):**
+POST /login -- No auth (public)
+GET /me -- [fastify.authenticate]
+POST /logout -- [fastify.authenticate]
+
+**User Routes (/api/users):**
+GET / (list users) -- [requireCapabilities('USER_MANAGE')]
+GET /surgeons -- [fastify.authenticate]
+POST / (create user) -- [requireCapabilities('USER_MANAGE')]
+GET /:id -- [requireCapabilities('USER_MANAGE')]
+PATCH /:id -- [requireCapabilities('USER_MANAGE')]
+DELETE /:id -- [requireCapabilities('USER_MANAGE')]
+PATCH /:id/password -- [requireCapabilities('USER_MANAGE')]
+
+**Cases Routes (/api/cases):**
+GET / (list) -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')]
+GET /:caseId -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase)]
+PATCH /:caseId -- [requireCapabilities('CASE_UPDATE'), requirePhiAccess('PHI_CLINICAL', evaluateCase)]
+POST /:caseId/approve -- [requireCapabilities('CASE_APPROVE'), requirePhiAccess('PHI_CLINICAL', evaluateCase), idempotent()]
+POST /:caseId/reject -- [requireCapabilities('CASE_REJECT'), requirePhiAccess('PHI_CLINICAL', evaluateCase), idempotent()]
+PATCH /:caseId/assign-room -- [requireCapabilities('CASE_ASSIGN_ROOM'), requirePhiAccess('PHI_CLINICAL', evaluateCase), idempotent()]
+POST / (create) -- [requireCapabilities('CASE_CREATE'), requirePhiAccess('PHI_CLINICAL')]
+POST /:caseId/activate -- [requireCapabilities('CASE_ACTIVATE'), requirePhiAccess('PHI_CLINICAL', evaluateCase), idempotent()]
+POST /:caseId/deactivate -- [requireCapabilities('CASE_ACTIVATE'), requirePhiAccess('PHI_CLINICAL', evaluateCase), idempotent()]
+POST /:caseId/cancel -- [requireCapabilities('CASE_CANCEL'), requirePhiAccess('PHI_CLINICAL', evaluateCase), idempotent()]
+POST /:caseId/check-in-preop -- [requireCapabilities('CASE_CHECKIN_PREOP'), requirePhiAccess('PHI_CLINICAL', evaluateCase), idempotent()]
+GET /:caseId/status-events -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase)]
+POST /:id/preference-card -- [requireCapabilities('CASE_PREFERENCE_CARD_LINK'), requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+PUT /:id/requirements -- [requireCapabilities('CASE_VIEW'), requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+DELETE /:id -- [requireCapabilities('CASE_DELETE'), requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+
+**Case Dashboard Routes (/api/case-dashboard):**
+All routes use [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase)]
+GET /:caseId
+POST /:caseId/attest
+POST /:caseId/void
+PUT /:caseId/anesthesia
+PUT /:caseId/link-case-card
+POST /:caseId/case-card-unlink
+GET /:caseId/case-card-link
+POST /:caseId/overrides
+PUT /:caseId/overrides/:overrideId
+DELETE /:caseId/overrides/:overrideId
+GET /:caseId/event-log
+PUT /:caseId/case-summary
+PUT /:caseId/scheduling
+
+**Inventory Routes (/api/inventory):**
+POST /events -- [requireCapabilities('INVENTORY_CHECKIN','INVENTORY_MANAGE'), requirePhiAccess('PHI_CLINICAL', evaluateCase), idempotent()]
+POST /events/bulk -- [requireCapabilities('INVENTORY_CHECKIN','INVENTORY_MANAGE'), requirePhiAccess('PHI_CLINICAL'), idempotent()]
+POST /events/financial -- [requireCapabilities('INVENTORY_MANAGE'), requirePhiAccess('PHI_CLINICAL', evaluateCase)]
+GET /items -- [fastify.authenticate]
+GET /items/:id -- [fastify.authenticate]
+GET /items/:id/events -- [fastify.authenticate]
+GET /search -- [fastify.authenticate]
+POST /items -- [requireCapabilities('INVENTORY_MANAGE')]
+PUT /items/:id -- [requireCapabilities('INVENTORY_MANAGE')]
+GET /expiring -- [fastify.authenticate]
+GET /low-stock -- [fastify.authenticate]
+
+**Readiness Routes (/api/readiness):**
+GET /day-before -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')]
+GET /pending-attestations -- [fastify.authenticate]
+GET /cases/:id -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+POST /attestations -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase)]
+GET /cases/:id/attestations -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+GET /verifiable-items -- [fastify.authenticate]
+GET /cases/:id/verification -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+GET /pending-reviews -- [fastify.authenticate]
+
+**Checklists Routes (/api):**
+GET /checklist-templates -- [fastify.authenticate]
+POST /checklist-templates -- [requireCapabilities('SETTINGS_MANAGE')]
+GET /checklist-templates/:id -- [fastify.authenticate]
+GET /checklist-templates/:id/versions -- [fastify.authenticate]
+GET /checklist-templates/:id/version-latest -- [fastify.authenticate]
+GET /cases/:id/checklists -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+POST /cases/:id/checklists/start -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+POST /cases/:id/checklists/:type/respond -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+POST /cases/:id/checklists/:type/sign -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+POST /cases/:id/checklists/:type/complete -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+POST /cases/:id/checklists/debrief/async-review -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase, caseIdFrom:'id')]
+GET /surgeon/my-checklists -- [fastify.authenticate]
+GET /surgeon/my-checklists/:id -- [fastify.authenticate]
+GET /surgeon/my-checklists/:id/debrief -- [fastify.authenticate]
+POST /surgeon/my-checklists/:id/feedback -- [fastify.authenticate]
+GET /admin/pending-reviews -- [fastify.authenticate]
+GET /admin/flagged-reviews -- [fastify.authenticate]
+
+**Schedule Routes (/api/schedule):**
+GET /day -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')]
+GET /unassigned -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')]
+POST /assign-room -- [requireCapabilities('CASE_ASSIGN_ROOM')]
+POST /unassign-room -- [requireCapabilities('CASE_ASSIGN_ROOM')]
+POST /reorder -- [requireCapabilities('CASE_ASSIGN_ROOM')]
+POST /swap -- [requireCapabilities('CASE_ASSIGN_ROOM')]
+POST /block-time -- [requireCapabilities('CASE_ASSIGN_ROOM')]
+
+**Catalog Routes (/api/catalog):**
+GET / (list) -- [fastify.authenticate]
+GET /:id -- [fastify.authenticate]
+POST / -- [requireCapabilities('CATALOG_MANAGE')]
+PATCH /:id -- [requireCapabilities('CATALOG_MANAGE')]
+POST /bulk-import -- [requireCapabilities('CATALOG_MANAGE')]
+DELETE /:id -- [requireCapabilities('CATALOG_MANAGE')]
+GET /search -- [fastify.authenticate]
+POST /merge -- [requireCapabilities('CATALOG_MANAGE')]
+POST /split -- [requireCapabilities('CATALOG_MANAGE')]
+
+**Catalog Groups Routes (/api/catalog/groups):**
+GET / -- [fastify.authenticate]
+POST / -- [requireCapabilities('CATALOG_MANAGE')]
+PATCH /:id -- [requireCapabilities('CATALOG_MANAGE')]
+GET /:id/items -- [fastify.authenticate]
+POST /:id/items -- [requireCapabilities('CATALOG_MANAGE')]
+DELETE /:id/items/:itemId -- [requireCapabilities('CATALOG_MANAGE')]
+
+**Catalog Sets Routes (/api/catalog/sets):**
+GET / -- [fastify.authenticate]
+POST / -- [requireCapabilities('CATALOG_MANAGE')]
+GET /:id -- [fastify.authenticate]
+PATCH /:id -- [requireCapabilities('CATALOG_MANAGE')]
+POST /:id/items -- [requireCapabilities('CATALOG_MANAGE')]
+DELETE /:id/items/:itemId -- [requireCapabilities('CATALOG_MANAGE')]
+
+**Catalog Images Routes (/api/catalog):**
+POST /:id/images -- [fastify.authenticate, requireCapabilities('CATALOG_MANAGE')]
+GET /:id/images -- [fastify.authenticate]
+DELETE /images/:imageId -- [fastify.authenticate, requireCapabilities('CATALOG_MANAGE')]
+POST /images/:imageId/primary -- [fastify.authenticate, requireCapabilities('CATALOG_MANAGE')]
+POST /images/reorder -- [fastify.authenticate, requireCapabilities('CATALOG_MANAGE')]
+
+**Preference Cards Routes (/api/preference-cards):**
+GET / -- [fastify.authenticate]
+GET /:id -- [fastify.authenticate]
+GET /:id/versions -- [fastify.authenticate]
+POST / -- [requireCapabilities('CATALOG_MANAGE')]
+PATCH /:id -- [requireCapabilities('CATALOG_MANAGE')]
+POST /:id/versions -- [requireCapabilities('CATALOG_MANAGE')]
+DELETE /:id -- [requireCapabilities('CATALOG_MANAGE')]
+POST /:id/duplicate -- [requireCapabilities('CATALOG_MANAGE')]
+
+**Case Cards Routes (/api/case-cards):**
+All routes use [fastify.authenticate] only (no capability or role checks)
+
+**Location Routes (/api/locations):**
+GET / -- [fastify.authenticate]
+GET /:id -- [fastify.authenticate]
+POST / -- [requireCapabilities('LOCATION_MANAGE')]
+PUT /:id -- [requireCapabilities('LOCATION_MANAGE')]
+DELETE /:id -- [requireCapabilities('LOCATION_MANAGE')]
+POST /:id/reorder -- [requireCapabilities('LOCATION_MANAGE')]
+
+**Settings Routes (/api/settings):**
+GET / -- [fastify.authenticate]
+POST / -- [requireCapabilities('SETTINGS_MANAGE')]
+PUT /:id -- [requireCapabilities('SETTINGS_MANAGE')]
+DELETE /:id -- [requireCapabilities('SETTINGS_MANAGE')]
+POST /templates -- [requireCapabilities('SETTINGS_MANAGE')]
+PUT /templates/:id -- [requireCapabilities('SETTINGS_MANAGE')]
+POST /templates/:id/items -- [requireCapabilities('SETTINGS_MANAGE')]
+PUT /templates/:id/items/reorder -- [requireCapabilities('SETTINGS_MANAGE')]
+
+**General Settings Routes (/api/general-settings):**
+GET / -- [fastify.authenticate]
+POST / -- [requireCapabilities('SETTINGS_MANAGE')]
+PATCH /:id -- [requireCapabilities('SETTINGS_MANAGE')]
+PUT /rooms -- [requireCapabilities('SETTINGS_MANAGE')]
+PATCH /features/toggle -- [requireCapabilities('SETTINGS_MANAGE')]
+PUT /config-items/reorder -- [requireCapabilities('SETTINGS_MANAGE')]
+PATCH /config-items/reorder -- [requireCapabilities('SETTINGS_MANAGE')]
+
+**Admin Settings Routes (/api/admin/settings):**
+All routes use [requireCapabilities('SETTINGS_MANAGE')]
+
+**Vendors Routes (/api/vendors):**
+All routes use [requireCapabilities('SETTINGS_MANAGE')]
+
+**Loaner Sets Routes (/api/loaner-sets):**
+All routes use [requireCapabilities('INVENTORY_MANAGE')]
+
+**Reports Routes (/api/reports):**
+Non-PHI reports (3 routes): [fastify.authenticate]
+PHI_CLINICAL reports (6 routes): [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')]
+PHI_BILLING reports (3 routes): [fastify.authenticate, requirePhiAccess('PHI_BILLING')]
+Export enforcement: validateExportPurpose() called inside route handlers for CSV export; requires AUDIT or BILLING purpose
+
+**AI Routes (/api/ai):**
+POST /explain-readiness -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase)]
+
+**Organization Routes (/api/organizations):**
+GET / -- [requireCapabilities('ORG_MANAGE')]
+POST / -- [requireCapabilities('ORG_MANAGE')]
+PATCH /:id -- [requireCapabilities('ORG_MANAGE')]
+GET /:id/affiliations -- [requireCapabilities('ORG_AFFILIATION_MANAGE')]
+POST /:id/affiliations -- [requireCapabilities('ORG_AFFILIATION_MANAGE')]
+DELETE /affiliations/:affiliationId -- [requireCapabilities('ORG_AFFILIATION_MANAGE')]
+
+**PHI Audit Routes (/api/phi-audit):**
+All 8 routes use [fastify.authenticate, requirePhiAccess('PHI_AUDIT')]
+GET / -- List audit entries
+GET /stats -- Audit statistics
+GET /:id -- Single entry
+GET /sessions -- Session-grouped entries
+GET /excessive-denials -- Excessive denial detection
+GET /analytics -- Combined analytics
+GET /retention -- Retention status
+GET /retention/:entityId -- Single entity retention
+
+**PHI Patient Routes (/api/phi-patient):**
+GET /by-case/:caseId -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase)]
+GET /lookup -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')]
+GET /search -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')]
+POST / -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')]
+PUT /:patientId -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')]
+GET /:patientId/cases -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL')]
+PUT /link-case/:caseId -- [fastify.authenticate, requirePhiAccess('PHI_CLINICAL', evaluateCase)]
+
+**Platform Routes (/api/platform):**
+GET /health -- [requirePlatformAdmin()]
+GET /facilities -- [requirePlatformAdmin()]
+
+**Platform Config Routes (/api/platform/config):**
+All 8 routes use [requirePlatformAdmin()]
+
+**Attention Routes (/api/attention):**
+GET / -- [fastify.authenticate]
+
+**Clinic Surgery Request Routes (/api/clinic/surgery-requests):**
+Plugin-level: fastify.addHook('preHandler', requireClinicAuth)
+All routes authenticated via X-Clinic-Key header (NOT JWT)
+
+**Admin Surgery Request Routes (/api/admin/surgery-requests):**
+GET / -- [requireCapabilities('SURGERY_REQUEST_REVIEW')]
+GET /:id -- [requireCapabilities('SURGERY_REQUEST_REVIEW')]
+GET /:id/checklist -- [requireCapabilities('SURGERY_REQUEST_REVIEW')]
+POST /:id/return -- [requireCapabilities('SURGERY_REQUEST_REVIEW')]
+POST /:id/accept -- [requireCapabilities('SURGERY_REQUEST_REVIEW')]
+POST /:id/reject -- [requireCapabilities('SURGERY_REQUEST_REVIEW')]
+POST /:id/convert -- [requireCapabilities('SURGERY_REQUEST_CONVERT')]
+
+**Financial Readiness Routes (/api/admin/financial-readiness):**
+GET / -- [requireCapabilities('FINANCIAL_READINESS_VIEW')]
+GET /:requestId -- [requireCapabilities('FINANCIAL_READINESS_VIEW')]
+POST /:requestId/asc-verification -- [requireCapabilities('FINANCIAL_READINESS_EDIT')]
+POST /:requestId/override -- [requireCapabilities('FINANCIAL_READINESS_EDIT')]
+DELETE /:requestId/override -- [requireCapabilities('FINANCIAL_READINESS_EDIT')]
+
+**Health Check:**
+GET /api/health -- No auth (public)
+
+---
+
+### 8. WEB-SIDE ENFORCEMENT POINTS (UX ONLY)
+
+**NOTE:** All web-side access control is UX-only. The API enforces real authorization. The web guards exist to provide good UX by hiding inaccessible features and redirecting unauthorized users.
+
+#### 8A. Authentication Guard
+
+**AuthGuard Component:** apps/web/src/app/components/AuthGuard.tsx
+- Wraps the (app) layout group
+- Redirects to /login if user is null after auth check completes
+- Shows loading state during auth check
+
+**AuthProvider:** apps/web/src/lib/auth.tsx
+- React context wrapping entire app (apps/web/src/app/layout.tsx)
+- Stores user + token in React state
+- On mount: checks localStorage for 'asc_token', calls getMe() to validate
+- login(): calls apiLogin(), stores token in localStorage
+- logout(): calls apiLogout(), clears localStorage and state
+
+**Layout Guard Chain:**
+apps/web/src/app/layout.tsx -> AuthProvider (wraps everything)
+apps/web/src/app/(app)/layout.tsx -> AuthGuard (wraps all authenticated pages)
+apps/web/src/app/(app)/platform/layout.tsx -> hasRole('PLATFORM_ADMIN') check (denies non-platform users)
+
+#### 8B. AccessGuard Component
+
+**Location:** apps/web/src/components/AccessGuard.tsx
+
+**Props:**
+requiredRoles?: Role[] -- show if user has ANY role
+requiredCapabilities?: Capability[] -- show if user has ANY capability
+fallback?: ReactNode -- shown when denied (default: null/hidden)
+
+**Logic:** OR between requiredRoles and requiredCapabilities
+If neither specified, always renders children.
+
+#### 8C. useAccessControl Hook
+
+**Location:** apps/web/src/lib/auth.tsx
+
+**Returns:**
+roles: Role[] -- normalized from user.roles
+capabilities: Capability[] -- derived from roles via domain deriveCapabilities()
+features: FeatureDefinition[] with AccessDecision[] -- all features with access decisions
+debugInfo: DebugInfo -- roles, capabilities, feature decisions
+hasRole(role): boolean
+hasCapability(cap): boolean
+
+#### 8D. Feature Access Control (Dashboard)
+
+**Location:** apps/web/src/lib/access-control.ts
+
+**FEATURES Array:** 20+ feature definitions with:
+- requiredRoles: which roles can see the feature
+- requiredCapabilities: which capabilities grant access
+- Logic: features with no requirements = authenticated-only; otherwise OR between roles and capabilities
+
+**Feature Definitions by Group:**
+Core (authenticated-only unless restricted):
+  calendar -- all authenticated
+  case-requests -- all authenticated
+  preference-cards -- all authenticated
+  pending-reviews -- all authenticated
+  surgeon-checklists -- requiredRoles: [SURGEON]
+  unassigned-cases -- requiredRoles: [ADMIN, SCHEDULER]
+
+Case Workflows (contextual, capability-gated):
+  case-dashboard -- requiredCapabilities: [CASE_VIEW]
+  case-verify -- requiredCapabilities: [VERIFY_SCAN]
+  or-debrief -- requiredCapabilities: [OR_DEBRIEF]
+  or-timeout -- requiredCapabilities: [OR_TIMEOUT]
+
+Admin (role + capability gated):
+  admin-cases -- requiredRoles: [ADMIN, SCHEDULER]
+  admin-users -- requiredRoles: [ADMIN], requiredCapabilities: [USER_MANAGE]
+  admin-locations -- requiredRoles: [ADMIN], requiredCapabilities: [LOCATION_MANAGE]
+  admin-catalog -- requiredRoles: [ADMIN], requiredCapabilities: [CATALOG_MANAGE]
+  admin-inventory -- requiredRoles: [ADMIN], requiredCapabilities: [INVENTORY_MANAGE]
+  admin-inventory-checkin -- requiredRoles: [ADMIN], requiredCapabilities: [INVENTORY_CHECKIN]
+  admin-reports -- requiredRoles: [ADMIN], requiredCapabilities: [REPORTS_VIEW]
+  admin-phi-audit -- requiredRoles: [ADMIN], requiredCapabilities: [PHI_AUDIT_ACCESS]
+  admin-general-settings -- requiredRoles: [ADMIN], requiredCapabilities: [SETTINGS_MANAGE]
+  admin-pending-reviews -- requiredRoles: [ADMIN]
+
+#### 8E. Client-Side PHI Header Injection
+
+**Location:** apps/web/src/lib/api/client.ts
+
+**X-Access-Purpose Header:** Automatically resolved based on endpoint path pattern matching.
+PHI_PURPOSE_RULES array maps URL regex patterns to AccessPurpose values:
+  /phi-audit/* -> AUDIT
+  /phi-patient/* -> CLINICAL_CARE
+  /reports/vendor-concessions, /reports/inventory-valuation, /reports/loaner-exposure -> BILLING
+  /reports/case-*, /reports/cancelled-cases, /reports/checklist-compliance, /reports/debrief-summary -> AUDIT
+  /schedule/day, /schedule/unassigned -> SCHEDULING
+  /cases/*, /case-dashboard/*, /readiness/*, /inventory/events, /ai/* -> CLINICAL_CARE
+
+**X-Emergency-Justification Header:** Attached when emergencyJustification option is provided.
+
+**X-Active-Persona Header:** Read from localStorage (PERSONA_STORAGE_KEY = 'asc_active_persona'), attached to all requests. UX metadata only, NOT used for authorization.
+
+---
+
+### 9. PERSONA SYSTEM (UX-ONLY, NOT AUTHORIZATION)
+
+**Location:** packages/domain/src/persona.ts
+
+**Purpose:** Active "hat" for multi-role users. Determines UI focus, NEVER grants or restricts permissions.
+
+**Storage:** Client-side (localStorage key 'asc_active_persona')
+
+**Server-Side:** persona.ts plugin reads X-Active-Persona header and resolves against user roles. Stored on request.activePersona for audit/logging only. Invalid or unauthenticated persona values are silently ignored.
+
+**Persona Priority (for default selection):** CIRCULATOR > SCRUB > INVENTORY_TECH > SURGEON > ANESTHESIA > SCHEDULER > ADMIN
+
+**Labels:**
+PLATFORM_ADMIN -> "Platform Admin"
+ADMIN -> "Administrator"
+SCHEDULER -> "Scheduler"
+INVENTORY_TECH -> "Inventory Tech"
+CIRCULATOR -> "Circulator"
+SURGEON -> "Surgeon"
+SCRUB -> "Scrub Tech"
+ANESTHESIA -> "Anesthesia"
+
+---
+
+### 10. AUDIT & LOGGING
+
+#### 10A. Authentication Audit
+
+**Location:** apps/api/src/services/auth-audit.service.ts
+
+**Table:** auth_audit_log
+
+**Events Logged:**
+LOGIN_SUCCESS -- successful authentication
+LOGIN_FAILED -- failed authentication (user_not_found, bad_password, account_disabled, facility_not_found)
+LOGOUT -- user-initiated logout
+
+**Fields Recorded:**
+event_type, facility_id, user_id, username, user_roles, success, failure_reason, request_id, ip_address, user_agent
+
+**Query Support:** getAuthAuditLog() with filters by facilityId, eventType, success, userId, pagination
+
+#### 10B. PHI Access Audit
+
+**Location:** apps/api/src/services/phi-audit.service.ts
+
+**Table:** phi_access_audit_log
+
+**Fields Recorded:**
+user_id, user_roles, facility_id, organization_ids, case_id, phi_classification, access_purpose, outcome, denial_reason, request_id, endpoint, http_method, is_emergency, emergency_justification, breach_context
+
+**Logging Policy:**
+DENIED outcomes: logged synchronously (awaited) -- fail closed
+ALLOWED outcomes: logged fire-and-forget (non-blocking) via promise
+
+**Export Audit Table:** phi_export_audit_log
+Linked to phi_access_audit_log by phi_access_log_id
+Records: export_format, export_row_count
+
+#### 10C. Breach Context
+
+**Location:** apps/api/src/services/phi-breach.service.ts
+
+**Fields (all HMAC-SHA256 hashed, NO raw PII):**
+ip_hash -- hashed IP address
+user_agent_hash -- hashed User-Agent
+geo_hint -- null (deferred)
+request_fingerprint -- hash of (IP + UA + endpoint)
+
+**Hash Salt:** process.env.BREACH_HASH_SALT || process.env.JWT_SECRET || 'phi-breach-default-salt'
+
+#### 10D. Authorization Logging (Structured)
+
+All auth/authz failures produce structured log entries:
+AUTH_FAILED -- JWT verification failure (warn level)
+AUTHZ_DENIED -- role/capability check failure (warn level, includes userId, facilityId, required roles/capabilities)
+PLATFORM_ACCESS_DENIED -- platform admin check failure (warn level)
+TENANT_CONTEXT_REQUIRED -- facility context check failure (warn level)
+AUTH_LEGACY_ROLE_FALLBACK -- JWT missing roles[] field (error level, tracks deprecation)
+
+---
+
+### 11. PHI GOVERNANCE GUARDRAILS
+
+**Location:** apps/api/src/plugins/phi-governance.ts + apps/api/src/phi-route-manifest.ts
+
+**PHI Route Manifest:** Canonical registry of all PHI-guarded routes (74 entries total)
+Each entry declares: method, url, classification, hasExport flag
+
+**Startup Validation (onReady hook in index.ts):**
+Compares manifest against actual registered routes with PHI guards
+Detects: UNDECLARED_PHI_ROUTE (route has guard but not in manifest)
+Detects: MISSING_MANIFEST_ENTRY (manifest entry has no matching route)
+
+**Enforcement:**
+Non-development: UNDECLARED_PHI_ROUTE violations abort server startup
+Development: violations logged as warnings, startup continues
+
+**Route Detection:** Uses named function detection (fn.name === 'phiGuard') on preHandler chain
+
+---
+
+### 12. IDENTIFIED INCONSISTENCIES & OBSERVATIONS
+
+#### 12A. Duplicate JWT Registration
+
+The JWT plugin and authenticate decorator are defined in TWO places:
+1. apps/api/src/plugins/auth.ts (inside authPlugin function)
+2. apps/api/src/index.ts (root level, lines 101-117)
+The authPlugin function is NOT registered as a Fastify plugin in index.ts. Only the root-level definitions in index.ts are active. The authPlugin in auth.ts is effectively dead code for JWT/authenticate registration (though its exported helper functions are actively used).
+
+#### 12B. Pre-built Role Checks Are Unused
+
+The following pre-built role checks in auth.ts appear to be unused by any route:
+requireAdmin, requireScheduler, requireInventoryTech, requireCirculator,
+requireSurgeon, requireAnyStaff, requireAttestation
+All routes use either requireCapabilities() or fastify.authenticate directly.
+
+#### 12C. requireTenantContext() Is Defined but Unused
+
+The requireTenantContext() function in auth.ts is defined but does not appear to be used by any route.
+
+#### 12D. Legacy user.role vs user.roles Inconsistency (Web Side)
+
+Multiple web components still reference user.role (singular) directly instead of using the useAccessControl() hook:
+- apps/web/src/components/Checklists/DebriefModal.tsx: const userRole = user.role
+- apps/web/src/components/Checklists/TimeoutModal.tsx: const userRole = user.role
+- apps/web/src/app/(app)/calendar/components/DayView.tsx: user.role === 'SCRUB' || user.role === 'SURGEON'
+- apps/web/src/app/(app)/or/debrief/[caseId]/page.tsx: const userRole = user.role
+- apps/web/src/app/(app)/or/timeout/[caseId]/page.tsx: const userRole = user.role
+These use the deprecated singular role field for UX decisions. While this does not affect API authorization (API uses roles[]), it means multi-role users may see incorrect UI state.
+
+#### 12E. Inline Role Checks vs useAccessControl()
+
+Some components check roles inline with user.roles || [user.role] pattern:
+- CaseDashboardContent.tsx: (user.roles || [user.role]).includes('ADMIN')
+- dashboard/page.tsx, unassigned-cases/page.tsx, admin/general-settings/* pages
+While functionally correct, this duplicates the normalization logic that useAccessControl() already provides.
+
+#### 12F. Case Cards Routes Have No Authorization
+
+All case-cards.routes.ts endpoints (21+ routes) use only [fastify.authenticate] with NO capability or role checks. Any authenticated user can access all case card operations.
+
+#### 12G. Attention Routes Have No Authorization
+
+attention.routes.ts uses only [fastify.authenticate] with no role/capability checks.
+
+#### 12H. Some Readiness/Checklist Routes Lack PHI Guard
+
+Several readiness routes use only [fastify.authenticate] without requirePhiAccess:
+- GET /readiness/pending-attestations
+- GET /readiness/verifiable-items
+- GET /readiness/pending-reviews
+Several checklist routes use only [fastify.authenticate]:
+- GET /checklist-templates, GET /checklist-templates/:id, etc.
+- GET /surgeon/my-checklists, GET /admin/pending-reviews, GET /admin/flagged-reviews
+These routes may return data related to cases but bypass PHI access controls.
+
+#### 12I. Some Report Routes Lack PHI Guard
+
+Three report routes use only [fastify.authenticate] without requirePhiAccess:
+These are likely non-PHI reports (status/count aggregations) but are worth noting for completeness.
+
+#### 12J. Mixed Authentication Patterns
+
+Routes using requireCapabilities() do NOT also need fastify.authenticate because requireCapabilities() calls jwtVerify() internally. However, routes using requirePhiAccess() use the pattern [fastify.authenticate, requirePhiAccess(...)], where both call jwtVerify(). This is redundant but harmless -- the second jwtVerify() uses the already-decoded payload.
+
+#### 12K. No Token Blacklist/Revocation
+
+JWT tokens are stateless with 24h expiration. There is no token blacklist or revocation mechanism. Logout is audit-logged but does not invalidate the token server-side.
+
+#### 12L. PLATFORM_ADMIN Has No Tenant Capabilities
+
+PLATFORM_ADMIN role has ZERO tenant-level capabilities. It cannot view cases, manage inventory, or access PHI. This is by design (LAW 3.1-3.2) but means PLATFORM_ADMIN users cannot directly debug tenant-level issues.
+
+---
+
+### 13. SECURITY CONFIGURATION NOTES
+
+**JWT Secret Defaults:**
+JWT_SECRET: 'dev-secret-change-in-production' (no production enforcement except by convention)
+CLINIC_KEY_SECRET: throws Error in production if not set; dev fallback: 'dev-clinic-key-secret-change-in-production'
+BREACH_HASH_SALT: falls back to JWT_SECRET, then 'phi-breach-default-salt'
+
+**CORS Configuration (index.ts):**
+Origin: process.env.CORS_ORIGIN || 'http://localhost:3000'
+Credentials: true
+Allowed Headers: Content-Type, Authorization, X-Active-Persona, X-Request-Id, Idempotency-Key, X-Access-Purpose, X-Emergency-Justification
+Exposed Headers: X-Request-Id
+
+**Error Handler:** Centralized in index.ts; strips stack traces, returns consistent { error: { code, message, requestId } } envelope.
+
+---
+
+### 14. FILE REFERENCE INDEX
+
+**Core Auth:**
+apps/api/src/plugins/auth.ts -- JWT plugin, role/capability helpers, platform admin helpers
+apps/api/src/plugins/clinic-auth.ts -- Clinic API key authentication
+apps/api/src/plugins/phi-guard.ts -- PHI access guard (requirePhiAccess)
+apps/api/src/plugins/persona.ts -- Persona header plugin (audit metadata only)
+apps/api/src/plugins/phi-governance.ts -- PHI route governance validation
+apps/api/src/phi-route-manifest.ts -- PHI route manifest (canonical registry)
+apps/api/src/index.ts -- Server entry, JWT registration, route mounting, error handler
+apps/api/src/routes/auth.routes.ts -- Login, logout, me endpoints
+
+**Domain:**
+packages/domain/src/types.ts -- UserRole enum, Capability type, ROLE_CAPABILITIES map, PHI types
+packages/domain/src/persona.ts -- Persona system (UX-only)
+
+**Audit:**
+apps/api/src/services/auth-audit.service.ts -- Auth event logging
+apps/api/src/services/phi-audit.service.ts -- PHI access audit logging
+apps/api/src/services/phi-breach.service.ts -- Breach context hashing
+
+**Web (Client-Side):**
+apps/web/src/lib/auth.tsx -- AuthProvider, useAuth, useAccessControl
+apps/web/src/lib/access-control.ts -- Feature definitions, access decision logic, debug info
+apps/web/src/lib/api/client.ts -- HTTP client, PHI purpose header injection
+apps/web/src/lib/api/auth.ts -- Auth API endpoints
+apps/web/src/app/components/AuthGuard.tsx -- Route-level authentication guard
+apps/web/src/components/AccessGuard.tsx -- Component-level role/capability guard
+apps/web/src/app/(app)/layout.tsx -- AuthGuard wrapper for all authenticated routes
+apps/web/src/app/(app)/platform/layout.tsx -- PLATFORM_ADMIN guard for platform UI
+apps/web/src/app/layout.tsx -- Root layout with AuthProvider and PersonaProvider
 
 ---
 

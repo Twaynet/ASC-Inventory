@@ -1,226 +1,618 @@
-A) Error definitions and helpers
+================================================================================
+ERROR MODEL SNAPSHOT
+Generated: 2026-02-12
+================================================================================
 
-C:\Users\missp\source\repos\ASC-Inventory\packages\contract\src\envelope.ts
-DataEnvelope (success wrapper function)
-ErrorEnvelope (Zod schema and type for { error: { code, message, details? } })
-SuccessEnvelope (Zod schema and type for { success: boolean })
+This snapshot documents the error handling model across the ASC Inventory system,
+from API error generation to client handling to UI display.
 
-C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts
-ok() (success helper, wraps payload in { data })
-fail() (error helper, constructs { error: { code, message, details?, requestId? } })
-validated() (Zod validation helper, calls fail() on validation failure)
+================================================================================
+A) ERROR DEFINITIONS AND HELPERS
+================================================================================
 
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts
-ApiError class (status, code, message, details)
+Error Envelope Schema (Contract)
+---------------------------------
+File: packages/contract/src/envelope.ts
+- DataEnvelope<T>: Wraps success payloads in { data: T }
+- ErrorEnvelope: { error: { code: string, message: string, details?: unknown } }
+- SuccessEnvelope: { success: boolean }
 
-C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\lib\contract-route.ts
-validateResponse() (server-side response schema validation)
-registerContractRoute() (automatic param/query/body validation, calls fail() on validation errors)
+API Reply Helpers
+-----------------
+File: apps/api/src/utils/reply.ts
+- ok(reply, data, statusCode=200): Sends { data: <payload> }
+- fail(reply, code, message, statusCode=400, details?, requestId?): Sends { error: { code, message, details?, requestId? } }
+- validated(reply, schema, data): Parses data with Zod, returns parsed value or null after sending 400 error
 
-B) API error envelope shape(s)
+Client Error Class
+------------------
+File: apps/web/src/lib/api/client.ts
+- class ApiError extends Error
+  - Properties: code: string, details?: unknown, status: number
+  - Constructor: ApiError(status, code, message, details?)
+  - Thrown for all non-ok API responses
 
-Primary envelope (new standard):
-JSON shape: { error: { code: string, message: string, details?: unknown, requestId?: string } }
-Constructed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (fail function, lines 28-46)
-Documented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (header comment, lines 1-13)
+Contract Route Helpers
+----------------------
+File: apps/api/src/lib/contract-route.ts
+- validateResponse(): Server-side response schema validation against contract
+- registerContractRoute(): Automatic param/query/body validation, calls fail() on validation errors
 
-Legacy envelope (transitional support in client):
-JSON shape: { error: "string" }
-Detected: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts (lines 121-125, fallback parsing)
+================================================================================
+B) API ERROR ENVELOPE SHAPE(S)
+================================================================================
 
-Success envelope (new standard):
-JSON shape: { data: <payload> }
-Constructed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (ok function, lines 21-23)
-Documented: C:\Users\missp\source\repos\ASC-Inventory\packages\contract\src\envelope.ts (lines 11-14)
+Standard Error Envelope (Primary)
+----------------------------------
+Shape: { error: { code: string, message: string, details?: unknown, requestId?: string } }
+Constructed in:
+- apps/api/src/utils/reply.ts (fail function)
+- apps/api/src/index.ts (centralized error handler, JWT errors, validation errors)
+- apps/api/src/plugins/auth.ts (all auth/authz failures)
+- apps/api/src/plugins/phi-guard.ts (PHI access control failures)
+- apps/api/src/plugins/clinic-auth.ts (clinic API key auth failures)
+- apps/api/src/plugins/idempotency.ts (idempotency key violations)
+- apps/api/src/lib/contract-route.ts (contract validation failures, response validation failures)
 
-Auth-specific legacy envelope:
-JSON shape (hand-crafted in auth.routes.ts): { error: { code: string, message: string, details?: unknown, requestId?: string } }
-Constructed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts (lines 31-33, 71, 90, 108, 179, 215, 234, 253)
+All route handlers use fail() or reply.status().send({ error: { ... } })
 
-C) HTTP status code usage
+Documented in:
+- packages/contract/src/envelope.ts (ErrorEnvelope schema)
+- apps/api/src/utils/reply.ts (JSDoc comments)
 
-200
-Condition: successful GET/POST/PUT/DELETE operations
-Endpoints: all routes using ok(reply, data) with default status
-Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (line 21)
+Success Envelope
+----------------
+Shape: { data: <payload> }
+Constructed in:
+- apps/api/src/utils/reply.ts (ok function)
+- All route handlers return ok(reply, payload)
 
-201
-Condition: resource creation success (POST /api/users)
-Endpoint: POST /api/users
-Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts (line 187)
+Legacy Envelope Support (Client-Side Only)
+-------------------------------------------
+Shape: { error: "string" }
+Detected: apps/web/src/lib/api/client.ts:188-192 (fallback parsing)
+Note: No API routes currently produce this format (transitional support only)
 
-400
-Condition: validation errors (Zod schema failures, malformed requests)
-Endpoints: all routes using fail(reply, 'VALIDATION_ERROR', ..., 400) or fail(reply, 'INVALID_REQUEST', ..., 400)
-Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (line 63), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\lib\contract-route.ts (lines 144, 155, 166), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\idempotency.ts (line 42), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts (line 31), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 119)
+================================================================================
+C) HTTP STATUS CODE USAGE
+================================================================================
 
-401
-Condition: authentication failure (missing or invalid JWT, invalid credentials, account disabled)
-Endpoints: all protected routes, POST /api/auth/login (on bad credentials)
-Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 83, 103, 127, 167, 196), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts (lines 71, 90, 108, 179, 215, 234, 253), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (lines 101, 113)
+200 (OK)
+--------
+Condition: Successful read/query operation
+Constructed in: apps/api/src/utils/reply.ts (ok function default)
+Endpoints: All GET endpoints returning data
 
-403
-Condition: authorization failure (missing required role or capability, tenant context required)
-Endpoints: all routes using requireRoles, requireCapabilities, requirePlatformAdmin, requireTenantContext
-Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 111, 136, 178, 206), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 82), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts (lines 159, 336, 588), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-cards.routes.ts (lines 460, 593, 830, 897, 952, 1117, 1204, 1231, 1583, 1639, 1698)
+201 (Created)
+-------------
+Condition: Successful resource creation
+File: apps/api/src/routes/users.routes.ts:196
+Pattern: reply.status(201).send({ data: ... })
+Endpoints: POST /api/users
 
-404
-Condition: resource not found (case, case card, procedure, user, etc.)
-Endpoints: all routes using fail(reply, 'NOT_FOUND', ..., 404)
-Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts (lines 113, 151, 189, 217, 235, 259, 280, 378, 395, 411, 424, 442, 451, 467, 476, 492, 531, 579, 627, 707), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-cards.routes.ts (lines 285, 378, 422, 615, 769, 820, 888, 969, 1133, 1197, 1253, 1417, 1428, 1488, 1599, 1654, 1712, 1760), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-dashboard.routes.ts (lines 152, 335, 415, 467, 519, 533, 581, 623, 660, 693, 761, 822)
+204 (No Content)
+----------------
+Condition: Successful void operation (no response body)
+File: apps/api/src/lib/contract-route.ts:211
+Pattern: reply.status(successStatus ?? 204).send()
+Endpoints: Contract routes with response: 'void'
 
-409
-Condition: resource conflict (case card locked by another user)
-Endpoints: case card edit operations when lock held by another user
-Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-cards.routes.ts (lines 633, 1152, 1267)
+400 (Bad Request)
+-----------------
+Condition: Validation errors, malformed requests, business rule violations
+Files:
+- apps/api/src/index.ts:133 (Fastify validation errors)
+- apps/api/src/utils/reply.ts:63 (Zod validation errors via validated())
+- apps/api/src/lib/contract-route.ts:144,155,166 (contract param/query/body validation)
+- apps/api/src/routes/auth.routes.ts:31 (missing username/password)
+- apps/api/src/plugins/idempotency.ts:42 (idempotency key too long)
+- apps/api/src/routes/case-dashboard.routes.ts:388,408,452,577,682,735,867,1108 (business rule violations)
+- apps/api/src/routes/case-cards.routes.ts:465,474,478,488,622,626,641,773,777,834,838 (business rule violations)
+Error codes: VALIDATION_ERROR, INVALID_REQUEST
+Endpoints: All routes with request validation
 
-429
-Condition: rate limit exceeded (AI explain readiness endpoint)
-Endpoint: POST /api/ai/explain-readiness
-Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 88)
+401 (Unauthorized)
+------------------
+Condition: Missing/invalid authentication
+Files:
+- apps/api/src/index.ts:115,127 (JWT verification failures in authenticate decorator)
+- apps/api/src/plugins/auth.ts:83,103,127,167,196 (jwtVerify failures in auth guards)
+- apps/api/src/plugins/clinic-auth.ts:74,98,111,117 (clinic API key failures)
+- apps/api/src/routes/auth.routes.ts:71,90,108,179,215,234,253 (invalid credentials, disabled accounts)
+Error code: UNAUTHENTICATED
+Message patterns: "Authentication required", "Invalid credentials", "Account is disabled", "Invalid API key"
+Endpoints: All protected routes, /api/auth/login, /api/clinic/surgery-requests
 
-500
-Condition: internal server error (unhandled exceptions, DB failures, response validation failures)
-Endpoints: all routes (global error handler), AI routes (on AI service errors), checklist template updates
-Defining files: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 125), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 122), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts (line 228), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts (line 255), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\lib\contract-route.ts (line 192)
+403 (Forbidden)
+---------------
+Condition: Authenticated but lacking authorization (role, capability, PHI access)
+Files:
+- apps/api/src/plugins/auth.ts:111,136,178,206 (role/capability/facility context failures)
+- apps/api/src/plugins/phi-guard.ts:312,333,349,375,391,421,437,460,493,512,540,562,595 (PHI access denials)
+- apps/api/src/routes/reports.routes.ts:156 (report access denial)
+- apps/api/src/routes/admin-surgery-requests.routes.ts:35,51,109,131,153,172 (facility context required)
+- apps/api/src/routes/case-cards.routes.ts:460,593,830 (role permission checks)
+- apps/api/src/routes/ai.routes.ts:83 (capability check)
+Error code: FORBIDDEN, DENIED, EMERGENCY_RATE_LIMIT, MISSING_ACCESS_PURPOSE, INVALID_ACCESS_PURPOSE, NO_ROLE_MATCH, CASE_NOT_ASSIGNED, TREATMENT_RELATIONSHIP_INVALID, SURGEON_NOT_MAPPED, PATIENT_NOT_FOUND, CASE_NOT_FOUND (PHI)
+Message patterns: "Required roles: ...", "Required capabilities: ...", "This endpoint requires tenant context (facilityId)"
+Endpoints: All role/capability/PHI-protected routes
 
-501
-Condition: feature disabled (AI explain readiness when feature flag off)
-Endpoint: POST /api/ai/explain-readiness
-Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 75)
+404 (Not Found)
+---------------
+Condition: Resource does not exist
+Files:
+- apps/api/src/routes/phi-audit.routes.ts:258 (audit entry not found)
+- apps/api/src/routes/admin-surgery-requests.routes.ts:68,281 (surgery request not found)
+- apps/api/src/routes/case-dashboard.routes.ts:163,381,461,571,690,744,792,988,1056 (case not found)
+- apps/api/src/routes/case-cards.routes.ts:285,378,422,615,769,820 (case card not found)
+Error code: NOT_FOUND, CASE_NOT_FOUND
+Endpoints: All routes with resource lookup by ID
 
-503
-Condition: service unavailable (AI service unreachable)
-Endpoint: POST /api/ai/explain-readiness
-Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 119)
+409 (Conflict)
+--------------
+Condition: Resource conflict (duplicate, locked, concurrent edit)
+Files:
+- apps/api/src/routes/admin-surgery-requests.routes.ts:275 (service error with statusCode 409)
+- apps/api/src/plugins/idempotency.ts:71-77 (idempotency key reused with different body - returns cached 200 response, logs warning)
+- apps/api/src/routes/case-cards.routes.ts:633,1152,1267 (case card locked by another user)
+Error code: CONFLICT, IDEMPOTENCY_CONFLICT (logged only)
+Endpoints: PUT/PATCH endpoints with optimistic locking
 
-D) Validation error behavior
+422 (Unprocessable Entity)
+--------------------------
+Condition: Semantically invalid request (business logic violation)
+File: apps/api/src/routes/admin-surgery-requests.routes.ts:277-278
+Pattern: Service error with statusCode 422 → fail(reply, e.code || 'UNPROCESSABLE_ENTITY', e.message, 422)
+Endpoints: Surgery request state transitions
 
-Request validation errors produced by: Zod (via safeParse)
+429 (Too Many Requests)
+-----------------------
+Condition: Rate limit exceeded
+Files:
+- apps/api/src/plugins/phi-guard.ts:391 (emergency PHI access rate limit)
+- apps/api/src/routes/ai.routes.ts:89 (AI explanation rate limit)
+Error code: EMERGENCY_RATE_LIMIT, RATE_LIMITED
+Rate limits: 10 emergency accesses per user per hour, 10 AI requests per user per minute
+Endpoints: PHI routes with emergency access, /api/ai/explain-readiness
 
-Error shape: { error: { code: "VALIDATION_ERROR", message: "Validation error", details: <zod error flatten output>, requestId: <string> } }
+500 (Internal Server Error)
+---------------------------
+Condition: Unhandled errors, server response validation failures
+Files:
+- apps/api/src/index.ts:139 (centralized error handler fallback)
+- apps/api/src/lib/contract-route.ts:192,195 (response validation failures)
+- apps/api/src/routes/checklists.routes.ts:229 (catch-all error handler)
+Error code: INTERNAL_ERROR, SERVER_RESPONSE_INVALID
+Message: "Internal server error", "Response validation failed"
+Endpoints: All routes (fallback for unexpected errors)
 
-Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\utils\reply.ts (validated function, lines 56-67)
+501 (Not Implemented)
+---------------------
+Condition: Feature disabled (AI explain readiness when feature flag off)
+File: apps/api/src/routes/ai.routes.ts:75
+Error code: FEATURE_DISABLED
+Endpoints: POST /api/ai/explain-readiness
 
-Contract route automatic validation: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\lib\contract-route.ts (lines 142-169, validates params/query/body against contract schemas before handler)
+503 (Service Unavailable)
+-------------------------
+Condition: External service unreachable (AI service)
+File: apps/api/src/routes/ai.routes.ts:119
+Error code: SERVICE_UNAVAILABLE
+Endpoints: POST /api/ai/explain-readiness
 
-Endpoints relying on this behavior: all routes using validated() helper or registerContractRoute() (UNKNOWN: exact count not provable without full endpoint enumeration)
+================================================================================
+D) VALIDATION ERROR BEHAVIOR
+================================================================================
 
-E) Auth-related errors
+Zod Validation (Request Body/Params/Query)
+-------------------------------------------
+How produced:
+- Contract routes: apps/api/src/lib/contract-route.ts:142-169
+  - Params: schema.safeParse(request.params) → fail(reply, 'INVALID_REQUEST', 'Invalid path parameters', 400, result.error.flatten(), reqId)
+  - Query: schema.safeParse(request.query) → fail(reply, 'INVALID_REQUEST', 'Invalid query parameters', 400, result.error.flatten(), reqId)
+  - Body: schema.safeParse(request.body) → fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, result.error.flatten(), reqId)
+- Reply helper: apps/api/src/utils/reply.ts:56-67 (validated function)
+  - schema.safeParse(data) → fail(reply, 'VALIDATION_ERROR', 'Validation error', 400, result.error.flatten())
 
-401 behavior:
-Response shape: { error: { code: "UNAUTHENTICATED", message: "Authentication required", requestId: <string> } }
-Conditions: missing JWT, invalid JWT, invalid credentials (login), account disabled
-Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 78-86, 98-104, 122-128, 162-170, 191-199), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (lines 96-102, 112-115), C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\auth.routes.ts (lines 71, 90, 108, 179, 215, 234, 253)
+Error shape:
+{ error: { code: 'VALIDATION_ERROR' | 'INVALID_REQUEST', message: 'Validation error' | 'Invalid path/query parameters', details: <flattened Zod errors>, requestId: string } }
 
-403 behavior (role-based):
-Response shape: { error: { code: "FORBIDDEN", message: "Required roles: <role1>, <role2>, ...", requestId: <string> } }
-Conditions: user lacks required roles
-Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 109-115)
+Details structure (Zod flatten):
+{ fieldErrors: { [field]: [errors] }, formErrors: [errors] }
 
-403 behavior (capability-based):
-Response shape: { error: { code: "FORBIDDEN", message: "Required capabilities: <cap1>, <cap2>, ...", requestId: <string> } }
-Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 134-140)
+File paths:
+- apps/api/src/lib/contract-route.ts (contract route adapter)
+- apps/api/src/utils/reply.ts (validated helper)
 
-403 behavior (platform admin):
-Response shape: { error: { code: "FORBIDDEN", message: "Requires PLATFORM_ADMIN role", requestId: <string> } }
-Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 173-181)
+Endpoints:
+- All contract-based routes (majority of API)
+- All routes using validated() helper
 
-403 behavior (tenant context):
-Response shape: { error: { code: "FORBIDDEN", message: "This endpoint requires tenant context (facilityId)", requestId: <string> } }
-Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (lines 201-210)
+Fastify Validation (Content-Type, Multipart)
+---------------------------------------------
+How produced:
+- apps/api/src/index.ts:132-135 (centralized error handler)
+  - if (error.validation) → reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: error.message, requestId } })
 
-F) Client wrapper error handling
+Error shape:
+{ error: { code: 'VALIDATION_ERROR', message: <Fastify error message>, requestId: string } }
 
-Error detection method:
-Status code check: response.ok === false (any status >= 400)
-Envelope parsing: response.json() → check for errBody.error field
+File path: apps/api/src/index.ts
 
-Error normalization:
-Throws ApiError instances
-ApiError fields: status (number), code (string), message (string), details (unknown, optional)
-ApiError name: "ApiError"
+Endpoints: File upload endpoints, routes with strict content-type requirements
 
-Envelope shape handling:
-New envelope: { error: { code, message, details? } } → throws ApiError(status, code, message, details)
-Legacy envelope: { error: "string" } → throws ApiError(status, "UNKNOWN", error string)
+Business Rule Validation (Manual)
+----------------------------------
+How produced:
+- Manual fail() calls in route handlers
+- Examples:
+  - apps/api/src/routes/case-dashboard.routes.ts:388 (no case card linked)
+  - apps/api/src/routes/case-dashboard.routes.ts:408 (anesthesia modality not selected)
+  - apps/api/src/routes/case-dashboard.routes.ts:452 (void reason required)
+  - apps/api/src/routes/case-cards.routes.ts:465,474,478,488 (surgeon validation)
+  - apps/api/src/routes/case-cards.routes.ts:622,626,641 (case card state checks)
 
-Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts (lines 27-39 for ApiError class, lines 110-126 for error handling)
+Error shape:
+{ error: { code: 'VALIDATION_ERROR', message: <business rule description>, requestId?: string } }
 
-Response success handling:
-Detects { data: <payload> } envelope (new convention)
-Auto-unwraps data field if present and only key
-Returns unwrapped payload or full json if no envelope
+Pattern: return fail(reply, 'VALIDATION_ERROR', '<specific reason>', 400)
 
-Where implemented: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts (lines 128-150)
+File paths: All route files (manual validation checks)
 
-G) UI error display / handling
+Endpoints: All routes with business logic validation
 
-UI reads errors via:
-catch (err) blocks in async handlers
-Error message extracted: err instanceof Error ? err.message : <fallback string>
-No direct access to err.code or err.status observed in searched UI files
+Client-Side Request Schema Validation
+--------------------------------------
+How produced:
+- apps/web/src/lib/api/client.ts:129-139
+- requestSchema.safeParse(body) → throws ApiError(0, 'CLIENT_SCHEMA_VALIDATION', 'Request schema validation failed', { method, endpoint, issues })
 
-Error display patterns:
-Local state: setError(message) → displayed inline in forms/modals
-No global toast system found
-No global error boundary logic found (Next.js default error pages only)
+Error shape (client-side):
+ApiError with code 'CLIENT_SCHEMA_VALIDATION', details: { method, endpoint, issues: <Zod issues> }
 
-Files with error display:
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\cases\page.tsx (lines 73, 116-117)
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\login\page.tsx (lines 51-52)
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\page.tsx (lines 76-77)
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\components\CreateCaseModal.tsx (lines 87-88)
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\components\ExplainReadinessPanel.tsx (lines 63-66)
-UNKNOWN (exact count) additional files with setError() calls (20+ files found via grep)
+File path: apps/web/src/lib/api/client.ts
 
-Global error boundaries:
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\error.tsx (Next.js default error boundary, displays error.message)
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\global-error.tsx (Next.js global error boundary, displays error.message)
+Note: Caught before HTTP request is sent
 
-Alert system: none found
+================================================================================
+E) AUTH-RELATED ERRORS
+================================================================================
 
-H) Inconsistencies or gaps (factual only)
+401 (UNAUTHENTICATED)
+---------------------
+Response shape:
+{ error: { code: 'UNAUTHENTICATED', message: string, requestId: string } }
 
-Mixed error envelopes:
-API uses new envelope { error: { code, message, details?, requestId? } } consistently
-Client supports both new envelope and legacy { error: "string" } (transitional compatibility)
-No evidence of legacy envelope still produced by current API code
+Message patterns:
+- "Authentication required" (JWT missing/invalid/expired)
+- "Invalid credentials" (login with wrong username/password)
+- "Account is disabled" (user.active = false)
+- "X-Clinic-Key header required" (clinic API)
+- "Invalid API key" (clinic API key not found/invalid)
+- "Clinic is inactive" (clinic.is_active = false)
 
-Status code consistency:
-Most routes use fail() helper (consistent envelope)
-Auth routes use hand-crafted reply.status().send() (lines 31-33, 71, 90, 108, 179, 215, 234, 253 in auth.routes.ts) with same envelope shape
-Index error handler uses hand-crafted reply.status().send() (lines 101, 113, 119 in index.ts) with same envelope shape
-All observed envelopes match canonical shape
+File paths:
+- apps/api/src/index.ts:115,127 (authenticate decorator, centralized error handler)
+- apps/api/src/plugins/auth.ts:83,103,127,167,196
+- apps/api/src/plugins/clinic-auth.ts:74,98,111,117
+- apps/api/src/routes/auth.routes.ts:71,90,108,179,215,234,253
 
-Client assumptions vs API behavior:
-Client expects { data: <payload> } for success responses
-API ok() helper produces { data: <payload> }
-Match confirmed
+Endpoints:
+- All protected routes (missing/invalid JWT)
+- POST /api/auth/login (invalid credentials)
+- POST /api/clinic/surgery-requests (clinic API key auth)
 
-Client expects { error: { code, message, details? } } for error responses
-API fail() helper produces { error: { code, message, details?, requestId? } }
-Client does not read requestId field (gap: client logs would not include requestId)
+403 (FORBIDDEN)
+---------------
+Response shape:
+{ error: { code: 'FORBIDDEN' | 'DENIED' | <specific PHI denial code>, message: string, requestId: string } }
 
-Non-envelope errors:
-None observed in API routes (all use fail() or hand-crafted matching shape)
-Global error handler produces standard envelope (index.ts lines 113-127)
+Message patterns:
+- "Required roles: <roles>" (role-based authorization)
+- "Required capabilities: <capabilities>" (capability-based authorization)
+- "Requires PLATFORM_ADMIN role" (platform admin guard)
+- "This endpoint requires tenant context (facilityId)" (facility context guard)
+- "Facility context required" (surgery request routes)
+- "Your role does not have permission to create/edit case cards" (case card routes)
+- PHI-specific denials (see PHI codes below)
 
-String error legacy fallbacks:
-Client supports { error: "string" } parsing (client.ts lines 121-125)
-No API code found producing this format (legacy support only, not actively used)
+File paths:
+- apps/api/src/plugins/auth.ts:111,136,178,206 (role/capability/context guards)
+- apps/api/src/routes/admin-surgery-requests.routes.ts:35,51,109,131,153,172
+- apps/api/src/routes/case-cards.routes.ts:460,593,830
+- apps/api/src/plugins/phi-guard.ts (all PHI access denials)
 
-Validation error details field:
-API returns Zod flattened error structure in details field
-Client does not parse or display structured validation details (only err.message displayed in UI)
-Gap: UI cannot show field-specific validation errors without custom handling
+PHI-specific 403 codes (apps/api/src/plugins/phi-guard.ts):
+- MISSING_ACCESS_PURPOSE (no X-Access-Purpose header)
+- INVALID_ACCESS_PURPOSE (unrecognized purpose)
+- NO_ROLE_MATCH (user roles don't map to access purpose)
+- CASE_NOT_ASSIGNED (case not assigned to user)
+- EMERGENCY_RATE_LIMIT (emergency access quota exceeded)
+- TREATMENT_RELATIONSHIP_INVALID (surgeon not mapped to case)
+- PATIENT_NOT_FOUND (patient lookup failed)
+- CASE_NOT_FOUND (case lookup failed for PHI guard)
 
-ApiError status field:
-Client ApiError class includes status field (line 30 in client.ts)
-No UI code observed checking err.status for conditional logic (e.g., 401 redirect, 429 retry)
-Gap: UI cannot distinguish error types by status code without manual checks
+Endpoints:
+- All role/capability-protected routes
+- All PHI-exposing routes (with PHI guard)
 
-requestId field:
-API includes requestId in all error responses (via fail() or hand-crafted)
-UI does not display or log requestId from errors
-Gap: client-side debugging cannot correlate errors with server logs via requestId
+Request ID
+----------
+All auth errors include requestId: string from request.requestId
+Generated by: apps/api/src/plugins/request-id.ts
+Attached to all error responses for tracing
+
+================================================================================
+F) CLIENT WRAPPER ERROR HANDLING
+================================================================================
+
+Error Detection
+---------------
+File: apps/web/src/lib/api/client.ts:177-193
+
+How errors detected:
+1. if (!response.ok) → parse error body
+2. Support both shapes:
+   - New: { error: { code, message, details } } → throw ApiError(status, code, message, details)
+   - Legacy: { error: "string" } → throw ApiError(status, 'UNKNOWN', error, undefined)
+3. Fallback: throw ApiError(status, 'UNKNOWN', `API Error: ${status}`)
+
+Throw vs Return:
+- Always throws ApiError for non-ok responses
+- Never returns error objects
+
+Client-Side Response Schema Validation
+---------------------------------------
+File: apps/web/src/lib/api/client.ts:206-215
+
+How produced:
+- responseSchema.safeParse(payload) → throws ApiError(0, 'CLIENT_SCHEMA_VALIDATION', 'Response schema validation failed', { method, endpoint, issues })
+
+Note: Caught after successful HTTP response, validates unwrapped payload
+
+Envelope Unwrapping
+-------------------
+File: apps/web/src/lib/api/client.ts:195-203
+
+Logic:
+1. Parse response JSON
+2. If { data: <payload> } (single key) → unwrap to payload
+3. Else → return JSON as-is (legacy support)
+
+File path: apps/web/src/lib/api/client.ts
+
+All domain modules (auth.ts, cases.ts, etc.) call request() and rely on ApiError throws
+
+================================================================================
+G) UI ERROR DISPLAY/HANDLING
+================================================================================
+
+Global Error Boundaries
+-----------------------
+Files:
+- apps/web/src/app/error.tsx (page-level error boundary)
+- apps/web/src/app/global-error.tsx (root error boundary)
+
+Behavior:
+- Catches unhandled errors in React components
+- Displays error.message or "An unexpected error occurred"
+- Provides "Try again" button (calls reset())
+- No ApiError-specific handling (displays generic message)
+
+Local Error State Pattern
+--------------------------
+Pattern used across all pages/components:
+```tsx
+const [error, setError] = useState('');
+const [successMessage, setSuccessMessage] = useState('');
+
+try {
+  // API call
+  setSuccessMessage('Success message');
+  setError('');
+} catch (err) {
+  setError(err instanceof Error ? err.message : 'Fallback message');
+}
+```
+
+Files (examples):
+- apps/web/src/app/(app)/cases/page.tsx:73-74
+- apps/web/src/app/(app)/admin/users/page.tsx:26-27,71,113,126,138
+- apps/web/src/components/CreateCaseModal.tsx:25,88
+- apps/web/src/components/ScheduleCaseModal.tsx:29,84
+- apps/web/src/components/Checklists/DebriefModal.tsx:176,272,287
+
+Error display (CSS classes):
+- .alert-error (red background, border-left, from apps/web/src/app/globals.css:1507-1511)
+- .alert-success (green background, border-left, from apps/web/src/app/globals.css:1513-1517)
+- .alert-info (blue background, border-left, from apps/web/src/app/globals.css:1501-1505)
+
+Example usage:
+```tsx
+{error && <div className="alert alert-error">{error}</div>}
+{successMessage && <div className="alert alert-success">{successMessage}</div>}
+```
+
+Files: All page/component files with forms or data mutations (20+ files found)
+
+usePageData Hook
+----------------
+File: apps/web/src/lib/hooks/usePageData.ts
+
+Provides:
+- error: string state
+- setError: (msg: string) => void
+- clearError: () => void
+- handleApiError helper
+
+Pattern:
+```tsx
+const { data, isLoadingData, error, setError, refetch } = usePageData({
+  fetcher: () => getCases(token),
+  deps: [token]
+});
+
+// In mutation handlers:
+handleApiError(err, setError, 'Failed to create case');
+```
+
+Helper function (usePageData.ts:153-163):
+```tsx
+export function handleApiError(
+  err: unknown,
+  setError: (msg: string) => void,
+  errorPrefix?: string,
+) {
+  const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+  setError(errorPrefix ? `${errorPrefix}: ${message}` : message);
+}
+```
+
+ApiError-Specific Handling
+---------------------------
+File: apps/web/src/app/(app)/admin/surgery-requests/[id]/page.tsx:142
+
+Only instance of code-specific handling found:
+```tsx
+if (err instanceof ApiError && err.code === 'SURGEON_NOT_MAPPED') {
+  setError('This surgeon is not mapped to a user account. Please contact support.');
+}
+```
+
+No other files inspect err.code or err.details
+
+Toast Notifications
+-------------------
+No toast library found in codebase (searched for toast.error, toast.success)
+All error/success messages displayed inline with alert CSS classes
+
+Modal Error Display
+-------------------
+Pattern: Local error state within modal component
+Files:
+- apps/web/src/components/CreateCaseModal.tsx
+- apps/web/src/components/ScheduleCaseModal.tsx
+- apps/web/src/components/PatientFormModal.tsx
+- apps/web/src/components/PatientSearchModal.tsx
+- apps/web/src/components/Checklists/DebriefModal.tsx
+- apps/web/src/components/Checklists/TimeoutModal.tsx
+- apps/web/src/app/(app)/calendar/components/BlockTimeModal.tsx
+
+All follow same pattern: useState for error, display with .alert-error
+
+================================================================================
+H) INCONSISTENCIES OR GAPS
+================================================================================
+
+1. MIXED CLIENT ERROR HANDLING
+-------------------------------
+Issue: Only one file checks err.code, rest use generic err.message
+File: apps/web/src/app/(app)/admin/surgery-requests/[id]/page.tsx:142
+Impact: Frontend cannot react to specific error codes (e.g., show different UI for NOT_FOUND vs VALIDATION_ERROR)
+Gap: No standardized pattern for code-based error handling
+
+2. MISSING ERROR DETAILS DISPLAY
+---------------------------------
+Issue: Client never displays err.details (Zod validation errors, etc.)
+Impact: Users see "Validation error" but not which fields failed or why
+File: All UI components
+Example: Zod error details include fieldErrors but UI doesn't parse or show them
+Gap: Validation error details not surfaced to users
+
+3. CLIENT SCHEMA VALIDATION ERRORS
+-----------------------------------
+Issue: Client-side schema validation errors (status 0) have same ApiError shape as server errors
+File: apps/web/src/lib/api/client.ts:133,209
+Impact: Cannot distinguish client validation from server validation in error handlers
+Gap: No try/catch around API calls to handle client validation separately
+
+4. LEGACY ENVELOPE SUPPORT DEAD CODE
+-------------------------------------
+Issue: Client supports legacy { error: "string" } shape but no API routes use it
+File: apps/web/src/lib/api/client.ts:188-192
+Impact: Unnecessary complexity, potential for confusion
+Gap: Can be removed (all API uses standard envelope)
+
+5. INCONSISTENT 500 ERROR HANDLING
+-----------------------------------
+Issue: Most routes don't explicitly handle unexpected errors (rely on centralized handler)
+File: apps/api/src/index.ts:138-141
+Impact: All unexpected errors return generic INTERNAL_ERROR without context
+Example: Database errors, service layer errors bubble up as "Internal server error"
+Gap: Service layer errors not consistently wrapped with meaningful codes
+
+6. NO GLOBAL ERROR TOAST/NOTIFICATION
+--------------------------------------
+Issue: No toast library, all errors displayed inline
+Impact: Errors in nested components may not be visible to users
+Example: Background data refresh failures have nowhere to display errors
+Gap: No global error notification mechanism
+
+7. IDEMPOTENCY CONFLICT HANDLING UNCLEAR
+-----------------------------------------
+Issue: Idempotency key conflict returns cached response (200) but logs warning
+File: apps/api/src/plugins/idempotency.ts:71-77
+Impact: Client cannot detect that request was deduplicated
+Gap: No response header or metadata indicating idempotency match
+
+8. PHI DENIAL CODES NOT DOCUMENTED FOR CLIENT
+----------------------------------------------
+Issue: PHI guard uses many specific error codes but no client-side documentation
+File: apps/api/src/plugins/phi-guard.ts (13 distinct denial codes)
+Impact: Frontend developers don't know which codes to handle
+Gap: No shared constant/enum for PHI error codes
+
+9. RESPONSE VALIDATION FAILURES UNHANDLED
+------------------------------------------
+Issue: SERVER_RESPONSE_INVALID returns 500 with no details to client
+File: apps/api/src/lib/contract-route.ts:192-199
+Impact: Schema mismatches between API and contract appear as generic server errors
+Gap: No development-mode flag to include validation details in response
+
+10. NO STRUCTURED LOGGING FOR ERRORS
+-------------------------------------
+Issue: Error logs mix console.error, request.log.error, request.log.warn
+Files: apps/api/src/index.ts, apps/api/src/plugins/auth.ts, etc.
+Impact: Inconsistent log format, hard to parse/alert on errors
+Gap: No structured error logging with consistent fields
+
+11. CATCH BLOCKS RE-THROW WITHOUT CONTEXT
+------------------------------------------
+Issue: Some routes catch errors and re-throw, losing stack trace
+File: apps/api/src/routes/admin-surgery-requests.routes.ts:283
+Pattern: } catch (err) { throw err; }
+Impact: Error handling logic executed but error not enriched
+Gap: Service layer errors not wrapped with request context
+
+12. NO ERROR CODE REGISTRY
+---------------------------
+Issue: Error codes scattered across files as string literals
+Files: All route files, plugins, utils
+Impact: Risk of typos, duplicate codes with different meanings
+Examples: VALIDATION_ERROR, INVALID_REQUEST, NOT_FOUND, FORBIDDEN, DENIED, UNAUTHENTICATED, INTERNAL_ERROR, SERVER_RESPONSE_INVALID, CONFLICT, RATE_LIMITED, EMERGENCY_RATE_LIMIT, FEATURE_DISABLED, SERVICE_UNAVAILABLE, MISSING_ACCESS_PURPOSE, INVALID_ACCESS_PURPOSE, NO_ROLE_MATCH, CASE_NOT_ASSIGNED, TREATMENT_RELATIONSHIP_INVALID, SURGEON_NOT_MAPPED, PATIENT_NOT_FOUND, CASE_NOT_FOUND, CLIENT_SCHEMA_VALIDATION, IDEMPOTENCY_CONFLICT
+Gap: No central enum/constant file for error codes
+
+13. REQUEST ID NOT LOGGED CLIENT-SIDE
+--------------------------------------
+Issue: API includes requestId in all error responses but client never logs/displays it
+Files: apps/api/src/utils/reply.ts, apps/web/src/lib/api/client.ts
+Impact: Client-side debugging cannot correlate errors with server logs
+Gap: ApiError class reads requestId but no UI/logger uses it
+
+14. NO RETRY LOGIC FOR TRANSIENT ERRORS
+----------------------------------------
+Issue: 429 (rate limit), 503 (service unavailable) errors have no client retry logic
+Files: apps/web/src/lib/api/client.ts (no retry wrapper)
+Impact: Users must manually retry rate-limited or temporarily unavailable requests
+Gap: No exponential backoff or retry mechanism
+
+15. MIXED STATUS CODE SOURCES
+------------------------------
+Issue: Some errors use reply.status().send(), others use fail() with statusCode param
+Files: apps/api/src/routes/auth.routes.ts (hand-crafted), apps/api/src/utils/reply.ts (fail helper)
+Impact: Both produce same envelope but pattern inconsistency
+Gap: Not all routes migrated to fail() helper
+
+================================================================================
+END OF SNAPSHOT
+================================================================================

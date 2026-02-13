@@ -93,17 +93,17 @@ Errors are thrown as `ApiError` with `code`, `message`, and optional `details`.
 
 ## Settings Canonical Routes
 
-All settings are accessible under `/api/admin/settings/`:
+Each settings domain has a canonical read endpoint:
 
-| Canonical Route                              | Delegates to              |
-|----------------------------------------------|---------------------------|
-| `GET  /api/admin/settings`                   | Aggregates all settings   |
-| `GET  /api/admin/settings/facility`          | `/api/facility/settings`  |
-| `GET  /api/admin/settings/rooms`             | `/api/settings/rooms`     |
-| `GET  /api/admin/settings/surgeons`          | `/api/settings/surgeons`  |
-| `GET  /api/admin/settings/config-items`      | `/api/general-settings/config-items` |
+| Domain             | Canonical Route                              | Purpose                        |
+|--------------------|----------------------------------------------|--------------------------------|
+| **Aggregated**     | `GET  /api/admin/settings`                   | All settings in one response   |
+| **Facility**       | `GET  /api/facility/settings`                | Facility-level feature flags   |
+| **Rooms**          | `GET  /api/settings/rooms`                   | Operating room configuration   |
+| **Surgeons**       | `GET  /api/settings/surgeons`                | Surgeon display settings       |
+| **Config Items**   | `GET  /api/general-settings/config-items`    | Patient flags, anesthesia mods |
 
-Original routes remain for backward compatibility.
+The aggregator endpoint (`/api/admin/settings`) fetches all 4 domains in parallel for admin dashboard use.
 
 ## Migration Strategy
 

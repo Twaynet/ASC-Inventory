@@ -1,1097 +1,1689 @@
 ## DATABASE SNAPSHOT REPORT
 
-**Generated:** 2026-02-08
+**Generated:** 2026-02-12
 
 **Scope:** ASC Inventory - Current Data Model and Persistence Layer
 
----
+================================================================================
+SECTION 1: DATABASE ENGINE AND CONNECTION
+================================================================================
 
-### 1. DATABASE TECHNOLOGY IN USE
+Engine: PostgreSQL
+Driver: pg (node-postgres) ^8.11.0
+ORM: None (raw SQL via pg.Pool)
+Default Database: asc_inventory
+Default Host: localhost
+Default Port: 5432
+Default User: postgres
+SSL: Optional via DB_SSL=true
 
-**Engine/Vendor:**
-PostgreSQL (inferred from SQL dialect and pg client library)
+Connection File: apps/api/src/db/index.ts
+  - Exports: pool, query(), getClient(), transaction()
+  - Pool config: max=20, idleTimeoutMillis=30000, connectionTimeoutMillis=2000
 
-**Client/Driver/ORM:**
-pg (Node.js native PostgreSQL driver, version ^8.11.0)
-No ORM layer (direct SQL queries with migrations)
+Migration Runner: apps/api/db/migrate.ts
+  - Tracks executed migrations in _migrations table
+  - Runs .sql files from apps/api/db/migrations/ in alphabetical order
+  - Each migration wrapped in a transaction (except NO_TX set: 032_align_categories_with_law.sql)
+  - Migration table: _migrations (name VARCHAR(255) PK, executed_at TIMESTAMPTZ)
 
-**Configuration Files:**
-C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrate.ts
-C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\seed.ts
-C:\Users\missp\source\repos\ASC-Inventory\apps\api\package.json (dependencies: pg, bcryptjs)
+Repository Pattern: apps/api/src/repositories/
+  - Interface-based: IInventoryRepository, ICaseRepository, IDeviceRepository, IVendorRepository, ILoanerSetRepository, IOrganizationRepository
+  - Postgres implementations: PostgresInventoryRepository, PostgresCaseRepository, PostgresDeviceRepository, PostgresVendorRepository, PostgresLoanerSetRepository, PostgresOrganizationRepository
+  - Singleton factory pattern in repositories/index.ts
 
-**Connection Configuration:**
-Default database name: asc_inventory
-Default port: 5432
-Environment variables: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SSL
+npm scripts:
+  - db:migrate -> run migrations then schema-sanity check
+  - db:seed -> run seed then schema-sanity check (--post-seed)
+  - db:check -> schema-sanity check only
 
----
+================================================================================
+SECTION 2: ENUMS (ALL)
+================================================================================
 
-### 2. SCHEMA DEFINITIONS
+Enum: user_role
+  Values: PLATFORM_ADMIN, ADMIN, SCHEDULER, INVENTORY_TECH, CIRCULATOR, SURGEON, SCRUB, ANESTHESIA
+  Created: 001_initial_schema.sql (ADMIN, SCHEDULER, INVENTORY_TECH, CIRCULATOR, SURGEON)
+  Extended: 006 (SCRUB, ANESTHESIA), 045 (PLATFORM_ADMIN BEFORE 'ADMIN')
 
-**2.1 CORE ENTITIES**
+Enum: case_status
+  Values: DRAFT, SCHEDULED, READY, IN_PROGRESS, COMPLETED, CANCELLED, REQUESTED, REJECTED, IN_PREOP
+  Created: 001_initial_schema.sql (DRAFT, SCHEDULED, READY, IN_PROGRESS, COMPLETED, CANCELLED)
+  Extended: 018 (REQUESTED, REJECTED), 041 (IN_PREOP)
 
-**facility**
-  id UUID (PRIMARY KEY)
-  name VARCHAR(255) NOT NULL
-  timezone VARCHAR(50) NOT NULL DEFAULT 'America/New_York'
-  address TEXT
-  facility_key VARCHAR(20) NOT NULL UNIQUE (multi-facility login identifier)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+Enum: readiness_state
+  Values: GREEN, ORANGE, RED
+  Created: 001_initial_schema.sql
 
-**app_user** (facility-scoped)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  username VARCHAR(100) NOT NULL UNIQUE (per facility)
-  email VARCHAR(255) (nullable, optional)
-  name VARCHAR(255) NOT NULL
-  role user_role NOT NULL (DEPRECATED: use roles[] instead)
-  roles user_role[] NOT NULL (canonical multi-role support)
-  password_hash VARCHAR(255) NOT NULL
-  active BOOLEAN NOT NULL DEFAULT true
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(facility_id, username)
+Enum: item_category
+  Values: IMPLANT, INSTRUMENT, EQUIPMENT, MEDICATION, CONSUMABLE, PPE
+  Created: 001_initial_schema.sql (IMPLANT, INSTRUMENT, LOANER, HIGH_VALUE_SUPPLY)
+  Extended: 032 (added EQUIPMENT, MEDICATION, CONSUMABLE, PPE; removed LOANER, HIGH_VALUE_SUPPLY via enum replacement)
 
-**location** (hierarchical storage locations)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  name VARCHAR(255) NOT NULL
-  description TEXT
-  parent_location_id UUID (FOREIGN KEY -> location.id, nullable)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+Enum: sterility_status
+  Values: STERILE, NON_STERILE, EXPIRED, UNKNOWN
+  Created: 001_initial_schema.sql
 
-**item_catalog** (what items can exist)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  name VARCHAR(255) NOT NULL
-  description TEXT
-  category item_category NOT NULL (IMPLANT, INSTRUMENT, EQUIPMENT, MEDICATION, CONSUMABLE, PPE)
-  manufacturer VARCHAR(255)
-  catalog_number VARCHAR(255)
+Enum: availability_status
+  Values: AVAILABLE, RESERVED, IN_USE, UNAVAILABLE, MISSING
+  Created: 001_initial_schema.sql
+
+Enum: inventory_event_type
+  Values: RECEIVED, VERIFIED, LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED, EXPIRED, RETURNED, ADJUSTED
+  Created: 001_initial_schema.sql
+
+Enum: attestation_type
+  Values: CASE_READINESS, SURGEON_ACKNOWLEDGMENT
+  Created: 001_initial_schema.sql
+
+Enum: device_type
+  Values: barcode, rfid, nfc, other
+  Created: 001_initial_schema.sql
+
+Enum: device_payload_type
+  Values: scan, presence, input
+  Created: 001_initial_schema.sql
+
+Enum: checklist_type
+  Values: TIMEOUT, DEBRIEF
+  Created: 004_timeout_debrief.sql
+
+Enum: checklist_status
+  Values: NOT_STARTED, IN_PROGRESS, COMPLETED
+  Created: 004_timeout_debrief.sql
+
+Enum: signature_method
+  Values: LOGIN, PIN, BADGE, KIOSK_TAP
+  Created: 004_timeout_debrief.sql
+
+Enum: case_card_status
+  Values: DRAFT, ACTIVE, DEPRECATED, DELETED
+  Created: 011_case_cards.sql (DRAFT, ACTIVE, DEPRECATED)
+  Extended: 015 (DELETED)
+
+Enum: case_type
+  Values: ELECTIVE, ADD_ON, TRAUMA, REVISION
+  Created: 011_case_cards.sql
+
+Enum: anesthesia_modality
+  Values: GENERAL, SPINAL, REGIONAL, MAC, LOCAL, TIVA
+  Created: 012_case_dashboard.sql (GENERAL, SPINAL, REGIONAL, MAC, LOCAL)
+  Extended: 013 (TIVA)
+  Note: Column case_anesthesia_plan.modalities converted to TEXT[] in 022; enum still exists but column no longer uses it
+
+Enum: attestation_state
+  Values: NOT_ATTESTED, ATTESTED, VOIDED
+  Created: 012_case_dashboard.sql
+
+Enum: case_event_type
+  Values: CASE_CARD_LINKED, CASE_CARD_CHANGED, READINESS_ATTESTED, READINESS_VOIDED, OVERRIDE_ADDED, OVERRIDE_MODIFIED, OVERRIDE_REMOVED, SCHEDULING_CHANGED, ANESTHESIA_PLAN_CHANGED, CASE_CREATED, CASE_ACTIVATED, CASE_CANCELLED
+  Created: 012_case_dashboard.sql
+
+Enum: config_item_type
+  Values: PATIENT_FLAG, ANESTHESIA_MODALITY
+  Created: 022_facility_config_items.sql
+
+Enum: criticality
+  Values: CRITICAL, IMPORTANT, ROUTINE
+  Created: 030_catalog_v1_1_risk_intent.sql
+
+Enum: vendor_type
+  Values: MANUFACTURER, DISTRIBUTOR, LOANER_PROVIDER, CONSIGNMENT
+  Created: 043_financial_attribution.sql
+
+Enum: ownership_type
+  Values: OWNED, CONSIGNED, LOANER, GRATIS
+  Created: 043_financial_attribution.sql
+
+Enum: source_event_type
+  Values: PURCHASED, CONSIGNMENT_RECEIVED, LOANER_RECEIVED, SAMPLE, TRANSFER
+  Created: 043_financial_attribution.sql
+
+Enum: cost_override_reason
+  Values: CATALOG_ERROR, NEGOTIATED_DISCOUNT, VENDOR_CONCESSION, DAMAGE_CREDIT, EXPIRED_CREDIT, CONTRACT_ADJUSTMENT, GRATIS_CONVERSION, OTHER
+  Created: 043_financial_attribution.sql
+
+Enum: gratis_reason
+  Values: VENDOR_SAMPLE, VENDOR_SUPPORT, CLINICAL_TRIAL, GOODWILL, WARRANTY_REPLACEMENT, OTHER
+  Created: 043_financial_attribution.sql
+
+Enum: config_scope
+  Values: PLATFORM, FACILITY
+  Created: 047_config_registry.sql
+
+Enum: config_value_type
+  Values: STRING, BOOLEAN, NUMBER, JSON
+  Created: 047_config_registry.sql
+
+Enum: config_risk_class
+  Values: LOW, MEDIUM, HIGH, CRITICAL
+  Created: 047_config_registry.sql
+
+Enum: organization_type
+  Values: ASC, SURGEON_GROUP, OFFICE, BILLING_ENTITY
+  Created: 051_organization_model.sql
+
+Enum: affiliation_type
+  Values: PRIMARY, SECONDARY
+  Created: 052_user_organization_affiliation.sql
+
+Enum: phi_classification
+  Values: PHI_CLINICAL, PHI_BILLING, PHI_AUDIT
+  Created: 054_phi_access_audit_log.sql
+
+Enum: access_purpose
+  Values: CLINICAL_CARE, SCHEDULING, BILLING, AUDIT, EMERGENCY
+  Created: 054_phi_access_audit_log.sql
+
+Enum: access_outcome
+  Values: ALLOWED, DENIED
+  Created: 054_phi_access_audit_log.sql
+
+Enum: surgery_request_status
+  Values: SUBMITTED, RETURNED_TO_CLINIC, ACCEPTED, REJECTED, WITHDRAWN, CONVERTED
+  Created: 059_surgery_request.sql
+
+Enum: surgery_request_event_type
+  Values: SUBMITTED, RESUBMITTED, RETURNED, ACCEPTED, REJECTED, WITHDRAWN, CONVERTED
+  Created: 059_surgery_request.sql
+
+Enum: surgery_request_checklist_status
+  Values: PENDING, COMPLETE
+  Created: 059_surgery_request.sql
+
+Enum: surgery_request_actor_type
+  Values: CLINIC, ASC
+  Created: 059_surgery_request.sql
+
+Enum: clinic_financial_state
+  Values: UNKNOWN, DECLARED_CLEARED, DECLARED_AT_RISK
+  Created: 060_financial_readiness.sql
+
+Enum: asc_financial_state
+  Values: UNKNOWN, VERIFIED_CLEARED, VERIFIED_AT_RISK
+  Created: 060_financial_readiness.sql
+
+Enum: override_state
+  Values: NONE, OVERRIDE_CLEARED, OVERRIDE_AT_RISK
+  Created: 060_financial_readiness.sql
+
+Enum: financial_risk_state
+  Values: UNKNOWN, LOW, MEDIUM, HIGH
+  Created: 060_financial_readiness.sql
+
+Enum: override_reason_code
+  Values: ADMIN_JUDGMENT, URGENT_CASE, CLINIC_CONFIRMED, PATIENT_PAID, OTHER
+  Created: 060_financial_readiness.sql
+
+================================================================================
+SECTION 3: ALL TABLES (FIELDS, TYPES, KEYS, CONSTRAINTS)
+================================================================================
+
+--- INTERNAL TABLE ---
+
+Table: _migrations
+  name            VARCHAR(255) PK
+  executed_at     TIMESTAMPTZ DEFAULT NOW()
+
+--- CORE DOMAIN ---
+
+Table: facility
+  id              UUID PK DEFAULT uuid_generate_v4()
+  name            VARCHAR(255) NOT NULL
+  facility_key    VARCHAR(20) NOT NULL UNIQUE (added 010)
+  timezone        VARCHAR(50) NOT NULL DEFAULT 'America/New_York'
+  address         TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
+
+Table: app_user
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID REFERENCES facility(id) -- NULLABLE for PLATFORM_ADMIN (046)
+  username        VARCHAR(100) NOT NULL (added 007)
+  email           VARCHAR(255) -- nullable since 007
+  name            VARCHAR(255) NOT NULL
+  role            user_role NOT NULL -- DEPRECATED per 039 (kept for backward compat)
+  roles           user_role[] NOT NULL (added 021, canonical per 039) CHECK array_length >= 1
+  password_hash   VARCHAR(255) NOT NULL
+  active          BOOLEAN NOT NULL DEFAULT true
+  display_color   VARCHAR(7) DEFAULT NULL (added 025)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints:
+    UNIQUE(facility_id, username) (added 007)
+    chk_roles_nonempty: array_length(roles, 1) >= 1 (added 039)
+    chk_facility_id_by_role: PLATFORM_ADMIN requires NULL facility_id; all others require NOT NULL (added 046)
+  Triggers: updated_at
+
+Table: location
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  name            VARCHAR(255) NOT NULL
+  description     TEXT
+  parent_location_id UUID REFERENCES location(id)
+  is_active       BOOLEAN NOT NULL DEFAULT true (added 050)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
+
+Table: item_catalog
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  name            VARCHAR(255) NOT NULL
+  description     TEXT
+  category        item_category NOT NULL
+  manufacturer    VARCHAR(255)
+  catalog_number  VARCHAR(255)
   requires_sterility BOOLEAN NOT NULL DEFAULT true
-  is_loaner BOOLEAN NOT NULL DEFAULT false
-  active BOOLEAN NOT NULL DEFAULT true
-  requires_lot_tracking BOOLEAN NOT NULL DEFAULT false
-  requires_serial_tracking BOOLEAN NOT NULL DEFAULT false
-  requires_expiration_tracking BOOLEAN NOT NULL DEFAULT false
-  criticality criticality NOT NULL DEFAULT 'ROUTINE' (CRITICAL, IMPORTANT, ROUTINE)
-  readiness_required BOOLEAN NOT NULL DEFAULT true
-  expiration_warning_days INTEGER (nullable)
-  substitutable BOOLEAN NOT NULL DEFAULT false
-  unit_cost_cents INTEGER (nullable, CHECK >= 0)
-  unit_cost_effective_at TIMESTAMPTZ (nullable)
-  ownership_type ownership_type DEFAULT 'OWNED' (OWNED, CONSIGNED, LOANER, GRATIS)
-  consignment_vendor_id UUID (FOREIGN KEY -> vendor.id, nullable)
-  is_billable BOOLEAN DEFAULT true
-  cost_notes TEXT
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  is_loaner       BOOLEAN NOT NULL DEFAULT false
+  active          BOOLEAN NOT NULL DEFAULT true
+  requires_lot_tracking BOOLEAN NOT NULL DEFAULT false (added 030)
+  requires_serial_tracking BOOLEAN NOT NULL DEFAULT false (added 030)
+  requires_expiration_tracking BOOLEAN NOT NULL DEFAULT false (added 030)
+  criticality     criticality NOT NULL DEFAULT 'ROUTINE' (added 030)
+  readiness_required BOOLEAN NOT NULL DEFAULT true (added 030)
+  expiration_warning_days INTEGER (added 030)
+  substitutable   BOOLEAN NOT NULL DEFAULT false (added 030)
+  unit_cost_cents INTEGER CHECK >= 0 (added 043)
+  unit_cost_effective_at TIMESTAMPTZ (added 043)
+  ownership_type  ownership_type DEFAULT 'OWNED' (added 043)
+  consignment_vendor_id UUID REFERENCES vendor(id) (added 043)
+  is_billable     BOOLEAN DEFAULT true (added 043)
+  cost_notes      TEXT (added 043)
+  is_container    BOOLEAN NOT NULL DEFAULT false (added 044)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints:
+    chk_catalog_consignment_vendor: ownership_type != 'CONSIGNED' OR consignment_vendor_id IS NOT NULL (added 043)
+  Triggers: updated_at
 
-**inventory_item** (actual physical items)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  catalog_id UUID NOT NULL (FOREIGN KEY -> item_catalog.id)
-  serial_number VARCHAR(255) (nullable)
-  lot_number VARCHAR(255) (nullable)
-  barcode VARCHAR(255) (nullable)
-  location_id UUID (FOREIGN KEY -> location.id, nullable)
-  sterility_status sterility_status NOT NULL DEFAULT 'UNKNOWN' (STERILE, NON_STERILE, EXPIRED, UNKNOWN)
-  sterility_expires_at TIMESTAMPTZ (nullable)
-  availability_status availability_status NOT NULL DEFAULT 'AVAILABLE' (AVAILABLE, RESERVED, IN_USE, UNAVAILABLE, MISSING)
-  reserved_for_case_id UUID (FOREIGN KEY -> surgical_case.id, nullable)
-  last_verified_at TIMESTAMPTZ (nullable)
-  last_verified_by_user_id UUID (FOREIGN KEY -> app_user.id, nullable)
-  ownership_type ownership_type (nullable)
-  source_vendor_id UUID (FOREIGN KEY -> vendor.id, nullable)
-  source_event_type source_event_type (nullable) (PURCHASED, CONSIGNMENT_RECEIVED, LOANER_RECEIVED, SAMPLE, TRANSFER)
-  loaner_set_id UUID (FOREIGN KEY -> loaner_set.id, nullable)
-  loaner_due_date DATE (nullable)
-  loaner_returned_at TIMESTAMPTZ (nullable)
-  loaner_return_event_id UUID (FOREIGN KEY -> inventory_event.id, nullable)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+Table: inventory_item
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  catalog_id      UUID NOT NULL REFERENCES item_catalog(id)
+  serial_number   VARCHAR(255)
+  lot_number      VARCHAR(255)
+  barcode         VARCHAR(255)
+  location_id     UUID REFERENCES location(id)
+  sterility_status sterility_status NOT NULL DEFAULT 'UNKNOWN'
+  sterility_expires_at TIMESTAMPTZ
+  availability_status availability_status NOT NULL DEFAULT 'AVAILABLE'
+  reserved_for_case_id UUID REFERENCES surgical_case(id)
+  last_verified_at TIMESTAMPTZ
+  last_verified_by_user_id UUID REFERENCES app_user(id)
+  barcode_classification TEXT (added 038)
+  barcode_gtin    VARCHAR(14) (added 038)
+  barcode_parsed_lot VARCHAR(255) (added 038)
+  barcode_parsed_serial VARCHAR(255) (added 038)
+  barcode_parsed_expiration DATE (added 038)
+  attestation_reason TEXT (added 038)
+  attested_by_user_id UUID REFERENCES app_user(id) (added 038)
+  attested_at     TIMESTAMPTZ (added 038)
+  ownership_type  ownership_type (added 043)
+  source_vendor_id UUID REFERENCES vendor(id) (added 043)
+  source_event_type source_event_type (added 043)
+  loaner_set_id   UUID REFERENCES loaner_set(id) (added 043)
+  loaner_due_date DATE (added 043)
+  loaner_returned_at TIMESTAMPTZ (added 043)
+  loaner_return_event_id UUID REFERENCES inventory_event(id) (added 043)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
 
-**preference_card**
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  surgeon_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  procedure_name VARCHAR(255) NOT NULL
-  description TEXT
-  active BOOLEAN NOT NULL DEFAULT true
-  current_version_id UUID (FOREIGN KEY -> preference_card_version.id, nullable)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+Table: preference_card
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  surgeon_id      UUID NOT NULL REFERENCES app_user(id)
+  procedure_name  VARCHAR(255) NOT NULL
+  description     TEXT
+  active          BOOLEAN NOT NULL DEFAULT true
+  current_version_id UUID REFERENCES preference_card_version(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
 
-**preference_card_version** (immutable snapshots)
-  id UUID (PRIMARY KEY)
-  preference_card_id UUID NOT NULL (FOREIGN KEY -> preference_card.id)
-  version_number INT NOT NULL
-  items JSONB NOT NULL (Array of {catalogId, quantity, notes})
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  created_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  UNIQUE(preference_card_id, version_number)
+Table: preference_card_version
+  id              UUID PK DEFAULT uuid_generate_v4()
+  preference_card_id UUID NOT NULL REFERENCES preference_card(id)
+  version_number  INT NOT NULL
+  items           JSONB NOT NULL
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  Constraints: UNIQUE(preference_card_id, version_number)
 
-**surgical_case** (scheduled surgical case)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  scheduled_date DATE
-  scheduled_time TIME (nullable)
-  surgeon_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  procedure_name VARCHAR(255) NOT NULL
-  preference_card_version_id UUID (FOREIGN KEY -> preference_card_version.id, nullable)
-  status case_status NOT NULL DEFAULT 'DRAFT' (DRAFT, SCHEDULED, READY, IN_PROGRESS, COMPLETED, CANCELLED)
-  notes TEXT
-  case_number VARCHAR(12) NOT NULL UNIQUE (format: YY-NNNNN-C with Luhn check digit)
-  is_active BOOLEAN NOT NULL DEFAULT false
-  activated_at TIMESTAMPTZ (nullable)
-  activated_by_user_id UUID (FOREIGN KEY -> app_user.id, nullable)
-  is_cancelled BOOLEAN NOT NULL DEFAULT false
-  cancelled_at TIMESTAMPTZ (nullable)
-  cancelled_by_user_id UUID (FOREIGN KEY -> app_user.id, nullable)
-  case_card_version_id UUID (FOREIGN KEY -> case_card_version.id, nullable)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+Table: surgical_case
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  case_number     VARCHAR(12) NOT NULL UNIQUE (added 020)
+  scheduled_date  DATE -- nullable since 009
+  scheduled_time  TIME
+  requested_date  DATE (added 019)
+  requested_time  TIME (added 019)
+  surgeon_id      UUID NOT NULL REFERENCES app_user(id)
+  procedure_name  VARCHAR(255) NOT NULL
+  preference_card_version_id UUID REFERENCES preference_card_version(id)
+  case_card_version_id UUID REFERENCES case_card_version(id) (added 012)
+  status          case_status NOT NULL DEFAULT 'DRAFT'
+  notes           TEXT
+  is_active       BOOLEAN NOT NULL DEFAULT false (added 008)
+  activated_at    TIMESTAMPTZ (added 008)
+  activated_by_user_id UUID REFERENCES app_user(id) (added 008)
+  is_cancelled    BOOLEAN NOT NULL DEFAULT false (added 008)
+  cancelled_at    TIMESTAMPTZ (added 008)
+  cancelled_by_user_id UUID REFERENCES app_user(id) (added 008)
+  attestation_state attestation_state NOT NULL DEFAULT 'NOT_ATTESTED' (added 012)
+  attestation_void_reason TEXT (added 012)
+  estimated_duration_minutes INT DEFAULT 60 (added 012, default set 023)
+  laterality      VARCHAR(50) (added 012)
+  or_room         VARCHAR(50) (added 012)
+  scheduler_notes TEXT (added 012)
+  case_type       VARCHAR(50) DEFAULT 'ELECTIVE' (added 016)
+  procedure_codes TEXT[] (added 016)
+  patient_flags   JSONB DEFAULT '{}' (added 016)
+  rejected_at     TIMESTAMPTZ (added 019)
+  rejected_by_user_id UUID REFERENCES app_user(id) (added 019)
+  rejection_reason TEXT (added 019)
+  room_id         UUID REFERENCES room(id) (added 023)
+  sort_order      INTEGER DEFAULT 0 (added 023)
+  admission_types JSONB DEFAULT '{}' (added 029)
+  preop_checked_in_at TIMESTAMPTZ (added 042)
+  preop_checked_in_by_user_id UUID REFERENCES app_user(id) (added 042)
+  primary_organization_id UUID REFERENCES organization(id) (added 053)
+  patient_id      UUID REFERENCES patient(id) (added 057)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Dropped columns: patient_mrn (removed 017)
+  Triggers: updated_at
 
-**case_requirement**
-  id UUID (PRIMARY KEY)
-  case_id UUID NOT NULL (FOREIGN KEY -> surgical_case.id)
-  catalog_id UUID NOT NULL (FOREIGN KEY -> item_catalog.id)
-  quantity INT NOT NULL CHECK (quantity > 0)
+Table: case_requirement
+  id              UUID PK DEFAULT uuid_generate_v4()
+  case_id         UUID NOT NULL REFERENCES surgical_case(id)
+  catalog_id      UUID NOT NULL REFERENCES item_catalog(id)
+  quantity        INT NOT NULL CHECK > 0
   is_surgeon_override BOOLEAN NOT NULL DEFAULT false
-  notes TEXT
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(case_id, catalog_id)
+  notes           TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(case_id, catalog_id)
+  Triggers: updated_at
 
-**case_readiness_cache** (computed readiness state)
-  case_id UUID (PRIMARY KEY, FOREIGN KEY -> surgical_case.id)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  scheduled_date DATE NOT NULL
-  procedure_name VARCHAR(255) NOT NULL
-  surgeon_name VARCHAR(255) NOT NULL
-  readiness_state readiness_state NOT NULL (GREEN, ORANGE, RED)
-  missing_items JSONB NOT NULL DEFAULT '[]' (Array of MissingItemReason)
+Table: case_number_sequence
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  year            SMALLINT NOT NULL
+  last_sequence   INT NOT NULL DEFAULT 0
+  PK: (facility_id, year)
+  Created: 020
+
+--- APPEND-ONLY EVENT TABLES ---
+
+Table: inventory_event (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  inventory_item_id UUID NOT NULL REFERENCES inventory_item(id)
+  event_type      inventory_event_type NOT NULL
+  case_id         UUID REFERENCES surgical_case(id)
+  location_id     UUID REFERENCES location(id)
+  previous_location_id UUID REFERENCES location(id)
+  sterility_status sterility_status
+  notes           TEXT
+  performed_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  device_event_id UUID REFERENCES device_event(id)
+  occurred_at     TIMESTAMPTZ NOT NULL
+  cost_snapshot_cents INTEGER CHECK >= 0 (added 043)
+  cost_override_cents INTEGER CHECK >= 0 (added 043)
+  cost_override_reason cost_override_reason (added 043)
+  cost_override_note TEXT (added 043)
+  provided_by_vendor_id UUID REFERENCES vendor(id) (added 043)
+  provided_by_rep_name TEXT (added 043)
+  is_gratis       BOOLEAN DEFAULT false (added 043)
+  gratis_reason   gratis_reason (added 043)
+  financial_attestation_user_id UUID REFERENCES app_user(id) (added 043)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints:
+    chk_event_override_requires_reason (added 043)
+    chk_event_gratis_requires_reason (added 043)
+  Triggers: no_update, no_delete
+
+Table: attestation (APPEND-ONLY with voiding)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  case_id         UUID NOT NULL REFERENCES surgical_case(id)
+  type            attestation_type NOT NULL
+  attested_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  readiness_state_at_time readiness_state NOT NULL
+  notes           TEXT
+  voided_at       TIMESTAMPTZ (added 002)
+  voided_by_user_id UUID REFERENCES app_user(id) (added 002)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: attestation_allow_void_only (UPDATE restricted to voiding only), no_delete
+
+Table: device_event (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  device_id       UUID NOT NULL REFERENCES device(id)
+  device_type     device_type NOT NULL
+  payload_type    device_payload_type NOT NULL
+  raw_value       TEXT NOT NULL
+  processed_item_id UUID REFERENCES inventory_item(id)
+  processed       BOOLEAN NOT NULL DEFAULT false
+  processing_error TEXT
+  occurred_at     TIMESTAMPTZ NOT NULL
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+
+Table: case_card_edit_log (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  case_card_id    UUID NOT NULL REFERENCES case_card(id)
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  editor_user_id  UUID NOT NULL REFERENCES app_user(id)
+  editor_name     VARCHAR(255) NOT NULL
+  editor_role     user_role NOT NULL
+  change_summary  TEXT NOT NULL
+  reason_for_change TEXT
+  previous_version_id UUID REFERENCES case_card_version(id)
+  new_version_id  UUID REFERENCES case_card_version(id)
+  action_type     VARCHAR(50) (added 015)
+  edited_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+
+Table: case_event_log (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  case_id         UUID NOT NULL REFERENCES surgical_case(id)
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  event_type      case_event_type NOT NULL
+  user_id         UUID NOT NULL REFERENCES app_user(id)
+  user_role       user_role NOT NULL
+  user_name       VARCHAR(255) NOT NULL
+  description     TEXT NOT NULL
+  override_id     UUID REFERENCES case_override(id)
+  case_card_version_id UUID REFERENCES case_card_version(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+
+Table: surgical_case_status_event (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  surgical_case_id UUID REFERENCES surgical_case(id)
+  from_status     TEXT
+  to_status       TEXT NOT NULL
+  reason          TEXT
+  context         JSONB NOT NULL DEFAULT '{}'
+  actor_user_id   UUID REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 036
+
+Table: catalog_event (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  catalog_item_id UUID NOT NULL REFERENCES item_catalog(id)
+  action          TEXT NOT NULL
+  actor_user_id   UUID REFERENCES app_user(id)
+  payload         JSONB NOT NULL DEFAULT '{}'
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 037
+
+Table: catalog_cost_event (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  catalog_id      UUID NOT NULL REFERENCES item_catalog(id)
+  previous_cost_cents INTEGER
+  new_cost_cents  INTEGER NOT NULL CHECK >= 0
+  effective_at    TIMESTAMPTZ NOT NULL
+  reason          TEXT NOT NULL
+  changed_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 043
+
+Table: case_card_link_event (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  case_id         UUID NOT NULL REFERENCES surgical_case(id)
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  action          VARCHAR(20) NOT NULL CHECK IN ('LINKED', 'UNLINKED', 'RELINKED')
+  source_case_card_id UUID REFERENCES case_card(id)
+  source_case_card_version_id UUID REFERENCES case_card_version(id)
+  snapshot_json   JSONB
+  reason_code     VARCHAR(50) NOT NULL
+  reason_note     TEXT
+  performed_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  performed_by_name VARCHAR(255) NOT NULL
+  performed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 049
+
+Table: case_attribution_event (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  case_id         UUID NOT NULL REFERENCES surgical_case(id)
+  previous_organization_id UUID REFERENCES organization(id)
+  new_organization_id UUID NOT NULL REFERENCES organization(id)
+  changed_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  justification   TEXT NOT NULL
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 053
+
+--- AUDIT LOGS ---
+
+Table: phi_access_audit_log (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  user_id         UUID NOT NULL REFERENCES app_user(id)
+  user_roles      TEXT[] NOT NULL
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  organization_ids UUID[] NOT NULL DEFAULT '{}'
+  case_id         UUID REFERENCES surgical_case(id)
+  phi_classification phi_classification NOT NULL
+  access_purpose  access_purpose NOT NULL
+  outcome         access_outcome NOT NULL
+  denial_reason   VARCHAR(255)
+  request_id      VARCHAR(100)
+  endpoint        VARCHAR(255)
+  http_method     VARCHAR(10)
+  is_emergency    BOOLEAN NOT NULL DEFAULT false (added 055)
+  emergency_justification TEXT (added 055)
+  breach_context  JSONB (added 056)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 054
+
+Table: phi_export_audit_log (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  phi_access_log_id UUID NOT NULL REFERENCES phi_access_audit_log(id)
+  export_format   VARCHAR(10) NOT NULL
+  export_row_count INTEGER NOT NULL
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 055
+
+Table: auth_audit_log (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  event_type      VARCHAR(50) NOT NULL
+  facility_id     UUID REFERENCES facility(id)
+  user_id         UUID REFERENCES app_user(id)
+  username        VARCHAR(255) NOT NULL
+  user_roles      TEXT[]
+  success         BOOLEAN NOT NULL
+  failure_reason  VARCHAR(100)
+  request_id      VARCHAR(100)
+  ip_address      VARCHAR(50)
+  user_agent      TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 048
+
+Table: config_audit_log (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  config_key      VARCHAR(100) NOT NULL
+  scope           config_scope NOT NULL
+  facility_id     UUID REFERENCES facility(id)
+  action          VARCHAR(20) NOT NULL
+  old_value       TEXT
+  new_value       TEXT
+  version_before  INT
+  version_after   INT
+  change_reason   TEXT
+  change_note     TEXT
+  actor_user_id   UUID NOT NULL REFERENCES app_user(id)
+  actor_name      VARCHAR(255) NOT NULL
+  actor_roles     TEXT[] NOT NULL
+  request_id      VARCHAR(100)
+  ip_address      VARCHAR(50)
+  user_agent      TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 047
+
+--- DEVICE TABLES ---
+
+Table: device
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  name            VARCHAR(255) NOT NULL
+  device_type     device_type NOT NULL
+  location_id     UUID REFERENCES location(id)
+  active          BOOLEAN NOT NULL DEFAULT true
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
+
+--- CHECKLIST SYSTEM ---
+
+Table: facility_settings
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL UNIQUE REFERENCES facility(id)
+  enable_timeout_debrief BOOLEAN NOT NULL DEFAULT false
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
+  Created: 004
+
+Table: room
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  name            VARCHAR(100) NOT NULL
+  active          BOOLEAN NOT NULL DEFAULT true
+  sort_order      INTEGER NOT NULL DEFAULT 0 (added 024)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(facility_id, name)
+  Triggers: updated_at
+  Created: 004
+
+Table: checklist_template
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  type            checklist_type NOT NULL
+  name            VARCHAR(255) NOT NULL
+  is_active       BOOLEAN NOT NULL DEFAULT true
+  current_version_id UUID REFERENCES checklist_template_version(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(facility_id, type)
+  Triggers: updated_at
+  Created: 004
+
+Table: checklist_template_version
+  id              UUID PK DEFAULT uuid_generate_v4()
+  template_id     UUID NOT NULL REFERENCES checklist_template(id)
+  version_number  INT NOT NULL
+  items           JSONB NOT NULL
+  required_signatures JSONB NOT NULL
+  effective_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(template_id, version_number)
+  Created: 004
+
+Table: case_checklist_instance
+  id              UUID PK DEFAULT uuid_generate_v4()
+  case_id         UUID NOT NULL REFERENCES surgical_case(id)
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  type            checklist_type NOT NULL
+  template_version_id UUID NOT NULL REFERENCES checklist_template_version(id)
+  status          checklist_status NOT NULL DEFAULT 'NOT_STARTED'
+  room_id         UUID REFERENCES room(id)
+  started_at      TIMESTAMPTZ
+  completed_at    TIMESTAMPTZ
+  created_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  pending_scrub_review BOOLEAN NOT NULL DEFAULT false (added 005)
+  pending_surgeon_review BOOLEAN NOT NULL DEFAULT false (added 005)
+  scrub_review_completed_at TIMESTAMPTZ (added 005)
+  surgeon_review_completed_at TIMESTAMPTZ (added 005)
+  surgeon_notes   TEXT (added 028)
+  surgeon_flagged BOOLEAN NOT NULL DEFAULT false (added 028)
+  surgeon_flagged_at TIMESTAMPTZ (added 028)
+  surgeon_flagged_comment TEXT (added 028)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(case_id, type)
+  Triggers: updated_at
+  Created: 004
+
+Table: case_checklist_response (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  instance_id     UUID NOT NULL REFERENCES case_checklist_instance(id)
+  item_key        VARCHAR(100) NOT NULL
+  value           TEXT NOT NULL
+  completed_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  completed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 004
+
+Table: case_checklist_signature (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  instance_id     UUID NOT NULL REFERENCES case_checklist_instance(id)
+  role            VARCHAR(50) NOT NULL
+  signed_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  signed_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  method          signature_method NOT NULL DEFAULT 'LOGIN'
+  flagged_for_review BOOLEAN NOT NULL DEFAULT false (added 026)
+  flag_comment    TEXT (added 027)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(instance_id, role)
+  Triggers: no_update, no_delete
+  Created: 004
+
+Table: case_checklist_flag_resolution
+  id              UUID PK DEFAULT uuid_generate_v4()
+  signature_id    UUID NOT NULL REFERENCES case_checklist_signature(id) UNIQUE
+  resolved_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  resolved_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  resolution_notes TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Created: 026
+
+--- CASE CARD SYSTEM ---
+
+Table: case_card
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  surgeon_id      UUID NOT NULL REFERENCES app_user(id)
+  procedure_name  VARCHAR(255) NOT NULL
+  procedure_codes TEXT[]
+  case_type       case_type NOT NULL DEFAULT 'ELECTIVE'
+  default_duration_minutes INT
+  turnover_notes  TEXT
+  status          case_card_status NOT NULL DEFAULT 'DRAFT'
+  version_major   INT NOT NULL DEFAULT 1
+  version_minor   INT NOT NULL DEFAULT 0
+  version_patch   INT NOT NULL DEFAULT 0
+  current_version_id UUID REFERENCES case_card_version(id)
+  locked_by_user_id UUID REFERENCES app_user(id) (added 015)
+  locked_at       TIMESTAMPTZ (added 015)
+  lock_expires_at TIMESTAMPTZ (added 015)
+  deleted_at      TIMESTAMPTZ (added 015)
+  deleted_by_user_id UUID REFERENCES app_user(id) (added 015)
+  delete_reason   TEXT (added 015)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  Constraints: UNIQUE(facility_id, surgeon_id, procedure_name) DEFERRABLE
+  Triggers: updated_at
+  Created: 011
+
+Table: case_card_version
+  id              UUID PK DEFAULT uuid_generate_v4()
+  case_card_id    UUID NOT NULL REFERENCES case_card(id)
+  version_number  VARCHAR(20) NOT NULL
+  header_info     JSONB NOT NULL DEFAULT '{}'
+  patient_flags   JSONB NOT NULL DEFAULT '{}'
+  instrumentation JSONB NOT NULL DEFAULT '{}'
+  equipment       JSONB NOT NULL DEFAULT '{}'
+  supplies        JSONB NOT NULL DEFAULT '{}'
+  medications     JSONB NOT NULL DEFAULT '{}'
+  setup_positioning JSONB NOT NULL DEFAULT '{}'
+  surgeon_notes   JSONB NOT NULL DEFAULT '{}'
+  components      JSONB NOT NULL DEFAULT '[]' (added 035)
+  overrides       JSONB NOT NULL DEFAULT '[]' (added 035)
+  composed_cache  JSONB (added 035)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  Constraints: UNIQUE(case_card_id, version_number)
+  Created: 011
+
+Table: case_card_feedback
+  id              UUID PK DEFAULT uuid_generate_v4()
+  case_card_id    UUID NOT NULL REFERENCES case_card(id)
+  surgical_case_id UUID NOT NULL REFERENCES surgical_case(id)
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  items_unused    JSONB DEFAULT '[]'
+  items_missing   JSONB DEFAULT '[]'
+  setup_issues    TEXT
+  staff_comments  TEXT
+  suggested_edits TEXT
+  submitted_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  reviewed_at     TIMESTAMPTZ (added 014)
+  reviewed_by_user_id UUID REFERENCES app_user(id) (added 014)
+  review_notes    TEXT (added 014)
+  review_action   VARCHAR(20) (added 014)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Created: 011
+
+--- CASE DASHBOARD ---
+
+Table: case_anesthesia_plan
+  id              UUID PK DEFAULT uuid_generate_v4()
+  case_id         UUID NOT NULL REFERENCES surgical_case(id) ON DELETE CASCADE UNIQUE
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  modalities      TEXT[] (originally anesthesia_modality, converted to array in 013, to TEXT[] in 022)
+  positioning_considerations TEXT
+  airway_notes    TEXT
+  anticoagulation_considerations TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
+  Created: 012
+
+Table: case_override
+  id              UUID PK DEFAULT uuid_generate_v4()
+  case_id         UUID NOT NULL REFERENCES surgical_case(id) ON DELETE CASCADE
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  override_target VARCHAR(255) NOT NULL
+  original_value  TEXT
+  override_value  TEXT NOT NULL
+  reason          TEXT NOT NULL
+  created_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  reverted_at     TIMESTAMPTZ
+  reverted_by_user_id UUID REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
+  Created: 012
+
+Table: case_readiness_cache
+  case_id         UUID PK REFERENCES surgical_case(id)
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  scheduled_date  DATE NOT NULL
+  procedure_name  VARCHAR(255) NOT NULL
+  surgeon_name    VARCHAR(255) NOT NULL
+  readiness_state readiness_state NOT NULL
+  missing_items   JSONB NOT NULL DEFAULT '[]'
   total_required_items INT NOT NULL DEFAULT 0
   total_verified_items INT NOT NULL DEFAULT 0
   has_attestation BOOLEAN NOT NULL DEFAULT false
-  attested_at TIMESTAMPTZ (nullable)
-  attested_by_name VARCHAR(255) (nullable)
-  attestation_id UUID (nullable, FOREIGN KEY -> attestation.id)
+  attested_at     TIMESTAMPTZ
+  attested_by_name VARCHAR(255)
   has_surgeon_acknowledgment BOOLEAN NOT NULL DEFAULT false
-  surgeon_acknowledged_at TIMESTAMPTZ (nullable)
-  surgeon_acknowledgment_id UUID (nullable, FOREIGN KEY -> attestation.id)
-  computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  surgeon_acknowledged_at TIMESTAMPTZ
+  attestation_id  UUID (added 003)
+  surgeon_acknowledgment_id UUID (added 003)
+  computed_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Created: 001
 
-**2.2 APPEND-ONLY EVENT TABLES (IMMUTABLE)**
+--- SCHEDULING ---
 
-**inventory_event** (append-only audit log)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  inventory_item_id UUID NOT NULL (FOREIGN KEY -> inventory_item.id)
-  event_type inventory_event_type NOT NULL (RECEIVED, VERIFIED, LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED, EXPIRED, RETURNED, ADJUSTED)
-  case_id UUID (FOREIGN KEY -> surgical_case.id, nullable)
-  location_id UUID (FOREIGN KEY -> location.id, nullable)
-  previous_location_id UUID (FOREIGN KEY -> location.id, nullable)
-  sterility_status sterility_status (nullable)
-  notes TEXT
-  performed_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  device_event_id UUID (FOREIGN KEY -> device_event.id, nullable)
-  cost_snapshot_cents INTEGER (nullable, CHECK >= 0)
-  cost_override_cents INTEGER (nullable, CHECK >= 0)
-  cost_override_reason cost_override_reason (nullable)
-  cost_override_note TEXT
-  provided_by_vendor_id UUID (FOREIGN KEY -> vendor.id, nullable)
-  provided_by_rep_name TEXT
-  is_gratis BOOLEAN DEFAULT false
-  gratis_reason gratis_reason (nullable)
-  financial_attestation_user_id UUID (FOREIGN KEY -> app_user.id, nullable)
-  occurred_at TIMESTAMPTZ NOT NULL
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  TRIGGERS: inventory_event_no_update, inventory_event_no_delete (prevent_modification)
+Table: block_time
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  room_id         UUID NOT NULL REFERENCES room(id)
+  block_date      DATE NOT NULL
+  duration_minutes INTEGER NOT NULL DEFAULT 60
+  notes           TEXT
+  sort_order      INTEGER NOT NULL DEFAULT 0
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_by_user_id UUID REFERENCES app_user(id)
+  Created: 023
 
-**attestation** (append-only attestations with void capability)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  case_id UUID NOT NULL (FOREIGN KEY -> surgical_case.id)
-  type attestation_type NOT NULL (CASE_READINESS, SURGEON_ACKNOWLEDGMENT)
-  attested_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  readiness_state_at_time readiness_state NOT NULL (GREEN, ORANGE, RED)
-  notes TEXT
-  voided_at TIMESTAMPTZ (nullable, indicates voided state)
-  voided_by_user_id UUID (FOREIGN KEY -> app_user.id, nullable)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  TRIGGERS: attestation_allow_void_only (allows only voiding operations)
+Table: room_day_config
+  id              UUID PK DEFAULT uuid_generate_v4()
+  room_id         UUID NOT NULL REFERENCES room(id)
+  config_date     DATE NOT NULL
+  start_time      TIME NOT NULL DEFAULT '07:30'
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(room_id, config_date)
+  Created: 023
 
-**surgical_case_status_event** (append-only status audit trail)
-  id UUID (PRIMARY KEY)
-  surgical_case_id UUID (FOREIGN KEY -> surgical_case.id)
-  from_status TEXT (nullable, NULL on initial creation)
-  to_status TEXT NOT NULL
-  reason TEXT
-  context JSONB NOT NULL DEFAULT '{}' (structured metadata: source, checklistId, ip, etc.)
-  actor_user_id UUID (FOREIGN KEY -> app_user.id, nullable)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  TRIGGERS: case_status_event_no_update, case_status_event_no_delete (prevent_modification)
+--- CATALOG EXTENSIONS ---
 
-**2.3 DEVICE TABLES**
+Table: catalog_group
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  name            VARCHAR(255) NOT NULL
+  description     TEXT
+  active          BOOLEAN NOT NULL DEFAULT true
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(facility_id, name)
+  Triggers: updated_at
+  Created: 031
 
-**device**
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  name VARCHAR(255) NOT NULL
-  device_type device_type NOT NULL (barcode, rfid, nfc, other)
-  location_id UUID (FOREIGN KEY -> location.id, nullable)
-  active BOOLEAN NOT NULL DEFAULT true
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+Table: catalog_group_item
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  group_id        UUID NOT NULL REFERENCES catalog_group(id) ON DELETE CASCADE
+  catalog_id      UUID NOT NULL REFERENCES item_catalog(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  PK: (group_id, catalog_id)
+  Created: 031
 
-**device_event** (append-only raw device events)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  device_id UUID NOT NULL (FOREIGN KEY -> device.id)
-  device_type device_type NOT NULL
-  payload_type device_payload_type NOT NULL (scan, presence, input)
-  raw_value TEXT NOT NULL
-  processed_item_id UUID (FOREIGN KEY -> inventory_item.id, nullable)
-  processed BOOLEAN NOT NULL DEFAULT false
-  processing_error TEXT
-  occurred_at TIMESTAMPTZ NOT NULL
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  TRIGGERS: device_event_no_update, device_event_no_delete (prevent_modification)
+Table: catalog_set_component
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  set_catalog_id  UUID NOT NULL REFERENCES item_catalog(id)
+  component_catalog_id UUID NOT NULL REFERENCES item_catalog(id)
+  required_quantity INT NOT NULL DEFAULT 0 CHECK >= 0
+  optional_quantity INT NOT NULL DEFAULT 0 CHECK >= 0
+  notes           TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(set_catalog_id, component_catalog_id), CHECK(set_catalog_id != component_catalog_id)
+  Created: 033
 
-**2.4 CHECKLISTS (OR Time Out & Post-op Debrief)**
+Table: catalog_item_image
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  catalog_id      UUID NOT NULL REFERENCES item_catalog(id) ON DELETE CASCADE
+  kind            TEXT NOT NULL DEFAULT 'REFERENCE'
+  caption         TEXT
+  sort_order      INT NOT NULL DEFAULT 0
+  asset_url       TEXT NOT NULL
+  source          TEXT NOT NULL DEFAULT 'URL'
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(facility_id, catalog_id) WHERE kind = 'PRIMARY'
+  Created: 034
 
-**facility_settings** (feature flags)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL UNIQUE (FOREIGN KEY -> facility.id)
-  enable_timeout_debrief BOOLEAN NOT NULL DEFAULT false
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+Table: catalog_identifier
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  catalog_id      UUID NOT NULL REFERENCES item_catalog(id) ON DELETE CASCADE
+  identifier_type TEXT NOT NULL
+  raw_value       TEXT NOT NULL
+  source          TEXT NOT NULL DEFAULT 'manual'
+  classification  TEXT NOT NULL DEFAULT 'unknown'
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_by_user_id UUID REFERENCES app_user(id)
+  Constraints: UNIQUE(facility_id, catalog_id, identifier_type, raw_value)
+  Created: 038
 
-**room** (OR rooms for location tracking)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  name VARCHAR(100) NOT NULL
-  active BOOLEAN NOT NULL DEFAULT true
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(facility_id, name)
+--- FACILITY CONFIG ---
 
-**checklist_template**
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  type checklist_type NOT NULL (TIMEOUT, DEBRIEF)
-  name VARCHAR(255) NOT NULL
-  is_active BOOLEAN NOT NULL DEFAULT true
-  current_version_id UUID (FOREIGN KEY -> checklist_template_version.id, nullable)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(facility_id, type)
+Table: facility_config_item
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  item_type       config_item_type NOT NULL
+  item_key        VARCHAR(100) NOT NULL
+  display_label   VARCHAR(255) NOT NULL
+  description     TEXT
+  sort_order      INT NOT NULL DEFAULT 0
+  active          BOOLEAN NOT NULL DEFAULT true
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(facility_id, item_type, item_key)
+  Triggers: updated_at
+  Created: 022
 
-**checklist_template_version** (immutable)
-  id UUID (PRIMARY KEY)
-  template_id UUID NOT NULL (FOREIGN KEY -> checklist_template.id)
-  version_number INT NOT NULL
-  items JSONB NOT NULL (Array of {key, label, type, required, options?})
-  required_signatures JSONB NOT NULL (Array of {role, required, conditional?, conditions?})
-  effective_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  created_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(template_id, version_number)
+--- FINANCIAL ATTRIBUTION ---
 
-**case_checklist_instance**
-  id UUID (PRIMARY KEY)
-  case_id UUID NOT NULL (FOREIGN KEY -> surgical_case.id)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  type checklist_type NOT NULL
-  template_version_id UUID NOT NULL (FOREIGN KEY -> checklist_template_version.id)
-  status checklist_status NOT NULL DEFAULT 'NOT_STARTED' (NOT_STARTED, IN_PROGRESS, COMPLETED)
-  room_id UUID (FOREIGN KEY -> room.id, nullable)
-  started_at TIMESTAMPTZ (nullable)
-  completed_at TIMESTAMPTZ (nullable)
-  created_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  pending_scrub_review BOOLEAN NOT NULL DEFAULT false
-  pending_surgeon_review BOOLEAN NOT NULL DEFAULT false
-  scrub_review_completed_at TIMESTAMPTZ (nullable)
-  surgeon_review_completed_at TIMESTAMPTZ (nullable)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(case_id, type)
+Table: vendor
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  name            TEXT NOT NULL
+  vendor_type     vendor_type NOT NULL
+  contact_name    TEXT
+  contact_email   TEXT
+  contact_phone   TEXT
+  is_active       BOOLEAN NOT NULL DEFAULT true
+  notes           TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(facility_id, name)
+  Created: 043
 
-**case_checklist_response** (append-only)
-  id UUID (PRIMARY KEY)
-  instance_id UUID NOT NULL (FOREIGN KEY -> case_checklist_instance.id)
-  item_key VARCHAR(100) NOT NULL
-  value TEXT NOT NULL
-  completed_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  TRIGGERS: case_checklist_response_no_update, case_checklist_response_no_delete (prevent_modification)
+Table: loaner_set
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  vendor_id       UUID NOT NULL REFERENCES vendor(id)
+  set_identifier  TEXT NOT NULL
+  description     TEXT
+  case_id         UUID REFERENCES surgical_case(id)
+  received_at     TIMESTAMPTZ NOT NULL
+  received_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  expected_return_date DATE
+  returned_at     TIMESTAMPTZ
+  returned_by_user_id UUID REFERENCES app_user(id)
+  item_count      INTEGER
+  notes           TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(facility_id, vendor_id, set_identifier, received_at)
+  Created: 043
 
-**case_checklist_signature** (append-only)
-  id UUID (PRIMARY KEY)
-  instance_id UUID NOT NULL (FOREIGN KEY -> case_checklist_instance.id)
-  role VARCHAR(50) NOT NULL
-  signed_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  method signature_method NOT NULL DEFAULT 'LOGIN' (LOGIN, PIN, BADGE, KIOSK_TAP)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(instance_id, role)
-  TRIGGERS: case_checklist_signature_no_update, case_checklist_signature_no_delete (prevent_modification)
+--- IDEMPOTENCY ---
 
-**2.5 CASE CARDS**
+Table: idempotency_key
+  key             TEXT NOT NULL
+  user_id         UUID NOT NULL
+  facility_id     UUID NOT NULL
+  method          TEXT NOT NULL
+  path            TEXT NOT NULL
+  body_hash       TEXT NOT NULL
+  status_code     INTEGER NOT NULL
+  response_json   JSONB NOT NULL
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  expires_at      TIMESTAMPTZ NOT NULL DEFAULT NOW() + 24h
+  PK: (key, user_id, facility_id, method, path)
+  Created: 040
 
-**case_card** (versioned templates for surgical procedures)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  surgeon_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  procedure_name VARCHAR(255) NOT NULL
-  procedure_codes TEXT[] (nullable, CPT and/or internal codes)
-  case_type case_type NOT NULL DEFAULT 'ELECTIVE' (ELECTIVE, ADD_ON, TRAUMA, REVISION)
-  default_duration_minutes INT (nullable, estimated skin-to-skin time)
-  turnover_notes TEXT
-  status case_card_status NOT NULL DEFAULT 'DRAFT' (DRAFT, ACTIVE, DEPRECATED)
-  version_major INT NOT NULL DEFAULT 1
-  version_minor INT NOT NULL DEFAULT 0
-  version_patch INT NOT NULL DEFAULT 0
-  current_version_id UUID (FOREIGN KEY -> case_card_version.id, nullable)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  created_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  UNIQUE(facility_id, surgeon_id, procedure_name) (only ONE active per procedure+surgeon+facility)
+--- CONFIGURATION REGISTRY ---
 
-**case_card_version** (immutable snapshots)
-  id UUID (PRIMARY KEY)
-  case_card_id UUID NOT NULL (FOREIGN KEY -> case_card.id)
-  version_number VARCHAR(20) NOT NULL (Semantic: MAJOR.MINOR.PATCH)
-  header_info JSONB NOT NULL DEFAULT '{}'
-  patient_flags JSONB NOT NULL DEFAULT '{}'
-  instrumentation JSONB NOT NULL DEFAULT '{}'
-  equipment JSONB NOT NULL DEFAULT '{}'
-  supplies JSONB NOT NULL DEFAULT '{}'
-  medications JSONB NOT NULL DEFAULT '{}'
-  setup_positioning JSONB NOT NULL DEFAULT '{}'
-  surgeon_notes JSONB NOT NULL DEFAULT '{}'
-  components JSONB NOT NULL DEFAULT '[]' (Array of {preferenceCardVersionId, role?, label?})
-  overrides JSONB NOT NULL DEFAULT '[]' (Array of {op, section?, match?, item?})
-  composed_cache JSONB (nullable, cached result of composeCaseCardVersion; NULL = stale)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  created_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  UNIQUE(case_card_id, version_number)
-
-**case_card_edit_log** (append-only)
-  id UUID (PRIMARY KEY)
-  case_card_id UUID NOT NULL (FOREIGN KEY -> case_card.id)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  editor_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  editor_name VARCHAR(255) NOT NULL
-  editor_role user_role NOT NULL
-  change_summary TEXT NOT NULL
-  reason_for_change TEXT
-  previous_version_id UUID (FOREIGN KEY -> case_card_version.id, nullable)
-  new_version_id UUID (FOREIGN KEY -> case_card_version.id, nullable)
-  edited_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  TRIGGERS: case_card_edit_log_no_update, case_card_edit_log_no_delete (prevent_modification)
-
-**case_card_feedback**
-  id UUID (PRIMARY KEY)
-  case_card_id UUID NOT NULL (FOREIGN KEY -> case_card.id)
-  surgical_case_id UUID NOT NULL (FOREIGN KEY -> surgical_case.id)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  items_unused JSONB DEFAULT '[]'
-  items_missing JSONB DEFAULT '[]'
-  setup_issues TEXT
-  staff_comments TEXT
-  suggested_edits TEXT
-  submitted_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-
-**case_event_log** (referenced in schema sanity checks, append-only)
-  UNKNOWN (file path searched: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\012_case_dashboard.sql)
-
-**2.6 FINANCIAL ATTRIBUTION (Wave 1)**
-
-**vendor**
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  name TEXT NOT NULL
-  vendor_type vendor_type NOT NULL (MANUFACTURER, DISTRIBUTOR, LOANER_PROVIDER, CONSIGNMENT)
-  contact_name TEXT
-  contact_email TEXT
-  contact_phone TEXT
-  is_active BOOLEAN NOT NULL DEFAULT true
-  notes TEXT
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(facility_id, name)
-
-**loaner_set**
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  vendor_id UUID NOT NULL (FOREIGN KEY -> vendor.id)
-  set_identifier TEXT NOT NULL
-  description TEXT
-  case_id UUID (FOREIGN KEY -> surgical_case.id, nullable)
-  received_at TIMESTAMPTZ NOT NULL
-  received_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  expected_return_date DATE (nullable)
-  returned_at TIMESTAMPTZ (nullable)
-  returned_by_user_id UUID (FOREIGN KEY -> app_user.id, nullable)
-  item_count INTEGER
-  notes TEXT
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(facility_id, vendor_id, set_identifier, received_at)
-
-**catalog_cost_event** (append-only audit trail for cost changes)
-  id UUID (PRIMARY KEY)
-  catalog_id UUID NOT NULL (FOREIGN KEY -> item_catalog.id)
-  previous_cost_cents INTEGER (nullable)
-  new_cost_cents INTEGER NOT NULL CHECK (>= 0)
-  effective_at TIMESTAMPTZ NOT NULL
-  reason TEXT NOT NULL
-  changed_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  TRIGGERS: catalog_cost_event_no_update, catalog_cost_event_no_delete (prevent_modification)
-
-**2.7 CATALOG SUPPORT TABLES**
-
-**catalog_item_image** (documentation only, not evidence per LAW)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  catalog_id UUID NOT NULL (FOREIGN KEY -> item_catalog.id ON DELETE CASCADE)
-  kind TEXT NOT NULL DEFAULT 'REFERENCE' (PRIMARY | REFERENCE)
-  caption TEXT
-  sort_order INT NOT NULL DEFAULT 0
-  asset_url TEXT NOT NULL (external URL or internal upload path)
-  source TEXT NOT NULL DEFAULT 'URL' (URL | UPLOAD)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(facility_id, catalog_id) WHERE kind = 'PRIMARY'
-
-**catalog_event** (append-only audit trail for catalog changes)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  catalog_item_id UUID NOT NULL (FOREIGN KEY -> item_catalog.id)
-  action TEXT NOT NULL (IMAGE_ADDED, IMAGE_REMOVED, etc.)
-  actor_user_id UUID (FOREIGN KEY -> app_user.id, nullable)
-  payload JSONB NOT NULL DEFAULT '{}'
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  TRIGGERS: catalog_event_no_update, catalog_event_no_delete (prevent_modification)
-
-**catalog_identifier** (referenced in schema sanity checks)
-  UNKNOWN (file path searched: migrations, no definition found in sampled files)
-
-**2.8 CASE NUMBER SEQUENCING**
-
-**case_number_sequence** (tracking yearly case numbering)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  year SMALLINT NOT NULL
-  last_sequence INT NOT NULL DEFAULT 0
-  PRIMARY KEY(facility_id, year)
-
-**2.9 CONFIGURATION REGISTRY (LAW §5)**
-
-**platform_config_key** (typed registry with validation rules)
-  id UUID (PRIMARY KEY)
-  key VARCHAR(100) NOT NULL UNIQUE
-  value_type config_value_type NOT NULL DEFAULT 'STRING' (STRING, BOOLEAN, NUMBER, JSON)
-  validation_schema JSONB (nullable, JSON Schema for value validation)
-  default_value TEXT (code fallback value, LAW §5.5)
+Table: platform_config_key
+  id              UUID PK DEFAULT uuid_generate_v4()
+  key             VARCHAR(100) NOT NULL UNIQUE
+  value_type      config_value_type NOT NULL DEFAULT 'STRING'
+  validation_schema JSONB
+  default_value   TEXT
   allow_facility_override BOOLEAN NOT NULL DEFAULT true
-  risk_class config_risk_class NOT NULL DEFAULT 'LOW' (LOW, MEDIUM, HIGH, CRITICAL)
-  display_name VARCHAR(255) NOT NULL
-  description TEXT
-  category VARCHAR(100) NOT NULL DEFAULT 'general'
-  is_sensitive BOOLEAN NOT NULL DEFAULT false
-  deprecated_at TIMESTAMPTZ (nullable, soft delete)
+  risk_class      config_risk_class NOT NULL DEFAULT 'LOW'
+  display_name    VARCHAR(255) NOT NULL
+  description     TEXT
+  category        VARCHAR(100) NOT NULL DEFAULT 'general'
+  is_sensitive    BOOLEAN NOT NULL DEFAULT false
+  deprecated_at   TIMESTAMPTZ
   deprecated_reason TEXT
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-
-**platform_config_value** (versioned, append-only)
-  id UUID (PRIMARY KEY)
-  config_key_id UUID NOT NULL (FOREIGN KEY -> platform_config_key.id)
-  version INT NOT NULL DEFAULT 1
-  value TEXT
-  changed_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  change_reason TEXT
-  change_note TEXT
-  effective_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() (immutable for audit)
-  UNIQUE(config_key_id, version)
-  TRIGGERS: platform_config_value_no_update, platform_config_value_no_delete (prevent_config_value_modification)
-
-**facility_config_override** (versioned, append-only facility-level overrides)
-  id UUID (PRIMARY KEY)
-  facility_id UUID NOT NULL (FOREIGN KEY -> facility.id)
-  config_key_id UUID NOT NULL (FOREIGN KEY -> platform_config_key.id)
-  version INT NOT NULL DEFAULT 1
-  override_value TEXT (NULL means "use platform default")
-  changed_by_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  change_reason TEXT
-  change_note TEXT
-  effective_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  cleared_at TIMESTAMPTZ (nullable, soft delete to revert to platform default)
-  cleared_by_user_id UUID (FOREIGN KEY -> app_user.id, nullable)
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  UNIQUE(facility_id, config_key_id, version)
-  TRIGGERS: facility_config_override_no_update, facility_config_override_no_delete (prevent_config_value_modification)
-
-**config_audit_log** (append-only, LAW §11.1)
-  id UUID (PRIMARY KEY)
-  config_key VARCHAR(100) NOT NULL
-  scope config_scope NOT NULL (PLATFORM, FACILITY)
-  facility_id UUID (FOREIGN KEY -> facility.id, nullable, NULL for PLATFORM scope)
-  action VARCHAR(20) NOT NULL (SET, CLEAR, DEPRECATE)
-  old_value TEXT (previous value, masked for sensitive)
-  new_value TEXT (new value, masked for sensitive)
-  version_before INT
-  version_after INT
-  change_reason TEXT
-  change_note TEXT
-  actor_user_id UUID NOT NULL (FOREIGN KEY -> app_user.id)
-  actor_name VARCHAR(255) NOT NULL
-  actor_roles TEXT[] NOT NULL
-  request_id VARCHAR(100) (LAW §11.2 correlation ID)
-  ip_address VARCHAR(50)
-  user_agent TEXT
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() (immutable)
-  TRIGGERS: config_audit_log_no_update, config_audit_log_no_delete (prevent_modification)
-
-**2.10 AUDIT LOGGING**
-
-**auth_audit_log** (append-only authentication event audit, LAW §11.1)
-  id UUID (PRIMARY KEY)
-  event_type VARCHAR(50) NOT NULL (LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT)
-  facility_id UUID (FOREIGN KEY -> facility.id, nullable, NULL for platform admin logins)
-  user_id UUID (FOREIGN KEY -> app_user.id, nullable, NULL for failed logins)
-  username VARCHAR(255) NOT NULL (attempted username)
-  user_roles TEXT[] (nullable, roles at time of event, NULL for failed logins)
-  success BOOLEAN NOT NULL
-  failure_reason VARCHAR(100) (nullable, user_not_found, bad_password, account_disabled, facility_not_found)
-  request_id VARCHAR(100) (LAW §11.2 correlation ID)
-  ip_address VARCHAR(50)
-  user_agent TEXT
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() (immutable)
-  TRIGGERS: auth_audit_log_no_update, auth_audit_log_no_delete (prevent_modification)
-
----
-
-### 3. ENUMS AND STATUS FIELDS
-
-**user_role** (PLATFORM_ADMIN, ADMIN, SCHEDULER, INVENTORY_TECH, CIRCULATOR, SURGEON, SCRUB, ANESTHESIA)
-  Defined in: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
-  Consumed by: app_user.role (deprecated), app_user.roles[] (canonical), case_card_edit_log.editor_role
-  Migrations that modified: 006 (added SCRUB, ANESTHESIA), 045 (added PLATFORM_ADMIN)
-
-**case_status** (DRAFT, SCHEDULED, READY, IN_PROGRESS, COMPLETED, CANCELLED)
-  Defined in: 001_initial_schema.sql
-  Consumed by: surgical_case.status, surgical_case_status_event.to_status/from_status
-
-**readiness_state** (GREEN, ORANGE, RED)
-  Defined in: 001_initial_schema.sql
-  Consumed by: case_readiness_cache.readiness_state, attestation.readiness_state_at_time
-
-**item_category** (IMPLANT, INSTRUMENT, EQUIPMENT, MEDICATION, CONSUMABLE, PPE)
-  Defined in: 001_initial_schema.sql
-  Migrated in: 032_align_categories_with_law.sql (removed deprecated LOANER, HIGH_VALUE_SUPPLY)
-  Consumed by: item_catalog.category
-  LAW Reference: docs/LAW/catalog.md Section 4A (Engine Category)
-
-**sterility_status** (STERILE, NON_STERILE, EXPIRED, UNKNOWN)
-  Defined in: 001_initial_schema.sql
-  Consumed by: inventory_item.sterility_status, inventory_event.sterility_status
-
-**availability_status** (AVAILABLE, RESERVED, IN_USE, UNAVAILABLE, MISSING)
-  Defined in: 001_initial_schema.sql
-  Consumed by: inventory_item.availability_status
-
-**inventory_event_type** (RECEIVED, VERIFIED, LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED, EXPIRED, RETURNED, ADJUSTED)
-  Defined in: 001_initial_schema.sql
-  Consumed by: inventory_event.event_type
-
-**attestation_type** (CASE_READINESS, SURGEON_ACKNOWLEDGMENT)
-  Defined in: 001_initial_schema.sql
-  Consumed by: attestation.type
-
-**device_type** (barcode, rfid, nfc, other)
-  Defined in: 001_initial_schema.sql
-  Consumed by: device.device_type, device_event.device_type
-
-**device_payload_type** (scan, presence, input)
-  Defined in: 001_initial_schema.sql
-  Consumed by: device_event.payload_type
-
-**checklist_type** (TIMEOUT, DEBRIEF)
-  Defined in: 004_timeout_debrief.sql
-  Consumed by: checklist_template.type, case_checklist_instance.type
-
-**checklist_status** (NOT_STARTED, IN_PROGRESS, COMPLETED)
-  Defined in: 004_timeout_debrief.sql
-  Consumed by: case_checklist_instance.status
-
-**signature_method** (LOGIN, PIN, BADGE, KIOSK_TAP)
-  Defined in: 004_timeout_debrief.sql
-  Consumed by: case_checklist_signature.method
-
-**anesthesia_modality** (GENERAL, SPINAL, REGIONAL, MAC, LOCAL)
-  Defined in: 012_case_dashboard.sql
-  Consumed by: (referenced in schema-sanity.ts, actual column UNKNOWN)
-
-**attestation_state** (NOT_ATTESTED, ATTESTED, VOIDED)
-  Defined in: 012_case_dashboard.sql
-  Consumed by: (referenced in schema-sanity.ts, actual column UNKNOWN)
-
-**case_event_type** (CASE_CARD_LINKED, CASE_CARD_CHANGED, READINESS_ATTESTED, READINESS_VOIDED, OVERRIDE_ADDED, OVERRIDE_MODIFIED, OVERRIDE_REMOVED, SCHEDULING_CHANGED, ANESTHESIA_PLAN_CHANGED, CASE_CREATED, CASE_ACTIVATED, CASE_CANCELLED)
-  Defined in: 012_case_dashboard.sql
-  Consumed by: case_event_log.event_type (UNKNOWN location)
-
-**case_card_status** (DRAFT, ACTIVE, DEPRECATED)
-  Defined in: 011_case_cards.sql
-  Consumed by: case_card.status
-
-**case_type** (ELECTIVE, ADD_ON, TRAUMA, REVISION)
-  Defined in: 011_case_cards.sql
-  Consumed by: case_card.case_type
-
-**criticality** (CRITICAL, IMPORTANT, ROUTINE)
-  Defined in: 030_catalog_v1_1_risk_intent.sql
-  Consumed by: item_catalog.criticality
-  LAW Reference: docs/LAW/catalog.md v1.1
-
-**vendor_type** (MANUFACTURER, DISTRIBUTOR, LOANER_PROVIDER, CONSIGNMENT)
-  Defined in: 043_financial_attribution.sql
-  Consumed by: vendor.vendor_type
-
-**ownership_type** (OWNED, CONSIGNED, LOANER, GRATIS)
-  Defined in: 043_financial_attribution.sql
-  Consumed by: inventory_item.ownership_type, item_catalog.ownership_type
-
-**source_event_type** (PURCHASED, CONSIGNMENT_RECEIVED, LOANER_RECEIVED, SAMPLE, TRANSFER)
-  Defined in: 043_financial_attribution.sql
-  Consumed by: inventory_item.source_event_type
-
-**cost_override_reason** (CATALOG_ERROR, NEGOTIATED_DISCOUNT, VENDOR_CONCESSION, DAMAGE_CREDIT, EXPIRED_CREDIT, CONTRACT_ADJUSTMENT, GRATIS_CONVERSION, OTHER)
-  Defined in: 043_financial_attribution.sql
-  Consumed by: inventory_event.cost_override_reason
-
-**gratis_reason** (VENDOR_SAMPLE, VENDOR_SUPPORT, CLINICAL_TRIAL, GOODWILL, WARRANTY_REPLACEMENT, OTHER)
-  Defined in: 043_financial_attribution.sql
-  Consumed by: inventory_event.gratis_reason
-
-**config_scope** (PLATFORM, FACILITY)
-  Defined in: 047_config_registry.sql
-  Consumed by: platform_config_key, platform_config_value, facility_config_override, config_audit_log
-
-**config_value_type** (STRING, BOOLEAN, NUMBER, JSON)
-  Defined in: 047_config_registry.sql
-  Consumed by: platform_config_key.value_type
-
-**config_risk_class** (LOW, MEDIUM, HIGH, CRITICAL)
-  Defined in: 047_config_registry.sql
-  Consumed by: platform_config_key.risk_class
-
----
-
-### 4. MIGRATIONS
-
-**001_initial_schema.sql**
-  Core schema with facility, app_user, inventory, cases, preferences, attestations, devices
-  Creates enums: user_role, case_status, readiness_state, item_category, sterility_status, availability_status, inventory_event_type, attestation_type, device_type, device_payload_type
-  Creates trigger functions: prevent_modification(), update_updated_at()
-  Creates indexes for facility-scoped data and append-only tables
-
-**002_attestation_voiding.sql**
-  Adds voided_at and voided_by_user_id columns to attestation table
-  Replaces prevent-all-updates trigger with attestation_allow_void_only() allowing only voiding operations
-  Creates index for filtering non-voided attestations
-
-**003_cache_attestation_id.sql**
-  Adds attestation_id and surgeon_acknowledgment_id columns to case_readiness_cache
-  Enables void functionality in UI by tracking exact attestation records
-
-**004_timeout_debrief.sql**
-  Adds facility_settings, room, checklist_template, checklist_template_version tables
-  Adds case_checklist_instance, case_checklist_response, case_checklist_signature tables
-  Creates enums: checklist_type, checklist_status, signature_method
-  Seeds default TIMEOUT and DEBRIEF templates for existing facilities
-
-**005_debrief_conditional_signatures.sql**
-  Adds pending_scrub_review, pending_surgeon_review, scrub_review_completed_at, surgeon_review_completed_at to case_checklist_instance
-  Updates debrief template version with conditional signature metadata and role-specific fields
-  Implements async SCRUB/SURGEON review workflow
-
-**006_add_scrub_anesthesia_roles.sql**
-  Adds SCRUB and ANESTHESIA values to user_role enum
-  Enables conditional debrief signatures and cross-training
-
-**007_username_auth.sql**
-  Adds username column to app_user
-  Backfills from email prefix
-  Replaces email unique constraint with username unique constraint per facility
-  Makes email optional
-  Creates index for username lookups
-
-**008_case_active_status.sql**
-  Adds is_active, activated_at, activated_by_user_id, is_cancelled, cancelled_at, cancelled_by_user_id to surgical_case
-  Backfills existing data based on status column
-  Creates indexes for filtering by active/cancelled status
-
-**009_nullable_scheduled_date.sql**
-  Makes surgical_case.scheduled_date nullable (referenced in git status)
-
-**010_facility_key.sql**
-  Adds facility_key column to facility (multi-facility login identifier)
-  Backfills existing facility with default value
-  Makes facility_key NOT NULL UNIQUE
-  Creates index for login lookups
-
-**011_case_cards.sql**
-  Adds case_card, case_card_version, case_card_edit_log, case_card_feedback tables
-  Creates enums: case_card_status, case_type
-  case_card_edit_log is append-only with prevent_modification triggers
-  Implements one active version per procedure+surgeon+facility constraint
-
-**012_case_dashboard.sql**
-  Links surgical_case to case_card_version via case_card_version_id
-  Creates anesthesia_modality, attestation_state, case_event_type enums
-  Creates case_event_log table (details UNKNOWN)
-
-**013_modality_array_tiva.sql**
-  (Title suggests multiple anesthesia modalities and TIVA support; content not examined)
-
-**014_feedback_review.sql**
-  (Title suggests feedback and review features; content not examined)
-
-**015_case_card_governance.sql**
-  (Title suggests governance rules for case cards; content not examined)
-
-**016_case_specific_fields.sql**
-  (Title suggests case-specific field customization; content not examined)
-
-**017_drop_patient_mrn.sql**
-  Removes patient_mrn column from surgical_case (no PHI allowed per LAW)
-
-**018_case_request_approval_workflow.sql**
-  (Title suggests approval workflow for case requests; content not examined)
-
-**019_case_request_approval_columns.sql**
-  (Title suggests columns for approval tracking; content not examined)
-
-**020_case_number.sql**
-  Creates case_number_sequence table for yearly sequencing
-  Adds case_number column to surgical_case (format: YY-NNNNN-C with Luhn check digit)
-  Creates calculate_luhn_check_digit() and generate_case_number() functions
-  Backfills existing cases with generated case numbers
-  Makes case_number NOT NULL UNIQUE
-  Creates index for case_number lookups
-
-**021_multi_role_support.sql**
-  Adds roles user_role[] array column to app_user
-  Populates from existing single role column
-  Makes roles NOT NULL with default ARRAY['CIRCULATOR']
-  Creates GIN index for role array lookups
-
-**022_facility_config_items.sql**
-  (Title suggests facility configuration; content not examined)
-
-**023_room_scheduling.sql**
-  (Title suggests room scheduling features; content not examined)
-
-**024_room_sort_order.sql**
-  (Title suggests sort order for rooms; content not examined)
-
-**025_surgeon_color.sql**
-  (Title suggests color coding for surgeons; content not examined)
-
-**026_checklist_flag_for_review.sql**
-  (Title suggests flag marking for review; content not examined)
-
-**027_checklist_flag_comment.sql**
-  (Title suggests comments for flags; content not examined)
-
-**028_surgeon_checklist_feedback.sql**
-  (Title suggests surgeon feedback on checklists; content not examined)
-
-**029_admission_types.sql**
-  (Title suggests admission type categorization; content not examined)
-
-**030_catalog_v1_1_risk_intent.sql**
-  Adds criticality enum (CRITICAL, IMPORTANT, ROUTINE)
-  Adds requires_lot_tracking, requires_serial_tracking, requires_expiration_tracking, criticality, readiness_required, expiration_warning_days, substitutable to item_catalog
-  Creates indexes for criticality and readiness filtering
-  LAW Reference: docs/LAW/catalog.md v1.1
-
-**031_catalog_groups.sql**
-  (Title suggests grouping for catalog items; content not examined)
-
-**032_align_categories_with_law.sql**
-  Adds EQUIPMENT, MEDICATION, CONSUMABLE, PPE to item_category enum
-  Migrates LOANER → INSTRUMENT (with is_loaner = true)
-  Migrates HIGH_VALUE_SUPPLY → CONSUMABLE
-  Removes LOANER and HIGH_VALUE_SUPPLY enum values (recreates enum type)
-  LAW Reference: docs/LAW/catalog.md §4A
-
-**033_catalog_set_components.sql**
-  (Title suggests component composition for catalog sets; content not examined)
-
-**034_catalog_item_images.sql**
-  Creates catalog_item_image table with asset_url and source columns
-  Supports PRIMARY and REFERENCE image kinds
-  Enforces at most one PRIMARY image per catalog per facility
-  Images are documentation only, not evidence per LAW
-
-**035_case_card_composition.sql**
-  Adds components, overrides, composed_cache JSONB columns to case_card_version
-  components: Array of {preferenceCardVersionId, role?, label?} references
-  overrides: Array of {op, section?, match?, item?} patch operations
-  composed_cache: Cached result of composeCaseCardVersion (NULL = stale)
-
-**036_case_status_events.sql**
-  Creates surgical_case_status_event append-only table for status transition audit trail
-  Uses existing prevent_modification() function for append-only protection
-  Creates index for per-case timeline queries
-
-**037_catalog_event.sql**
-  Creates catalog_event append-only table for catalog changes (image additions, etc.)
-  Uses prevent_modification() triggers
-  Creates indexes for item and facility queries
-
-**038_barcode_support.sql**
-  (Title suggests barcode scanning support; content not examined)
-
-**039_roles_canonical.sql**
-  Makes roles[] the single canonical authorization column
-  Backfills roles[] from role column where NULL or empty
-  Adds CHECK constraint chk_roles_nonempty ensuring roles[] is never empty
-  Marks role column as DEPRECATED in comments (kept for backward compatibility)
-
-**040_idempotency_keys.sql**
-  (Title suggests idempotency key support; content not examined)
-
-**041_case_preop_phase.sql**
-  (Title suggests pre-operative phase tracking; content not examined)
-
-**042_case_preop_columns.sql**
-  (Title suggests pre-operative phase columns; content not examined)
-
-**043_financial_attribution.sql**
-  Creates vendor table with vendor_type enum (MANUFACTURER, DISTRIBUTOR, LOANER_PROVIDER, CONSIGNMENT)
-  Creates loaner_set table for tracking loaner trays
-  Creates catalog_cost_event append-only table for cost change audit
-  Adds ownership_type (OWNED, CONSIGNED, LOANER, GRATIS) and financial fields to item_catalog and inventory_item
-  Adds cost tracking fields (cost_snapshot_cents, cost_override_cents, is_gratis, etc.) to inventory_event
-  Creates enums: vendor_type, ownership_type, source_event_type, cost_override_reason, gratis_reason
-  Wave 1 of Financial Attribution implementation
-
-**044_catalog_container_flag.sql**
-  (Title suggests container flag for catalog items; content not examined)
-
-**045_platform_admin_role.sql**
-  Adds PLATFORM_ADMIN value to user_role enum (positioned first, indicating highest privilege)
-  LAW Reference: docs/LAW §3.1-3.2 (PLATFORM_ADMIN is no-tenant identity)
-
-**046_platform_admin_constraints.sql**
-  (Title suggests constraints for PLATFORM_ADMIN role; content not examined)
-
-**047_config_registry.sql**
-  Creates platform_config_key with typed registry (STRING, BOOLEAN, NUMBER, JSON)
-  Creates platform_config_value (versioned, append-only, immutable)
-  Creates facility_config_override (versioned, append-only, facility-level overrides)
-  Creates config_audit_log (append-only audit trail for all config changes)
-  Creates config_scope enum (PLATFORM, FACILITY)
-  Creates config_risk_class enum (LOW, MEDIUM, HIGH, CRITICAL)
-  Creates v_effective_config view for resolving: Facility override → Platform default → Code fallback
-  Seeds initial configuration keys for AI features, OpenAI API, session timeout, feature flags, kill switches
-  LAW Reference: docs/LAW §5 (Configuration Governance), §6.1 (versioning), §11.1-11.2 (audit)
-
-**048_auth_audit_log.sql**
-  Creates auth_audit_log append-only table for authentication event tracking
-  Tracks LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT events with facility/user/username/roles/failure_reason
-  Supports request correlation (request_id) and IP/user-agent tracking for incident reconstruction
-  Uses prevent_modification() triggers for append-only protection
-  LAW Reference: docs/LAW §11.1-11.2 (immutable audit, request correlation)
-
----
-
-### 5. SEED DATA
-
-**Location:**
-C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\seed.ts
-
-**Data Loaded:**
-
-Facility (1):
-  name: Demo Surgery Center
-  facility_key: ORTHOWISE_BETA (or from SEED_FACILITY_KEY env var)
-  timezone: America/New_York
-  address: 123 Medical Drive, Suite 100
-
-Users (7):
-  admin@demo.com (Admin) → username: admin
-  scheduler@demo.com (Scheduler) → username: scheduler
-  tech@demo.com (Inventory Tech) → username: tech
-  circulator@demo.com (Circulator) → username: circulator
-  scrub@demo.com (Scrub Tech) → username: scrub
-  drsmith@demo.com (Surgeon) → username: drsmith
-  drjones@demo.com (Surgeon) → username: drjones
-  Password: password123 (bcrypt hashed, cost factor 10)
-
-Locations (4):
-  OR Storage Room A (Main instrument storage)
-  OR Storage Room B (Implant storage)
-  Sterile Processing (Central sterilization)
-  Loaner Storage (Vendor loaner equipment)
-
-Catalog Items (9):
-  Hip Stem - Size 12 (IMPLANT)
-  Hip Stem - Size 14 (IMPLANT)
-  Acetabular Cup - 54mm (IMPLANT)
-  Knee Tibial Tray (IMPLANT)
-  Arthroscopy Scope 30deg (INSTRUMENT)
-  Arthroscopy Shaver Set (INSTRUMENT)
-  Power Drill System (INSTRUMENT, not loaner)
-  Vendor Specialty Tray - Spine (INSTRUMENT, is_loaner=true)
-  Surgical Mesh 10x15cm (CONSUMABLE, per current schema)
-
-Inventory Items (9):
-  8 items in AVAILABLE status with barcodes, sterility valid for 7 days
-  Missing: Vendor Specialty Tray - Spine (intentionally absent for RED case demo)
-
-Preference Cards (3):
-  Total Hip Arthroplasty (Dr. Smith) with 4 items
-  Total Knee Arthroplasty (Dr. Jones) with 2 items
-  Lumbar Fusion (Dr. Smith, missing loaner tray) with 2 items
-
-Surgical Cases (18 total):
-  Tomorrow:
-    Case 1: GREEN (all items available, Total Hip Arthroplasty, active)
-    Case 2: GREEN (all items available, Total Knee Arthroplasty, active)
-    Case 3: RED (missing loaner tray, Lumbar Fusion, active)
-  Day +2: 5 test cases (all active)
-  Day +3: 5 test cases (all active)
-  Day +4: 5 test cases (all active)
-  All cases have surgical_case_status_event records
-
-Device (1):
-  Scanner Station A (barcode scanner at OR Storage Room A)
-
-**Loading:**
-Seed runs via: npm run db:seed
-Idempotent: Checks if facility exists; skips if already seeded unless --reset flag
-Backfill: Uses generate_case_number() for case numbering
-Status Events: All seeded cases have corresponding status events
-Post-seed validation: schema-sanity.ts validates row counts and data quality
-
----
-
-### 6. FACTUAL INCONSISTENCIES OR DUPLICATIONS
-
-**Inconsistency 1: app_user.role vs app_user.roles[]**
-  Singularly deprecated role column remains in schema for backward compatibility
-  roles[] is canonical authorization column (CHECK constraint ensures non-empty)
-  Migration 039 backfilled roles[] and marked role as DEPRECATED
-  Current code must read roles[] exclusively; role column unused but kept for backward compat
-  File: app_user table definition in 001_initial_schema.sql and 021_multi_role_support.sql
-
-**Inconsistency 2: item_category enum removed and recreated**
-  Migration 032 (align_categories_with_law.sql) completely recreates item_category enum
-  Old values (LOANER, HIGH_VALUE_SUPPLY) are removed and data migrated
-  This is a schema-breaking change masked as additive migration
-  File: 032_align_categories_with_law.sql uses DROP TYPE + recreate pattern
-
-**Inconsistency 3: attestation modification trigger changed**
-  Migration 002 (attestation_voiding.sql) replaced simple prevent-all-updates trigger with attestation_allow_void_only()
-  This allows ONE specific modification (voiding) while blocking all others
-  Breaks append-only immutability principle by allowing selected updates
-  File: 002_attestation_voiding.sql
-
-**Inconsistency 4: case_readiness_cache is NOT a database materialized view**
-  Named and documented as cache but physically implemented as mutable table
-  Application code is responsible for invalidation and recomputation
-  No DATABASE-level refresh mechanism; entirely application-driven
-  File: 001_initial_schema.sql line 348-355 (comments explain rationale)
-
-**Inconsistency 5: item_catalog references HIGH_VALUE_SUPPLY which no longer exists**
-  Seed data (seed.ts line 114) labels Surgical Mesh as 'CONSUMABLE' but legacy code may expect 'HIGH_VALUE_SUPPLY'
-  Migration 032 converted HIGH_VALUE_SUPPLY → CONSUMABLE but no rollback protection
-  If seed runs against older schema, it will fail
-  File: seed.ts line 114 vs. 032_align_categories_with_law.sql
-
-**Inconsistency 6: case_event_log referenced but not fully defined**
-  schema-sanity.ts expects case_event_log table (line 41 in CRITICAL_TABLES)
-  Migration 012 (case_dashboard.sql) creates enums (case_event_type) but table definition UNKNOWN
-  Either migration file incomplete or table created in separate unexamined migration
-  File: apps/api/db/schema-sanity.ts vs. 012_case_dashboard.sql
-
-**Inconsistency 7: catalog_identifier referenced but not defined**
-  schema-sanity.ts expects catalog_identifier table (line 47 in CRITICAL_TABLES)
-  No migration file examined defines this table
-  Table creation UNKNOWN (may be in unexamined migration)
-  File: apps/api/db/schema-sanity.ts, migration files 029-048 not fully examined
-
-**Inconsistency 8: Multiple append-only trigger functions with same behavior**
-  prevent_modification() function reused across multiple tables (inventory_event, attestation, device_event, etc.)
-  Single function serves all append-only tables with identical behavior
-  If any table requires different append-only semantics, function must be duplicated
-  File: 001_initial_schema.sql creates prevent_modification(), reused throughout
-
-**Inconsistency 9: Platform config keys seeded but override mechanism uncompleted**
-  Migration 047 seeds 7 platform_config_key entries
-  No platform_config_value rows seeded (feature incomplete or optional)
-  facility_config_override allows overrides but facility-level data not seeded
-  File: 047_config_registry.sql lines 305-339 (seeds keys only, no values)
-
-**Inconsistency 10: case_card.status enum vs. surgical_case.status enum**
-  Both use status column but different enum types: case_card_status vs. case_status
-  No foreign key relationship between case_card and surgical_case in schema
-  surgical_case links to case_card_version (version ID), not case_card directly
-  File: 011_case_cards.sql and 012_case_dashboard.sql
-
-**Duplication 1: Readiness state represented twice**
-  readiness_state enum used in attestation.readiness_state_at_time
-  attestation_state enum (NOT_ATTESTED, ATTESTED, VOIDED) also defined in 012_case_dashboard.sql
-  Functional overlap: readiness_state + attestation_state may represent same semantic concept differently
-  File: 001_initial_schema.sql vs. 012_case_dashboard.sql
-
-**Duplication 2: Financial fields spread across multiple tables**
-  inventory_event has financial fields: cost_snapshot_cents, cost_override_reason, is_gratis, etc.
-  item_catalog also has financial fields: unit_cost_cents, ownership_type, consignment_vendor_id
-  catalog_cost_event tracks historical cost changes
-  No single source of truth for item cost at a given time
-  File: 043_financial_attribution.sql
-
----
-
-### 7. UNRESOLVED SCHEMA ELEMENTS
-
-**case_event_log**
-  Referenced in schema-sanity.ts CRITICAL_TABLES but definition UNKNOWN
-  Migration 012 creates enums but table not examined
-  Assumption: Append-only audit trail of case events (per LAW §11.1)
-  File: 012_case_dashboard.sql (content not fully examined)
-
-**catalog_identifier**
-  Referenced in schema-sanity.ts CRITICAL_TABLES but definition UNKNOWN
-  No migration file examined defines this table
-  Assumption: Identifier/SKU tracking for catalog items (financial wave 1)
-  File: Migrations 029-048 not fully examined
-
-**Migrations 013-031, 033-034, 038-046**
-  Contents not examined (time constraints)
-  Titles suggest features (modality arrays, feedback, governance, etc.)
-  Schema impact UNKNOWN but referenced in critical table list
-  Files: Named migrations in C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\
-
-**case_event_log composition**
-  Expected fields UNKNOWN
-  Enums defined: case_event_type (12 values including CASE_CARD_LINKED, READINESS_ATTESTED, etc.)
-  Append-only nature assumed (based on LAW §11.1 requirements)
-  File: 012_case_dashboard.sql
-
----
-
-END OF SNAPSHOT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
+  Created: 047
+
+Table: platform_config_value (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  config_key_id   UUID NOT NULL REFERENCES platform_config_key(id)
+  version         INT NOT NULL DEFAULT 1
+  value           TEXT
+  changed_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  change_reason   TEXT
+  change_note     TEXT
+  effective_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(config_key_id, version)
+  Triggers: no_update (prevent_config_value_modification), no_delete
+  Created: 047
+
+Table: facility_config_override (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  config_key_id   UUID NOT NULL REFERENCES platform_config_key(id)
+  version         INT NOT NULL DEFAULT 1
+  override_value  TEXT
+  changed_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  change_reason   TEXT
+  change_note     TEXT
+  effective_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  cleared_at      TIMESTAMPTZ
+  cleared_by_user_id UUID REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(facility_id, config_key_id, version)
+  Triggers: no_update (prevent_config_value_modification), no_delete
+  Created: 047
+
+--- ORGANIZATION MODEL (PHI) ---
+
+Table: organization
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  name            VARCHAR(255) NOT NULL
+  organization_type organization_type NOT NULL
+  is_active       BOOLEAN NOT NULL DEFAULT true
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(facility_id, name), UNIQUE partial idx (one active ASC per facility)
+  Created: 051
+
+Table: user_organization_affiliation
+  id              UUID PK DEFAULT uuid_generate_v4()
+  user_id         UUID NOT NULL REFERENCES app_user(id)
+  organization_id UUID NOT NULL REFERENCES organization(id)
+  affiliation_type affiliation_type NOT NULL DEFAULT 'PRIMARY'
+  is_active       BOOLEAN NOT NULL DEFAULT true
+  granted_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  granted_by_user_id UUID REFERENCES app_user(id)
+  revoked_at      TIMESTAMPTZ
+  revoked_by_user_id UUID REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(user_id, organization_id) WHERE is_active = true
+  Created: 052
+
+Table: case_access_grant
+  id              UUID PK DEFAULT uuid_generate_v4()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  case_id         UUID NOT NULL REFERENCES surgical_case(id)
+  granted_to_user_id UUID NOT NULL REFERENCES app_user(id)
+  granted_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  reason          VARCHAR(255) NOT NULL
+  granted_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  expires_at      TIMESTAMPTZ NOT NULL
+  revoked_at      TIMESTAMPTZ
+  revoked_by_user_id UUID REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Created: 053
+
+--- PATIENT IDENTITY (PHI) ---
+
+Table: patient
+  id              UUID PK DEFAULT gen_random_uuid()
+  facility_id     UUID NOT NULL REFERENCES facility(id)
+  mrn             TEXT NOT NULL
+  first_name      TEXT NOT NULL
+  last_name       TEXT NOT NULL
+  date_of_birth   DATE NOT NULL
+  gender          TEXT NOT NULL DEFAULT 'UNKNOWN' CHECK IN ('MALE','FEMALE','OTHER','UNKNOWN') (added 058)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(facility_id, mrn)
+  Triggers: updated_at (trg_patient_updated_at)
+  Created: 057
+
+--- SURGERY REQUEST (Phase 1 Readiness) ---
+
+Table: clinic
+  id              UUID PK DEFAULT uuid_generate_v4()
+  name            TEXT NOT NULL
+  clinic_key      TEXT UNIQUE NOT NULL
+  active          BOOLEAN NOT NULL DEFAULT true
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
+  Created: 059
+
+Table: clinic_api_key
+  id              UUID PK DEFAULT uuid_generate_v4()
+  clinic_id       UUID NOT NULL REFERENCES clinic(id) ON DELETE CASCADE
+  key_prefix      TEXT NOT NULL
+  key_hash        TEXT NOT NULL
+  active          BOOLEAN NOT NULL DEFAULT true
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Created: 059
+
+Table: patient_ref
+  id              UUID PK DEFAULT uuid_generate_v4()
+  clinic_id       UUID NOT NULL REFERENCES clinic(id)
+  clinic_patient_key TEXT NOT NULL
+  display_name    TEXT
+  birth_year      INT
+  dedupe_hash     TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(clinic_id, clinic_patient_key)
+  Triggers: updated_at
+  Created: 059
+
+Table: surgery_request
+  id              UUID PK DEFAULT uuid_generate_v4()
+  target_facility_id UUID NOT NULL REFERENCES facility(id)
+  source_clinic_id UUID NOT NULL REFERENCES clinic(id)
+  source_request_id TEXT NOT NULL
+  status          surgery_request_status NOT NULL DEFAULT 'SUBMITTED'
+  procedure_name  TEXT NOT NULL
+  surgeon_id      UUID REFERENCES app_user(id)
+  scheduled_date  DATE
+  scheduled_time  TIME
+  patient_ref_id  UUID NOT NULL REFERENCES patient_ref(id)
+  submitted_at    TIMESTAMPTZ NOT NULL
+  last_submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(source_clinic_id, source_request_id)
+  Triggers: updated_at
+  Created: 059
+
+Table: surgery_request_submission (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  request_id      UUID NOT NULL REFERENCES surgery_request(id) ON DELETE CASCADE
+  submission_seq  INT NOT NULL
+  submitted_at    TIMESTAMPTZ NOT NULL
+  received_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  payload_version INT NOT NULL DEFAULT 1
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(request_id, submission_seq)
+  Triggers: no_update, no_delete
+  Created: 059
+
+Table: surgery_request_checklist_template_version
+  id              UUID PK DEFAULT uuid_generate_v4()
+  target_facility_id UUID NOT NULL REFERENCES facility(id)
+  name            TEXT NOT NULL
+  version         INT NOT NULL
+  schema          JSONB NOT NULL
+  active          BOOLEAN NOT NULL DEFAULT true
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: UNIQUE(target_facility_id, name, version)
+  Created: 059
+
+Table: surgery_request_checklist_instance
+  id              UUID PK DEFAULT uuid_generate_v4()
+  request_id      UUID NOT NULL REFERENCES surgery_request(id) ON DELETE CASCADE
+  submission_id   UUID NOT NULL REFERENCES surgery_request_submission(id) ON DELETE CASCADE
+  template_version_id UUID NOT NULL REFERENCES surgery_request_checklist_template_version(id)
+  status          surgery_request_checklist_status NOT NULL DEFAULT 'PENDING'
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
+  Created: 059
+
+Table: surgery_request_checklist_response (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  instance_id     UUID NOT NULL REFERENCES surgery_request_checklist_instance(id) ON DELETE CASCADE
+  item_key        TEXT NOT NULL
+  response        JSONB NOT NULL
+  actor_type      surgery_request_actor_type NOT NULL
+  actor_clinic_id UUID REFERENCES clinic(id)
+  actor_user_id   UUID REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 059
+
+Table: surgery_request_audit_event (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  request_id      UUID NOT NULL REFERENCES surgery_request(id) ON DELETE CASCADE
+  submission_id   UUID REFERENCES surgery_request_submission(id)
+  event_type      surgery_request_event_type NOT NULL
+  actor_type      surgery_request_actor_type NOT NULL
+  actor_clinic_id UUID REFERENCES clinic(id)
+  actor_user_id   UUID REFERENCES app_user(id)
+  reason_code     TEXT
+  note            TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 059
+
+Table: surgery_request_conversion (APPEND-ONLY)
+  request_id      UUID PK REFERENCES surgery_request(id) ON DELETE CASCADE
+  surgical_case_id UUID UNIQUE NOT NULL REFERENCES surgical_case(id)
+  converted_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  converted_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  Triggers: no_update, no_delete
+  Created: 059
+
+--- FINANCIAL READINESS (Phase 2) ---
+
+Table: clinic_financial_declaration (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  surgery_request_id UUID NOT NULL REFERENCES surgery_request(id) ON DELETE CASCADE
+  state           clinic_financial_state NOT NULL
+  reason_codes    TEXT[] NOT NULL DEFAULT '{}'
+  note            TEXT
+  actor_clinic_id UUID NOT NULL REFERENCES clinic(id)
+  recorded_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 060
+
+Table: asc_financial_verification (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  surgery_request_id UUID NOT NULL REFERENCES surgery_request(id) ON DELETE CASCADE
+  state           asc_financial_state NOT NULL
+  reason_codes    TEXT[] NOT NULL DEFAULT '{}'
+  note            TEXT
+  verified_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: no_update, no_delete
+  Created: 060
+
+Table: financial_override (APPEND-ONLY)
+  id              UUID PK DEFAULT uuid_generate_v4()
+  surgery_request_id UUID NOT NULL REFERENCES surgery_request(id) ON DELETE CASCADE
+  state           override_state NOT NULL
+  reason_code     override_reason_code
+  note            TEXT
+  overridden_by_user_id UUID NOT NULL REFERENCES app_user(id)
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Constraints: chk_override_reason_code (NONE requires NULL reason_code; non-NONE requires it)
+  Triggers: no_update, no_delete
+  Created: 060
+
+Table: financial_readiness_cache (MUTABLE)
+  surgery_request_id UUID PK REFERENCES surgery_request(id) ON DELETE CASCADE
+  target_facility_id UUID NOT NULL REFERENCES facility(id)
+  clinic_state    clinic_financial_state NOT NULL DEFAULT 'UNKNOWN'
+  asc_state       asc_financial_state NOT NULL DEFAULT 'UNKNOWN'
+  override_state  override_state NOT NULL DEFAULT 'NONE'
+  risk_state      financial_risk_state NOT NULL DEFAULT 'UNKNOWN'
+  last_clinic_declaration_id UUID REFERENCES clinic_financial_declaration(id)
+  last_asc_verification_id UUID REFERENCES asc_financial_verification(id)
+  last_override_id UUID REFERENCES financial_override(id)
+  recomputed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  Triggers: updated_at
+  Created: 060
+
+================================================================================
+SECTION 4: VIEWS
+================================================================================
+
+View: v_effective_config
+  Purpose: Resolves effective configuration per facility (LAW 5.4)
+  Resolution order: Facility override -> Platform default -> Code fallback
+  Joins: platform_config_key CROSS JOIN facility LEFT JOIN platform_config_value LEFT JOIN facility_config_override
+  Created: 047
+
+================================================================================
+SECTION 5: DATABASE FUNCTIONS
+================================================================================
+
+Function: prevent_modification() -> TRIGGER
+  Raises exception on UPDATE/DELETE for append-only tables
+  Created: 001
+
+Function: update_updated_at() -> TRIGGER
+  Sets NEW.updated_at = NOW() on UPDATE
+  Created: 001
+
+Function: attestation_allow_void_only() -> TRIGGER
+  Allows UPDATE on attestation only for setting voided_at/voided_by_user_id from NULL
+  Created: 002
+
+Function: calculate_luhn_check_digit(digits TEXT) -> INT
+  Calculates Luhn check digit for case number generation
+  Created: 020
+
+Function: generate_case_number(p_facility_id UUID, p_created_at TIMESTAMPTZ) -> TEXT
+  Generates YY-NNNNN-C format case numbers with Luhn check digit
+  Created: 020
+
+Function: is_case_card_lock_expired(card_id UUID) -> BOOLEAN
+  Checks if a case card soft-lock has expired
+  Created: 015
+
+Function: clear_expired_case_card_lock(card_id UUID) -> VOID
+  Clears expired case card locks
+  Created: 015
+
+Function: prevent_config_value_modification() -> TRIGGER
+  Raises exception with custom message for config value tables
+  Created: 047
+
+Function: trg_patient_updated_at() -> TRIGGER
+  Sets NEW.updated_at = now() for patient table
+  Created: 057
+
+================================================================================
+SECTION 6: MIGRATIONS (COMPLETE ORDERED LIST)
+================================================================================
+
+001_initial_schema.sql
+  - Creates all base enums, core tables (facility, app_user, location, item_catalog, inventory_item, preference_card, preference_card_version, surgical_case, case_requirement, inventory_event, attestation, device, device_event, case_readiness_cache)
+  - Creates prevent_modification(), update_updated_at() functions
+  - Creates append-only triggers for inventory_event, attestation, device_event
+  - Creates updated_at triggers for mutable tables
+
+002_attestation_voiding.sql
+  - Adds voided_at, voided_by_user_id to attestation
+  - Replaces no_update trigger with attestation_allow_void_only
+
+003_cache_attestation_id.sql
+  - Adds attestation_id, surgeon_acknowledgment_id to case_readiness_cache
+
+004_timeout_debrief.sql
+  - Creates checklist_type, checklist_status, signature_method enums
+  - Creates facility_settings, room, checklist_template, checklist_template_version, case_checklist_instance, case_checklist_response, case_checklist_signature tables
+  - Seeds default TIMEOUT and DEBRIEF templates
+
+005_debrief_conditional_signatures.sql
+  - Adds pending_scrub_review, pending_surgeon_review, scrub_review_completed_at, surgeon_review_completed_at to case_checklist_instance
+  - Creates updated debrief template version with conditional signatures
+
+006_add_scrub_anesthesia_roles.sql
+  - Adds SCRUB, ANESTHESIA to user_role enum
+
+007_username_auth.sql
+  - Adds username to app_user, backfills from email
+  - Makes email nullable, adds UNIQUE(facility_id, username)
+
+008_case_active_status.sql
+  - Adds is_active, activated_at, activated_by_user_id, is_cancelled, cancelled_at, cancelled_by_user_id to surgical_case
+  - Backfills based on existing status
+
+009_nullable_scheduled_date.sql
+  - Makes surgical_case.scheduled_date nullable
+
+010_facility_key.sql
+  - Adds facility_key to facility, backfills, makes NOT NULL UNIQUE
+
+011_case_cards.sql
+  - Creates case_card_status, case_type enums
+  - Creates case_card, case_card_version, case_card_edit_log, case_card_feedback tables
+
+012_case_dashboard.sql
+  - Creates anesthesia_modality, attestation_state, case_event_type enums
+  - Adds case_card_version_id, attestation_state, attestation_void_reason, estimated_duration_minutes, laterality, or_room, scheduler_notes to surgical_case
+  - Creates case_anesthesia_plan, case_override, case_event_log tables
+
+013_modality_array_tiva.sql
+  - Adds TIVA to anesthesia_modality enum
+  - Converts modality column to array, renames to modalities
+
+014_feedback_review.sql
+  - Adds reviewed_at, reviewed_by_user_id, review_notes, review_action to case_card_feedback
+
+015_case_card_governance.sql
+  - Adds DELETED to case_card_status enum
+  - Adds soft-lock columns (locked_by_user_id, locked_at, lock_expires_at) to case_card
+  - Adds soft-delete columns (deleted_at, deleted_by_user_id, delete_reason) to case_card
+  - Adds action_type to case_card_edit_log
+  - Creates is_case_card_lock_expired(), clear_expired_case_card_lock() functions
+
+016_case_specific_fields.sql
+  - Adds case_type, procedure_codes, patient_flags to surgical_case
+
+017_drop_patient_mrn.sql
+  - Drops patient_mrn from surgical_case (HIPAA compliance)
+
+018_case_request_approval_workflow.sql
+  - Adds REQUESTED, REJECTED to case_status enum
+
+019_case_request_approval_columns.sql
+  - Adds requested_date, requested_time, rejected_at, rejected_by_user_id, rejection_reason to surgical_case
+
+020_case_number.sql
+  - Creates case_number_sequence table
+  - Adds case_number to surgical_case
+  - Creates calculate_luhn_check_digit(), generate_case_number() functions
+  - Backfills existing cases, makes case_number NOT NULL
+
+021_multi_role_support.sql
+  - Adds roles[] array column to app_user, backfills from role
+
+022_facility_config_items.sql
+  - Creates config_item_type enum
+  - Creates facility_config_item table
+  - Converts case_anesthesia_plan.modalities to TEXT[]
+  - Seeds default patient flags and anesthesia modalities
+
+023_room_scheduling.sql
+  - Adds room_id, sort_order to surgical_case
+  - Creates block_time, room_day_config tables
+
+024_room_sort_order.sql
+  - Adds sort_order to room table
+
+025_surgeon_color.sql
+  - Adds display_color to app_user
+
+026_checklist_flag_for_review.sql
+  - Adds flagged_for_review to case_checklist_signature
+  - Creates case_checklist_flag_resolution table
+
+027_checklist_flag_comment.sql
+  - Adds flag_comment to case_checklist_signature
+
+028_surgeon_checklist_feedback.sql
+  - Adds surgeon_notes, surgeon_flagged, surgeon_flagged_at, surgeon_flagged_comment to case_checklist_instance
+
+029_admission_types.sql
+  - Adds admission_types JSONB to surgical_case
+
+030_catalog_v1_1_risk_intent.sql
+  - Creates criticality enum
+  - Adds requires_lot_tracking, requires_serial_tracking, requires_expiration_tracking, criticality, readiness_required, expiration_warning_days, substitutable to item_catalog
+
+031_catalog_groups.sql
+  - Creates catalog_group, catalog_group_item tables
+
+032_align_categories_with_law.sql (NO_TX - runs without transaction)
+  - Adds EQUIPMENT, MEDICATION, CONSUMABLE, PPE to item_category
+  - Migrates LOANER->INSTRUMENT, HIGH_VALUE_SUPPLY->CONSUMABLE
+  - Replaces item_category enum (removes deprecated values)
+
+033_catalog_set_components.sql
+  - Creates catalog_set_component table
+
+034_catalog_item_images.sql
+  - Creates catalog_item_image table
+
+035_case_card_composition.sql
+  - Adds components, overrides, composed_cache to case_card_version
+
+036_case_status_events.sql
+  - Creates surgical_case_status_event table (append-only)
+
+037_catalog_event.sql
+  - Creates catalog_event table (append-only)
+
+038_barcode_support.sql
+  - Creates catalog_identifier table
+  - Adds barcode_classification, barcode_gtin, barcode_parsed_lot, barcode_parsed_serial, barcode_parsed_expiration, attestation_reason, attested_by_user_id, attested_at to inventory_item
+
+039_roles_canonical.sql
+  - Backfills roles[] from role column
+  - Adds CHECK constraint chk_roles_nonempty
+  - Deprecates role column via comment
+
+040_idempotency_keys.sql
+  - Creates idempotency_key table
+
+041_case_preop_phase.sql
+  - Adds IN_PREOP to case_status enum
+
+042_case_preop_columns.sql
+  - Adds preop_checked_in_at, preop_checked_in_by_user_id to surgical_case
+
+043_financial_attribution.sql
+  - Creates vendor_type, ownership_type, source_event_type, cost_override_reason, gratis_reason enums
+  - Creates vendor, loaner_set, catalog_cost_event tables
+  - Adds financial columns to item_catalog, inventory_item, inventory_event
+
+044_catalog_container_flag.sql
+  - Adds is_container to item_catalog with heuristic backfill
+
+045_platform_admin_role.sql
+  - Adds PLATFORM_ADMIN to user_role enum (BEFORE 'ADMIN')
+
+046_platform_admin_constraints.sql
+  - Makes app_user.facility_id nullable
+  - Adds chk_facility_id_by_role constraint
+
+047_config_registry.sql
+  - Creates config_scope, config_value_type, config_risk_class enums
+  - Creates platform_config_key, platform_config_value, facility_config_override, config_audit_log tables
+  - Creates v_effective_config view
+  - Seeds initial configuration keys
+
+048_auth_audit_log.sql
+  - Creates auth_audit_log table (append-only)
+
+049_case_card_link_events.sql
+  - Creates case_card_link_event table (append-only)
+
+050_location_active_status.sql
+  - Adds is_active to location table
+
+051_organization_model.sql
+  - Creates organization_type enum
+  - Creates organization table
+  - Backfills ASC org for each facility
+
+052_user_organization_affiliation.sql
+  - Creates affiliation_type enum
+  - Creates user_organization_affiliation table
+  - Backfills affiliations for existing users
+
+053_case_attribution_and_grants.sql
+  - Adds primary_organization_id to surgical_case
+  - Creates case_attribution_event (append-only), case_access_grant tables
+  - Backfills primary_organization_id for existing cases
+
+054_phi_access_audit_log.sql
+  - Creates phi_classification, access_purpose, access_outcome enums
+  - Creates phi_access_audit_log table (append-only)
+
+055_phi_phase3_audit_extensions.sql
+  - Adds is_emergency, emergency_justification to phi_access_audit_log
+  - Creates phi_export_audit_log table (append-only)
+
+056_phi_phase4_retention_breach.sql
+  - Adds breach_context to phi_access_audit_log
+  - Adds retention and audit analytics config keys
+
+057_phi_phase6_patient_identity.sql
+  - Creates patient table
+  - Adds patient_id to surgical_case
+
+058_phi_patient_gender.sql
+  - Adds gender to patient table with CHECK constraint (idempotent)
+
+059_surgery_request.sql
+  - Creates surgery_request_status, surgery_request_event_type, surgery_request_checklist_status, surgery_request_actor_type enums
+  - Creates clinic, clinic_api_key, patient_ref, surgery_request, surgery_request_submission, surgery_request_checklist_template_version, surgery_request_checklist_instance, surgery_request_checklist_response, surgery_request_audit_event, surgery_request_conversion tables
+
+060_financial_readiness.sql
+  - Creates clinic_financial_state, asc_financial_state, override_state, financial_risk_state, override_reason_code enums
+  - Creates clinic_financial_declaration, asc_financial_verification, financial_override, financial_readiness_cache tables
+
+061_backfill_missing_affiliations.sql
+  - Backfills user_organization_affiliation for users created after migration 052
+
+================================================================================
+SECTION 7: SEED DATA AND FIXTURES
+================================================================================
+
+Seed Script: apps/api/db/seed.ts
+  Idempotent: Checks for existing facility row, skips unless --reset flag
+  Reset mode: TRUNCATE facility CASCADE, TRUNCATE clinic CASCADE
+
+  Seeded entities:
+  - 1 facility (name: Demo Surgery Center, key: ORTHOWISE_BETA)
+  - 1 organization (type: ASC, linked to facility)
+  - 7 users (admin, scheduler, tech, circulator, scrub, drsmith, drjones)
+  - All users auto-affiliated with ASC organization
+  - 4 locations (OR Storage Room A, OR Storage Room B, Sterile Processing, Loaner Storage)
+  - 9 catalog items (6 implants/instruments, 1 consumable, 1 loaner)
+  - 9 inventory items (excluding the loaner tray to create RED case demo)
+  - 3 preference cards (THA, TKA, Lumbar Fusion) with versions
+  - 3 surgical cases for tomorrow (GREEN THA, GREEN TKA, RED Lumbar Fusion)
+  - 15 additional test cases for debrief testing (days +2, +3, +4)
+  - Status events for all seeded cases
+  - 1 device (Scanner Station A)
+  - 1 clinic (Demo Ortho Clinic, key: DEMO_CLINIC) with API key
+  - 1 checklist template version (Clinic Readiness)
+  - 3 patient_refs (John Doe, Jane Smith, Bob Wilson)
+  - 3 surgery requests (SUBMITTED, ACCEPTED, CONVERTED) with submissions, checklists, audit events
+  - 1 converted surgical_case (Lumbar Decompression, REQUESTED status)
+  - Financial readiness data for all 3 surgery requests (declarations, verifications, overrides, caches)
+
+Additional Seed/Script Files:
+  - apps/api/db/create-platform-admin.ts: Creates PLATFORM_ADMIN user (username: platform-admin, password: platform123)
+  - apps/api/db/smoke-test-surgery-request.ts: End-to-end test for surgery request lifecycle
+  - apps/api/db/smoke-test-financial-readiness.ts: End-to-end test for financial readiness lifecycle
+  - apps/api/db/schema-sanity.ts: Post-migration/seed validation script
+
+Schema Sanity Validation (schema-sanity.ts):
+  Critical tables checked: 28
+  Expected columns checked: 26
+  Required functions: generate_case_number, prevent_modification, calculate_luhn_check_digit
+  Append-only tables validated: 16
+  Post-seed row counts validated: 6 tables
+
+================================================================================
+SECTION 8: INCONSISTENCIES AND OBSERVATIONS
+================================================================================
+
+1. DEPRECATED COLUMN: app_user.role (singular)
+   - Superseded by app_user.roles[] array (migration 021, canonical per 039)
+   - Column kept for backward compatibility; comment says "will be dropped in a future migration"
+   - Still referenced in seed.ts INSERT statements (both role and roles written)
+
+2. DUAL PATIENT IDENTITY MODELS
+   - patient table (057): Full PHI identity domain (mrn, first_name, last_name, date_of_birth, gender) linked via surgical_case.patient_id
+   - patient_ref table (059): Minimal identity pointer for surgery requests (clinic_patient_key, display_name, birth_year) linked via surgery_request.patient_ref_id
+   - These serve different purposes (PHI-governed vs. clinic-facing) but create two separate patient reference paths
+
+3. ANESTHESIA MODALITY TYPE DRIFT
+   - anesthesia_modality enum exists (created 012, extended 013 with TIVA)
+   - case_anesthesia_plan.modalities column was converted from anesthesia_modality[] to TEXT[] in migration 022
+   - The enum still exists in the database but is no longer used by any column
+   - Modalities are now driven by facility_config_item table with config_item_type='ANESTHESIA_MODALITY'
+
+4. SURGICAL_CASE.OR_ROOM vs ROOM_ID
+   - surgical_case.or_room (VARCHAR(50), added 012): Free-text OR room field
+   - surgical_case.room_id (UUID FK to room, added 023): Structured room reference
+   - Both columns coexist; or_room is potentially redundant with room_id
+
+5. SURGICAL_CASE.CASE_TYPE DUPLICATION
+   - surgical_case.case_type (VARCHAR(50), added 016): Free-text field
+   - case_type enum (created 011): ELECTIVE, ADD_ON, TRAUMA, REVISION
+   - case_card.case_type (case_type enum): Uses the enum
+   - surgical_case.case_type is VARCHAR, not constrained by enum
+
+6. PREFERENCE_CARD vs CASE_CARD SYSTEMS
+   - preference_card / preference_card_version: Original surgeon preference template system
+   - case_card / case_card_version: Newer, more detailed case card system with governance
+   - Both systems coexist; case_card_version.components references preference_card_version IDs
+   - surgical_case references both: preference_card_version_id and case_card_version_id
+
+7. MISSING MIGRATION 058 IN SEQUENCE
+   - Migration files jump from 057_phi_phase6_patient_identity.sql to 059_surgery_request.sql
+   - 058_phi_patient_gender.sql exists but sorts after 060 by file timestamp
+   - Actual file order: 059, 060, 058, 061 (by modification time)
+   - Alphabetical sort order (used by migrator): 058, 059, 060, 061 — correct execution order
+
+8. TOTAL TABLE COUNT
+   - 65+ tables (including _migrations internal table)
+   - 36+ enum types
+   - 9 database functions
+   - 1 view (v_effective_config)
+
+================================================================================
+END OF DATABASE SNAPSHOT REPORT
+================================================================================

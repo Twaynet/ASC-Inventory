@@ -175,7 +175,7 @@ These have no connection to patient data, case data, or clinical workflows.
 | `/api/settings/*` | 8 | Rooms, surgeon display config |
 | `/api/case-cards/*` | 20 | Procedure templates — not patient-linked; surgeonName is template author |
 | `/api/general-settings/*` | 7 | Config items, dropdowns |
-| `/api/admin/settings/*` | 5 | Aggregated settings views |
+| `/api/admin/settings/*` | 1 | Aggregated settings view |
 | `/api/vendors/*` | 4 | Vendor CRUD |
 | `/api/loaner-sets/*` | 6 | Loaner equipment tracking — vendor/supply data |
 | `/api/attention/*` | 1 | Derived alerts — no case/patient identifiers |

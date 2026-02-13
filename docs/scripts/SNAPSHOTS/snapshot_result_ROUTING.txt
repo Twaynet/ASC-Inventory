@@ -1,415 +1,108 @@
-SNAPSHOT OF ROUTING STRUCTURE
-ASC-Inventory Application
-
-TOP-LEVEL SUMMARY
-
-Framework(s) used for routing:
-- Web: Next.js 13+ (App Router with route groups and dynamic segments)
-- API: Fastify (HTTP framework with route registration)
-
-High-level separation:
-- Web app: apps/web/src/app (Next.js App Router)
-- API: apps/api/src/routes (Fastify route modules)
-- Shared contract: packages/contract (Zod schemas and route definitions)
-
-APPLICATION ROUTES (WEB)
-
-Root Layout:
-  app/layout.tsx
-  app/page.tsx (redirects or landing)
-
-Root Error Handlers:
-  app/error.tsx
-  app/global-error.tsx
-
-Authentication Route:
-  app/login/page.tsx
-
-Route Group (app) - Authenticated Layout:
-  app/(app)/layout.tsx
-
-  Dashboard:
-    app/(app)/dashboard/page.tsx
-    app/(app)/case-cards/page.tsx
-    app/(app)/cases/page.tsx
-    app/(app)/unassigned-cases/page.tsx
-    app/(app)/help/page.tsx
-    app/(app)/preference-cards/page.tsx
-    app/(app)/pending-reviews/page.tsx
-
-  Calendar:
-    app/(app)/calendar/page.tsx
-
-  Case Management:
-    app/(app)/case/[caseId]/page.tsx
-    app/(app)/case/[caseId]/verify/page.tsx
-
-  Operating Room:
-    app/(app)/or/timeout/[caseId]/page.tsx
-    app/(app)/or/debrief/[caseId]/page.tsx
-
-  Surgeon Area:
-    app/(app)/surgeon/my-checklists/page.tsx
-
-  Admin Panel:
-    app/(app)/admin/cases/page.tsx
-    app/(app)/admin/locations/page.tsx
-    app/(app)/admin/users/page.tsx
-    app/(app)/admin/vendors/page.tsx
-    app/(app)/admin/loaner-sets/page.tsx
-    app/(app)/admin/reports/page.tsx
-    app/(app)/admin/pending-reviews/page.tsx
-
-    Catalog Management:
-      app/(app)/admin/catalog/page.tsx
-      app/(app)/admin/catalog/groups/page.tsx
-      app/(app)/admin/catalog/groups/[groupId]/page.tsx
-      app/(app)/admin/catalog/sets/page.tsx
-
-    Inventory Management:
-      app/(app)/admin/inventory/page.tsx
-      app/(app)/admin/inventory/check-in/page.tsx
-      app/(app)/admin/inventory/risk-queue/page.tsx
-
-    General Settings:
-      app/(app)/admin/general-settings/page.tsx
-      app/(app)/admin/general-settings/operating-rooms/page.tsx
-      app/(app)/admin/general-settings/surgeons/page.tsx
-      app/(app)/admin/general-settings/case-dashboard/page.tsx
-
-  Platform Control Plane:
-    app/(app)/platform/layout.tsx
-    app/(app)/platform/page.tsx
-
-API ROUTES (FASTIFY)
-
-Prefix Structure:
-  /api/[resource] - All API routes prefixed with /api
-
-Authentication (prefix: /api/auth):
-  POST /api/auth/login
-  GET /api/auth/me
-  POST /api/auth/logout
-
-Users (prefix: /api/users):
-  GET /api/users
-  GET /api/users/surgeons
-  GET /api/users/:id
-  POST /api/users
-  PATCH /api/users/:id
-  POST /api/users/:id/deactivate
-  POST /api/users/:id/activate
-
-Cases (prefix: /api/cases):
-  GET /api/cases [CONTRACT]
-  GET /api/cases/:caseId [CONTRACT]
-  PATCH /api/cases/:caseId [CONTRACT]
-  POST /api/cases/:caseId/approve [CONTRACT]
-  POST /api/cases/:caseId/reject [CONTRACT]
-  PATCH /api/cases/:caseId/assign-room [CONTRACT]
-  POST /api/cases [CONTRACT]
-  POST /api/cases/:caseId/activate [CONTRACT]
-  POST /api/cases/:caseId/deactivate [CONTRACT]
-  POST /api/cases/:caseId/cancel [CONTRACT]
-  POST /api/cases/:caseId/check-in-preop [CONTRACT]
-  GET /api/cases/:caseId/status-events [CONTRACT]
-  POST /api/cases/:id/preference-card
-  PUT /api/cases/:id/requirements
-  DELETE /api/cases/:id
-
-Inventory (prefix: /api/inventory):
-  POST /api/inventory/events [CONTRACT]
-  POST /api/inventory/events/bulk [CONTRACT]
-  POST /api/inventory/events/financial
-  POST /api/inventory/device-events
-  GET /api/inventory/devices
-  GET /api/inventory/items [CONTRACT]
-  GET /api/inventory/items/:itemId [CONTRACT]
-  POST /api/inventory/items [CONTRACT]
-  PATCH /api/inventory/items/:itemId [CONTRACT]
-  GET /api/inventory/items/:itemId/history [CONTRACT]
-  GET /api/inventory/risk-queue [CONTRACT]
-
-Readiness (prefix: /api/readiness):
-  GET /api/readiness/day-before
-  GET /api/readiness/calendar-summary
-  GET /api/readiness/cases/:id
-  POST /api/readiness/attestations
-  GET /api/readiness/cases/:id/attestations
-  POST /api/readiness/attestations/:id/void
-  GET /api/readiness/cases/:id/verification
-  POST /api/readiness/refresh
-
-Checklists (prefix: /api):
-  GET /api/facility/settings
-  PATCH /api/facility/settings
-  GET /api/rooms
-  GET /api/checklists/templates
-  GET /api/checklists/templates/:type
-  PUT /api/checklists/templates/:type
-  PATCH /api/checklists/templates/:type
-  PUT /api/surgeon/checklists/:instanceId/feedback
-  PATCH /api/surgeon/checklists/:instanceId/feedback
-  GET /api/cases/:id/checklists
-  POST /api/cases/:id/checklists/start
-  POST /api/cases/:id/checklists/:type/respond
-  POST /api/cases/:id/checklists/:type/sign
-  POST /api/cases/:id/checklists/:type/complete
-  POST /api/cases/:id/checklists/debrief/async-review
-  GET /api/pending-reviews
-  GET /api/my-pending-reviews
-  GET /api/flagged-reviews
-  POST /api/flagged-reviews/:signatureId/resolve
-  POST /api/flagged-reviews/:instanceId/resolve-surgeon-flag
-  GET /api/surgeon/my-checklists
-
-Locations (prefix: /api/locations):
-  GET /api/locations
-  POST /api/locations
-
-Catalog (prefix: /api/catalog):
-  GET /api/catalog [CONTRACT]
-  (Additional routes for catalog management)
-
-Catalog Groups (prefix: /api/catalog/groups):
-  POST /api/catalog/groups [CONTRACT]
-  (Additional group management routes)
-
-Catalog Sets (prefix: /api/catalog/sets):
-  POST /api/catalog/sets [CONTRACT]
-  (Additional set management routes)
-
-Catalog Images (prefix: /api/catalog):
-  (Image management routes)
-
-Preference Cards (prefix: /api/preference-cards):
-  POST /api/preference-cards [CONTRACT]
-  (Additional preference card routes)
-
-Settings (prefix: /api/settings):
-  POST /api/settings/rooms
-  GET /api/settings/surgeons
-
-General Settings (prefix: /api/general-settings):
-  POST /api/general-settings/config-items
-  PUT /api/general-settings/config-items/reorder
-  PATCH /api/general-settings/config-items/reorder
-
-Case Cards (prefix: /api/case-cards):
-  POST /api/case-cards [CONTRACT]
-  GET /api/case-cards/surgeons
-
-Case Dashboard (prefix: /api/case-dashboard):
-  (Dashboard-specific routes)
-
-Reports (prefix: /api/reports):
-  GET /api/reports
-
-Schedule (prefix: /api/schedule):
-  GET /api/schedule/day
-  GET /api/schedule/unassigned
-  POST /api/schedule/block-times
-
-Admin Settings (prefix: /api/admin/settings):
-  GET /api/admin/settings
-  GET /api/admin/settings/facility
-  GET /api/admin/settings/surgeons
-
-AI (prefix: /api/ai):
-  POST /api/ai/explain-readiness
-
-Platform (prefix: /api/platform):
-  GET /api/platform/health
-  GET /api/platform/facilities
-
-Platform Config (prefix: /api/platform-config):
-  GET /api/platform-config/keys
-
-Vendors (prefix: /api/vendors):
-  (Vendor management routes)
-
-Loaner Sets (prefix: /api/loaner-sets):
-  GET /api/loaner-sets/open
-  GET /api/loaner-sets/overdue
-  (Additional loaner set routes)
-
-Health Check:
-  GET /api/health
-
-ROUTE GROUPING AND LAYOUT BOUNDARIES
-
-Route Groups (Next.js):
-  (app) - Authenticated wrapper
-    Path: apps/web/src/app/(app)/layout.tsx
-    Contains all authenticated routes
-    Boundary enforces: Authentication guard via AuthGuard component
-
-  (app)/platform - Platform control plane
-    Path: apps/web/src/app/(app)/platform/layout.tsx
-    Boundary enforces: Platform admin separation (LAW §2.3)
-
-  (app)/admin - Admin section
-    Implicit grouping by directory structure
-    Prefix: /admin
-    Contains all administrative and settings routes
-
-  (app)/or - Operating room routes
-    Prefix: /or
-    Contains: /or/timeout and /or/debrief routes
-
-API Route Grouping (Fastify):
-  Routes organized into feature modules (files in apps/api/src/routes/)
-  Each module registered with a prefix in index.ts
-  Prefixes establish clear separation:
-    - /api/auth (authentication)
-    - /api/users (user management)
-    - /api/cases (case operations)
-    - /api/inventory (inventory operations)
-    - /api/readiness (readiness queries)
-    - /api/admin (platform admin)
-    - /api/platform (control plane - LAW §2.3)
-
-  [CONTRACT] marked routes:
-    Routes validated against @asc/contract schemas
-    Use registerContractRoute helper
-    Defines API contract for client generation
-
-NAMING COLLISIONS OR AMBIGUITIES
-
-Factual observations (no speculation):
-
-1. Route name ambiguity - "reviews":
-   - /api/pending-reviews (global view for admins)
-   - /api/my-pending-reviews (user-specific view for surgeons)
-   Potential confusion: Same resource name with different scoping
-   Resolution: Prefix distinguishes by scope
-
-2. Checklists routing ambiguity:
-   - Multiple route patterns for checklist operations:
-     /api/cases/:id/checklists/start
-     /api/cases/:id/checklists/:type/respond
-     /api/cases/:id/checklists/:type/sign
-     /api/cases/:id/checklists/:type/complete
-   Potential confusion: Mix of action-based and nested segment patterns
-   Status: Appears intentional (different operation types)
-
-3. Singular/plural inconsistency in API:
-   - Catalog routes use singular: /api/catalog
-   - Checklists routes use plural: /api/checklists
-   - Users routes use plural: /api/users
-   - Inventory routes use plural: /api/inventory
-   Resolution: No collision (different prefixes and modules)
-
-4. Settings endpoint duplication:
-   - /api/settings/rooms and /api/settings/surgeons (prefix: /api/settings)
-   - /api/general-settings/... (prefix: /api/general-settings)
-   Potential confusion: Two separate "settings" route prefixes
-   Status: Appears intentional (different configuration domains)
-
-5. Surgeons endpoint duplication:
-   - GET /api/users/surgeons
-   - GET /api/settings/surgeons
-   - GET /api/admin/settings/surgeons
-   Potential confusion: Same resource type accessed via different paths
-   Status: Likely intentional (different scopes and use cases)
-
-6. Case-related routes - singular vs. nested:
-   - Individual case view: GET /api/cases/:caseId (contract)
-   - Case-specific readiness: GET /api/readiness/cases/:id
-   - Case checklist management: GET /api/cases/:id/checklists
-   Potential confusion: Similar resources at different endpoints
-   Status: Appears intentional (domain separation: cases vs. readiness)
-
-7. Web app route name conflicts:
-   - /cases (list cases) at (app)/cases/page.tsx
-   - /case/[caseId] (case detail) at (app)/case/[caseId]/page.tsx
-   Naming: Inconsistent singular/plural usage
-   Status: Likely intentional distinction (list vs. detail semantics)
-
-NOTES ON INFERRED INTENT
-
-Based on naming and structure:
-
-1. Authentication:
-   - Single login endpoint (POST /api/auth/login)
-   - Facility key + username pattern suggests multi-tenant design
-   - JWT-based sessions (GET /api/auth/me, POST /api/auth/logout)
-   Intent: Support facility-scoped user management
-
-2. Case management workflow:
-   - Cases have status lifecycle: REQUESTED → SCHEDULED → IN_PROGRESS → COMPLETED
-   - Separate approval, rejection, activation, deactivation endpoints
-   - Checklist gates before IN_PROGRESS and COMPLETED transitions
-   Intent: Structured approval and readiness verification workflow
-
-3. Inventory verification:
-   - Device events (POST /api/inventory/device-events) separate from verification events
-   - Candidate lookup before confirmation
-   - Separate financial attribution endpoint
-   Intent: Multi-step human-confirmed verification process
-
-4. Readiness system:
-   - Day-before readiness aggregation (GET /api/readiness/day-before)
-   - Separate attestation model (CASE_READINESS, SURGEON_ACKNOWLEDGMENT)
-   - Void-able attestations (no hard delete)
-   Intent: Audit-trail-based readiness protocol
-
-5. OR checklists:
-   - Time Out and Debrief checklists in separate routes (OR)
-   - Async review workflow for debrief checklists
-   - Flagged signature resolution system
-   Intent: Post-operative debriefing and compliance verification
-
-6. Platform control plane:
-   - Separate /api/platform prefix and app/(app)/platform routes
-   - LAW §2.3 explicitly mentions separation
-   Intent: Tenant isolation and platform admin functionality
-
-7. Admin vs. surgeon routes:
-   - /api/surgeon/my-checklists (surgeon personal)
-   - /api/admin/settings (platform admin)
-   - /api/admin/pending-reviews (admin review)
-   Intent: Role-based route separation
-
-8. Route contract binding:
-   - [CONTRACT] annotation on routes
-   - registerContractRoute helper
-   Intent: API-driven contract testing and client code generation
-
-VERIFICATION STATEMENTS
-
-Framework identification:
-  - Next.js: Confirmed by presence of app/ directory with page.tsx files, layout.tsx, (route groups), and [dynamic] segments
-  - Fastify: Confirmed by fastify.get(), fastify.post() patterns and fastify.register() route mounting
-
-Route method identification:
-  - HTTP verbs extracted from code patterns in route files (fastify.get, fastify.post, etc.)
-
-Dynamic route parameters:
-  - Web: [caseId], [groupId], :id, :type detected in path names
-  - API: :caseId, :itemId, :id, :type, :signatureId, :instanceId detected in route definitions
-
-Prefix verification:
-  - API prefixes from fastify.register(module, { prefix: '/api/...' }) in index.ts
-
-Route grouping:
-  - Next.js: (app) notation indicates route group semantics
-  - Fastify: Module-based organization with explicit prefixes
-
-UNKNOWN DETAILS
-
-The following details could not be verified from code inspection:
-
-- GET routes in catalog-groups, catalog-sets, catalog-images modules: UNKNOWN (files not fully read)
-- Additional loaner-sets routes beyond /open and /overdue: UNKNOWN (file not fully read)
-- Additional preference-cards routes beyond POST: UNKNOWN (file not fully read)
-- Additional case-cards routes beyond POST and /surgeons: UNKNOWN (file not fully read)
-- Additional case-dashboard routes: UNKNOWN (file not fully read)
-- Exact schema for all contract routes: UNKNOWN (contract package not inspected)
-- Specific response pagination or filtering options: UNKNOWN (individual route handlers not fully analyzed)
-
-Files searched:
-  - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts
-  - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\*.ts
-  - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\**\page.tsx
-  - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\**\layout.tsx
+ROUTING SNAPSHOT - COMPLETE ANALYSIS
+================================================================================
+
+**Generated:** 2026-02-12
+**Framework(s) Used:**
+- Web: Next.js 14.2.0 (App Router)
+- API: Fastify 4.27.0 (plugin pattern)
+
+**High-Level Separation:**
+- Web app: Separate Next.js application with file-system routing under `apps/web/src/app`
+- API: Separate Fastify server with plugin-based route registration under `apps/api/src/routes`
+- All API routes prefixed with `/api/`
+- Production: Caddy reverse proxy routes `/api/*` → `api:3001`, `/*` → `web:3000`
+
+================================================================================
+WEB APPLICATION ROUTES (Next.js App Router - File System Based)
+================================================================================
+
+**Root Layout:** `apps/web/src/app/layout.tsx`
+- Provides: AuthProvider, PersonaProvider, global CSS, theme script
+- Applies to: All routes
+
+**Unauthenticated Routes:**
+```
+/                 → page.tsx (redirects based on auth)
+/login            → login/page.tsx
+```
+
+**Route Group (app):** `(app)/layout.tsx`
+- Applies: AuthGuard wrapper to all nested routes
+- URL impact: None (parentheses indicate grouping only)
+- All routes below require authentication
+
+**Authenticated Routes:**
+```
+Dashboard & Navigation:
+  /dashboard                  → (app)/dashboard/page.tsx
+  /calendar                   → (app)/calendar/page.tsx
+  /help                       → (app)/help/page.tsx
+
+Case Management:
+  /cases                      → (app)/cases/page.tsx
+  /case-cards                 → (app)/case-cards/page.tsx
+  /case/[caseId]              → (app)/case/[caseId]/page.tsx (dynamic)
+  /case/[caseId]/verify       → (app)/case/[caseId]/verify/page.tsx (dynamic)
+
+Operating Room Workflows:
+  /or/timeout/[caseId]        → (app)/or/timeout/[caseId]/page.tsx (dynamic)
+  /or/debrief/[caseId]        → (app)/or/debrief/[caseId]/page.tsx (dynamic)
+
+User-Specific:
+  /surgeon/my-checklists      → (app)/surgeon/my-checklists/page.tsx
+  /pending-reviews            → (app)/pending-reviews/page.tsx
+  /unassigned-cases           → (app)/unassigned-cases/page.tsx
+  /phi/patients               → (app)/phi/patients/page.tsx
+
+Administrative (/admin):
+  /admin/cases                → (app)/admin/cases/page.tsx
+  /admin/users                → (app)/admin/users/page.tsx
+  /admin/locations            → (app)/admin/locations/page.tsx
+  /admin/vendors              → (app)/admin/vendors/page.tsx
+
+  /admin/catalog              → (app)/admin/catalog/page.tsx
+  /admin/catalog/groups       → (app)/admin/catalog/groups/page.tsx
+  /admin/catalog/groups/[groupId] → (app)/admin/catalog/groups/[groupId]/page.tsx (dynamic)
+  /admin/catalog/sets         → (app)/admin/catalog/sets/page.tsx
+
+  /admin/inventory            → (app)/admin/inventory/page.tsx
+  /admin/inventory/check-in   → (app)/admin/inventory/check-in/page.tsx
+  /admin/inventory/risk-queue → (app)/admin/inventory/risk-queue/page.tsx
+
+  /admin/general-settings     → (app)/admin/general-settings/page.tsx
+  /admin/general-settings/case-dashboard → (app)/admin/general-settings/case-dashboard/page.tsx
+  /admin/general-settings/facility → (app)/admin/general-settings/facility/page.tsx
+  /admin/general-settings/operating-rooms → (app)/admin/general-settings/operating-rooms/page.tsx
+  /admin/general-settings/surgeons → (app)/admin/general-settings/surgeons/page.tsx
+
+  /admin/loaner-sets          → (app)/admin/loaner-sets/page.tsx
+  /admin/preference-cards     → (app)/preference-cards/page.tsx
+  /admin/pending-reviews      → (app)/admin/pending-reviews/page.tsx
+  /admin/reports              → (app)/admin/reports/page.tsx
+  /admin/phi-audit            → (app)/admin/phi-audit/page.tsx
+
+  /admin/surgery-requests     → (app)/admin/surgery-requests/page.tsx
+  /admin/surgery-requests/[id] → (app)/admin/surgery-requests/[id]/page.tsx (dynamic)
+
+  /admin/financial-readiness  → (app)/admin/financial-readiness/page.tsx
+  /admin/financial-readiness/[requestId] → (app)/admin/financial-readiness/[requestId]/page.tsx (dynamic)
+
+Platform Control Plane:
+  /platform                   → (app)/platform/page.tsx (custom layout at platform/layout.tsx)
+```
+
+================================================================================
+API ROUTES (Fastify)
+================================================================================
+
+**All routes prefixed with `/api/`**
+**Registration:** `apps/api/src/index.ts` lines 182-216
+
+**Admin Settings (prefix: /api/admin/settings)** → `admin-settings.routes.ts`
+```
+GET  /api/admin/settings   Aggregator: returns all settings (facility, rooms, surgeons, config items)
+```
+
+================================================================================
+END OF ROUTING SNAPSHOT
+================================================================================

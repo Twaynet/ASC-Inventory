@@ -1,326 +1,640 @@
-ENVIRONMENT VARIABLES
+================================================================================
+CONFIGURATION SNAPSHOT
+================================================================================
+Generated: 2026-02-12
+Purpose: Audit all environment variables, scripts, feature flags, Docker
+         configuration, and hard-coded values
 
-NODE_ENV
-Purpose: Sets application execution mode (development or production)
-Defining or Consuming: apps/api/src/index.ts, apps/api/.env, docker-compose.yml, docker-compose.prod.yml
+================================================================================
+1) ENVIRONMENT VARIABLES
+================================================================================
 
-PORT
-Purpose: HTTP server listening port for API service
-Defining or Consuming: apps/api/src/index.ts, apps/api/.env (3001), docker-compose.yml (3001), docker-compose.prod.yml (3001)
+Variable: NODE_ENV
+Purpose: Runtime environment mode (development/production)
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (lines 67, 238)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\clinic-auth.ts (line 19)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 28)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 57)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\Dockerfile (line 49)
 
-HOST
-Purpose: HTTP server binding host address for API service
-Defining or Consuming: apps/api/src/index.ts, default 0.0.0.0
+Variable: PORT
+Purpose: API server listening port
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 60)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 29)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 58)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\Dockerfile (line 50)
 
-LOG_LEVEL
-Purpose: Pino logger output level (info, debug, warn, error)
-Defining or Consuming: apps/api/src/index.ts, default info
+Variable: HOST
+Purpose: API server bind host
+Defining: Not defined (defaults to 0.0.0.0)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 61)
 
-DB_HOST
-Purpose: PostgreSQL server hostname
-Defining or Consuming: apps/api/src/db/index.ts, apps/api/.env, apps/api/db/migrate.ts, apps/api/db/seed.ts
+Variable: LOG_LEVEL
+Purpose: Logging verbosity level
+Defining: Not defined (defaults to info)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 66)
 
-DB_PORT
-Purpose: PostgreSQL server port
-Defining or Consuming: apps/api/src/db/index.ts, apps/api/.env (5432), apps/api/db/migrate.ts, apps/api/db/seed.ts
+Variable: DB_HOST
+Purpose: PostgreSQL database hostname
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\db\index.ts (line 9)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\seed.ts (line 15)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrate.ts (line 17)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 30)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 59)
 
-DB_NAME
+Variable: DB_PORT
+Purpose: PostgreSQL database port
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\db\index.ts (line 10)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\seed.ts (line 16)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrate.ts (line 18)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 31)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 60)
+
+Variable: DB_NAME
 Purpose: PostgreSQL database name
-Defining or Consuming: apps/api/src/db/index.ts, apps/api/.env (asc_inventory), apps/api/db/migrate.ts, apps/api/db/seed.ts
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\db\index.ts (line 11)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\seed.ts (line 17)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrate.ts (line 19)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 32)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 61)
 
-DB_USER
-Purpose: PostgreSQL authentication username
-Defining or Consuming: apps/api/src/db/index.ts, apps/api/.env (postgres), apps/api/db/migrate.ts, apps/api/db/seed.ts
+Variable: DB_USER
+Purpose: PostgreSQL database username
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\db\index.ts (line 12)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\seed.ts (line 18)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrate.ts (line 20)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 33)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 62)
 
-DB_PASSWORD
-Purpose: PostgreSQL authentication password
-Defining or Consuming: apps/api/src/db/index.ts, apps/api/.env, apps/api/db/migrate.ts, apps/api/db/seed.ts, docker-compose.prod.yml
+Variable: DB_PASSWORD
+Purpose: PostgreSQL database password
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\db\index.ts (line 13)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\seed.ts (line 19)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrate.ts (line 21)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 34)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 63)
 
-DB_SSL
-Purpose: Enable TLS for PostgreSQL connections (required for Neon, disabled for local)
-Defining or Consuming: apps/api/src/db/index.ts, apps/api/db/migrate.ts, apps/api/db/seed.ts
+Variable: DB_SSL
+Purpose: Enable SSL for PostgreSQL connection (for Neon/cloud)
+Defining: Not defined (defaults to false)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\db\index.ts (line 6)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\seed.ts (line 12)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrate.ts (line 14)
 
-JWT_SECRET
-Purpose: HMAC signing secret for JWT token generation and verification
-Defining or Consuming: apps/api/src/index.ts, apps/api/src/plugins/auth.ts, apps/api/.env, .env.example, docker-compose.yml, docker-compose.prod.yml
+Variable: JWT_SECRET
+Purpose: Secret key for JWT token signing
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 102)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts (line 69)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 35)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 64)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\.env.example (line 15)
 
-CORS_ORIGIN
-Purpose: Allowed origin for Cross-Origin Resource Sharing requests
-Defining or Consuming: apps/api/src/index.ts, apps/api/.env (http://localhost:3000), docker-compose.yml, docker-compose.prod.yml (https://beta.orthowise.dev)
+Variable: CORS_ORIGIN
+Purpose: Allowed CORS origin for web client
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 75)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 36)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 66)
 
-AI_EXPLAIN_READINESS_ENABLED
-Purpose: Feature flag to enable AI-powered case readiness explanation endpoint
-Defining or Consuming: apps/api/src/routes/ai.routes.ts, apps/api/.env (true)
+Variable: CLINIC_KEY_SECRET
+Purpose: HMAC secret for clinic API key authentication
+Defining: Not in dev .env (required in production)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\clinic-auth.ts (line 16)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 65)
 
-OPENAI_API_KEY
-Purpose: API key for OpenAI API access (gpt-4o-mini model)
-Defining or Consuming: apps/api/src/services/ai.service.ts, apps/api/.env
+Variable: AI_EXPLAIN_READINESS_ENABLED
+Purpose: Feature flag for AI explain-readiness endpoint
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 75)
 
-NEXT_PUBLIC_API_URL
-Purpose: Base URL for API requests from web frontend (NEXT_PUBLIC prefix exposes to client bundle)
-Defining or Consuming: apps/web/src/lib/api/client.ts, apps/web/.env.local, apps/web/Dockerfile ARG, docker-compose.yml, docker-compose.prod.yml
+Variable: OPENAI_API_KEY
+Purpose: OpenAI API key for AI features
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\api\.env
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\ai.service.ts (line 148)
 
-NEXT_PUBLIC_VERSION
-Purpose: Application version string exposed in client bundle for Footer display
-Defining or Consuming: apps/web/Dockerfile ARG, apps/web/src/app/components/Footer.tsx
+Variable: NEXT_PUBLIC_API_URL
+Purpose: API base URL for web client (baked at build time)
+Defining: C:\Users\missp\source\repos\ASC-Inventory\apps\web\.env.local
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts (line 20)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 52)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 80)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\web\Dockerfile (line 9, 15)
 
-NEXT_PUBLIC_BUILD_TIME
-Purpose: Build timestamp exposed in client bundle for Footer display
-Defining or Consuming: apps/web/Dockerfile ARG, apps/web/next.config.js, apps/web/src/app/components/Footer.tsx
+Variable: NEXT_PUBLIC_VERSION
+Purpose: Application version (from git tag, baked at build time)
+Defining: Build argument in Dockerfile
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\Footer.tsx (line 6)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\web\Dockerfile (line 6, 12)
 
-NEXT_PUBLIC_COMMIT_SHA
-Purpose: Git commit SHA hash exposed in client bundle for Footer display
-Defining or Consuming: apps/web/Dockerfile ARG, apps/web/next.config.js, apps/web/src/app/components/Footer.tsx
+Variable: NEXT_PUBLIC_BUILD_TIME
+Purpose: Build timestamp (baked at build time)
+Defining: Build argument in Dockerfile
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\Footer.tsx (line 7)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\web\Dockerfile (line 7, 13)
 
-IMAGE_TAG
-Purpose: Docker image version tag for pulling pre-built images from ghcr.io
-Defining or Consuming: .env.example, docker-compose.prod.yml
+Variable: NEXT_PUBLIC_COMMIT_SHA
+Purpose: Git commit SHA (baked at build time)
+Defining: Build argument in Dockerfile / next.config.js
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\Footer.tsx (line 8)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\web\Dockerfile (line 8, 14)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\web\next.config.js (lines 3-6, 13)
 
-POSTGRES_PASSWORD
+Variable: POSTGRES_USER
+Purpose: PostgreSQL superuser username
+Defining: docker-compose files
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 8)
+
+Variable: POSTGRES_PASSWORD
 Purpose: PostgreSQL superuser password
-Defining or Consuming: .env.example, docker-compose.prod.yml
+Defining: C:\Users\missp\source\repos\ASC-Inventory\.env.example
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 9)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 26)
 
-SEED_FACILITY_KEY
-Purpose: Facility key identifier for database seed demo data
-Defining or Consuming: apps/api/db/seed.ts, default ORTHOWISE_BETA
+Variable: POSTGRES_DB
+Purpose: PostgreSQL initial database name
+Defining: docker-compose files
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 10)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 27)
 
-DEVELOPMENT AND PRODUCTION SCRIPTS
+Variable: IMAGE_TAG
+Purpose: Docker image version tag for production deployment
+Defining: C:\Users\missp\source\repos\ASC-Inventory\.env.example
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (lines 53, 74)
 
-Web Development Server
-Command: npm run dev (from apps/web directory) or turbo run dev (from root)
-Associated Service: asc-web
-Port Bindings: 3000 (varies with multiple instances: 3000, 3002, 3003+)
+Variable: SEED_FACILITY_KEY
+Purpose: Override facility key during database seeding
+Defining: Not defined (defaults to ORTHOWISE_BETA)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\seed.ts (line 45)
 
-API Development Server
-Command: npm run dev (from apps/api directory) with tsx watch, uses .env file
-Associated Service: asc-api
-Port Bindings: 3001
+Variable: REGISTRY
+Purpose: Container registry URL for GitHub Actions
+Defining: C:\Users\missp\source\repos\ASC-Inventory\.github\workflows\cd.yml (line 14)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\.github\workflows\cd.yml (lines 36, 44, 55)
 
-API Build
-Command: npm run build (from apps/api directory)
-Associated Service: asc-api
-Output: TypeScript to JavaScript transpilation in apps/api/dist
+Variable: API_IMAGE_NAME
+Purpose: API Docker image name for GitHub Actions
+Defining: C:\Users\missp\source\repos\ASC-Inventory\.github\workflows\cd.yml (line 15)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\.github\workflows\cd.yml (lines 44, 93)
 
-API Start
-Command: npm start (from apps/api directory)
-Associated Service: asc-api
-Port Bindings: 3001
+Variable: WEB_IMAGE_NAME
+Purpose: Web Docker image name for GitHub Actions
+Defining: C:\Users\missp\source\repos\ASC-Inventory\.github\workflows\cd.yml (line 16)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\.github\workflows\cd.yml (lines 55, 94)
 
-Web Build
-Command: npm run build (from apps/web directory)
-Associated Service: asc-web
-Output: Next.js production bundle
+Variable: NODE_VERSION
+Purpose: Node.js version for GitHub Actions CI
+Defining: C:\Users\missp\source\repos\ASC-Inventory\.github\workflows\ci.yml (line 10)
+Consuming: C:\Users\missp\source\repos\ASC-Inventory\.github\workflows\ci.yml (line 23)
 
-Web Start
-Command: npm start (from apps/web directory)
-Associated Service: asc-web
-Port Bindings: 3000
+================================================================================
+2) DEVELOPMENT AND PRODUCTION SCRIPTS
+================================================================================
 
-Database Migration
-Command: npm run db:migrate (from root) or node --import tsx db/migrate.ts (from apps/api)
-Associated Service: PostgreSQL
-Purpose: Execute SQL migration files in apps/api/db/migrations
+Script: dev
+Command: turbo run dev
+Service: All workspaces (root)
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 11)
+Port bindings: 3000 (web), 3001 (api)
 
-Database Seed
-Command: npm run db:seed (from root) or node --import tsx db/seed.ts (from apps/api)
-Associated Service: PostgreSQL
-Purpose: Populate database with demo data for development
+Script: dev:clean
+Command: npx rimraf apps/web/.next && turbo run dev
+Service: All workspaces (root)
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 12)
+Port bindings: 3000 (web), 3001 (api)
 
-Database Schema Sanity Check
-Command: npm run db:check (from root)
-Associated Service: PostgreSQL
-Purpose: Verify database schema consistency
+Script: build
+Command: turbo run build
+Service: All workspaces (root)
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 13)
+Port bindings: None
 
-Root Development (Parallel)
-Command: npm run dev (from root with turbo)
-Associated Service: asc-web, asc-api, PostgreSQL
-Port Bindings: Web on 3000, API on 3001, PostgreSQL on 5432
+Script: lint
+Command: turbo run lint
+Service: All workspaces (root)
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 14)
+Port bindings: None
 
-Root Build (Parallel)
-Command: npm run build (from root with turbo)
-Associated Service: All packages and apps
-Purpose: Build domain package, contract package, API, and web in order
+Script: test
+Command: turbo run test
+Service: All workspaces (root)
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 15)
+Port bindings: None
 
-Root Lint
-Command: npm run lint (from root with turbo)
-Purpose: ESLint across all workspaces
+Script: db:migrate
+Command: cd apps/api && npm run db:migrate
+Service: Database
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 16)
+Port bindings: None (connects to DB_PORT)
 
-Root Test
-Command: npm run test (from root with turbo)
-Purpose: Vitest across all workspaces
+Script: db:seed
+Command: cd apps/api && node --import tsx db/seed.ts
+Service: Database
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 17)
+Port bindings: None (connects to DB_PORT)
 
-Generate OpenAPI
-Command: npm run generate:openapi (from root)
-Associated Service: @asc/contract
-Purpose: Generate OpenAPI specification from TypeScript routes
+Script: db:check
+Command: cd apps/api && npm run db:check
+Service: Database
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 18)
+Port bindings: None (connects to DB_PORT)
 
-Generate Client
-Command: npm run generate:client (from root)
-Associated Service: @asc/contract
-Purpose: Generate TypeScript API client from OpenAPI spec
+Script: validate:docs
+Command: npx tsx scripts/validate-docs.ts
+Service: Documentation
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 19)
+Port bindings: None
 
-Validate Documentation
-Command: npm run validate:docs (from root)
-Purpose: Run documentation validation script
+Script: validate:doc
+Command: npx tsx scripts/validate-docs.ts
+Service: Documentation
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 20)
+Port bindings: None
 
-Validate Capabilities
-Command: npm run validate:capabilities (from root)
-Purpose: Run CI capability guardrails validation
+Script: validate:capabilities
+Command: npx tsx scripts/ci-capability-guardrails.ts
+Service: Validation
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 21)
+Port bindings: None
 
-Validate API Modules
-Command: npm run validate:api-modules (from root)
-Purpose: Run CI API modules validation
+Script: validate:api-modules
+Command: npx tsx scripts/ci-api-modules.ts
+Service: Validation
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 22)
+Port bindings: None
 
-FEATURE FLAGS
+Script: generate:openapi
+Command: npx tsx packages/contract/scripts/generate-openapi.ts
+Service: Code generation
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 23)
+Port bindings: None
 
-AI_EXPLAIN_READINESS_ENABLED
-Flag Name: AI_EXPLAIN_READINESS_ENABLED
-Storage Mechanism: Environment variable (apps/api/.env)
-What the Flag Gates: POST /api/ai/explain-readiness endpoint; when not set to 'true', endpoint returns 501 Not Implemented; controls AI-powered readiness explanation feature gated behind OpenAI API integration
+Script: generate:client
+Command: npx tsx packages/contract/scripts/generate-client.ts
+Service: Code generation
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 24)
+Port bindings: None
 
-CONTAINER AND DOCKER CONFIGURATION
+Script: generate:all
+Command: npm run generate:openapi && npm run generate:client
+Service: Code generation
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 25)
+Port bindings: None
 
-Development Compose File
-Path: docker-compose.yml
+Script: validate:contracts
+Command: npm test --workspace=@asc/contract
+Service: Validation
+File: C:\Users\missp\source\repos\ASC-Inventory\package.json (line 26)
+Port bindings: None
+
+Script: dev (web)
+Command: next dev
+Service: Web (Next.js)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\package.json (line 6)
+Port bindings: 3000 (default)
+
+Script: build (web)
+Command: next build
+Service: Web (Next.js)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\package.json (line 7)
+Port bindings: None
+
+Script: start (web)
+Command: next start
+Service: Web (Next.js)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\package.json (line 8)
+Port bindings: 3000 (default)
+
+Script: lint (web)
+Command: next lint
+Service: Web (Next.js)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\package.json (line 9)
+Port bindings: None
+
+Script: test (web)
+Command: vitest run
+Service: Web (Next.js)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\package.json (line 10)
+Port bindings: None
+
+Script: dev (api)
+Command: tsx watch --env-file=.env src/index.ts
+Service: API (Fastify)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\package.json (line 8)
+Port bindings: 3001
+
+Script: build (api)
+Command: tsc
+Service: API (Fastify)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\package.json (line 9)
+Port bindings: None
+
+Script: start (api)
+Command: node dist/index.js
+Service: API (Fastify)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\package.json (line 10)
+Port bindings: 3001
+
+Script: lint (api)
+Command: eslint "src/**/*.ts"
+Service: API (Fastify)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\package.json (line 11)
+Port bindings: None
+
+Script: test (api)
+Command: vitest run
+Service: API (Fastify)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\package.json (line 12)
+Port bindings: None
+
+Script: db:migrate (api)
+Command: node --import tsx db/migrate.ts && node --import tsx db/schema-sanity.ts
+Service: Database
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\package.json (line 13)
+Port bindings: None (connects to DB_PORT)
+
+Script: db:seed (api)
+Command: node --import tsx db/seed.ts && node --import tsx db/schema-sanity.ts --post-seed
+Service: Database
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\package.json (line 14)
+Port bindings: None (connects to DB_PORT)
+
+Script: db:check (api)
+Command: node --import tsx db/schema-sanity.ts
+Service: Database
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\package.json (line 15)
+Port bindings: None (connects to DB_PORT)
+
+Script: build (domain)
+Command: tsc
+Service: Domain package
+File: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\package.json (line 8)
+Port bindings: None
+
+Script: dev (domain)
+Command: tsc --watch
+Service: Domain package
+File: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\package.json (line 9)
+Port bindings: None
+
+Script: lint (domain)
+Command: eslint "src/**/*.ts"
+Service: Domain package
+File: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\package.json (line 10)
+Port bindings: None
+
+Script: build (contract)
+Command: tsc
+Service: Contract package
+File: C:\Users\missp\source\repos\ASC-Inventory\packages\contract\package.json (line 8)
+Port bindings: None
+
+Script: dev (contract)
+Command: tsc --watch
+Service: Contract package
+File: C:\Users\missp\source\repos\ASC-Inventory\packages\contract\package.json (line 9)
+Port bindings: None
+
+Script: test (contract)
+Command: vitest run
+Service: Contract package
+File: C:\Users\missp\source\repos\ASC-Inventory\packages\contract\package.json (line 10)
+Port bindings: None
+
+Script: lint (contract)
+Command: eslint "src/**/*.ts"
+Service: Contract package
+File: C:\Users\missp\source\repos\ASC-Inventory\packages\contract\package.json (line 11)
+Port bindings: None
+
+================================================================================
+3) FEATURE FLAGS
+================================================================================
+
+Flag: AI_EXPLAIN_READINESS_ENABLED
+Storage: Environment variable
+Gates: AI explain-readiness endpoint at /api/ai/explain-readiness
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\ai.routes.ts (line 75)
+Value check: Must be exactly 'true' (string)
+Default: Disabled (undefined or any other value)
+
+Note: No other feature flags detected in codebase. PHI_CLINICAL access control
+is enforced via requirePhiAccess guard but is not a toggle (always enforced).
+
+================================================================================
+4) CONTAINER AND DOCKER CONFIGURATION
+================================================================================
+
+File: docker-compose.yml
+Purpose: Development environment with local build and volume mounts
 Services: postgres, api, web
-Named Volumes: postgres_data
-Port Mappings: postgres 5432:5432, api 3001:3001, web 3000:3000
-Shared Volumes: postgres migrations from apps/api/db/migrations, api src from apps/api/src, web src from apps/web/src (all read-only in dev)
+Postgres:
+  - Image: postgres:16-alpine
+  - Container name: asc-postgres
+  - Ports: 5432:5432
+  - Volumes: postgres_data:/var/lib/postgresql/data
+  - Volumes: ./apps/api/db/migrations:/docker-entrypoint-initdb.d:ro
+  - Environment: POSTGRES_USER=postgres, POSTGRES_PASSWORD=postgres, POSTGRES_DB=asc_inventory
+  - Healthcheck: pg_isready -U postgres (interval 5s, timeout 5s, retries 5)
+API:
+  - Build context: . (root)
+  - Dockerfile: apps/api/Dockerfile
+  - Container name: asc-api
+  - Ports: 3001:3001
+  - Environment: NODE_ENV=development, PORT=3001, DB_HOST=postgres, DB_PORT=5432, DB_NAME=asc_inventory, DB_USER=postgres, DB_PASSWORD=postgres, JWT_SECRET=dev-secret-change-in-production-abc123, CORS_ORIGIN=http://localhost:3000
+  - Volumes: ./packages:/app/packages:ro, ./apps/api/src:/app/apps/api/src:ro
+  - Depends on: postgres (healthy)
+Web:
+  - Build context: . (root)
+  - Dockerfile: apps/web/Dockerfile
+  - Container name: asc-web
+  - Ports: 3000:3000
+  - Environment: NEXT_PUBLIC_API_URL=http://localhost:3001/api
+  - Volumes: ./apps/web/src:/app/apps/web/src:ro, ./packages:/app/packages:ro
+  - Depends on: api
 
-Production Compose File
-Path: docker-compose.prod.yml
+File: docker-compose.prod.yml
+Purpose: Production environment with pre-built images from registry
 Services: postgres, caddy, api, web
-Named Volumes: postgres_data, caddy_data, caddy_config
-Port Mappings: caddy 80:80 and 443:443 (public), postgres internal only, api internal via expose 3001, web internal via expose 3000
-Image Sources: ghcr.io/twaynet/asc-inventory-api:${IMAGE_TAG}, ghcr.io/twaynet/asc-inventory-web:${IMAGE_TAG}
-Restart Policy: unless-stopped for all services
-Certificate Volumes: /etc/caddy/certs/origin.pem and origin-key.pem (read-only, not committed)
+Postgres:
+  - Image: postgres:16-alpine
+  - Container name: asc-postgres
+  - Restart: unless-stopped
+  - Environment: POSTGRES_USER=postgres, POSTGRES_PASSWORD=${POSTGRES_PASSWORD}, POSTGRES_DB=asc_inventory
+  - Volumes: postgres_data:/var/lib/postgresql/data
+  - Healthcheck: pg_isready -U postgres (interval 5s, timeout 5s, retries 5)
+Caddy:
+  - Image: caddy:2-alpine
+  - Container name: asc-caddy
+  - Restart: unless-stopped
+  - Ports: 80:80, 443:443
+  - Volumes: ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro, ./caddy/certs:/etc/caddy/certs:ro, caddy_data:/data, caddy_config:/config
+  - Depends on: api, web
+API:
+  - Image: ghcr.io/twaynet/asc-inventory-api:${IMAGE_TAG}
+  - Container name: asc-api
+  - Restart: unless-stopped
+  - Environment: NODE_ENV=production, PORT=3001, DB_HOST=postgres, DB_PORT=5432, DB_NAME=asc_inventory, DB_USER=postgres, DB_PASSWORD=${POSTGRES_PASSWORD}, JWT_SECRET=${JWT_SECRET}, CLINIC_KEY_SECRET=${CLINIC_KEY_SECRET}, CORS_ORIGIN=https://beta.orthowise.dev
+  - Expose: 3001 (internal only)
+  - Depends on: postgres (healthy)
+Web:
+  - Image: ghcr.io/twaynet/asc-inventory-web:${IMAGE_TAG}
+  - Container name: asc-web
+  - Restart: unless-stopped
+  - Environment: NEXT_PUBLIC_API_URL=https://beta.orthowise.dev/api (documentation only, baked at build)
+  - Expose: 3000 (internal only)
+  - Depends on: api
+Volumes:
+  - postgres_data
+  - caddy_data
+  - caddy_config
 
-API Dockerfile
-Path: apps/api/Dockerfile
-Base Image: node:20-alpine (builder and production stages)
-Build Output: /app/apps/api/dist
-Exposed Port: 3001
-Start Command: node dist/index.js
-Dependencies Managed: npm ci for deterministic builds
-Database Scripts: /app/apps/api/db included for runtime migrations
-Environment: NODE_ENV=production (hardcoded in Dockerfile), PORT=3001 (hardcoded in Dockerfile)
+File: apps/api/Dockerfile
+Purpose: Multi-stage build for API service
+Base: node:20-alpine
+Stages: builder, production
+Builder stage:
+  - Workdir: /app
+  - Copy: package.json, package-lock.json, turbo.json, workspace package.json files
+  - Run: npm ci
+  - Copy: source code for domain, contract, api
+  - Build: domain → contract → api (in order)
+Production stage:
+  - Workdir: /app
+  - Copy: package.json, package-lock.json, turbo.json, workspace package.json files
+  - Run: npm ci --omit=dev
+  - Copy from builder: dist artifacts for domain, contract, api
+  - Copy from builder: apps/api/db (migrations and scripts)
+  - Environment: NODE_ENV=production, PORT=3001
+  - Expose: 3001
+  - CMD: node dist/index.js
 
-Web Dockerfile
-Path: apps/web/Dockerfile
-Base Image: node:20-alpine
-Build Arguments: VERSION (default dev), BUILD_TIME (default dev), COMMIT_SHA (default dev), NEXT_PUBLIC_API_URL (default https://beta.orthowise.dev/api)
-Exposed Port: 3000
-Start Command: npm run start (Next.js production server)
-Build Output: /app/apps/web/.next
-Environment: NEXT_PUBLIC_* args passed as ENV during build for baking into client bundle
+File: apps/web/Dockerfile
+Purpose: Single-stage build for web service with build-time variables
+Base: node:20-alpine
+Build arguments: VERSION=dev, BUILD_TIME=dev, COMMIT_SHA=dev, NEXT_PUBLIC_API_URL=https://beta.orthowise.dev/api
+Environment variables: NEXT_PUBLIC_VERSION, NEXT_PUBLIC_BUILD_TIME, NEXT_PUBLIC_COMMIT_SHA, NEXT_PUBLIC_API_URL
+Workdir: /app
+Copy: package.json, package-lock.json, turbo.json, workspace package.json files
+Run: npm ci
+Copy: source code for domain, contract, web
+Build: domain → contract → web (in order)
+Expose: 3000
+CMD: npm run start (in /app/apps/web)
 
-HARD-CODED URLS, PORTS, AND HOSTNAMES
+File: caddy/Caddyfile
+Purpose: Reverse proxy and TLS termination for production
+Domain: beta.orthowise.dev
+TLS: /etc/caddy/certs/origin.pem, /etc/caddy/certs/origin-key.pem
+Headers: X-Origin=droplet
+Routes:
+  - /api/* → reverse_proxy api:3001
+  - /* → reverse_proxy web:3000
 
-API Server Default Port
-Value: 3001
-File Paths: apps/api/src/index.ts, apps/api/.env, docker-compose.yml, docker-compose.prod.yml, apps/web/Dockerfile, Caddyfile
+================================================================================
+5) HARD-CODED URLs, PORTS, AND HOSTNAMES
+================================================================================
 
-API Server Default Host
-Value: 0.0.0.0
-File Paths: apps/api/src/index.ts
+Value: http://localhost:3000
+Purpose: Default CORS origin for development
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 75)
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 36)
 
-Web Server Default Port
+Value: http://localhost:3001/api
+Purpose: Default API URL for web client
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts (line 20)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\.env.local (line 1)
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 52)
+
 Value: 3000
-File Paths: docker-compose.yml, docker-compose.prod.yml, Caddyfile
+Purpose: Web application default port
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 54)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\Dockerfile (line 39)
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 82)
 
-Web Server Default API URL
-Value: http://localhost:3001/api
-File Paths: apps/api/src/index.ts (CORS default), apps/web/src/lib/api/client.ts
+Value: 3001
+Purpose: API server default port
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 60)
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 29, 38)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\Dockerfile (line 50, 52)
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 58, 68)
+File: C:\Users\missp\source\repos\ASC-Inventory\caddy\Caddyfile (line 7)
 
-PostgreSQL Default Port
 Value: 5432
-File Paths: apps/api/src/db/index.ts, apps/api/db/migrate.ts, apps/api/db/seed.ts, docker-compose.yml, docker-compose.prod.yml
+Purpose: PostgreSQL default port
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\db\index.ts (line 10)
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 12, 31)
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 60)
 
-PostgreSQL Default Database Name
-Value: asc_inventory
-File Paths: apps/api/src/db/index.ts, apps/api/db/migrate.ts, apps/api/db/seed.ts, docker-compose.yml, docker-compose.prod.yml
+Value: 0.0.0.0
+Purpose: API server bind address (all interfaces)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\index.ts (line 61)
 
-PostgreSQL Default User
+Value: localhost
+Purpose: Default database host for local development
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\db\index.ts (line 9)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\seed.ts (line 15)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrate.ts (line 17)
+
 Value: postgres
-File Paths: apps/api/src/db/index.ts, docker-compose.yml, docker-compose.prod.yml
+Purpose: Database hostname in Docker Compose network
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.yml (line 30)
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 59)
 
-PostgreSQL Default Password
-Value: postgres (dev only, insecure for development)
-File Paths: apps/api/src/db/index.ts, apps/api/.env, docker-compose.yml
-
-Production Domain
 Value: beta.orthowise.dev
-File Paths: docker-compose.prod.yml (CORS_ORIGIN), Caddyfile
+Purpose: Production domain name
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 66)
+File: C:\Users\missp\source\repos\ASC-Inventory\caddy\Caddyfile (line 1)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\Dockerfile (line 9)
 
-Production API URL
 Value: https://beta.orthowise.dev/api
-File Paths: apps/web/Dockerfile NEXT_PUBLIC_API_URL default, docker-compose.prod.yml, apps/api/src/index.ts
+Purpose: Production API URL (baked into web build)
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 80)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\Dockerfile (line 9)
 
-Localhost API URL (Development)
-Value: http://localhost:3001/api
-File Paths: apps/web/.env.local, apps/api/src/index.ts, apps/web/src/lib/api/client.ts, apps/web/src/app/(app)/calendar/components/DayView.tsx
+Value: ghcr.io
+Purpose: GitHub Container Registry URL
+File: C:\Users\missp\source\repos\ASC-Inventory\.github\workflows\cd.yml (line 14)
 
-Caddy Reverse Proxy Targets
-Value: api:3001 for /api/*, web:3000 for all other routes
-File Paths: caddy/Caddyfile
+Value: ghcr.io/twaynet/asc-inventory-api
+Purpose: API Docker image repository
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 53)
 
-Caddy TLS Certificate Paths
-Value: /etc/caddy/certs/origin.pem, /etc/caddy/certs/origin-key.pem
-File Paths: caddy/Caddyfile
+Value: ghcr.io/twaynet/asc-inventory-web
+Purpose: Web Docker image repository
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 74)
 
-JWT Token Expiration
-Value: 24h
-File Paths: apps/api/src/index.ts, apps/api/src/plugins/auth.ts
+Value: 80
+Purpose: HTTP port for Caddy reverse proxy
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 41)
 
-File Upload Size Limit
-Value: 3MB (3 * 1024 * 1024 bytes)
-File Paths: apps/api/src/index.ts
+Value: 443
+Purpose: HTTPS port for Caddy reverse proxy
+File: C:\Users\missp\source\repos\ASC-Inventory\docker-compose.prod.yml (line 42)
 
-AI Rate Limit Window
-Value: 60000 milliseconds (1 minute)
-File Paths: apps/api/src/routes/ai.routes.ts
+Value: api:3001
+Purpose: Internal API service endpoint for Caddy
+File: C:\Users\missp\source\repos\ASC-Inventory\caddy\Caddyfile (line 7)
 
-AI Rate Limit Max Requests
-Value: 10 requests per window per user
-File Paths: apps/api/src/routes/ai.routes.ts
+Value: web:3000
+Purpose: Internal web service endpoint for Caddy
+File: C:\Users\missp\source\repos\ASC-Inventory\caddy\Caddyfile (line 11)
 
-AI Model
-Value: gpt-4o-mini
-File Paths: apps/api/src/services/ai.service.ts
+Value: /etc/caddy/certs/origin.pem
+Purpose: Cloudflare origin certificate path
+File: C:\Users\missp\source\repos\ASC-Inventory\caddy\Caddyfile (line 2)
 
-AI Request Timeout
-Value: 10000 milliseconds (10 seconds)
-File Paths: apps/api/src/services/ai.service.ts
+Value: /etc/caddy/certs/origin-key.pem
+Purpose: Cloudflare origin certificate key path
+File: C:\Users\missp\source\repos\ASC-Inventory\caddy\Caddyfile (line 2)
 
-Development Facility Key (Seed)
-Value: ORTHOWISE_BETA
-File Paths: apps/api/db/seed.ts
-
-Default Log Level
-Value: info
-File Paths: apps/api/src/index.ts
-
-Node.js Version Requirement
-Value: >=20.0.0
-File Paths: package.json
-
-Package Manager Version
-Value: npm@10.8.2
-File Paths: package.json
-
-API Version (npm package)
-Value: 1.4.0
-File Paths: apps/api/package.json
-
-Web Version (npm package)
-Value: 1.5.0
-File Paths: apps/web/package.json
-
-Root Version
-Value: 1.7.0
-File Paths: package.json
-
-Default Seed Demo Users
-Values: admin, scheduler, tech, circulator, scrub, drsmith, drjones (all with password123)
-File Paths: apps/api/db/seed.ts
+================================================================================
+END OF SNAPSHOT
+================================================================================

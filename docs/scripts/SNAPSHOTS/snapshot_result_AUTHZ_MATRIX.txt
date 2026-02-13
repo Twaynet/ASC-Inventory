@@ -1,291 +1,779 @@
-A) Source of truth locations
+================================================================================
+SNAPSHOT: AUTHZ MATRIX — Effective Authorization Model
+Generated: 2026-02-12
+Status: READ-ONLY AUDIT (no code modified)
+================================================================================
 
-C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts - Defines UserRole enum, Capability type, ROLE_CAPABILITIES mapping, deriveCapabilities function
-C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\persona.ts - Defines Persona type and persona system (UX-only, non-authoritative)
-C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\auth.ts - Defines API authorization helpers (requireRoles, requireCapabilities, requireAdmin, requireScheduler, requirePlatformAdmin, requireTenantContext)
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\access-control.ts - Defines FEATURES array with role and capability requirements per feature
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\auth.tsx - Defines AuthProvider, useAuth, useAccessControl hooks
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\components\AccessGuard.tsx - Client-side UI guard component
-C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\AuthGuard.tsx - Client-side authentication redirect guard
 
-B) Roles
+A) SOURCE OF TRUTH LOCATIONS
+================================================================================
 
-PLATFORM_ADMIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 26
-ADMIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 27
-SCHEDULER - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 28
-INVENTORY_TECH - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 29
-CIRCULATOR - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 30
-SURGEON - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 31
-SCRUB - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 32
-ANESTHESIA - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 33
+1. packages/domain/src/types.ts
+   - UserRole enum (8 roles)
+   - Capability type (33 capabilities)
+   - ROLE_CAPABILITIES mapping (canonical role -> capability map)
+   - deriveCapabilities(roles) function (UNION semantics)
+   - PHI_CLASSIFICATION_TO_CAPABILITY mapping
 
-C) Capabilities
+2. packages/domain/src/persona.ts
+   - Persona type (1:1 with UserRole, UX-only)
+   - NEVER grants or restricts permissions
+   - Stored client-side, sent as untrusted X-Active-Persona header for audit
 
-CASE_VIEW - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 58
-CASE_CREATE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 59
-CASE_UPDATE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 60
-CASE_APPROVE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 61
-CASE_REJECT - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 62
-CASE_ASSIGN_ROOM - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 63
-CASE_ACTIVATE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 64
-CASE_CHECKIN_PREOP - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 65
-CASE_DELETE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 66
-CASE_CANCEL - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 67
-CASE_PREFERENCE_CARD_LINK - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 68
-VERIFY_SCAN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 69
-CHECKLIST_ATTEST - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 70
-OR_DEBRIEF - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 71
-OR_TIMEOUT - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 72
-INVENTORY_READ - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 73
-INVENTORY_CHECKIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 74
-INVENTORY_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 75
-USER_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 76
-LOCATION_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 77
-CATALOG_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 78
-REPORTS_VIEW - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 79
-SETTINGS_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 80
-PLATFORM_ADMIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 82
-PLATFORM_CONFIG_VIEW - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 83
-PLATFORM_CONFIG_MANAGE - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 84
+3. apps/api/src/plugins/auth.ts
+   - JwtPayload interface
+   - getUserRoles() with legacy fallback
+   - requireRoles(...allowedRoles) -- ANY of listed roles (OR)
+   - requireCapabilities(...requiredCaps) -- ANY of listed capabilities (OR)
+   - requirePlatformAdmin() -- PLATFORM_ADMIN role check
+   - requireTenantContext() -- requires non-null facilityId
+   - Pre-built aliases: requireAdmin, requireScheduler, requireInventoryTech,
+     requireCirculator, requireSurgeon, requireAnyStaff, requireAttestation
 
-D) Role → Capability mapping
+4. apps/api/src/plugins/phi-guard.ts
+   - requirePhiAccess(classification, options)
+   - Multi-step PHI access enforcement pipeline
+   - Steps: purpose header -> emergency handling -> org affiliation ->
+     PHI capability check -> case-level evaluation -> audit logging
 
-PLATFORM_ADMIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 96-101
-PLATFORM_ADMIN
-PLATFORM_CONFIG_VIEW
-PLATFORM_CONFIG_MANAGE
+5. apps/api/src/plugins/clinic-auth.ts
+   - requireClinicAuth -- authenticates via X-Clinic-Key header (HMAC-SHA256)
+   - Non-JWT authentication for external clinic integrations
 
-ADMIN - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 105-111
-USER_MANAGE
-LOCATION_MANAGE
-CATALOG_MANAGE
-INVENTORY_MANAGE
-REPORTS_VIEW
-SETTINGS_MANAGE
-CASE_VIEW
-CASE_CREATE
-CASE_UPDATE
-CASE_APPROVE
-CASE_REJECT
-CASE_ASSIGN_ROOM
-CASE_ACTIVATE
-CASE_CHECKIN_PREOP
-CASE_DELETE
-CASE_CANCEL
-CASE_PREFERENCE_CARD_LINK
+6. apps/web/src/lib/access-control.ts
+   - FEATURES array (20+ feature definitions)
+   - checkFeatureAccess() function
+   - deriveCapabilities() (delegates to @asc/domain)
 
-SCHEDULER - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 114-116
-CASE_VIEW
-CASE_CREATE
-CASE_UPDATE
-CASE_APPROVE
-CASE_REJECT
-CASE_ASSIGN_ROOM
-CASE_ACTIVATE
-CASE_CHECKIN_PREOP
-CASE_CANCEL
+7. apps/web/src/components/AccessGuard.tsx
+   - Reusable UI guard component
+   - Explicitly UX-only: "API enforces real authorization"
 
-INVENTORY_TECH - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 104
-CASE_VIEW
-INVENTORY_READ
-INVENTORY_CHECKIN
+8. apps/web/src/app/components/AuthGuard.tsx
+   - Redirects unauthenticated users to /login
+   - Wraps all (app) routes via (app)/layout.tsx
 
-CIRCULATOR - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 103
-CASE_VIEW
-CHECKLIST_ATTEST
-OR_DEBRIEF
-OR_TIMEOUT
-CASE_CHECKIN_PREOP
 
-SURGEON - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 112-113
-CASE_VIEW
-CASE_CREATE
-CASE_UPDATE
-CASE_CANCEL
-CASE_PREFERENCE_CARD_LINK
-CHECKLIST_ATTEST
+B) ALL ROLES AND WHERE DEFINED
+================================================================================
 
-SCRUB - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 102
-CASE_VIEW
-VERIFY_SCAN
-CHECKLIST_ATTEST
+Source: packages/domain/src/types.ts (lines 39-48)
 
-ANESTHESIA - C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 117
-CASE_VIEW
-CHECKLIST_ATTEST
+  ROLE              | DESCRIPTION
+  ------------------+-----------------------------------------------------
+  PLATFORM_ADMIN    | No-tenant identity for platform/Control Plane ops
+  ADMIN             | Facility administrator (broadest tenant role)
+  SCHEDULER         | Surgical scheduling coordinator
+  INVENTORY_TECH    | Inventory/supply chain technician
+  CIRCULATOR        | OR circulating nurse
+  SURGEON           | Surgeon (clinical)
+  SCRUB             | Scrub technician
+  ANESTHESIA        | Anesthesia provider
 
-E) API enforcement matrix
+Total: 8 roles
 
-GET /api/cases - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 86 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-GET /api/cases/:caseId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 106 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-PATCH /api/cases/:caseId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 134 - requireCapabilities - CASE_UPDATE
-POST /api/cases/:caseId/approve - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 198 - requireCapabilities - CASE_APPROVE
-POST /api/cases/:caseId/reject - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 226 - requireCapabilities - CASE_REJECT
-PATCH /api/cases/:caseId/assign-room - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 244 - requireCapabilities - CASE_ASSIGN_ROOM
-POST /api/cases - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 289 - requireCapabilities - CASE_CREATE
-POST /api/cases/:caseId/activate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 366 - requireCapabilities - CASE_ACTIVATE
-POST /api/cases/:caseId/deactivate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 404 - requireCapabilities - CASE_ACTIVATE
-POST /api/cases/:caseId/cancel - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 433 - requireCapabilities - CASE_CANCEL
-POST /api/cases/:caseId/check-in-preop - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 460 - requireCapabilities - CASE_CHECKIN_PREOP
-GET /api/cases/:caseId/status-events - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 485 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-POST /api/cases/:id/preference-card - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 519 - requireCapabilities - CASE_PREFERENCE_CARD_LINK
-PUT /api/cases/:id/requirements - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 567 - requireCapabilities - CASE_VIEW - Note: Only surgeon or admin (USER_MANAGE) can modify in business logic
-DELETE /api/cases/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts line 620 - requireCapabilities - CASE_DELETE
+Notes:
+  - PLATFORM_ADMIN is a no-tenant identity (facilityId = null in JWT)
+  - All other roles are tenant-scoped (facilityId required)
+  - Users may have multiple roles; capabilities are the UNION of all roles
+  - UserRole is a Zod enum, enforced at schema validation layer
 
-GET /api/users - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 46 - requireCapabilities - USER_MANAGE
-GET /api/users/surgeons - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 89 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-GET /api/users/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 114 - requireCapabilities - USER_MANAGE
-POST /api/users - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 151 - requireCapabilities - USER_MANAGE
-PATCH /api/users/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 207 - requireCapabilities - USER_MANAGE
-POST /api/users/:id/deactivate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 315 - requireCapabilities - USER_MANAGE
-POST /api/users/:id/activate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\users.routes.ts line 365 - requireCapabilities - USER_MANAGE
 
-POST /api/inventory/events - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 162 - requireCapabilities - INVENTORY_CHECKIN or INVENTORY_MANAGE
-POST /api/inventory/events/bulk - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 208 - requireCapabilities - INVENTORY_CHECKIN or INVENTORY_MANAGE
-POST /api/inventory/events/financial - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 308 - requireCapabilities - INVENTORY_MANAGE
-POST /api/inventory/device-events - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 455 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-GET /api/inventory/devices - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 571 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-GET /api/inventory/items - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 591 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-GET /api/inventory/items/:itemId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 610 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-POST /api/inventory/items - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 642 - requireCapabilities - INVENTORY_MANAGE
-PATCH /api/inventory/items/:itemId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 774 - requireCapabilities - INVENTORY_MANAGE
-GET /api/inventory/items/:itemId/history - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 836 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-GET /api/inventory/risk-queue - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts line 887 - fastify.authenticate - none - No role/capability enforcement, authenticated only
+C) ALL CAPABILITIES AND WHERE DEFINED
+================================================================================
 
-GET /api/checklists/facility/settings - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 47 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-PATCH /api/checklists/facility/settings - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 71 - requireCapabilities - SETTINGS_MANAGE
-GET /api/checklists/rooms - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 94 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-GET /api/checklists/checklists/templates - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 112 - fastify.authenticate - ADMIN - Enforced in handler at line 117-119
-GET /api/checklists/checklists/templates/:type - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 131 - fastify.authenticate - ADMIN - Enforced in handler at line 138-141
-PUT /api/checklists/checklists/templates/:type - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 231 - fastify.authenticate - ADMIN - Enforced in handler at line 183-186
-PATCH /api/checklists/checklists/templates/:type - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 234 - fastify.authenticate - ADMIN - Enforced in handler at line 183-186
-PUT /api/checklists/surgeon/checklists/:instanceId/feedback - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 268 - fastify.authenticate - SURGEON - Enforced in handler at line 250-252
-PATCH /api/checklists/surgeon/checklists/:instanceId/feedback - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 271 - fastify.authenticate - SURGEON - Enforced in handler at line 250-252
-GET /api/checklists/cases/:id/checklists - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 284 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-POST /api/checklists/cases/:id/checklists/start - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 304 - fastify.authenticate - ADMIN or CIRCULATOR or SURGEON or SCRUB - Enforced in handler at line 312-315
-POST /api/checklists/cases/:id/checklists/:type/respond - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 338 - fastify.authenticate - ADMIN or CIRCULATOR or SURGEON or SCRUB or ANESTHESIA - Enforced in handler at line 346-349
-POST /api/checklists/cases/:id/checklists/:type/sign - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 380 - fastify.authenticate - none - Role mapping enforced in handler at line 404-419
-POST /api/checklists/cases/:id/checklists/:type/complete - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 435 - fastify.authenticate - ADMIN or CIRCULATOR - Enforced in handler at line 443-446
-POST /api/checklists/cases/:id/checklists/debrief/async-review - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 474 - fastify.authenticate - SCRUB or SURGEON - Enforced in handler at line 482-485
-GET /api/checklists/pending-reviews - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 528 - fastify.authenticate - ADMIN - Enforced in handler at line 532-535
-GET /api/checklists/my-pending-reviews - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 550 - fastify.authenticate - none - Filters by SCRUB or SURGEON in handler
-GET /api/checklists/flagged-reviews - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 587 - fastify.authenticate - ADMIN - Enforced in handler at line 591-594
-POST /api/checklists/flagged-reviews/:signatureId/resolve - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 619 - fastify.authenticate - ADMIN - Enforced in handler at line 627-630
-POST /api/checklists/flagged-reviews/:instanceId/resolve-surgeon-flag - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 649 - fastify.authenticate - ADMIN - Enforced in handler at line 657-660
-GET /api/checklists/surgeon/my-checklists - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts line 683 - fastify.authenticate - SURGEON - Enforced in handler at line 687-690
+Source: packages/domain/src/types.ts (lines 132-174)
 
-GET /api/catalog - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 49 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-GET /api/catalog/:catalogId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 118 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-POST /api/catalog - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 172 - requireCapabilities - CATALOG_MANAGE
-PATCH /api/catalog/:catalogId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 247 - requireCapabilities - CATALOG_MANAGE
-POST /api/catalog/:catalogId/deactivate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 398 - requireCapabilities - CATALOG_MANAGE
-POST /api/catalog/:catalogId/activate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 426 - requireCapabilities - CATALOG_MANAGE
-GET /api/catalog/:catalogId/identifiers - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 469 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-POST /api/catalog/:catalogId/identifiers - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 510 - requireCapabilities - CATALOG_MANAGE
-DELETE /api/catalog/:catalogId/identifiers/:identifierId - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts line 582 - requireCapabilities - CATALOG_MANAGE
+  CAPABILITY                  | CATEGORY            | DESCRIPTION
+  ----------------------------+---------------------+------------------------------------------
+  CASE_VIEW                   | Case Management     | View surgical cases
+  CASE_CREATE                 | Case Management     | Create new cases
+  CASE_UPDATE                 | Case Management     | Update case details
+  CASE_APPROVE                | Case Management     | Approve requested cases
+  CASE_REJECT                 | Case Management     | Reject requested cases
+  CASE_ASSIGN_ROOM            | Case Management     | Assign cases to OR rooms
+  CASE_ACTIVATE               | Case Management     | Activate/deactivate cases
+  CASE_CHECKIN_PREOP          | Case Management     | Check patient in to preop area
+  CASE_DELETE                 | Case Management     | Delete cases
+  CASE_CANCEL                 | Case Management     | Cancel cases
+  CASE_PREFERENCE_CARD_LINK   | Case Management     | Link preference cards to cases
+  VERIFY_SCAN                 | OR Workflows        | Scan and verify case readiness
+  CHECKLIST_ATTEST            | OR Workflows        | Attest to checklists
+  OR_DEBRIEF                  | OR Workflows        | Complete post-op debrief
+  OR_TIMEOUT                  | OR Workflows        | Record surgical timeout
+  INVENTORY_READ              | Inventory           | View inventory
+  INVENTORY_CHECKIN           | Inventory           | Check in received inventory
+  INVENTORY_MANAGE            | Inventory           | Full inventory management
+  USER_MANAGE                 | Administration      | Manage user accounts
+  LOCATION_MANAGE             | Administration      | Manage facility locations
+  CATALOG_MANAGE              | Administration      | Manage equipment catalog
+  REPORTS_VIEW                | Administration      | View operational reports
+  SETTINGS_MANAGE             | Administration      | Configure facility settings
+  PHI_CLINICAL_ACCESS         | PHI Access          | Access PHI_CLINICAL data
+  PHI_WRITE_CLINICAL          | PHI Access          | Write PHI_CLINICAL data
+  PHI_PATIENT_SEARCH          | PHI Access          | Search patient identity records
+  PHI_BILLING_ACCESS          | PHI Access          | Access PHI_BILLING data
+  PHI_AUDIT_ACCESS            | PHI Access          | Access PHI_AUDIT data
+  ORG_MANAGE                  | Organizations       | Create/update organizations
+  ORG_AFFILIATION_MANAGE      | Organizations       | Manage user affiliations
+  SURGERY_REQUEST_REVIEW      | Surgery Requests    | Review/return/accept/reject requests
+  SURGERY_REQUEST_CONVERT     | Surgery Requests    | Convert accepted request to case
+  FINANCIAL_READINESS_VIEW    | Financial           | Dashboard + detail view
+  FINANCIAL_READINESS_EDIT    | Financial           | Record verification + overrides
+  PLATFORM_ADMIN              | Platform            | Access to Control Plane
+  PLATFORM_CONFIG_VIEW        | Platform            | View platform configuration
+  PLATFORM_CONFIG_MANAGE      | Platform            | Modify platform configuration
 
-GET /api/locations - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\locations.routes.ts line 37 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-GET /api/locations/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\locations.routes.ts line 74 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-POST /api/locations - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\locations.routes.ts line 116 - requireCapabilities - LOCATION_MANAGE
-PATCH /api/locations/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\locations.routes.ts line 173 - requireCapabilities - LOCATION_MANAGE
-DELETE /api/locations/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\locations.routes.ts line 286 - requireCapabilities - LOCATION_MANAGE
+Total: 37 capabilities
 
-GET /api/general-settings/config-items - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 49 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-POST /api/general-settings/config-items - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 84 - requireCapabilities - SETTINGS_MANAGE
-PATCH /api/general-settings/config-items/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 128 - requireCapabilities - SETTINGS_MANAGE
-POST /api/general-settings/config-items/:id/deactivate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 187 - requireCapabilities - SETTINGS_MANAGE
-POST /api/general-settings/config-items/:id/activate - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 217 - requireCapabilities - SETTINGS_MANAGE
-PUT /api/general-settings/config-items/reorder - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 277 - requireCapabilities - SETTINGS_MANAGE
-PATCH /api/general-settings/config-items/reorder - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\general-settings.routes.ts line 278 - requireCapabilities - SETTINGS_MANAGE
 
-GET /api/schedule/day - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 66 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-GET /api/schedule/unassigned - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 286 - fastify.authenticate - none - No role/capability enforcement, authenticated only
-POST /api/schedule/block-times - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 338 - requireCapabilities - CASE_ASSIGN_ROOM
-PATCH /api/schedule/block-times/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 405 - requireCapabilities - CASE_ASSIGN_ROOM
-DELETE /api/schedule/block-times/:id - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 486 - requireCapabilities - CASE_ASSIGN_ROOM
-PUT /api/schedule/rooms/:roomId/day-config - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 509 - requireCapabilities - CASE_ASSIGN_ROOM
-PATCH /api/schedule/reorder - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\schedule.routes.ts line 574 - requireCapabilities - CASE_ASSIGN_ROOM
+D) ROLE -> CAPABILITY MAPPING
+================================================================================
 
-GET /api/platform/health - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform.routes.ts line 23 - requirePlatformAdmin - PLATFORM_ADMIN
-GET /api/platform/facilities - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform.routes.ts line 40 - requirePlatformAdmin - PLATFORM_ADMIN
-GET /api/platform/config/keys - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 77 - requirePlatformAdmin - PLATFORM_ADMIN
-GET /api/platform/config/keys/:key - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 111 - requirePlatformAdmin - PLATFORM_ADMIN
-PATCH /api/platform/config/keys/:key - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 148 - requirePlatformAdmin - PLATFORM_ADMIN
-GET /api/platform/config/facilities/:facilityId/overrides - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 194 - requirePlatformAdmin - PLATFORM_ADMIN
-PATCH /api/platform/config/facilities/:facilityId/overrides/:key - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 241 - requirePlatformAdmin - PLATFORM_ADMIN
-DELETE /api/platform/config/facilities/:facilityId/overrides/:key - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 293 - requirePlatformAdmin - PLATFORM_ADMIN
-GET /api/platform/config/audit - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 327 - requirePlatformAdmin - PLATFORM_ADMIN
-GET /api/platform/config/auth-audit - C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\platform-config.routes.ts line 354 - requirePlatformAdmin - PLATFORM_ADMIN
+Source: packages/domain/src/types.ts, ROLE_CAPABILITIES (lines 183-212)
 
-Note: Checklists routes use hardcoded role checks in handler logic instead of preHandler guards. This creates enforcement inconsistency across routes.
+PLATFORM_ADMIN:
+  PLATFORM_ADMIN, PLATFORM_CONFIG_VIEW, PLATFORM_CONFIG_MANAGE
+  (3 capabilities -- NO tenant capabilities)
 
-F) Web/UI enforcement matrix
+ADMIN:
+  USER_MANAGE, LOCATION_MANAGE, CATALOG_MANAGE, INVENTORY_MANAGE,
+  REPORTS_VIEW, SETTINGS_MANAGE, CASE_VIEW, CASE_CREATE, CASE_UPDATE,
+  CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE,
+  CASE_CHECKIN_PREOP, CASE_DELETE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK,
+  PHI_CLINICAL_ACCESS, PHI_WRITE_CLINICAL, PHI_PATIENT_SEARCH,
+  PHI_AUDIT_ACCESS, ORG_MANAGE, ORG_AFFILIATION_MANAGE,
+  SURGERY_REQUEST_REVIEW, SURGERY_REQUEST_CONVERT,
+  FINANCIAL_READINESS_VIEW, FINANCIAL_READINESS_EDIT
+  (27 capabilities)
 
-All authenticated pages - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\layout.tsx - AuthGuard - Redirects unauthenticated users to /login
+SCHEDULER:
+  CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT,
+  CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_CANCEL,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH, SURGERY_REQUEST_REVIEW
+  (12 capabilities)
 
-/dashboard - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\dashboard\page.tsx - No AccessGuard - Shows features based on access-control.ts FEATURES array with conditional rendering
-/calendar - No file read - No AccessGuard - Accessible by all authenticated users per FEATURES definition
-/cases - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\cases\page.tsx - No AccessGuard in file - Accessible by all authenticated users per FEATURES definition
-/preference-cards - No file read - No AccessGuard - Accessible by all authenticated users per FEATURES definition
-/pending-reviews - No file read - No AccessGuard - Accessible by all authenticated users per FEATURES definition
-/surgeon/my-checklists - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\surgeon\my-checklists\page.tsx - AccessGuard - requiredRoles: SURGEON
-/unassigned-cases - No file read - No AccessGuard - FEATURES definition requires ADMIN or SCHEDULER roles
+SURGEON:
+  CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_CANCEL,
+  CASE_PREFERENCE_CARD_LINK, CHECKLIST_ATTEST,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
+  (8 capabilities)
 
-/admin/cases - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\cases\page.tsx - AccessGuard - requiredRoles: ADMIN or SCHEDULER - requiredCapabilities: CASE_APPROVE
-/admin/users - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\users\page.tsx - Manual hasRole check - ADMIN - Returns access denied div if not ADMIN at line 164-174
-/admin/locations - No file read - AccessGuard expected - FEATURES definition requires ADMIN role and LOCATION_MANAGE capability
-/admin/catalog - No file read - AccessGuard expected - FEATURES definition requires ADMIN role and CATALOG_MANAGE capability
-/admin/inventory - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\page.tsx - AccessGuard - requiredCapabilities: INVENTORY_MANAGE
-/admin/inventory/check-in - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\check-in\page.tsx - AccessGuard - requiredCapabilities: INVENTORY_CHECKIN
-/admin/inventory/risk-queue - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\risk-queue\page.tsx - AccessGuard - requiredCapabilities: INVENTORY_MANAGE
-/admin/reports - No file read - AccessGuard expected - FEATURES definition requires ADMIN role and REPORTS_VIEW capability
-/admin/general-settings - No file read - AccessGuard expected - FEATURES definition requires ADMIN role and SETTINGS_MANAGE capability
-/admin/pending-reviews - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\pending-reviews\page.tsx - AccessGuard - requiredRoles: ADMIN
+CIRCULATOR:
+  CASE_VIEW, CHECKLIST_ATTEST, OR_DEBRIEF, OR_TIMEOUT,
+  CASE_CHECKIN_PREOP, PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
+  (7 capabilities)
 
-/platform - C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\page.tsx - No explicit AccessGuard - API enforcement only via requirePlatformAdmin - Platform admin UI visible to PLATFORM_ADMIN via dashboard link
+SCRUB:
+  CASE_VIEW, VERIFY_SCAN, CHECKLIST_ATTEST,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
+  (5 capabilities)
 
-Note: Some pages use AccessGuard component, some use manual hasRole checks, and some rely solely on API enforcement without client-side guards. Inconsistent enforcement patterns across UI routes.
+INVENTORY_TECH:
+  CASE_VIEW, INVENTORY_READ, INVENTORY_CHECKIN,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
+  (5 capabilities)
 
-G) Effective access summary
+ANESTHESIA:
+  CASE_VIEW, CHECKLIST_ATTEST,
+  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
+  (4 capabilities)
 
-PLATFORM_ADMIN
-Web pages/features accessible: /dashboard with platform control plane section, /platform
-API routes accessible: /api/platform/health, /api/platform/facilities, /api/platform/config/keys, /api/platform/config/keys/:key, /api/platform/config/facilities/:facilityId/overrides, /api/platform/config/facilities/:facilityId/overrides/:key, /api/platform/config/audit, /api/platform/config/auth-audit
-Note: NO tenant capabilities, cannot access tenant data directly
+CAPABILITY DISTRIBUTION:
+  - CASE_VIEW:          All 7 tenant roles
+  - PHI_CLINICAL_ACCESS: All 7 tenant roles
+  - PHI_PATIENT_SEARCH:  All 7 tenant roles
+  - CHECKLIST_ATTEST:   ADMIN (no), SCHEDULER (no), SURGEON, CIRCULATOR, SCRUB, ANESTHESIA
+  - PHI_BILLING_ACCESS: NO ROLE (not assigned to any role)
+  - PHI_WRITE_CLINICAL: ADMIN only
+  - PHI_AUDIT_ACCESS:   ADMIN only
+  - INVENTORY_READ:     INVENTORY_TECH only
+  - VERIFY_SCAN:        SCRUB only
 
-ADMIN
-Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews, /unassigned-cases, /admin/cases, /admin/users, /admin/locations, /admin/catalog, /admin/inventory, /admin/inventory/check-in, /admin/inventory/risk-queue, /admin/reports, /admin/general-settings, /admin/pending-reviews
-API routes accessible: All tenant routes requiring USER_MANAGE, LOCATION_MANAGE, CATALOG_MANAGE, INVENTORY_MANAGE, REPORTS_VIEW, SETTINGS_MANAGE, CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_DELETE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK, plus authenticated-only routes
+NOTABLE GAPS:
+  - PHI_BILLING_ACCESS is defined as a capability but NOT assigned to any role
+    via ROLE_CAPABILITIES. It can only be used via purpose override in phi-guard.
+  - PLATFORM_ADMIN has zero tenant capabilities (by design -- LAW sec 3.1)
 
-SCHEDULER
-Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews, /unassigned-cases, /admin/cases
-API routes accessible: All routes requiring CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_CANCEL, plus authenticated-only routes
 
-INVENTORY_TECH
-Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews
-API routes accessible: All routes requiring CASE_VIEW, INVENTORY_READ, INVENTORY_CHECKIN, plus authenticated-only routes
+E) API ENFORCEMENT MATRIX
+================================================================================
 
-CIRCULATOR
-Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews
-API routes accessible: All routes requiring CASE_VIEW, CHECKLIST_ATTEST, OR_DEBRIEF, OR_TIMEOUT, CASE_CHECKIN_PREOP, plus authenticated-only routes, checklist start/respond/complete
+Legend:
+  [AUTH]     = fastify.authenticate (JWT verification only, any authenticated user)
+  [CAP:X]   = requireCapabilities('X') (any role with capability X)
+  [CAP:X,Y] = requireCapabilities('X','Y') (any role with either X or Y)
+  [ROLE:X]  = requireRoles('X') (direct role check)
+  [PA]      = requirePlatformAdmin() (PLATFORM_ADMIN role required)
+  [PHI:C]   = requirePhiAccess('PHI_CLINICAL')
+  [PHI:C+]  = requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
+  [PHI:A]   = requirePhiAccess('PHI_AUDIT')
+  [PHI:B]   = requirePhiAccess('PHI_BILLING')
+  [CLINIC]  = requireClinicAuth (X-Clinic-Key header, non-JWT)
+  [IDEMP]   = idempotent() plugin
+  [NONE]    = No preHandler (public endpoint)
 
-SURGEON
-Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews, /surgeon/my-checklists
-API routes accessible: All routes requiring CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK, CHECKLIST_ATTEST, plus authenticated-only routes, checklist start/respond/sign/async-review, surgeon feedback endpoints
+--- AUTH ROUTES (prefix: /api/auth) ---
+  POST /api/auth/login                              [NONE]
+  GET  /api/auth/me                                 [AUTH]
+  POST /api/auth/logout                             [AUTH]
 
-SCRUB
-Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews
-API routes accessible: All routes requiring CASE_VIEW, VERIFY_SCAN, CHECKLIST_ATTEST, plus authenticated-only routes, checklist start/respond/sign/async-review
+--- USER ROUTES (prefix: /api/users) ---
+  GET  /api/users                                   [CAP:USER_MANAGE]
+  GET  /api/users/surgeons                          [AUTH]
+  GET  /api/users/:id                               [CAP:USER_MANAGE]
+  POST /api/users                                   [CAP:USER_MANAGE]
+  PATCH /api/users/:id                              [CAP:USER_MANAGE]
+  POST /api/users/:id/deactivate                    [CAP:USER_MANAGE]
+  POST /api/users/:id/activate                      [CAP:USER_MANAGE]
 
-ANESTHESIA
-Web pages/features accessible: /dashboard, /calendar, /cases, /preference-cards, /pending-reviews
-API routes accessible: All routes requiring CASE_VIEW, CHECKLIST_ATTEST, plus authenticated-only routes, checklist respond/sign
+--- CASE ROUTES (prefix: /api/cases) ---
+  GET  /api/cases                                   [AUTH] [PHI:C]
+  GET  /api/cases/:id                               [AUTH] [PHI:C+]
+  PATCH /api/cases/:id                              [CAP:CASE_UPDATE] [PHI:C+]
+  POST /api/cases/:id/approve                       [CAP:CASE_APPROVE] [PHI:C+] [IDEMP]
+  POST /api/cases/:id/reject                        [CAP:CASE_REJECT] [PHI:C+] [IDEMP]
+  POST /api/cases/:id/assign-room                   [CAP:CASE_ASSIGN_ROOM] [PHI:C+] [IDEMP]
+  POST /api/cases                                   [CAP:CASE_CREATE] [PHI:C]
+  POST /api/cases/:id/activate                      [CAP:CASE_ACTIVATE] [PHI:C+] [IDEMP]
+  POST /api/cases/:id/deactivate                    [CAP:CASE_ACTIVATE] [PHI:C+] [IDEMP]
+  POST /api/cases/:id/cancel                        [CAP:CASE_CANCEL] [PHI:C+] [IDEMP]
+  POST /api/cases/:id/checkin-preop                 [CAP:CASE_CHECKIN_PREOP] [PHI:C+] [IDEMP]
+  GET  /api/cases/:id/readiness                     [AUTH] [PHI:C+]
+  POST /api/cases/:id/preference-card               [CAP:CASE_PREFERENCE_CARD_LINK] [PHI:C+]
+  PUT  /api/cases/:id/requirements                  [CAP:CASE_VIEW] [PHI:C+]
+  DELETE /api/cases/:id                             [CAP:CASE_DELETE] [PHI:C+]
 
-H) Divergences between client and server enforcement
+--- CASE DASHBOARD ROUTES (prefix: /api/case-dashboard) ---
+  GET  /api/case-dashboard/:caseId                  [AUTH] [PHI:C+]
+  POST /api/case-dashboard/:caseId/attest           [AUTH] [PHI:C+]
+  POST /api/case-dashboard/:caseId/void             [AUTH] [PHI:C+]
+  PUT  /api/case-dashboard/:caseId/anesthesia       [AUTH] [PHI:C+]
+  PUT  /api/case-dashboard/:caseId/link-case-card   [AUTH] [PHI:C+]
+  POST /api/case-dashboard/:caseId/case-card-unlink [AUTH] [PHI:C+]
+  GET  /api/case-dashboard/:caseId/case-card-link   [AUTH] [PHI:C+]
+  POST /api/case-dashboard/:caseId/overrides        [AUTH] [PHI:C+]
+  PUT  /api/case-dashboard/:caseId/overrides/:overrideId [AUTH] [PHI:C+]
+  DELETE /api/case-dashboard/:caseId/overrides/:overrideId [AUTH] [PHI:C+]
+  GET  /api/case-dashboard/:caseId/event-log        [AUTH] [PHI:C+]
+  PUT  /api/case-dashboard/:caseId/case-summary     [AUTH] [PHI:C+]
+  PUT  /api/case-dashboard/:caseId/scheduling       [AUTH] [PHI:C+]
 
-Client guards but no server enforcement: None identified - All client-guarded features have corresponding API enforcement
-Server enforcement but no client guards: /admin/users page uses manual hasRole check instead of AccessGuard component - Other admin pages use AccessGuard - Inconsistent pattern
-Partial application of capability model: Checklists routes use hardcoded role arrays in handler logic instead of requireCapabilities or requireRoles preHandlers - Does not leverage capability model consistently - Routes at lines 112-119, 131-141, 162-230, 243-273, 304-315, 338-349, 380-419, 435-446, 474-485, 528-535, 550-575, 587-594, 619-630, 649-660, 683-690 in C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts
-Mixed enforcement patterns: Some API routes use requireCapabilities, some use requireRoles, some use requireAdmin/requireScheduler helpers, some use hardcoded role checks in handlers - No consistent pattern across all routes
-UI enforcement inconsistency: Dashboard page filters features by decision.allowed but does not prevent navigation - Some pages use AccessGuard, some use manual hasRole checks, some have no guard and rely on API enforcement only
-CASE_UPDATE edge case: PUT /api/cases/:id/requirements requires CASE_VIEW capability but enforces surgeon-or-admin business logic in handler - Capability check does not match actual authorization requirement
+--- CASE CARDS ROUTES (prefix: /api/case-cards) ---
+  GET  /api/case-cards                              [AUTH]
+  GET  /api/case-cards/:id                          [AUTH]
+  GET  /api/case-cards/:id/edit-log                 [AUTH]
+  GET  /api/case-cards/:id/versions                 [AUTH]
+  POST /api/case-cards                              [AUTH]
+  PUT  /api/case-cards/:id                          [AUTH]
+  POST /api/case-cards/:id/activate                 [AUTH]
+  POST /api/case-cards/:id/deprecate                [AUTH]
+  POST /api/case-cards/:id/delete                   [AUTH]
+  POST /api/case-cards/:id/clone                    [AUTH]
+  POST /api/case-cards/:id/lock                     [AUTH]
+  POST /api/case-cards/:id/unlock                   [AUTH]
+  POST /api/case-cards/:id/revert/:versionId        [AUTH]
+  GET  /api/case-cards/surgeons                     [AUTH]
+  POST /api/case-cards/:id/items                    [AUTH]
+  GET  /api/case-cards/:id/versions/:versionId/items [AUTH]
+  POST /api/case-cards/:id/link-to-case             [AUTH]
+  PATCH /api/case-cards/:caseCardId/versions/:versionId/status [AUTH]
+  PATCH /api/case-cards/:caseCardId/versions/:versionId/notes [AUTH]
+  GET  /api/case-cards/version/:versionId/pdf       [AUTH]
+
+--- SCHEDULE ROUTES (prefix: /api/schedule) ---
+  GET  /api/schedule/day                            [AUTH] [PHI:C]
+  GET  /api/schedule/unassigned                     [AUTH] [PHI:C]
+  POST /api/schedule/block-times                    [CAP:CASE_ASSIGN_ROOM]
+  PATCH /api/schedule/block-times/:id               [CAP:CASE_ASSIGN_ROOM]
+  DELETE /api/schedule/block-times/:id              [CAP:CASE_ASSIGN_ROOM]
+  PUT  /api/schedule/rooms/:roomId/day-config       [CAP:CASE_ASSIGN_ROOM]
+  PATCH /api/schedule/rooms/:roomId/slots/:slotId   [CAP:CASE_ASSIGN_ROOM]
+
+--- INVENTORY ROUTES (prefix: /api/inventory) ---
+  POST /api/inventory/verify                        [CAP:INVENTORY_CHECKIN,INVENTORY_MANAGE] [PHI:C+] [IDEMP]
+  POST /api/inventory/checkin                       [CAP:INVENTORY_CHECKIN,INVENTORY_MANAGE] [PHI:C] [IDEMP]
+  POST /api/inventory/reserve-and-verify            [CAP:INVENTORY_MANAGE] [PHI:C+]
+  POST /api/inventory/device-events                 [AUTH]
+  GET  /api/inventory/devices                       [AUTH]
+  GET  /api/inventory/items                         [AUTH]
+  GET  /api/inventory/items/:id                     [AUTH]
+  POST /api/inventory/items                         [CAP:INVENTORY_MANAGE]
+  PATCH /api/inventory/items/:id                    [CAP:INVENTORY_MANAGE]
+  GET  /api/inventory/items/:id/history             [AUTH]
+  GET  /api/inventory/summary                       [AUTH]
+
+--- READINESS ROUTES (prefix: /api/readiness) ---
+  GET  /api/readiness/day-before                    [AUTH] [PHI:C]
+  GET  /api/readiness/calendar-summary              [AUTH]
+  GET  /api/readiness/cases/:id                     [AUTH] [PHI:C+]
+  POST /api/readiness/attestations                  [AUTH] [PHI:C+]
+  GET  /api/readiness/cases/:id/attestations        [AUTH] [PHI:C+]
+  POST /api/readiness/attestations/:id/void         [AUTH]
+  GET  /api/readiness/cases/:id/verification        [AUTH] [PHI:C+]
+  POST /api/readiness/refresh                       [AUTH]
+
+--- CHECKLIST ROUTES (prefix: /api) ---
+  GET  /api/facility/settings                       [AUTH]
+  PATCH /api/facility/settings                      [CAP:SETTINGS_MANAGE]
+  GET  /api/rooms                                   [AUTH]
+  GET  /api/checklists/templates                    [AUTH]
+  GET  /api/checklists/templates/:type              [AUTH]
+  PUT  /api/checklists/templates/:type              [AUTH]
+  PATCH /api/checklists/templates/:type             [AUTH]
+  PUT  /api/surgeon/checklists/:instanceId/feedback [AUTH]
+  PATCH /api/surgeon/checklists/:instanceId/feedback [AUTH]
+  GET  /api/cases/:id/checklists                    [AUTH] [PHI:C+]
+  POST /api/cases/:id/checklists/start              [AUTH] [PHI:C+]
+  POST /api/cases/:id/checklists/:type/respond      [AUTH] [PHI:C+]
+  POST /api/cases/:id/checklists/:type/sign         [AUTH] [PHI:C+]
+  POST /api/cases/:id/checklists/:type/complete     [AUTH] [PHI:C+]
+  POST /api/cases/:id/checklists/debrief/async-review [AUTH] [PHI:C+]
+  GET  /api/pending-reviews                         [AUTH]
+  GET  /api/my-pending-reviews                      [AUTH]
+  GET  /api/flagged-reviews                         [AUTH]
+  POST /api/flagged-reviews/:signatureId/resolve    [AUTH]
+  POST /api/flagged-reviews/:instanceId/resolve-surgeon-flag [AUTH]
+  GET  /api/surgeon/my-checklists                   [AUTH]
+
+--- CATALOG ROUTES (prefix: /api/catalog) ---
+  GET  /api/catalog                                 [AUTH]
+  GET  /api/catalog/:id                             [AUTH]
+  POST /api/catalog                                 [CAP:CATALOG_MANAGE]
+  PATCH /api/catalog/:id                            [CAP:CATALOG_MANAGE]
+  POST /api/catalog/:id/deactivate                  [CAP:CATALOG_MANAGE]
+  POST /api/catalog/:id/activate                    [CAP:CATALOG_MANAGE]
+  GET  /api/catalog/substitutes/:catalogId          [AUTH]
+  POST /api/catalog/:id/substitutes                 [CAP:CATALOG_MANAGE]
+  DELETE /api/catalog/:id/substitutes/:subId        [CAP:CATALOG_MANAGE]
+
+--- CATALOG GROUPS ROUTES (prefix: /api/catalog/groups) ---
+  GET  /api/catalog/groups                          [AUTH]
+  POST /api/catalog/groups                          [CAP:CATALOG_MANAGE]
+  PATCH /api/catalog/groups/:groupId                [CAP:CATALOG_MANAGE]
+  GET  /api/catalog/groups/:groupId/items           [AUTH]
+  POST /api/catalog/groups/:groupId/items           [CAP:CATALOG_MANAGE]
+  DELETE /api/catalog/groups/:groupId/items/:catalogId [CAP:CATALOG_MANAGE]
+
+--- CATALOG SETS ROUTES (prefix: /api/catalog/sets) ---
+  GET  /api/catalog/sets                            [AUTH]
+  POST /api/catalog/sets                            [CAP:CATALOG_MANAGE]
+  GET  /api/catalog/sets/:catalogId/components      [AUTH]
+  POST /api/catalog/sets/:catalogId/components      [CAP:CATALOG_MANAGE]
+  PATCH /api/catalog/sets/:catalogId/components/:componentId [CAP:CATALOG_MANAGE]
+  DELETE /api/catalog/sets/:catalogId/components/:componentId [CAP:CATALOG_MANAGE]
+
+--- CATALOG IMAGES ROUTES (prefix: /api/catalog) ---
+  GET  /api/catalog/:catalogId/images               [AUTH] [CAP:CATALOG_MANAGE]
+  GET  /api/catalog/:catalogId/images/:imageId/file [AUTH]
+  POST /api/catalog/:catalogId/images               [AUTH] [CAP:CATALOG_MANAGE]
+  POST /api/catalog/:catalogId/images/upload        [AUTH] [CAP:CATALOG_MANAGE]
+  PATCH /api/catalog/:catalogId/images/:imageId     [AUTH] [CAP:CATALOG_MANAGE]
+
+--- PREFERENCE CARDS ROUTES (prefix: /api/preference-cards) ---
+  GET  /api/preference-cards                        [AUTH]
+  GET  /api/preference-cards/:id                    [AUTH]
+  GET  /api/preference-cards/:id/versions           [AUTH]
+  POST /api/preference-cards                        [CAP:CATALOG_MANAGE]
+  PATCH /api/preference-cards/:id                   [CAP:CATALOG_MANAGE]
+  POST /api/preference-cards/:id/versions           [CAP:CATALOG_MANAGE]
+  POST /api/preference-cards/:id/deactivate         [CAP:CATALOG_MANAGE]
+  POST /api/preference-cards/:id/activate           [CAP:CATALOG_MANAGE]
+
+--- LOCATION ROUTES (prefix: /api/locations) ---
+  GET  /api/locations                               [AUTH]
+  GET  /api/locations/:id                           [AUTH]
+  POST /api/locations                               [CAP:LOCATION_MANAGE]
+  PATCH /api/locations/:id                          [CAP:LOCATION_MANAGE]
+  POST /api/locations/:id/deactivate                [CAP:LOCATION_MANAGE]
+  POST /api/locations/:id/activate                  [CAP:LOCATION_MANAGE]
+
+--- SETTINGS ROUTES (prefix: /api/settings) ---
+  GET  /api/settings/rooms                          [AUTH]
+  POST /api/settings/rooms                          [CAP:SETTINGS_MANAGE]
+  PATCH /api/settings/rooms/:id                     [CAP:SETTINGS_MANAGE]
+  POST /api/settings/rooms/:id/deactivate           [CAP:SETTINGS_MANAGE]
+  POST /api/settings/rooms/:id/activate             [CAP:SETTINGS_MANAGE]
+  POST /api/settings/rooms/reorder                  [CAP:SETTINGS_MANAGE]
+  GET  /api/settings/surgeons                       [CAP:SETTINGS_MANAGE]
+  PATCH /api/settings/surgeons/:id                  [CAP:SETTINGS_MANAGE]
+
+--- GENERAL SETTINGS ROUTES (prefix: /api/general-settings) ---
+  GET  /api/general-settings/config-items           [AUTH]
+  POST /api/general-settings/config-items           [CAP:SETTINGS_MANAGE]
+  PATCH /api/general-settings/config-items/:id      [CAP:SETTINGS_MANAGE]
+  POST /api/general-settings/config-items/:id/deactivate [CAP:SETTINGS_MANAGE]
+  POST /api/general-settings/config-items/:id/activate   [CAP:SETTINGS_MANAGE]
+  PUT  /api/general-settings/config-items/reorder   [CAP:SETTINGS_MANAGE]
+  PATCH /api/general-settings/config-items/reorder  [CAP:SETTINGS_MANAGE]
+
+--- ADMIN SETTINGS ROUTES (prefix: /api/admin/settings) ---
+  GET  /api/admin/settings                          [CAP:SETTINGS_MANAGE]
+
+--- REPORTS ROUTES (prefix: /api/reports) ---
+  GET  /api/reports                                 [AUTH]
+  GET  /api/reports/case-volume                     [AUTH]
+  GET  /api/reports/readiness-trends                [AUTH]
+  GET  /api/reports/inventory-status                [AUTH] [PHI:C]
+  GET  /api/reports/inventory-status/export         [AUTH] [PHI:C]
+  GET  /api/reports/financial-summary               [AUTH] [PHI:B]
+  GET  /api/reports/financial-summary/export        [AUTH] [PHI:B]
+  GET  /api/reports/cost-per-case                   [AUTH] [PHI:B]
+  GET  /api/reports/surgeon-performance             [AUTH] [PHI:C]
+  GET  /api/reports/surgeon-performance/export      [AUTH] [PHI:C]
+  GET  /api/reports/equipment-utilization           [AUTH] [PHI:C]
+  GET  /api/reports/equipment-utilization/export    [AUTH] [PHI:C]
+  GET  /api/reports/loaner-set-tracking             [AUTH] [PHI:C]
+
+--- ORGANIZATION ROUTES (prefix: /api/organizations) ---
+  GET  /api/organizations                           [CAP:ORG_MANAGE]
+  POST /api/organizations                           [CAP:ORG_MANAGE]
+  PATCH /api/organizations/:id                      [CAP:ORG_MANAGE]
+  GET  /api/organizations/:id/members               [CAP:ORG_AFFILIATION_MANAGE]
+  POST /api/organizations/:id/members               [CAP:ORG_AFFILIATION_MANAGE]
+  DELETE /api/organizations/:id/members/:affiliationId [CAP:ORG_AFFILIATION_MANAGE]
+
+--- PHI PATIENT ROUTES (prefix: /api/phi-patient) ---
+  GET  /api/phi-patient/by-case/:caseId             [AUTH] [PHI:C+]
+  GET  /api/phi-patient/lookup                      [AUTH] [PHI:C]
+  GET  /api/phi-patient/search                      [AUTH] [PHI:C]
+  GET  /api/phi-patient/:patientId/cases            [AUTH] [PHI:C]
+  POST /api/phi-patient                             [AUTH] [PHI:C]
+  PUT  /api/phi-patient/:patientId                  [AUTH] [PHI:C]
+  PUT  /api/phi-patient/:patientId/link-case        [AUTH] [PHI:C+]
+
+--- PHI AUDIT ROUTES (prefix: /api/phi-audit) ---
+  GET  /api/phi-audit/log                           [AUTH] [PHI:A]
+  GET  /api/phi-audit/sessions                      [AUTH] [PHI:A]
+  GET  /api/phi-audit/analytics                     [AUTH] [PHI:A]
+  GET  /api/phi-audit/retention                     [AUTH] [PHI:A]
+  GET  /api/phi-audit/retention/export              [AUTH] [PHI:A]
+  GET  /api/phi-audit/breaches                      [AUTH] [PHI:A]
+  GET  /api/phi-audit/breaches/export               [AUTH] [PHI:A]
+  GET  /api/phi-audit/exports                       [AUTH] [PHI:A]
+
+--- AI ROUTES (prefix: /api/ai) ---
+  POST /api/ai/explain-readiness                    [AUTH] [PHI:C+]
+
+--- ATTENTION ROUTES (prefix: /api/attention) ---
+  GET  /api/attention/items                         [AUTH]
+
+--- VENDOR ROUTES (prefix: /api/vendors) ---
+  GET  /api/vendors                                 [CAP:SETTINGS_MANAGE]
+  GET  /api/vendors/:vendorId                       [CAP:SETTINGS_MANAGE]
+  POST /api/vendors                                 [CAP:SETTINGS_MANAGE]
+  PATCH /api/vendors/:vendorId                      [CAP:SETTINGS_MANAGE]
+
+--- LOANER SET ROUTES (prefix: /api/loaner-sets) ---
+  GET  /api/loaner-sets                             [CAP:INVENTORY_MANAGE]
+  GET  /api/loaner-sets/open                        [CAP:INVENTORY_MANAGE]
+  GET  /api/loaner-sets/overdue                     [CAP:INVENTORY_MANAGE]
+  GET  /api/loaner-sets/:loanerSetId                [CAP:INVENTORY_MANAGE]
+  POST /api/loaner-sets/:loanerSetId/items          [CAP:INVENTORY_MANAGE]
+  POST /api/loaner-sets/:loanerSetId/return         [CAP:INVENTORY_MANAGE]
+
+--- CLINIC SURGERY REQUEST ROUTES (prefix: /api/clinic/surgery-requests) ---
+  (All routes have route-level preHandler: requireClinicAuth)
+  POST /api/clinic/surgery-requests                 [CLINIC]
+  GET  /api/clinic/surgery-requests                 [CLINIC]
+  GET  /api/clinic/surgery-requests/:id             [CLINIC]
+  POST /api/clinic/surgery-requests/:id/withdraw    [CLINIC]
+
+--- ADMIN SURGERY REQUEST ROUTES (prefix: /api/admin/surgery-requests) ---
+  GET  /api/admin/surgery-requests                  [CAP:SURGERY_REQUEST_REVIEW]
+  GET  /api/admin/surgery-requests/clinics          [CAP:SURGERY_REQUEST_REVIEW]
+  GET  /api/admin/surgery-requests/:id              [CAP:SURGERY_REQUEST_REVIEW]
+  POST /api/admin/surgery-requests/:id/return       [CAP:SURGERY_REQUEST_REVIEW]
+  POST /api/admin/surgery-requests/:id/accept       [CAP:SURGERY_REQUEST_REVIEW]
+  POST /api/admin/surgery-requests/:id/reject       [CAP:SURGERY_REQUEST_REVIEW]
+  POST /api/admin/surgery-requests/:id/convert      [CAP:SURGERY_REQUEST_CONVERT]
+
+--- FINANCIAL READINESS ROUTES (prefix: /api/admin/financial-readiness) ---
+  GET  /api/admin/financial-readiness/dashboard     [CAP:FINANCIAL_READINESS_VIEW]
+  GET  /api/admin/financial-readiness/:requestId    [CAP:FINANCIAL_READINESS_VIEW]
+  POST /api/admin/financial-readiness/:requestId/declare  [CAP:FINANCIAL_READINESS_EDIT]
+  POST /api/admin/financial-readiness/:requestId/verify   [CAP:FINANCIAL_READINESS_EDIT]
+  POST /api/admin/financial-readiness/:requestId/override [CAP:FINANCIAL_READINESS_EDIT]
+
+--- PLATFORM ROUTES (prefix: /api/platform) ---
+  GET  /api/platform/health                         [PA]
+  GET  /api/platform/facilities                     [PA]
+
+--- PLATFORM CONFIG ROUTES (prefix: /api/platform/config) ---
+  GET  /api/platform/config/keys                    [PA]
+  GET  /api/platform/config/keys/:key               [PA]
+  PATCH /api/platform/config/keys/:key              [PA]
+  GET  /api/platform/config/facilities/:facilityId/overrides [PA]
+  PATCH /api/platform/config/facilities/:facilityId/keys/:key [PA]
+  DELETE /api/platform/config/facilities/:facilityId/keys/:key [PA]
+  GET  /api/platform/config/effective               [PA]
+  GET  /api/platform/config/audit                   [PA]
+
+--- HEALTH CHECK (root level, no prefix) ---
+  GET  /api/health                                  [NONE]
+
+
+F) WEB/UI ENFORCEMENT MATRIX
+================================================================================
+
+1. LAYOUT GUARD (apps/web/src/app/(app)/layout.tsx)
+   - All routes under /(app)/* are wrapped with AuthGuard
+   - AuthGuard redirects to /login if unauthenticated
+   - This is AUTHENTICATION ONLY, not authorization
+
+2. FEATURE DEFINITIONS (apps/web/src/lib/access-control.ts)
+
+   FEATURE ID              | PATH                    | REQUIRED ROLES        | REQUIRED CAPS        | GROUP
+   ------------------------+-------------------------+-----------------------+----------------------+----------------
+   calendar                | /calendar               | (none -- all authn)   | (none)               | core
+   case-requests           | /cases                  | (none -- all authn)   | (none)               | core
+   preference-cards        | /preference-cards        | (none -- all authn)   | (none)               | core
+   pending-reviews         | /pending-reviews         | (none -- all authn)   | (none)               | core
+   surgeon-checklists      | /surgeon/my-checklists   | SURGEON               | (none)               | core
+   unassigned-cases        | /unassigned-cases        | ADMIN, SCHEDULER      | (none)               | core
+   case-dashboard          | (contextual)             | (none)                | CASE_VIEW            | case-workflows
+   case-verify             | (contextual)             | (none)                | VERIFY_SCAN          | case-workflows
+   or-debrief              | (contextual)             | (none)                | OR_DEBRIEF           | case-workflows
+   or-timeout              | (contextual)             | (none)                | OR_TIMEOUT           | case-workflows
+   admin-cases             | /admin/cases             | ADMIN, SCHEDULER      | (none)               | admin
+   admin-users             | /admin/users             | ADMIN                 | USER_MANAGE          | admin
+   admin-locations         | /admin/locations         | ADMIN                 | LOCATION_MANAGE      | admin
+   admin-catalog           | /admin/catalog           | ADMIN                 | CATALOG_MANAGE       | admin
+   admin-inventory         | /admin/inventory         | ADMIN                 | INVENTORY_MANAGE     | admin
+   admin-inventory-checkin | /admin/inventory/check-in| ADMIN                 | INVENTORY_CHECKIN    | admin
+   admin-reports           | /admin/reports           | ADMIN                 | REPORTS_VIEW         | admin
+   admin-phi-audit         | /admin/phi-audit         | ADMIN                 | PHI_AUDIT_ACCESS     | admin
+   admin-general-settings  | /admin/general-settings  | ADMIN                 | SETTINGS_MANAGE      | admin
+   admin-pending-reviews   | /admin/pending-reviews   | ADMIN                 | (none)               | admin
+
+   Logic: features with BOTH requiredRoles and requiredCapabilities use OR --
+          user needs ANY required role OR ANY required capability.
+
+3. IN-PAGE ACCESS CHECKS (useAccessControl hook)
+
+   Location: apps/web/src/app/(app)/admin/cases/page.tsx
+   - hasRole('ADMIN') || hasRole('SCHEDULER') -- gates entire page
+
+   Location: apps/web/src/app/(app)/admin/pending-reviews/page.tsx
+   - hasRole('ADMIN') -- gates entire page
+
+   Location: apps/web/src/app/(app)/admin/financial-readiness/page.tsx
+   - hasRole('ADMIN') -- gates entire page
+
+   Location: apps/web/src/app/(app)/admin/financial-readiness/[requestId]/page.tsx
+   - hasRole('ADMIN') -- gates entire page
+
+   Location: apps/web/src/app/(app)/admin/catalog/page.tsx
+   - requiredRoles: ['ADMIN'] (passed to data fetching guard)
+
+   Location: apps/web/src/app/(app)/admin/catalog/sets/page.tsx
+   - requiredRoles: ['ADMIN']
+
+   Location: apps/web/src/app/(app)/admin/catalog/groups/page.tsx
+   - requiredRoles: ['ADMIN']
+
+   Location: apps/web/src/app/(app)/admin/catalog/groups/[groupId]/page.tsx
+   - requiredRoles: ['ADMIN']
+
+   Location: apps/web/src/app/(app)/admin/locations/page.tsx
+   - requiredRoles: ['ADMIN']
+
+   Location: apps/web/src/app/components/Header.tsx
+   - hasCapability('PHI_PATIENT_SEARCH') -- gates patient search link visibility
+
+   Location: apps/web/src/components/CaseDashboardModal/CaseDashboardContent.tsx
+   - hasCapability('PHI_WRITE_CLINICAL') -- gates patient identity edit buttons
+   - hasCapability('CASE_CHECKIN_PREOP') -- gates pre-op check-in button
+   - hasCapability('VERIFY_SCAN') -- gates readiness scan button
+   - hasCapability('OR_TIMEOUT') -- gates timeout checklist button
+   - hasCapability('OR_DEBRIEF') -- gates debrief checklist button
+   - hasCapability('INVENTORY_CHECKIN') / hasCapability('INVENTORY_MANAGE')
+     -- gates inventory check-in button
+
+4. AccessGuard COMPONENT (apps/web/src/components/AccessGuard.tsx)
+   - Defined but NOT directly used as JSX in any page (as of this audit)
+   - Available for future use; documents the OR-logic pattern
+
+
+G) EFFECTIVE ACCESS SUMMARY BY ROLE
+================================================================================
+
+For each role, what can they effectively DO (combining API + UI)?
+
+--- PLATFORM_ADMIN ---
+  API: /api/platform/* (health, facilities, config CRUD)
+  UI:  None (no tenant UI -- separate Control Plane)
+  Notes: Cannot access ANY tenant data. No facilityId in JWT.
+
+--- ADMIN ---
+  Full access to all tenant features:
+  - All case lifecycle (create, view, update, approve, reject, assign room,
+    activate, deactivate, cancel, delete, preference card link, check-in preop)
+  - Full inventory management (manage, checkin, verify, reserve)
+  - Full catalog management (CRUD items, groups, sets, images, preference cards)
+  - User management (CRUD, activate/deactivate)
+  - Location management (CRUD, activate/deactivate)
+  - Settings (rooms, config items, surgeons, facility settings)
+  - Reports (all report types including PHI clinical + billing + audit)
+  - Organization management (orgs + affiliations)
+  - Surgery request review + convert
+  - Financial readiness (dashboard, detail, declare, verify, override)
+  - PHI: clinical read/write, patient search, audit access
+  - PHI: No PHI_BILLING_ACCESS via role (but BILLING reports accessible
+    only if purpose override matches)
+  - Schedule (view day, unassigned, block times, room config)
+  - All checklist operations, pending reviews
+
+--- SCHEDULER ---
+  - Case lifecycle: create, view, update, approve, reject, assign room,
+    activate, check-in preop, cancel
+  - Schedule: view day, unassigned, block times, room config
+  - Surgery request review (NOT convert)
+  - PHI: clinical read, patient search
+  - Checklists: read (no attest capability, but [AUTH] endpoints are open)
+  - Reports: case-volume, readiness-trends (non-PHI), inventory status,
+    surgeon performance (via PHI clinical)
+  - No: user/location/catalog/inventory management, settings, financial readiness
+
+--- SURGEON ---
+  - Case lifecycle: create, view, update, cancel, preference card link
+  - Checklist attest
+  - My Checklists page
+  - PHI: clinical read, patient search
+  - Reports: case-volume, readiness-trends (non-PHI)
+  - No: approve, reject, assign room, activate, delete, inventory, catalog,
+    settings, admin features
+
+--- CIRCULATOR ---
+  - Case: view, check-in preop
+  - OR workflows: checklist attest, debrief, timeout
+  - PHI: clinical read, patient search
+  - Reports: non-PHI reports
+  - No: case create/update/approve/delete, inventory, catalog, settings
+
+--- SCRUB ---
+  - Case: view
+  - OR workflows: verify scan, checklist attest
+  - PHI: clinical read, patient search
+  - No: case create/update/approve/delete, inventory management, settings
+
+--- INVENTORY_TECH ---
+  - Case: view
+  - Inventory: read, checkin
+  - PHI: clinical read, patient search
+  - No: inventory manage (full), case lifecycle, catalog, settings
+
+--- ANESTHESIA ---
+  - Case: view
+  - Checklist attest
+  - PHI: clinical read, patient search
+  - No: case lifecycle (create/update/etc.), inventory, catalog, settings
+
+--- MULTI-ROLE COMBINATIONS ---
+  Capabilities are UNION of all roles. Common combinations:
+  - ADMIN + SURGEON: All ADMIN caps + CHECKLIST_ATTEST
+  - SCHEDULER + CIRCULATOR: All SCHEDULER caps + OR_DEBRIEF + OR_TIMEOUT
+  - INVENTORY_TECH + SCRUB: CASE_VIEW + VERIFY_SCAN + INVENTORY_READ +
+    INVENTORY_CHECKIN + CHECKLIST_ATTEST + PHI_CLINICAL_ACCESS + PHI_PATIENT_SEARCH
+
+
+H) DIVERGENCES BETWEEN CLIENT AND SERVER ENFORCEMENT
+================================================================================
+
+1. CASE DASHBOARD (case-dashboard.routes.ts) vs UI
+   API: All endpoints use [AUTH] + [PHI:C+] (authenticate + PHI clinical
+        with case evaluation). No capability-specific checks (e.g., no
+        requireCapabilities('CASE_APPROVE') on the attest endpoint).
+   UI:  CaseDashboardContent uses granular hasCapability() checks to
+        show/hide individual action buttons (CASE_CHECKIN_PREOP, VERIFY_SCAN,
+        OR_TIMEOUT, OR_DEBRIEF, etc.).
+   RISK: MEDIUM -- A user who can authenticate and pass PHI checks could
+         call case-dashboard endpoints they should not reach. The UI hides
+         buttons but the API does not enforce capability checks for most
+         case-dashboard actions. However, PHI guard + facility scoping
+         limits the blast radius.
+
+2. CASE CARDS (case-cards.routes.ts)
+   API: All endpoints use [AUTH] only (no capability checks).
+   UI:  Case card management is available to all authenticated users.
+   RISK: LOW -- Case cards are shared resources (like preference card
+         templates). No specific role restriction appears intentional.
+
+3. CHECKLIST TEMPLATE UPDATES
+   API: PUT/PATCH /api/checklists/templates/:type uses [AUTH] only.
+   UI:  Feature definition for admin-general-settings requires ADMIN role +
+        SETTINGS_MANAGE capability.
+   RISK: LOW -- Template editing is protected only by authentication at the
+         API level. The UI restricts access to admin pages, but any
+         authenticated user could call the API directly.
+
+4. REPORTS ROUTES
+   API: GET /api/reports, /reports/case-volume, /reports/readiness-trends
+        use [AUTH] only (no capability check). PHI-classified reports
+        add [PHI:C] or [PHI:B].
+   UI:  admin-reports feature requires ADMIN role + REPORTS_VIEW capability.
+   RISK: LOW-MEDIUM -- Non-PHI aggregate reports (case-volume, readiness-trends)
+         are accessible to all authenticated users via API. The UI only
+         shows the reports page to ADMIN users.
+
+5. FINANCIAL READINESS UI vs API
+   API: Uses capability checks (FINANCIAL_READINESS_VIEW, FINANCIAL_READINESS_EDIT).
+   UI:  Financial readiness pages use hasRole('ADMIN') as the guard.
+   RISK: NONE -- ADMIN is currently the only role with these capabilities,
+         so the UI role check and API capability check are equivalent. If
+         a new role gets FINANCIAL_READINESS_VIEW in the future, the UI
+         would need to be updated to show the pages to that role.
+
+6. ADMIN PAGES -- ROLE CHECK vs CAPABILITY CHECK
+   API: Most admin endpoints use requireCapabilities (e.g., USER_MANAGE,
+        LOCATION_MANAGE, CATALOG_MANAGE), NOT requireRoles.
+   UI:  Admin pages use requiredRoles: ['ADMIN'] (direct role check).
+   RISK: LOW -- Currently only ADMIN has these capabilities. If capabilities
+         are granted to other roles in the future, those users could call
+         the API but the UI pages would be hidden from them until the
+         feature definitions are updated.
+
+7. READINESS ATTESTATION VOID
+   API: POST /api/readiness/attestations/:id/void uses [AUTH] only.
+   UI:  Available through case dashboard which uses capability checks.
+   RISK: LOW -- Any authenticated user could void an attestation via
+         direct API call. Facility scoping limits impact.
+
+8. SURGERY REQUESTS -- REVIEW vs CONVERT
+   API: Review endpoints require SURGERY_REQUEST_REVIEW; convert requires
+        SURGERY_REQUEST_CONVERT.
+   UI:  Surgery requests admin page (not found in feature definitions but
+        exists as a route) likely uses role checks.
+   RISK: NONE -- The capability separation is correct. ADMIN has both;
+         SCHEDULER has REVIEW but not CONVERT.
+
+9. PHI_BILLING_ACCESS -- UNASSIGNED CAPABILITY
+   API: Reports with [PHI:B] check for PHI_BILLING_ACCESS capability.
+        phi-guard also uses purpose override: BILLING purpose with
+        PHI_BILLING_ACCESS cap bypasses org affiliation for case access.
+   ROLE MAP: NO role has PHI_BILLING_ACCESS assigned.
+   RISK: HIGH -- The financial-summary, cost-per-case, and related export
+         reports require PHI_BILLING classification. Since no role has
+         PHI_BILLING_ACCESS, these endpoints will ALWAYS deny access via
+         the PHI guard's capability check (Step 3). This appears to be
+         a gap: billing reports are registered but unreachable.
+         HOWEVER: Purpose override in phi-guard Step 4 can bypass org
+         checks if user has PHI_BILLING_ACCESS -- but since no role
+         grants it, this path is dead code.
+
+10. CLINIC AUTH vs JWT AUTH
+    API: /api/clinic/surgery-requests/* uses requireClinicAuth (API key).
+         All other routes use JWT authentication.
+    UI:  No UI for clinic routes (external integration).
+    RISK: NONE -- By design. Clinic routes are for external systems.
+
+SUMMARY OF DIVERGENCE SEVERITY:
+  HIGH:   1 (PHI_BILLING_ACCESS unassigned -- billing reports unreachable)
+  MEDIUM: 1 (case-dashboard lacks granular capability enforcement)
+  LOW:    5 (checklist templates, reports, admin UI role vs cap, attestation void)
+  NONE:   3 (financial readiness, surgery request split, clinic auth)
+
+
+================================================================================
+END OF SNAPSHOT
+================================================================================

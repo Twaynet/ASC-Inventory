@@ -1,300 +1,307 @@
-Navigation Components and Routes Snapshot
+Navigation and Routing Entrypoints Snapshot
+Generated: 2026-02-12
+Source: apps/web/src/ (Next.js App Router)
 
+================================================================================
 1. NAVIGATION COMPONENTS
+================================================================================
 
 Component: Header
-Location: /c/Users/missp/source/repos/ASC-Inventory/apps/web/src/app/components/Header.tsx
-Renders in: Root layout via Header title prop, used across authenticated pages
+File: apps/web/src/app/components/Header.tsx
+Renders on: All authenticated pages (each page imports Header directly)
 Links produced:
-/dashboard - Home button (conditional: not on dashboard page)
-/help - Help button (always visible)
-Logout - Sign out button (always visible)
+  /dashboard          | "Home" button icon         | Condition: shown when pathname != /dashboard
+  /phi/patients       | "Patient Search" button    | Condition: hasCapability('PHI_PATIENT_SEARCH')
+  /help               | "?" help button            | Condition: always visible when authenticated
+  (dynamic deepLink)  | "View" in AttentionDrawer  | Condition: attention items exist (server-driven deepLink)
+Also renders: AdminNav (role-gated), AttentionDrawer, theme toggle, persona selector, sign out
 
 Component: AdminNav
-Location: /c/Users/missp/source/repos/ASC-Inventory/apps/web/src/app/components/AdminNav.tsx
-Renders in: Header, conditionally shown
-Links produced (admin-only dropdown menu):
-/admin/cases - Cases
-/admin/users - Users
-/admin/locations - Locations
-/admin/catalog - Catalog
-/admin/inventory - Inventory
-/admin/inventory/risk-queue - Risk Queue
-/admin/vendors - Vendors
-/admin/loaner-sets - Loaner Sets
-/preference-cards - Surgeon Preference Cards
-/admin/reports - Reports
-/admin/general-settings - General Settings
-/admin/pending-reviews - Pending Reviews
-Condition: Role must be ADMIN
+File: apps/web/src/app/components/AdminNav.tsx
+Renders on: Header (dropdown menu)
+Condition: only renders if userRoles includes 'ADMIN'
+Links produced:
+  /admin/cases                | "Cases"
+  /admin/users                | "Users"
+  /admin/locations            | "Locations"
+  /admin/catalog              | "Catalog"
+  /admin/inventory            | "Inventory"
+  /admin/inventory/risk-queue | "Risk Queue"
+  /admin/vendors              | "Vendors"
+  /admin/loaner-sets          | "Loaner Sets"
+  /preference-cards           | "Surgeon Preference Cards"
+  /admin/reports              | "Reports"
+  /admin/phi-audit            | "PHI Audit"
+  /admin/general-settings     | "General Settings"
+  /admin/pending-reviews      | "Pending Reviews"
+  /admin/surgery-requests     | "Surgery Requests"
+  /admin/financial-readiness  | "Financial Readiness"
 
-2. REDIRECT RULES AND DEFAULT LANDINGS
+Component: AdminSettingsSubnav
+File: apps/web/src/components/AdminSettingsSubnav.tsx
+Renders on: General Settings pages (tab-style subnav)
+Links produced:
+  /admin/general-settings                | "General Settings"
+  /admin/general-settings/case-dashboard | "Case Dashboard"
+  /admin/general-settings/operating-rooms| "Operating Rooms"
+  /admin/general-settings/surgeons       | "Surgeons"
 
-Rule: Root path redirect
-Source: /
-Destination: /dashboard (if authenticated) or /login (if unauthenticated)
-Condition: Checked on page load in page.tsx
-Mechanism: useRouter().push() in useEffect
+Component: CalendarNav
+File: apps/web/src/app/(app)/calendar/components/CalendarNav.tsx
+Renders on: Calendar page
+Links produced: None (prev/next/today/view-mode are in-page state changes, not route changes)
 
-Rule: Unauthenticated route guard
-Source: /app/* group routes
-Destination: /login (if not authenticated)
-Condition: User is not logged in
-Mechanism: AuthGuard component wrapping (app) layout, checks isLoading and !user
+Component: Breadcrumbs
+File: apps/web/src/components/Breadcrumbs.tsx
+Renders on: Various admin subpages
+Links produced (by page):
+  Operating Rooms page:  /admin/general-settings -> "General Settings"
+  Surgeons page:         /admin/general-settings -> "General Settings"
+  Case Dashboard page:   /admin/general-settings -> "General Settings"
+  Catalog Sets page:     /admin/catalog -> "Catalog"
+  Catalog Groups page:   /admin/catalog -> "Catalog"
+  Group Detail page:     /admin/catalog -> "Catalog", /admin/catalog/groups -> "Groups"
+  Inventory Check-In:    /admin (DEAD LINK - no page exists), /admin/inventory -> "Inventory", /admin/inventory/check-in -> "Check-In"
 
-Rule: Login redirect on authenticated user
-Source: /login
-Destination: /dashboard (if already authenticated)
-Condition: User is logged in
-Mechanism: useEffect in login/page.tsx checks !isLoading && user
+Component: Catalog Subnav (inline in pages, not separate component)
+File: apps/web/src/app/(app)/admin/catalog/page.tsx (and groups/page.tsx, sets/page.tsx)
+Links produced:
+  /admin/catalog        | "Items"
+  /admin/catalog/groups | "Groups"
+  /admin/catalog/sets   | "Set Definitions"
 
-Rule: Platform Admin gate
-Source: /platform, /platform/*
-Destination: Access denied UI (no redirect)
-Condition: !hasRole('PLATFORM_ADMIN')
-Mechanism: Platform layout wrapper checks hasRole('PLATFORM_ADMIN')
+Component: Footer
+File: apps/web/src/app/components/Footer.tsx
+Renders on: All pages (root layout)
+Links produced:
+  /help | "Help"
 
-Rule: Admin-only page access
-Source: /admin/cases
-Destination: Access denied alert (no redirect)
-Condition: !hasRole('ADMIN') && !hasRole('SCHEDULER')
-Mechanism: Page component checks roles and returns alert
+Component: AttentionDrawer
+File: apps/web/src/app/components/AttentionDrawer.tsx
+Renders on: Header (popover)
+Links produced (server-driven via API /attention endpoint):
+  /admin/loaner-sets?filter=overdue      | type: LOANER_OVERDUE
+  /admin/loaner-sets?filter=open         | type: LOANER_DUE_SOON
+  /admin/inventory?expiry=EXPIRED        | type: ITEM_EXPIRED
+  /admin/inventory?expiry=EXPIRING_SOON  | type: ITEM_EXPIRING_SOON
 
-3. NAVIGATION LINKS BY SECTION
+================================================================================
+2. DASHBOARD FEATURE CARDS (access-control-driven navigation)
+================================================================================
 
-CORE NAVIGATION (Dashboard)
-Dashboard displays feature cards that link to:
-/cases - My Case Requests (core group)
-/unassigned-cases - Unassigned Cases (core group, ADMIN/SCHEDULER only)
-/pending-reviews - Pending Reviews (core group)
-/calendar - Case Calendar (case-workflow group)
-/preference-cards - Surgeon Preference Cards (case-workflow group)
-/admin/cases - Cases (admin group, ADMIN/SCHEDULER only)
-/admin/users - Users (admin group, ADMIN only)
-/admin/catalog - Catalog (admin group, ADMIN only)
-/admin/inventory - Inventory (admin group, ADMIN only)
-/admin/reports - Reports (admin group, ADMIN only)
-/admin/general-settings - General Settings (admin group, ADMIN only)
-/platform - Platform Administration (core group, PLATFORM_ADMIN only)
+Source: apps/web/src/lib/access-control.ts FEATURES array
+Renders on: /dashboard page via FeatureSection/FeatureCard components
 
-CASES SECTION
-/cases - My Case Requests (surgeon/requester view)
-Modal actions from /cases page:
-+ New Case Request - opens inline modal
-Approve & Schedule - navigates to case for approval (ADMIN/SCHEDULER only)
-Reject - navigates to case for rejection (ADMIN/SCHEDULER only)
+GROUP: core (all authenticated users unless requiredRoles specified)
+  /calendar             | "Calendar"               | Condition: authenticated (no role/cap required)
+  /cases                | "Case Requests"           | Condition: authenticated (no role/cap required)
+  /preference-cards     | "Surgeon Preference Cards"| Condition: authenticated (no role/cap required)
+  /pending-reviews      | "My Pending Reviews"      | Condition: authenticated (no role/cap required)
+  /surgeon/my-checklists| "My Checklists"           | Condition: requiredRoles=['SURGEON']
+  /unassigned-cases     | "Unassigned Cases"        | Condition: requiredRoles=['ADMIN','SCHEDULER']
 
-ADMIN CASES SECTION
-/admin/cases - Cases management
-Tab-based interface:
-- Inactive (default)
-- Active
-- Cancelled
-- All
-Actions:
-Create Case - inline form
-Activate Case - inline form
-Approve Case Request - inline form
-Reject Case Request - inline form
-Deactivate Case - confirmation
-Cancel Case - confirmation
+GROUP: case-workflows (contextual, no direct path)
+  (null)                | "Case Dashboard"          | Condition: requiredCapabilities=['CASE_VIEW'], contextual
+  (null)                | "Readiness Verification"  | Condition: requiredCapabilities=['VERIFY_SCAN'], contextual
+  (null)                | "Debrief"                 | Condition: requiredCapabilities=['OR_DEBRIEF'], contextual
+  (null)                | "OR Timeout"              | Condition: requiredCapabilities=['OR_TIMEOUT'], contextual
 
-CALENDAR SECTION
-/calendar - Case Calendar
-Query parameters:
-view=month|week|day (default: month)
-date=YYYY-MM (month view) or YYYY-MM-DD (week/day views)
-openCase=<caseId> (auto-opens case dashboard modal)
-View modes with drill-down:
-Month view -> click day -> Week view
-Week view -> click day -> Day view
-Day view displays room-based schedule
+GROUP: admin
+  /admin/cases             | "Cases"              | Condition: requiredRoles=['ADMIN','SCHEDULER']
+  /admin/users             | "Users"              | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['USER_MANAGE']
+  /admin/locations         | "Locations"          | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['LOCATION_MANAGE']
+  /admin/catalog           | "Catalog"            | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['CATALOG_MANAGE']
+  /admin/inventory         | "Inventory"          | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['INVENTORY_MANAGE']
+  /admin/inventory/check-in| "Inventory Check-In" | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['INVENTORY_CHECKIN']
+  /admin/reports           | "Reports"            | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['REPORTS_VIEW']
+  /admin/phi-audit         | "PHI Audit"          | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['PHI_AUDIT_ACCESS']
+  /admin/general-settings  | "General Settings"   | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['SETTINGS_MANAGE']
+  /admin/pending-reviews   | "All Pending Reviews"| Condition: requiredRoles=['ADMIN']
 
-CASE DETAILS
-/case/[caseId] - Case Dashboard
-Renders: CaseDashboardModal component
-Deep-link entry point from Calendar or direct URL
+================================================================================
+3. REDIRECT RULES AND DEFAULT LANDINGS
+================================================================================
 
-CASE VERIFICATION
-/case/[caseId]/verify - Item Verification
-Query parameters:
-returnTo=<path> (navigation destination after verification)
-openModal=true (re-open case dashboard after verification)
-Deep-link entry point for inventory verification workflow
+Route: / (root)
+File: apps/web/src/app/page.tsx
+Behavior: If authenticated -> redirect to /dashboard. If not authenticated -> redirect to /login.
 
-OR WORKFLOWS (Checklists)
-/or/timeout/[caseId] - OR Time Out Checklist
-Deep-link entry point, accessed from case dashboard or direct URL
-Actions:
-Start Time Out
-Respond to checklist items
-Sign checklist (role-based)
-Complete Time Out
-Return to Case / Back to Calendar
+Route: /login
+File: apps/web/src/app/login/page.tsx
+Behavior: If already authenticated (on mount) -> redirect to /dashboard. On successful login -> redirect to /dashboard.
 
-/or/debrief/[caseId] - Debrief Checklist
-Deep-link entry point, accessed from case dashboard or direct URL
-Actions:
-Start Debrief
-Respond to checklist items
-Sign checklist (conditional, role-based)
-Complete Debrief
-Provide Preference Card Feedback
-Return to Case / Back to Calendar
+Route: /case-cards (legacy)
+File: apps/web/src/app/(app)/case-cards/page.tsx
+Behavior: Unconditional redirect to /preference-cards (router.replace). Legacy backward-compat route.
 
-PREFERENCE CARDS
-/preference-cards - Preference Cards List
-Actions:
-+ Create Preference Card - opens dialog
-Edit - opens dialog (not for DEPRECATED cards)
-Clone - opens dialog
-Print - opens print modal
-History - opens edit log modal
-Feedback - opens feedback modal
-Activate - modal action (DRAFT status)
-Deprecate - modal action (ACTIVE status)
+Guard: AuthGuard (layout-level)
+File: apps/web/src/app/(app)/layout.tsx -> apps/web/src/app/components/AuthGuard.tsx
+Behavior: All routes under (app)/ group. If not authenticated -> redirect to /login.
 
-SURGEON CHECKLISTS
-/surgeon/my-checklists - My Checklists
-Role: SURGEON
-Displays pending checklists for signing
+Guard: PlatformLayout (layout-level)
+File: apps/web/src/app/(app)/platform/layout.tsx
+Behavior: All routes under (app)/platform/. If not hasRole('PLATFORM_ADMIN') -> renders "Access Denied" (no redirect).
 
-GENERAL SETTINGS
-/admin/general-settings - General Settings Hub
-Tabs:
-- Config Dashboard (default)
-Sub-pages:
-/admin/general-settings/surgeons - Surgeons
-/admin/general-settings/operating-rooms - Operating Rooms
-/admin/general-settings/case-dashboard - Case Dashboard Settings
+NOTE: There is NO Next.js middleware.ts file in this project. All auth/redirect logic is client-side.
 
-CATALOG MANAGEMENT
-/admin/catalog - Catalog Overview
-/admin/catalog/groups - Catalog Groups
-/admin/catalog/groups/[groupId] - Group Details
-/admin/catalog/sets - Instrument Sets
+================================================================================
+4. ALL DEFINED ROUTES (page.tsx files)
+================================================================================
 
-INVENTORY MANAGEMENT
-/admin/inventory - Inventory Overview
-/admin/inventory/check-in - Check In Items
-/admin/inventory/risk-queue - Risk Queue
+UNAUTHENTICATED ROUTES (outside (app) group):
+  /                    | Root redirect page
+  /login               | Login page
 
-ADDITIONAL PAGES
-/admin/locations - Locations
-/admin/loaner-sets - Loaner Sets
-/admin/vendors - Vendors
-/admin/pending-reviews - Pending Reviews (Admin view)
-/case-cards - Case Cards (UNKNOWN location/purpose)
-/help - Help & FAQ
+AUTHENTICATED ROUTES (inside (app) group, AuthGuard protected):
 
-PLATFORM ADMINISTRATION
-/platform - Platform Admin Console
-Tabs:
-- Config Keys (default)
-- Facility Overrides
-- Config Audit
-- Auth Log
+  Core / General:
+  /dashboard                                  | System Dashboard (home)
+  /calendar                                   | Calendar view (supports ?view=, ?date=, ?openCase= params)
+  /cases                                      | Case Requests
+  /preference-cards                           | Surgeon Preference Cards
+  /pending-reviews                            | My Pending Reviews
+  /unassigned-cases                           | Unassigned Cases
+  /help                                       | Help & FAQ
+  /case-cards                                 | Legacy redirect -> /preference-cards
+  /surgeon/my-checklists                      | Surgeon's completed checklists
 
-4. DEEP-LINK ENTRYPOINTS
+  Case Workflow (dynamic):
+  /case/[caseId]                              | Case Dashboard (full page)
+  /case/[caseId]/verify                       | Readiness Verification (supports ?returnTo=, ?openModal= params)
+  /or/timeout/[caseId]                        | OR Timeout checklist
+  /or/debrief/[caseId]                        | Debrief checklist
 
-Route: /case/[caseId]
-Required params: caseId (UUID)
-Access: Authenticated users (all roles can view cases they have access to)
-Mechanism: Deep links from calendar, case lists, or direct URL
-No query params required
+  PHI:
+  /phi/patients                               | Patient Search
 
-Route: /case/[caseId]/verify
-Required params: caseId (UUID)
-Query params: returnTo (optional), openModal (optional: true)
-Access: Authenticated users with inventory/admin permissions
-Mechanism: Deep link from case dashboard or direct URL for verification workflow
+  Admin:
+  /admin/cases                                | Admin Cases management
+  /admin/users                                | User management
+  /admin/locations                            | Location management
+  /admin/catalog                              | Catalog Items
+  /admin/catalog/groups                       | Catalog Groups
+  /admin/catalog/groups/[groupId]             | Catalog Group Detail
+  /admin/catalog/sets                         | Catalog Set Definitions
+  /admin/inventory                            | Inventory management (supports ?expiry= param)
+  /admin/inventory/check-in                   | Inventory Check-In (supports ?caseId= param)
+  /admin/inventory/risk-queue                 | Risk Queue
+  /admin/vendors                              | Vendor management
+  /admin/loaner-sets                          | Loaner Sets (supports ?filter= param)
+  /admin/reports                              | Reports
+  /admin/phi-audit                            | PHI Audit Log
+  /admin/general-settings                     | General Settings hub
+  /admin/general-settings/case-dashboard      | Case Dashboard settings
+  /admin/general-settings/operating-rooms     | Operating Rooms settings
+  /admin/general-settings/surgeons            | Surgeon settings
+  /admin/pending-reviews                      | All Pending Reviews (admin-wide)
+  /admin/surgery-requests                     | Surgery Requests list
+  /admin/surgery-requests/[id]                | Surgery Request detail
+  /admin/financial-readiness                  | Financial Readiness list
+  /admin/financial-readiness/[requestId]      | Financial Readiness detail
 
-Route: /or/timeout/[caseId]
-Required params: caseId (UUID)
-Access: Authenticated users with OR access (CIRCULATOR, SCRUB, SURGEON, ANESTHESIA, ADMIN)
-Mechanism: Deep link from case dashboard, calendar, or direct URL
+  Platform:
+  /platform                                   | Platform Administration (Config Keys, Facility Overrides, Audit Log, Auth Log)
 
-Route: /or/debrief/[caseId]
-Required params: caseId (UUID)
-Access: Authenticated users with OR access
-Mechanism: Deep link from case dashboard, calendar, or direct URL
+================================================================================
+5. PAGE-LEVEL ACCESS GUARDS (client-side)
+================================================================================
 
-Route: /admin/catalog/groups/[groupId]
-Required params: groupId (UUID)
-Access: ADMIN role only
-Mechanism: Link from catalog groups list
+Route                                       | Guard Type         | Condition
+--------------------------------------------|--------------------|--------------------------------------------
+All (app)/* routes                          | AuthGuard (layout) | Must be authenticated, else redirect /login
+/platform/*                                 | PlatformLayout     | Must have role PLATFORM_ADMIN, else "Access Denied"
+/admin/cases                                | hasRole check      | ADMIN or SCHEDULER
+/admin/users                                | hasRole check      | ADMIN
+/admin/locations                            | usePageData        | requiredRoles=['ADMIN']
+/admin/catalog                              | usePageData        | requiredRoles=['ADMIN']
+/admin/catalog/groups                       | usePageData        | requiredRoles=['ADMIN']
+/admin/catalog/groups/[groupId]             | usePageData        | requiredRoles=['ADMIN']
+/admin/catalog/sets                         | usePageData        | requiredRoles=['ADMIN']
+/admin/inventory                            | hasRole check      | ADMIN
+/admin/inventory/check-in                   | hasCapability      | INVENTORY_CHECKIN or INVENTORY_MANAGE
+/admin/inventory/risk-queue                 | hasRole check      | ADMIN
+/admin/vendors                              | isAdmin check      | ADMIN (via user.roles.includes)
+/admin/loaner-sets                          | isAdmin check      | ADMIN (via user.roles.includes)
+/admin/phi-audit                            | roles check        | ADMIN (via user.roles.includes)
+/admin/general-settings                     | isAdmin check      | ADMIN (via user.roles.includes)
+/admin/general-settings/case-dashboard      | isAdmin check      | ADMIN (via user.roles.includes)
+/admin/general-settings/operating-rooms     | isAdmin check      | ADMIN (via user.roles.includes)
+/admin/general-settings/surgeons            | isAdmin check      | ADMIN (via user.roles.includes)
+/admin/pending-reviews                      | hasRole check      | ADMIN
+/admin/surgery-requests                     | hasRole check      | ADMIN or SCHEDULER
+/admin/surgery-requests/[id]                | hasRole check      | ADMIN or SCHEDULER
+/admin/financial-readiness                  | hasRole check      | ADMIN
+/admin/financial-readiness/[requestId]      | hasRole check      | ADMIN
+/surgeon/my-checklists                      | hasRole check      | SURGEON
+/phi/patients                               | hasCapability      | PHI_PATIENT_SEARCH (renders "Access Denied" if missing)
 
-Route: /calendar
-Query params: view (month|week|day), date (YYYY-MM or YYYY-MM-DD), openCase (caseId optional)
-Access: Authenticated users
-Mechanism: Navigation from dashboard, direct URL, or state-based navigation
+NO CLIENT-SIDE GUARD (rely on API-level auth only):
+/admin/reports                              | NONE               | No client role check found
+/calendar                                   | NONE               | Authenticated only (AuthGuard)
+/cases                                      | NONE               | Authenticated only (AuthGuard)
+/preference-cards                           | NONE               | Authenticated only (AuthGuard)
+/pending-reviews                            | NONE               | Authenticated only (AuthGuard)
+/unassigned-cases                           | NONE               | Authenticated only (AuthGuard)
+/help                                       | NONE               | Authenticated only (AuthGuard)
+/case/[caseId]                              | NONE               | Authenticated only (AuthGuard)
+/case/[caseId]/verify                       | NONE               | Authenticated only (AuthGuard, uses roles for UI)
+/or/timeout/[caseId]                        | NONE               | Authenticated only (AuthGuard)
+/or/debrief/[caseId]                        | NONE               | Authenticated only (AuthGuard)
 
-5. UNREACHABLE OR ORPHANED ROUTES
+================================================================================
+6. DEEP-LINK ENTRYPOINTS (routes accessed via programmatic navigation, not primary nav)
+================================================================================
 
-Route: /case-cards
-Location: /c/Users/missp/source/repos/ASC-Inventory/apps/web/src/app/(app)/case-cards/page.tsx
-Status: No links point to this route
-No navigation found in AdminNav, Header, Dashboard features, or any other navigation component
-Purpose: UNKNOWN (file exists but is orphaned)
+Route                                       | Linked From
+--------------------------------------------|----------------------------------------------------
+/case/[caseId]                              | Calendar DayView, ScheduleCard click, check-in "View Case" button, verify page "Back to Case", debrief/timeout "Back to Case"
+/case/[caseId]/verify                       | CaseDashboardContent "Verify Readiness" button
+/or/timeout/[caseId]                        | CaseDashboardContent "Start Timeout" button, Calendar DayView action button, admin pending-reviews "Complete" button
+/or/debrief/[caseId]                        | CaseDashboardContent "Start Debrief" button, Calendar DayView action button, admin pending-reviews "Complete" button, user pending-reviews "Complete" button
+/admin/inventory/check-in?caseId=X          | CaseDashboardContent "Check In Inventory" button
+/calendar?view=day&date=X                   | Unassigned cases "View in Calendar" button
+/calendar?openCase=X                        | PHI patient search case click, debrief/timeout success "View in Calendar" button, verify page returnTo
+/admin/general-settings/operating-rooms     | RoomBasedDayView "Configure Operating Rooms" link (when no rooms)
+/pending-reviews                            | Calendar DayView "Pending Reviews" link
+/admin/surgery-requests/[id]                | Surgery Requests list row click
+/admin/financial-readiness/[requestId]      | Financial Readiness list row click
+/admin/catalog/groups/[groupId]             | Catalog Groups list (implicit from listing page)
+/admin/loaner-sets?filter=overdue           | AttentionDrawer (LOANER_OVERDUE items)
+/admin/loaner-sets?filter=open              | AttentionDrawer (LOANER_DUE_SOON items)
+/admin/inventory?expiry=EXPIRED             | AttentionDrawer (ITEM_EXPIRED items)
+/admin/inventory?expiry=EXPIRING_SOON       | AttentionDrawer (ITEM_EXPIRING_SOON items)
+/platform                                   | Dashboard "Open Platform Administration" button (PLATFORM_ADMIN only)
 
-Route: /unassigned-cases
-Location: /c/Users/missp/source/repos/ASC-Inventory/apps/web/src/app/(app)/unassigned-cases/page.tsx
-Status: Accessible via AdminNav dashboard feature gates but appears to be accessed primarily through admin menu or help documentation
-No direct link from Header or primary navigation except conditional admin menu
+================================================================================
+7. ORPHANED OR NOTABLE ROUTE ISSUES
+================================================================================
 
-NAVIGATION ROUTE STRUCTURE SUMMARY
+ROUTES IN ADMINNAV BUT NOT IN DASHBOARD FEATURES ARRAY:
+  /admin/surgery-requests      | In AdminNav, NOT in access-control.ts FEATURES array
+  /admin/financial-readiness   | In AdminNav, NOT in access-control.ts FEATURES array
+  /admin/inventory/risk-queue  | In AdminNav, NOT in access-control.ts FEATURES array
+  /admin/vendors               | In AdminNav, NOT in access-control.ts FEATURES array
+  /admin/loaner-sets           | In AdminNav, NOT in access-control.ts FEATURES array
 
-Authenticated Routes (protected by AuthGuard):
-/(app)/cases - Surgeon case requests
-/(app)/dashboard - System dashboard (default landing)
-/(app)/calendar - Calendar views
-/(app)/help - Help documentation
-/(app)/case/[caseId] - Case details
-/(app)/case/[caseId]/verify - Case verification
-/(app)/or/timeout/[caseId] - Timeout checklist
-/(app)/or/debrief/[caseId] - Debrief checklist
-/(app)/preference-cards - Preference cards management
-/(app)/surgeon/my-checklists - Surgeon checklists
-/(app)/admin/* - All admin pages (role-gated)
-/(app)/platform/* - Platform admin (PLATFORM_ADMIN only)
-/(app)/unassigned-cases - Unassigned cases
-/(app)/pending-reviews - Pending reviews
-/(app)/case-cards - (Orphaned)
+ROUTES NOT LINKED FROM ANY NAVIGATION COMPONENT:
+  /phi/patients                | Only linked from Header "Patient Search" button (capability-gated), not in AdminNav or Dashboard features
+  /surgeon/my-checklists       | Only linked from Dashboard feature card (role-gated to SURGEON)
+  /case-cards                  | Legacy redirect, no active links point here (backward-compat only)
 
-Unauthenticated Routes:
-/login - Login page
-/ - Redirect root (conditional redirect)
+DEAD BREADCRUMB LINK:
+  /admin                       | Referenced in check-in page breadcrumb ({ label: 'Admin', href: '/admin' }), but no /admin/page.tsx exists. This will render the Next.js 404 page.
 
-CONDITIONAL NAVIGATION BY ROLE
+ROUTES WITH NO CLIENT-SIDE ROLE GUARD (notable):
+  /admin/reports               | AdminNav lists it, dashboard FEATURES requires ADMIN + REPORTS_VIEW, but the page itself has no client-side guard. API-level protection only.
 
-ADMIN role links:
-All admin menu items
-All feature cards on dashboard
-Case approval/rejection in /cases and /admin/cases
-General settings access
-Config/audit log access
+QUERY PARAMETER ENTRYPOINTS (not separate routes but affect page behavior):
+  /calendar?view=day|week|month&date=YYYY-MM-DD  | Calendar view mode and date
+  /calendar?openCase=[caseId]                     | Auto-opens case dashboard modal
+  /case/[caseId]/verify?returnTo=X&openModal=true | Return path after verification
+  /admin/inventory?expiry=EXPIRED|EXPIRING_SOON   | Pre-filter inventory by expiry status
+  /admin/inventory/check-in?caseId=X              | Pre-load case context for check-in
+  /admin/loaner-sets?filter=all|open|overdue|returned | Pre-filter loaner sets
 
-SCHEDULER role links:
-Case approval/rejection
-Calendar management implied
-Unassigned cases view
-
-SURGEON role links:
-My Case Requests (/cases)
-Calendar view (/calendar)
-Preference Cards (/preference-cards)
-My Checklists (/surgeon/my-checklists)
-Debrief feedback submission
-
-CIRCULATOR, SCRUB, ANESTHESIA roles link to:
-Case Calendar (/calendar)
-OR Workflows (/or/timeout/*, /or/debrief/*)
-Pending Reviews for unsigned checklists
-
-PLATFORM_ADMIN role links:
-Platform Administration (/platform)
-No tenant feature access
-
----
-
+================================================================================
 END OF SNAPSHOT
+================================================================================
