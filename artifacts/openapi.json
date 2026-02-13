@@ -3120,6 +3120,26 @@
                   "occurredAt": {
                     "type": "string",
                     "format": "date-time"
+                  },
+                  "adjustment": {
+                    "type": "object",
+                    "properties": {
+                      "availabilityStatus": {
+                        "type": "string",
+                        "enum": [
+                          "MISSING",
+                          "AVAILABLE"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "availabilityStatus"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 2000
                   }
                 },
                 "required": [
@@ -3220,6 +3240,26 @@
                         "occurredAt": {
                           "type": "string",
                           "format": "date-time"
+                        },
+                        "adjustment": {
+                          "type": "object",
+                          "properties": {
+                            "availabilityStatus": {
+                              "type": "string",
+                              "enum": [
+                                "MISSING",
+                                "AVAILABLE"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "availabilityStatus"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "reason": {
+                          "type": "string",
+                          "maxLength": 2000
                         }
                       },
                       "required": [
@@ -4289,6 +4329,458 @@
                       },
                       "required": [
                         "riskItems"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/missing-analytics": {
+      "get": {
+        "operationId": "inventory.missingAnalytics",
+        "summary": "Analytics over missing/found inventory events",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "start",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "end",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "location",
+                "catalog",
+                "surgeon",
+                "staff"
+              ]
+            },
+            "required": true,
+            "name": "groupBy",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "MISSING",
+                "FOUND",
+                "BOTH"
+              ],
+              "default": "BOTH"
+            },
+            "required": false,
+            "name": "resolution",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "summary": {
+                          "type": "object",
+                          "properties": {
+                            "totalMissing": {
+                              "type": "number"
+                            },
+                            "totalFound": {
+                              "type": "number"
+                            },
+                            "netOpen": {
+                              "type": "number"
+                            },
+                            "resolutionRate": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "totalMissing",
+                            "totalFound",
+                            "netOpen",
+                            "resolutionRate"
+                          ]
+                        },
+                        "groups": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "missingCount": {
+                                "type": "number"
+                              },
+                              "foundCount": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "label",
+                              "missingCount",
+                              "foundCount"
+                            ]
+                          }
+                        },
+                        "topDrivers": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "missingCount": {
+                                "type": "number"
+                              },
+                              "foundCount": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "label",
+                              "missingCount",
+                              "foundCount"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "summary",
+                        "groups",
+                        "topDrivers"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/missing-events": {
+      "get": {
+        "operationId": "inventory.missingEvents",
+        "summary": "Drill-down list of individual missing/found events",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "start",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "end",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "MISSING",
+                "FOUND",
+                "BOTH"
+              ],
+              "default": "BOTH"
+            },
+            "required": false,
+            "name": "resolution",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "location",
+                "catalog",
+                "surgeon",
+                "staff"
+              ]
+            },
+            "required": true,
+            "name": "groupBy",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "groupKey",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "number"
+                        },
+                        "events": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "occurredAt": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "MISSING",
+                                  "FOUND"
+                                ]
+                              },
+                              "inventoryItemId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "catalogName": {
+                                "type": "string"
+                              },
+                              "lotNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "serialNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "locationName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "surgeonName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "staffName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "notes": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "occurredAt",
+                              "type",
+                              "inventoryItemId",
+                              "catalogName",
+                              "lotNumber",
+                              "serialNumber",
+                              "locationName",
+                              "surgeonName",
+                              "staffName",
+                              "notes"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "events"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/open-missing-aging": {
+      "get": {
+        "operationId": "inventory.openMissingAging",
+        "summary": "Currently missing items with aging metrics",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "number"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "inventoryItemId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "catalogName": {
+                                "type": "string"
+                              },
+                              "lotNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "serialNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "locationName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "missingSince": {
+                                "type": "string"
+                              },
+                              "daysMissing": {
+                                "type": "number"
+                              },
+                              "lastStaffName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "inventoryItemId",
+                              "catalogName",
+                              "lotNumber",
+                              "serialNumber",
+                              "locationName",
+                              "missingSince",
+                              "daysMissing",
+                              "lastStaffName"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "items"
                       ]
                     }
                   },
@@ -5599,6 +6091,130 @@
         "responses": {
           "204": {
             "description": "No content"
+          }
+        }
+      }
+    },
+    "/operations/health-summary": {
+      "get": {
+        "operationId": "operations.healthSummary",
+        "summary": "Aggregated operational health metrics",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "start",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "end",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "missing": {
+                          "type": "object",
+                          "properties": {
+                            "openCount": {
+                              "type": "number"
+                            },
+                            "over7Days": {
+                              "type": "number"
+                            },
+                            "over30Days": {
+                              "type": "number"
+                            },
+                            "resolutionRate30d": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "openCount",
+                            "over7Days",
+                            "over30Days",
+                            "resolutionRate30d"
+                          ]
+                        },
+                        "financial": {
+                          "type": "object",
+                          "properties": {
+                            "overrideCount30d": {
+                              "type": "number"
+                            },
+                            "gratisCount30d": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "overrideCount30d",
+                            "gratisCount30d"
+                          ]
+                        },
+                        "devices": {
+                          "type": "object",
+                          "properties": {
+                            "totalEvents7d": {
+                              "type": "number"
+                            },
+                            "errorEvents7d": {
+                              "type": "number"
+                            },
+                            "errorRate7d": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "totalEvents7d",
+                            "errorEvents7d",
+                            "errorRate7d"
+                          ]
+                        },
+                        "cases": {
+                          "type": "object",
+                          "properties": {
+                            "completed30d": {
+                              "type": "number"
+                            },
+                            "canceled30d": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "completed30d",
+                            "canceled30d"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "missing",
+                        "financial",
+                        "devices",
+                        "cases"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
           }
         }
       }
