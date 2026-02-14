@@ -318,6 +318,16 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       facilityName = facilityResult.rows[0]?.name || 'Unknown';
     }
 
+    // Demo users: include expiry date for client-side UX
+    let demoExpiresAt: string | null = null;
+    if (request.user.isDemo) {
+      const demoResult = await query<{ expires_at: string }>(
+        'SELECT expires_at FROM demo_account WHERE user_id = $1',
+        [request.user.userId],
+      );
+      demoExpiresAt = demoResult.rows[0]?.expires_at ?? null;
+    }
+
     return reply.send({
       user: {
         id: request.user.userId,
@@ -328,6 +338,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         roles: userRoles,
         facilityId: request.user.facilityId,
         facilityName,
+        ...(demoExpiresAt ? { demoExpiresAt } : {}),
       },
     });
   });

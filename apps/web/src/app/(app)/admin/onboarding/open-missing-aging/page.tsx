@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import { Alert } from '@/app/components/Alert';
+import { DemoExpiryBanner } from '@/app/components/DemoExpiryBanner';
 import {
   getOpenMissingAgingTrend,
   getMissingItemTimeline,
@@ -150,6 +151,9 @@ export default function OpenMissingAgingPage() {
         {resolveSuccess && (
           <Alert message={resolveSuccess} variant="success" onDismiss={() => setResolveSuccess('')} autoDismiss={3000} />
         )}
+
+        {/* Expiry Warning Banner */}
+        <DemoExpiryBanner demoExpiresAt={user.demoExpiresAt} isDemo={user.isDemo} />
 
         {loadingData ? (
           <div className="text-text-muted text-sm">Loading trend data...</div>

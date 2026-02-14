@@ -15,8 +15,11 @@ import {
   type AccessDecision,
 } from './access-control';
 
-/** User with optional isDemo flag extracted from JWT */
-export type AppUser = LoginResponse['user'] & { isDemo?: boolean };
+/** User with optional demo flags */
+export type AppUser = LoginResponse['user'] & {
+  isDemo?: boolean;
+  demoExpiresAt?: string | null;
+};
 
 interface AuthContextType {
   user: AppUser | null;
@@ -40,7 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       getMe(storedToken)
         .then(({ user }) => {
           const jwt = decodeJwtPayload(storedToken);
-          setUser({ ...user, isDemo: jwt?.isDemo === true });
+          setUser({
+            ...user,
+            isDemo: jwt?.isDemo === true,
+            demoExpiresAt: user.demoExpiresAt ?? null,
+          });
           setToken(storedToken);
         })
         .catch(() => {
@@ -57,7 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (facilityKey: string, username: string, password: string) => {
     const response = await apiLogin(facilityKey, username, password);
     const jwt = decodeJwtPayload(response.token);
-    setUser({ ...response.user, isDemo: jwt?.isDemo === true });
+    setUser({
+      ...response.user,
+      isDemo: jwt?.isDemo === true,
+      demoExpiresAt: response.user.demoExpiresAt ?? null,
+    });
     setToken(response.token);
     localStorage.setItem('asc_token', response.token);
   };

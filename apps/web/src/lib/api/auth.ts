@@ -19,6 +19,7 @@ export interface LoginResponse {
     roles: string[];
     facilityId: string;
     facilityName: string;
+    demoExpiresAt?: string | null;
   };
 }
 

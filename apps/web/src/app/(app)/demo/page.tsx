@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
+import { DemoExpiryBanner } from '@/app/components/DemoExpiryBanner';
 import { getOperationsHealthSummary, type OperationsHealthSummary } from '@/lib/api/operations';
 import { getOpenMissingAgingTrend, type CurrentlyOpenItem } from '@/lib/api/admin-onboarding';
 
@@ -79,6 +80,9 @@ export default function SignalBoardPage() {
             DEMO ENVIRONMENT — Data resets nightly.
           </div>
         )}
+
+        {/* Expiry Warning Banner */}
+        <DemoExpiryBanner demoExpiresAt={user.demoExpiresAt} isDemo={isDemo} />
 
         {/* Title */}
         <div className="mb-6">
