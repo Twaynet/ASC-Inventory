@@ -661,11 +661,22 @@ export async function executeDemoSeed(
     });
   }
 
-  // Missing analytics: MISSING items (3 items)
+  // Missing analytics: MISSING items
+  // Scenario data for admin onboarding flow:
+  //   - 1 cluster of 3 missing items in same week (days 2, 3, 4)
+  //   - 1 open missing item aged > 7 days (8 days)
+  //   - Exactly 1 long-aging unresolved item (15 days)
+  //   - 2 resolved within 48 hours (10 and 6 days ago, resolved next day)
   if (options.includeMissingItems) {
+    // ── Still-open missing items (5 total) ──
     const missingDefs = [
+      // Cluster: 3 items in the same week (2, 3, 4 days ago)
       { catNum: 'OM-HS-14', loc: 'Implant Vault', daysAgo: 3, staff: techId },
+      { catNum: 'SF-HM-01', loc: 'OR Staging', daysAgo: 2, staff: circulatorId },
+      { catNum: 'SF-ABC-01', loc: 'Implant Vault', daysAgo: 4, staff: techId },
+      // Open > 7 days
       { catNum: 'SF-SM-1015', loc: 'Central Sterile Supply', daysAgo: 8, staff: circulatorId },
+      // Long-aging unresolved (exactly 1)
       { catNum: 'SF-WCK-01', loc: 'OR Staging', daysAgo: 15, staff: techId },
     ];
     for (const m of missingDefs) {
@@ -682,6 +693,44 @@ export async function executeDemoSeed(
         serialNumber: cat.requiresSerial ? `SN-MISSING-${String(globalSeq).padStart(4, '0')}` : null,
       });
       await markMissing(itemId, m.daysAgo, m.loc, m.staff);
+    }
+
+    // ── Resolved missing items (2 resolved within 48h) ──
+    const resolvedDefs = [
+      { catNum: 'OM-AC-52', loc: 'Implant Vault', missingDaysAgo: 10, resolvedDaysAgo: 9, staff: techId },
+      { catNum: 'KT-FC-3', loc: 'Central Sterile Supply', missingDaysAgo: 6, resolvedDaysAgo: 5, staff: circulatorId },
+    ];
+    for (const r of resolvedDefs) {
+      globalSeq++;
+      const cat = CATALOG_ITEMS.find(c => c.catalogNumber === r.catNum)!;
+      const itemId = await createInventoryItem({
+        catalogNumber: r.catNum,
+        locationName: r.loc,
+        seq: globalSeq,
+        availabilityStatus: 'AVAILABLE', // resolved back to available
+        sterilityStatus: 'STERILE',
+        sterilityExpiresAt: cat.requiresExpiration ? normalExpiry : null,
+        lotNumber: cat.requiresLot ? `LOT-RESOLVED-${String(globalSeq).padStart(4, '0')}` : null,
+        serialNumber: cat.requiresSerial ? `SN-RESOLVED-${String(globalSeq).padStart(4, '0')}` : null,
+      });
+      // Missing event
+      await markMissing(itemId, r.missingDaysAgo, r.loc, r.staff);
+      // Resolution event (found < 48h later)
+      await client.query(
+        `INSERT INTO inventory_event (
+           facility_id, inventory_item_id, event_type, location_id,
+           notes, performed_by_user_id, occurred_at
+         ) VALUES ($1,$2,'ADJUSTED',$3,$4,$5,$6)`,
+        [facilityId, itemId, locationIds[r.loc], `[FOUND] Located during follow-up search`, adminId, isoAgo(r.resolvedDaysAgo)],
+      );
+      inventoryEventCount++;
+      // Structured resolution record
+      await client.query(
+        `INSERT INTO missing_item_resolution
+           (inventory_item_id, facility_id, resolved_by_user_id, resolution_type, resolution_notes, created_at)
+         VALUES ($1, $2, $3, 'LOCATED', 'Found during routine follow-up search', $4)`,
+        [itemId, facilityId, adminId, isoAgo(r.resolvedDaysAgo)],
+      );
     }
   }
 

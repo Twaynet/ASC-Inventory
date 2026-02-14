@@ -56,6 +56,8 @@ import { financialReadinessRoutes } from './routes/financial-readiness.routes.js
 import { operationsHealthRoutes } from './routes/operations-health.routes.js';
 // Demo Playground
 import { demoRoutes } from './routes/demo.routes.js';
+// Admin Onboarding Flow (missing aging trend, timeline, resolution)
+import { adminOnboardingRoutes } from './routes/admin-onboarding.routes.js';
 import { personaPlugin } from './plugins/persona.js';
 import { requestIdPlugin } from './plugins/request-id.js';
 // PHI Phase 4D: Governance guardrails
@@ -235,6 +237,8 @@ async function main() {
   await fastify.register(operationsHealthRoutes, { prefix: '/api/operations' });
   // Demo Playground (public, no auth)
   await fastify.register(demoRoutes, { prefix: '/api/demo' });
+  // Admin Onboarding Flow (missing aging trend → timeline → resolution)
+  await fastify.register(adminOnboardingRoutes, { prefix: '/api/admin' });
 
   // ── PHI Phase 4D: Governance validation on ready ──
   fastify.addHook('onReady', async () => {
