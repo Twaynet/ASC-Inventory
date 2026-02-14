@@ -45,16 +45,13 @@ async function bootstrapPlatform(client: pg.PoolClient) {
     INSERT INTO app_user (facility_id, username, email, name, role, roles, password_hash)
     VALUES (NULL, 'platform-admin', 'platform@admin.local', 'Platform Administrator',
             'PLATFORM_ADMIN', ARRAY['PLATFORM_ADMIN'::user_role], $1)
-    ON CONFLICT (username) DO NOTHING
     RETURNING id
   `, [passwordHash]);
 
-  if (result.rows.length > 0) {
-    console.log('Created PLATFORM_ADMIN user:');
-    console.log('  Username: platform-admin');
-    console.log('  Password: ' + (process.env.PLATFORM_ADMIN_PASSWORD ? '(from env)' : 'platform123'));
-    console.log('  ID:', result.rows[0].id);
-  }
+  console.log('Created PLATFORM_ADMIN user:');
+  console.log('  Username: platform-admin');
+  console.log('  Password: ' + (process.env.PLATFORM_ADMIN_PASSWORD ? '(from env)' : 'platform123'));
+  console.log('  ID:', result.rows[0].id);
 }
 
 async function seed() {
