@@ -949,7 +949,7 @@ export async function executeDemoSeed(
     const surgeonName = surgeonUser?.name ?? 'Unknown Surgeon';
 
     const totalRequired = sc.prefCard.itemCatalogNumbers.length;
-    let readinessState = sc.def.readiness ?? 'RED';
+    const readinessState = sc.def.readiness ?? 'RED';
     let totalVerified = totalRequired;
     let missingItems: Array<{ catalogId: string; catalogName: string; quantity: number }> = [];
 
