@@ -54,6 +54,8 @@ import { adminSurgeryRequestRoutes } from './routes/admin-surgery-requests.route
 import { financialReadinessRoutes } from './routes/financial-readiness.routes.js';
 // Phase 9: Operations Health
 import { operationsHealthRoutes } from './routes/operations-health.routes.js';
+// Demo Playground
+import { demoRoutes } from './routes/demo.routes.js';
 import { personaPlugin } from './plugins/persona.js';
 import { requestIdPlugin } from './plugins/request-id.js';
 // PHI Phase 4D: Governance guardrails
@@ -115,6 +117,19 @@ async function main() {
     } catch (err) {
       request.log.warn({ code: 'AUTH_FAILED', method: request.method, url: request.url }, 'Authentication failed');
       reply.status(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required', requestId: request.requestId } });
+      return;
+    }
+
+    // Demo access enforcement — check expiry/blocked/facility for demo users
+    if (request.user?.isDemo) {
+      const { enforceDemoAccess } = await import('./services/demo-access.service.js');
+      const result = await enforceDemoAccess(request.user.userId, request.user.facilityId);
+      if (!result.allowed) {
+        request.log.warn({ code: result.code, userId: request.user.userId }, result.message);
+        reply.status(403).send({
+          error: { code: result.code, message: result.message, requestId: request.requestId },
+        });
+      }
     }
   });
 
@@ -218,6 +233,8 @@ async function main() {
   await fastify.register(financialReadinessRoutes, { prefix: '/api/admin/financial-readiness' });
   // Phase 9: Operations Health
   await fastify.register(operationsHealthRoutes, { prefix: '/api/operations' });
+  // Demo Playground (public, no auth)
+  await fastify.register(demoRoutes, { prefix: '/api/demo' });
 
   // ── PHI Phase 4D: Governance validation on ready ──
   fastify.addHook('onReady', async () => {

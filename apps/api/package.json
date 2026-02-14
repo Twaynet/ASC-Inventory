@@ -29,11 +29,13 @@
     "openai": "^6.17.0",
     "pg": "^8.11.0",
     "pino-pretty": "^11.0.0",
+    "nodemailer": "^7.0.3",
     "sharp": "^0.34.5",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/nodemailer": "^6.4.17",
     "@types/node": "^20.19.30",
     "@types/pg": "^8.11.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",

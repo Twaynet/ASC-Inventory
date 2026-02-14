@@ -17,6 +17,7 @@ export interface JwtPayload {
   name: string;
   role: UserRole; // Primary role (backward compat)
   roles: UserRole[]; // All assigned roles
+  isDemo?: boolean; // True for demo playground accounts
 }
 
 /**

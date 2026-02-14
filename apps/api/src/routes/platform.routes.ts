@@ -13,6 +13,7 @@ import { platformConfigRoutes } from './platform-config.routes.js';
 import { platformFacilityViewRoutes } from './platform-facility-view.routes.js';
 import { platformFacilitiesRoutes } from './platform-facilities.routes.js';
 import { platformDemoSeedRoutes } from './platform-demo-seed.routes.js';
+import { platformDemoAccessRoutes } from './platform-demo-access.routes.js';
 import { query } from '../db/index.js';
 import { ok } from '../utils/reply.js';
 
@@ -66,4 +67,7 @@ export async function platformRoutes(fastify: FastifyInstance): Promise<void> {
   // Mount facility-view routes under /api/platform/facility-view
   // Read-only cross-facility visibility for PLATFORM_ADMIN
   await fastify.register(platformFacilityViewRoutes, { prefix: '/facility-view' });
+
+  // Mount demo access admin routes under /api/platform/demo
+  await fastify.register(platformDemoAccessRoutes, { prefix: '/demo' });
 }

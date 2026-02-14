@@ -33,5 +33,9 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@types/nodemailer": "^7.0.9",
+    "nodemailer": "^8.0.1"
   }
 }
