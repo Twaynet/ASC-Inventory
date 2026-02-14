@@ -12,6 +12,7 @@ import { requirePlatformAdmin } from '../plugins/auth.js';
 import { platformConfigRoutes } from './platform-config.routes.js';
 import { platformFacilityViewRoutes } from './platform-facility-view.routes.js';
 import { platformFacilitiesRoutes } from './platform-facilities.routes.js';
+import { platformDemoSeedRoutes } from './platform-demo-seed.routes.js';
 import { query } from '../db/index.js';
 import { ok } from '../utils/reply.js';
 
@@ -58,6 +59,9 @@ export async function platformRoutes(fastify: FastifyInstance): Promise<void> {
   // Mount facility management routes (POST create, bootstrap-status)
   // under /api/platform/facilities (shares prefix with GET list above)
   await fastify.register(platformFacilitiesRoutes, { prefix: '/facilities' });
+
+  // Mount demo seed routes under /api/platform/facilities/:facilityId/demo-seed
+  await fastify.register(platformDemoSeedRoutes, { prefix: '/facilities' });
 
   // Mount facility-view routes under /api/platform/facility-view
   // Read-only cross-facility visibility for PLATFORM_ADMIN
