@@ -3,7 +3,6 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { decodeJwtPayload } from '@/lib/jwt-decode';
 
 // Eye icons for show/hide password
 function EyeIcon() {
@@ -48,10 +47,7 @@ export default function LoginPage() {
 
     try {
       await login(facilityKey, username, password);
-      // Demo users land on Signal Board; regular users on dashboard
-      const storedToken = localStorage.getItem('asc_token');
-      const jwt = storedToken ? decodeJwtPayload(storedToken) : null;
-      router.push(jwt?.isDemo ? '/demo' : '/dashboard');
+      // useEffect above handles redirect once user state updates
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

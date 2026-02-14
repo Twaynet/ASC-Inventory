@@ -90,7 +90,7 @@ export async function getMissingItemTimeline(
   token: string,
   inventoryItemId: string,
 ): Promise<MissingItemTimelineResponse> {
-  return request(`/admin/missing/${inventoryItemId}/timeline`, { token });
+  return request(`/admin/missing/${encodeURIComponent(inventoryItemId)}/timeline`, { token });
 }
 
 export async function resolveMissingItem(
@@ -98,7 +98,7 @@ export async function resolveMissingItem(
   inventoryItemId: string,
   data: ResolveRequest,
 ): Promise<ResolveResponse> {
-  return request(`/admin/missing/${inventoryItemId}/resolve`, {
+  return request(`/admin/missing/${encodeURIComponent(inventoryItemId)}/resolve`, {
     method: 'POST',
     body: data,
     token,

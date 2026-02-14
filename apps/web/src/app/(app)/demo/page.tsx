@@ -15,6 +15,8 @@ export default function SignalBoardPage() {
   const [loading, setLoading] = useState(true);
 
   const isDemo = user?.isDemo === true;
+  const userRoles = user?.roles || (user?.role ? [user.role] : []);
+  const isAdmin = userRoles.includes('ADMIN');
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -89,18 +91,20 @@ export default function SignalBoardPage() {
           <div className="text-text-muted text-sm">Loading signals...</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Admin Card */}
-            <SignalCard
-              label="Admin"
-              metric={openMissingCount !== null ? String(openMissingCount) : '--'}
-              metricLabel="Open Missing"
-              context={
-                oldestDays !== null && oldestDays > 0
-                  ? `Oldest open: ${oldestDays} day${oldestDays !== 1 ? 's' : ''}`
-                  : 'No open items'
-              }
-              onClick={() => router.push('/admin/onboarding/open-missing-aging')}
-            />
+            {/* Admin Card — only for ADMIN role */}
+            {isAdmin && (
+              <SignalCard
+                label="Admin"
+                metric={openMissingCount !== null ? String(openMissingCount) : '--'}
+                metricLabel="Open Missing"
+                context={
+                  oldestDays !== null && oldestDays > 0
+                    ? `Oldest open: ${oldestDays} day${oldestDays !== 1 ? 's' : ''}`
+                    : 'No open items'
+                }
+                onClick={() => router.push('/admin/onboarding/open-missing-aging')}
+              />
+            )}
 
             {/* CFO Card */}
             <SignalCard
