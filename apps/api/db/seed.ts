@@ -1,6 +1,10 @@
 /**
  * Database Seed Script
- * Creates sample data for development
+ *
+ * Two phases:
+ *   1. Platform bootstrap — ALWAYS runs (idempotent). Creates the
+ *      PLATFORM_ADMIN user required for platform-level access.
+ *   2. Demo / tenant data — only runs once (or with --reset).
  */
 
 import pg from 'pg';
@@ -20,17 +24,53 @@ const pool = new Pool({
   ssl: useSSL ? { rejectUnauthorized: false } : undefined,
 });
 
+// ========================================================================
+// Phase 1: Platform Bootstrap (ALWAYS runs, idempotent)
+// ========================================================================
+async function bootstrapPlatform(client: pg.PoolClient) {
+  console.log('--- Platform Bootstrap ---');
+
+  const existing = await client.query(
+    "SELECT id FROM app_user WHERE username = 'platform-admin'"
+  );
+  if (existing.rows.length > 0) {
+    console.log('PLATFORM_ADMIN user already exists — skipping');
+    return;
+  }
+
+  const platformPassword = process.env.PLATFORM_ADMIN_PASSWORD || 'platform123';
+  const passwordHash = await bcrypt.hash(platformPassword, 10);
+
+  const result = await client.query(`
+    INSERT INTO app_user (facility_id, username, email, name, role, roles, password_hash)
+    VALUES (NULL, 'platform-admin', 'platform@admin.local', 'Platform Administrator',
+            'PLATFORM_ADMIN', ARRAY['PLATFORM_ADMIN'::user_role], $1)
+    ON CONFLICT (username) DO NOTHING
+    RETURNING id
+  `, [passwordHash]);
+
+  if (result.rows.length > 0) {
+    console.log('Created PLATFORM_ADMIN user:');
+    console.log('  Username: platform-admin');
+    console.log('  Password: ' + (process.env.PLATFORM_ADMIN_PASSWORD ? '(from env)' : 'platform123'));
+    console.log('  ID:', result.rows[0].id);
+  }
+}
+
 async function seed() {
   const client = await pool.connect();
 
   try {
     console.log('Seeding database...');
 
-    // Check if already seeded
+    // Phase 1: Platform bootstrap — ALWAYS runs
+    await bootstrapPlatform(client);
+
+    // Phase 2: Demo / tenant data — only runs once (or with --reset)
     const forceReseed = process.argv.includes('--reset');
     const { rows: facilities } = await client.query('SELECT id FROM facility LIMIT 1');
     if (facilities.length > 0 && !forceReseed) {
-      console.log('Database already seeded. Skipping. Use --reset to reseed.');
+      console.log('Tenant data already seeded. Skipping. Use --reset to reseed.');
       return;
     }
     if (forceReseed) {
@@ -647,7 +687,9 @@ console.log(`Created facility: ${facilityId} (key=${facilityKey})`);
 
     await client.query('COMMIT');
     console.log('\nSeeding completed successfully!');
-    console.log('\nTest Accounts (login with username, not email):');
+    console.log('\nPlatform Account (Facility Key = PLATFORM):');
+    console.log('  platform-admin / ' + (process.env.PLATFORM_ADMIN_PASSWORD ? '(from env)' : 'platform123') + ' (Platform Admin)');
+    console.log('\nTenant Accounts (login with username, not email):');
     console.log('  admin / password123 (Admin)');
     console.log('  scheduler / password123 (Scheduler)');
     console.log('  tech / password123 (Inventory Tech)');
