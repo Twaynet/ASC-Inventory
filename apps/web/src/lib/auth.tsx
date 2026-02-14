@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { login as apiLogin, logout as apiLogout, getMe, type LoginResponse } from './api';
+import { decodeJwtPayload } from './jwt-decode';
 import {
   type Role,
   type Capability,
@@ -14,8 +15,11 @@ import {
   type AccessDecision,
 } from './access-control';
 
+/** User with optional isDemo flag extracted from JWT */
+export type AppUser = LoginResponse['user'] & { isDemo?: boolean };
+
 interface AuthContextType {
-  user: LoginResponse['user'] | null;
+  user: AppUser | null;
   token: string | null;
   isLoading: boolean;
   login: (facilityKey: string, username: string, password: string) => Promise<void>;
@@ -25,7 +29,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<LoginResponse['user'] | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -35,7 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedToken) {
       getMe(storedToken)
         .then(({ user }) => {
-          setUser(user);
+          const jwt = decodeJwtPayload(storedToken);
+          setUser({ ...user, isDemo: jwt?.isDemo === true });
           setToken(storedToken);
         })
         .catch(() => {
@@ -51,7 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (facilityKey: string, username: string, password: string) => {
     const response = await apiLogin(facilityKey, username, password);
-    setUser(response.user);
+    const jwt = decodeJwtPayload(response.token);
+    setUser({ ...response.user, isDemo: jwt?.isDemo === true });
     setToken(response.token);
     localStorage.setItem('asc_token', response.token);
   };

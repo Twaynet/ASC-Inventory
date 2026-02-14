@@ -3,6 +3,7 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { decodeJwtPayload } from '@/lib/jwt-decode';
 
 // Eye icons for show/hide password
 function EyeIcon() {
@@ -36,7 +37,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push('/dashboard');
+      router.push(user.isDemo ? '/demo' : '/dashboard');
     }
   }, [user, isLoading, router]);
 
@@ -47,7 +48,10 @@ export default function LoginPage() {
 
     try {
       await login(facilityKey, username, password);
-      router.push('/dashboard');
+      // Demo users land on Signal Board; regular users on dashboard
+      const storedToken = localStorage.getItem('asc_token');
+      const jwt = storedToken ? decodeJwtPayload(storedToken) : null;
+      router.push(jwt?.isDemo ? '/demo' : '/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

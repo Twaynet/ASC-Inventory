@@ -71,3 +71,11 @@ export type { ScheduleItem, RoomSchedule, DayScheduleResponse, BlockTime, RoomDa
 // Attention
 export { getAttention } from './api/attention';
 export type { AttentionItem, AttentionSeverity, AttentionType, AttentionFilters } from './api/attention';
+
+// Admin Onboarding (missing aging trend / timeline / resolve)
+export { getOpenMissingAgingTrend, getMissingItemTimeline, resolveMissingItem } from './api/admin-onboarding';
+export type { TrendDataPoint, TrendAnnotation, CurrentlyOpenItem, OpenMissingAgingTrendResponse, TimelineEvent, MissingItemTimelineResponse, ResolutionType, ResolveRequest, ResolveResponse } from './api/admin-onboarding';
+
+// Operations Health
+export { getOperationsHealthSummary } from './api/operations';
+export type { OperationsHealthSummary } from './api/operations';
