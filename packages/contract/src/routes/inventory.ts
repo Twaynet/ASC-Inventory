@@ -138,6 +138,7 @@ export const MissingAnalyticsQuerySchema = z.object({
   end: z.string().datetime(),
   groupBy: z.enum(['day', 'location', 'catalog', 'surgeon', 'staff']),
   resolution: z.enum(['MISSING', 'FOUND', 'BOTH']).default('BOTH'),
+  facilityId: z.string().uuid().optional(),
 });
 
 const MissingAnalyticsGroupSchema = z.object({
@@ -171,6 +172,7 @@ export const MissingEventsQuerySchema = z.object({
   date: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(500).default(100),
   offset: z.coerce.number().int().min(0).default(0),
+  facilityId: z.string().uuid().optional(),
 });
 
 const MissingEventItemSchema = z.object({
@@ -205,6 +207,10 @@ const OpenMissingAgingItemSchema = z.object({
   missingSince: z.string(),
   daysMissing: z.number(),
   lastStaffName: nullableString,
+});
+
+const OpenMissingAgingQuerySchema = z.object({
+  facilityId: z.string().uuid().optional(),
 });
 
 const OpenMissingAgingResponsePayload = z.object({
@@ -312,6 +318,7 @@ export const inventoryRoutes = {
     method: 'GET' as const,
     path: '/inventory/open-missing-aging',
     summary: 'Currently missing items with aging metrics',
+    query: OpenMissingAgingQuerySchema,
     response: OpenMissingAgingResponsePayload,
   }),
 };

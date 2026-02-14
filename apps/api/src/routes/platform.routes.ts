@@ -10,6 +10,7 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { requirePlatformAdmin } from '../plugins/auth.js';
 import { platformConfigRoutes } from './platform-config.routes.js';
+import { platformFacilityViewRoutes } from './platform-facility-view.routes.js';
 import { query } from '../db/index.js';
 import { ok } from '../utils/reply.js';
 
@@ -52,4 +53,8 @@ export async function platformRoutes(fastify: FastifyInstance): Promise<void> {
   // Mount config routes under /api/platform/config
   // LAW §5: Configuration Governance
   await fastify.register(platformConfigRoutes, { prefix: '/config' });
+
+  // Mount facility-view routes under /api/platform/facility-view
+  // Read-only cross-facility visibility for PLATFORM_ADMIN
+  await fastify.register(platformFacilityViewRoutes, { prefix: '/facility-view' });
 }

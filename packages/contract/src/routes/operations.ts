@@ -46,6 +46,7 @@ const OperationsHealthSummarySchema = z.object({
 const HealthSummaryQuerySchema = z.object({
   start: z.string().optional(),
   end: z.string().optional(),
+  facilityId: z.string().uuid().optional(),
 });
 
 // ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/app/components/Header';
 import {
@@ -302,6 +303,24 @@ export default function PlatformAdminPage() {
             {successMessage}
           </div>
         )}
+
+        {/* Facility View Link */}
+        <Link
+          href="/platform/facility-view"
+          className="block bg-surface-primary rounded-lg border border-border p-4 mb-4 hover:border-accent hover:shadow-sm transition-all no-underline group"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">
+                Facility View
+              </h3>
+              <p className="text-xs text-text-muted mt-0.5">
+                Read-only cross-facility operations visibility — health metrics, reports, and print packets.
+              </p>
+            </div>
+            <span className="text-xs text-accent font-medium group-hover:underline">Open &rarr;</span>
+          </div>
+        </Link>
 
         {/* Tabs */}
         <div className="tabs">
