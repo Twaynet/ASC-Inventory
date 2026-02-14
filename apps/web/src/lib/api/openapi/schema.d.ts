@@ -1743,6 +1743,7 @@ export interface operations {
                 end: string;
                 groupBy: "day" | "location" | "catalog" | "surgeon" | "staff";
                 resolution?: "MISSING" | "FOUND" | "BOTH";
+                facilityId?: string;
             };
             header?: never;
             path?: never;
@@ -1793,6 +1794,7 @@ export interface operations {
                 date?: string;
                 limit?: number;
                 offset?: number | null;
+                facilityId?: string;
             };
             header?: never;
             path?: never;
@@ -1833,7 +1835,9 @@ export interface operations {
     };
     "inventory.openMissingAging": {
         parameters: {
-            query?: never;
+            query?: {
+                facilityId?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2342,6 +2346,7 @@ export interface operations {
             query?: {
                 start?: string;
                 end?: string;
+                facilityId?: string;
             };
             header?: never;
             path?: never;

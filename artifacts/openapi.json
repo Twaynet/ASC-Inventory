@@ -4393,6 +4393,15 @@
             "required": false,
             "name": "resolution",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "facilityId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -4596,6 +4605,15 @@
             "required": false,
             "name": "offset",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "facilityId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -4708,6 +4726,17 @@
       "get": {
         "operationId": "inventory.openMissingAging",
         "summary": "Currently missing items with aging metrics",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "facilityId",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -6114,6 +6143,15 @@
             },
             "required": false,
             "name": "end",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "facilityId",
             "in": "query"
           }
         ],
