@@ -10,6 +10,7 @@
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import { randomBytes, createHmac } from 'crypto';
+import { assertResetAllowed, assertFacilityCountSafe, type DbConfig, type ResetEnv } from './reset-guard.js';
 
 const { Pool } = pg;
 
@@ -63,14 +64,36 @@ async function seed() {
     // Phase 1: Platform bootstrap — ALWAYS runs
     await bootstrapPlatform(client);
 
-    // Phase 2: Demo / tenant data — only runs once (or with --reset)
-    const forceReseed = process.argv.includes('--reset');
+    // Phase 2: Demo / tenant data — only runs once (or with --reset / SEED_RESET=1)
+    // NOTE: process.argv --reset only works when running seed.ts directly.
+    // npm run db:seed -- --reset fails because npm appends args after the chained
+    // schema-sanity command. SEED_RESET=1 works in all shells including PowerShell.
+    const forceReseed = process.argv.includes('--reset') || process.env.SEED_RESET === '1';
     const { rows: facilities } = await client.query('SELECT id FROM facility LIMIT 1');
     if (facilities.length > 0 && !forceReseed) {
-      console.log('Tenant data already seeded. Skipping. Use --reset to reseed.');
+      console.log('Tenant data already seeded. Skipping. Use SEED_RESET=1 to reseed.');
       return;
     }
     if (forceReseed) {
+      // Safety Ring 3: Deadman's switch — block accidental reset against non-local DBs
+      const dbConfig: DbConfig = {
+        host: process.env.DB_HOST || 'localhost',
+        dbName: process.env.DB_NAME || 'asc_inventory',
+        user: process.env.DB_USER || 'postgres',
+        ssl: useSSL,
+      };
+      const resetEnv: ResetEnv = {
+        CONFIRM_DB_RESET: process.env.CONFIRM_DB_RESET,
+        CONFIRM_DB_RESET_FORCE: process.env.CONFIRM_DB_RESET_FORCE,
+        NODE_ENV: process.env.NODE_ENV,
+      };
+      assertResetAllowed(resetEnv, dbConfig);
+
+      // Safety Ring 3b: Facility count tripwire
+      const { rows: countRows } = await client.query('SELECT count(*)::int AS n FROM facility');
+      const facilityCount = countRows[0]?.n ?? 0;
+      assertFacilityCountSafe(facilityCount, resetEnv, dbConfig);
+
       console.log('Resetting existing data...');
       await client.query('TRUNCATE facility CASCADE');
       await client.query('TRUNCATE clinic CASCADE');

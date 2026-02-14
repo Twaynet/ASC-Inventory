@@ -12,6 +12,7 @@
     "test": "vitest run",
     "db:migrate": "node --import tsx db/migrate.ts && node --import tsx db/schema-sanity.ts",
     "db:seed": "node --import tsx db/seed.ts && node --import tsx db/schema-sanity.ts --post-seed",
+    "db:seed:reset": "node --import tsx db/seed.ts --reset && node --import tsx db/schema-sanity.ts --post-seed",
     "db:check": "node --import tsx db/schema-sanity.ts"
   },
   "dependencies": {
