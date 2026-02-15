@@ -64,6 +64,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       CLINIC_KEY_SECRET: ${CLINIC_KEY_SECRET}
       CORS_ORIGIN: https://beta.orthowise.dev
+      DEMO_DEFAULT_FACILITY_KEY: ORTHOWISE_BETA
     expose:
       - "3001"
     depends_on:

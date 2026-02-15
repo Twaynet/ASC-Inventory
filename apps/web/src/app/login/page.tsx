@@ -123,6 +123,15 @@ export default function LoginPage() {
             {isSubmitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        <div className="mt-6 pt-6 border-t border-border">
+          <p className="text-xs text-text-muted text-center">
+            Need to explore the system?{' '}
+            <a href="/demo/login" className="text-accent hover:underline">
+              Request demo access
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
