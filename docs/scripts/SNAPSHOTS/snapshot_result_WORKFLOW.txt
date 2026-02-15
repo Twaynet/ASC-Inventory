@@ -1,1129 +1,387 @@
-================================================================================
-WORKFLOW SNAPSHOT - ASC INVENTORY TRUTH SYSTEM
-================================================================================
-
-Generated: 2026-02-12
-Source: Read-only audit of implemented API routes + domain types
-Status: NO CODE MODIFIED. Research output only.
+SNAPSHOT OF OPERATIONAL WORKFLOWS END-TO-END
+Generated: 2026-02-14
+Source: Implemented code and committed artifacts only
 
 ================================================================================
-SECTION 1: STATE MACHINES
+A) CASE LIFECYCLE
 ================================================================================
 
-Case Status State Machine:
-  DRAFT -> REQUESTED -> SCHEDULED -> IN_PREOP -> READY -> IN_PROGRESS -> COMPLETED
-  REQUESTED -> REJECTED (terminal)
-  Any non-terminal -> CANCELLED (terminal)
-  Defined in: packages/domain/src/types.ts (CaseStatus enum, line 227)
+Step: CREATE
+Routes involved:
+- Web: /components/CreateCaseModal.tsx
+- Web: /components/ScheduleCaseModal.tsx
+- API: POST /cases (contract route)
+Key components:
+- CreateCaseModal component (lines 1-233)
+- ScheduleCaseModal component (lines 1-229)
+- cases.routes.ts handler (lines 290-383)
+Data reads and writes:
+- API calls: createCase(token, caseData)
+- Database tables touched:
+  - SELECT from app_user (validate surgeon exists, role='SURGEON')
+  - SELECT from preference_card (if preferenceCardId provided)
+  - SELECT from organization (resolve primaryOrganizationId)
+  - INSERT into surgical_case
+  - If preference card version set: copyRequirementsFromVersion(newCase.id, preferenceCardVersionId)
+Gating and role restrictions:
+- Role: Any authenticated user
+- Capability: CASE_CREATE
+- PHI Access: PHI_CLINICAL
+- Enforcement location: requireCapabilities middleware, requirePhiAccess middleware (cases.routes.ts line 292)
+- Note: Creating directly in SCHEDULED status requires CASE_APPROVE capability (cases.routes.ts lines 335-343)
 
-Case Card Status State Machine:
-  DRAFT -> ACTIVE -> DEPRECATED
-  DRAFT -> ACTIVE -> DELETED (soft-delete tombstone)
-  DEPRECATED is read-only.
-  DELETED is read-only.
-  Only ONE ACTIVE per Procedure + Surgeon + Facility.
-  Defined in: apps/api/src/routes/case-cards.routes.ts (rules in header comment)
+Step: SCHEDULE
+Routes involved:
+- API: POST /cases/:caseId/approve (contract route)
+- API: PATCH /cases/:caseId (contract route, status update)
+- API: PATCH /cases/:caseId/assign-room (contract route)
+Key components:
+- cases.routes.ts approve handler (lines 199-225)
+- cases.routes.ts update handler (lines 135-197)
+- cases.routes.ts assignRoom handler (lines 245-288)
+Data reads and writes:
+- API calls: Approve, update, or assign room
+- Database tables touched:
+  - SELECT from surgical_case (getStatus)
+  - UPDATE surgical_case (set scheduledDate, scheduledTime, roomId, sortOrder, estimatedDurationMinutes, status='SCHEDULED')
+  - SELECT from room (validate roomId if provided)
+Gating and role restrictions:
+- Approve: Capability CASE_APPROVE, PHI_CLINICAL access
+- Update schedule on active cases: Capability CASE_ASSIGN_ROOM
+- Assign room: Capability CASE_ASSIGN_ROOM, PHI_CLINICAL access
+- Enforcement location: requireCapabilities middleware, requirePhiAccess middleware (cases.routes.ts lines 200, 137, 247)
 
-Readiness State Machine:
-  GREEN  = All required items verified and locatable
-  ORANGE = Pending verification (not yet checked)
-  RED    = Missing items or sterility issues
-  Defined in: packages/domain/src/types.ts (ReadinessState enum, line 240)
+Step: DASHBOARD
+Routes involved:
+- Web: /app/(app)/case/[caseId]/page.tsx
+- Web: /components/CaseDashboardModal/CaseDashboardModal.tsx
+- Web: /components/CaseDashboardModal/CaseDashboardContent.tsx
+- API: GET /case-dashboard/:caseId
+Key components:
+- CaseDashboardModal component
+- case-dashboard.routes.ts GET handler (lines 114-358)
+Data reads and writes:
+- API calls: getCaseDashboard(caseId)
+- Database tables touched:
+  - SELECT from surgical_case (with joins to facility, app_user, room)
+  - SELECT from attestation (get latest attestation info)
+  - SELECT from case_card_version (if case_card_version_id set)
+  - SELECT from case_anesthesia_plan
+  - SELECT from case_card_link_event (get current case card link)
+  - SELECT from case_override (get active overrides)
+  - SELECT from case_readiness_cache (get readiness state and missing items)
+Gating and role restrictions:
+- Role: Any authenticated user
+- Capability: None (authenticated only)
+- PHI Access: PHI_CLINICAL with evaluateCase=true
+- Enforcement location: fastify.authenticate, requirePhiAccess middleware (case-dashboard.routes.ts line 115)
 
-Attestation State Machine (on surgical_case):
-  NOT_ATTESTED -> ATTESTED -> VOIDED
-  Preconditions for ATTESTED: case_card_version_id linked AND anesthesia modality selected
-  Defined in: apps/api/src/routes/case-dashboard.routes.ts (attest handler, line 364)
+Step: VERIFY
+Routes involved:
+- Web: UNKNOWN (C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\case\[caseId]\verify exists as directory with page.tsx)
+- API: UNKNOWN (no dedicated verify route found in case-dashboard.routes.ts or cases.routes.ts)
+Key components:
+- UNKNOWN (verify page.tsx not read)
+Data reads and writes:
+- UNKNOWN
+Gating and role restrictions:
+- UNKNOWN
 
-================================================================================
-SECTION 2: ROLE-CAPABILITY MATRIX
-================================================================================
+Step: TIMEOUT
+Routes involved:
+- Web: /components/Checklists/TimeoutModal.tsx
+- API: GET /checklists/:caseId (inferred)
+- API: POST /checklists/start (inferred)
+- API: POST /checklists/respond (inferred)
+- API: POST /checklists/sign (inferred)
+- API: POST /checklists/complete (inferred)
+Key components:
+- TimeoutModal component (lines 1-100+)
+Data reads and writes:
+- API calls: getCaseChecklists, startChecklist, respondToChecklist, signChecklist, completeChecklist
+- Database tables touched:
+  - UNKNOWN (checklists.routes.ts not read in detail)
+Gating and role restrictions:
+- UNKNOWN (checklists.routes.ts not analyzed)
+- Note: cases.routes.ts lines 168-172 show gate check: canStartCase(caseId, facilityId) must pass before status='IN_PROGRESS'
 
-Source: packages/domain/src/types.ts (ROLE_CAPABILITIES, line 183)
+Step: DEBRIEF
+Routes involved:
+- Web: /components/Checklists/DebriefModal.tsx
+- API: GET /checklists/:caseId (inferred)
+- API: POST /checklists/start (inferred)
+- API: POST /checklists/respond (inferred)
+- API: POST /checklists/sign (inferred)
+- API: POST /checklists/complete (inferred)
+Key components:
+- DebriefModal component (lines 1-100+)
+Data reads and writes:
+- API calls: getCaseChecklists, startChecklist, respondToChecklist, signChecklist, completeChecklist, getCaseDashboard, submitCaseCardFeedback
+- Database tables touched:
+  - UNKNOWN (checklists.routes.ts not read in detail)
+Gating and role restrictions:
+- UNKNOWN (checklists.routes.ts not analyzed)
+- Note: cases.routes.ts lines 174-178 show gate check: canCompleteCase(caseId, facilityId) must pass before status='COMPLETED'
 
-PLATFORM_ADMIN:
-  PLATFORM_ADMIN, PLATFORM_CONFIG_VIEW, PLATFORM_CONFIG_MANAGE
-  (No tenant capabilities - cannot access tenant data directly)
-
-ADMIN:
-  USER_MANAGE, LOCATION_MANAGE, CATALOG_MANAGE, INVENTORY_MANAGE,
-  REPORTS_VIEW, SETTINGS_MANAGE, CASE_VIEW, CASE_CREATE, CASE_UPDATE,
-  CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, CASE_ACTIVATE,
-  CASE_CHECKIN_PREOP, CASE_DELETE, CASE_CANCEL, CASE_PREFERENCE_CARD_LINK,
-  PHI_CLINICAL_ACCESS, PHI_WRITE_CLINICAL, PHI_PATIENT_SEARCH,
-  PHI_AUDIT_ACCESS, ORG_MANAGE, ORG_AFFILIATION_MANAGE,
-  SURGERY_REQUEST_REVIEW, SURGERY_REQUEST_CONVERT,
-  FINANCIAL_READINESS_VIEW, FINANCIAL_READINESS_EDIT
-
-SCHEDULER:
-  CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_APPROVE, CASE_REJECT,
-  CASE_ASSIGN_ROOM, CASE_ACTIVATE, CASE_CHECKIN_PREOP, CASE_CANCEL,
-  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH, SURGERY_REQUEST_REVIEW
-
-SURGEON:
-  CASE_VIEW, CASE_CREATE, CASE_UPDATE, CASE_CANCEL,
-  CASE_PREFERENCE_CARD_LINK, CHECKLIST_ATTEST,
-  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
-
-CIRCULATOR:
-  CASE_VIEW, CHECKLIST_ATTEST, OR_DEBRIEF, OR_TIMEOUT,
-  CASE_CHECKIN_PREOP, PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
-
-SCRUB:
-  CASE_VIEW, VERIFY_SCAN, CHECKLIST_ATTEST,
-  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
-
-INVENTORY_TECH:
-  CASE_VIEW, INVENTORY_READ, INVENTORY_CHECKIN,
-  PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
-
-ANESTHESIA:
-  CASE_VIEW, CHECKLIST_ATTEST, PHI_CLINICAL_ACCESS, PHI_PATIENT_SEARCH
-
-================================================================================
-SECTION 3: CASE LIFECYCLE
-================================================================================
-
---- A.1: CREATE ---
-ROUTE: POST /api/cases
-CONTRACT: contract.cases.create
-SOURCE: apps/api/src/routes/cases.routes.ts (line 291)
-GATING:
-  - requireCapabilities('CASE_CREATE') - roles: ADMIN, SCHEDULER, SURGEON
-  - requirePhiAccess('PHI_CLINICAL')
-  - If status='SCHEDULED' requested, also requires CASE_APPROVE capability
-READS:
-  - app_user: validate surgeon exists, belongs to facility, has role=SURGEON
-  - preference_card: if preferenceCardId provided, get current_version_id
-  - organization: resolve primaryOrganizationId (explicit or default ASC org)
-WRITES:
-  - surgical_case: INSERT (status=REQUESTED by default, or SCHEDULED if authorized)
-  - case_requirement: COPY from preference_card_version items (if preference card set)
-IDEMPOTENCY: No (standard POST)
-PHI CLASSIFICATION: PHI_CLINICAL
-
---- A.2: APPROVE (schedule) ---
-ROUTE: POST /api/cases/:caseId/approve
-CONTRACT: contract.cases.approve
-SOURCE: apps/api/src/routes/cases.routes.ts (line 200)
-GATING:
-  - requireCapabilities('CASE_APPROVE') - roles: ADMIN, SCHEDULER
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - idempotent() middleware
-  - Case must be in REQUESTED status
-READS:
-  - surgical_case: verify case exists and is in REQUESTED status
-WRITES:
-  - surgical_case: UPDATE (scheduledDate, scheduledTime, roomId, estimatedDurationMinutes, status=SCHEDULED)
-IDEMPOTENCY: Yes (Idempotency-Key header)
-
---- A.3: REJECT ---
-ROUTE: POST /api/cases/:caseId/reject
-CONTRACT: contract.cases.reject
-SOURCE: apps/api/src/routes/cases.routes.ts (line 228)
-GATING:
-  - requireCapabilities('CASE_REJECT') - roles: ADMIN, SCHEDULER
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - idempotent()
-  - Case must be in REQUESTED status
-READS:
-  - surgical_case: verify exists and status
-WRITES:
-  - surgical_case: UPDATE (status=REJECTED, rejectedAt, rejectedByUserId, rejectionReason)
-IDEMPOTENCY: Yes
-
---- A.4: ASSIGN ROOM ---
-ROUTE: PATCH /api/cases/:caseId/assign-room
-CONTRACT: contract.cases.assignRoom
-SOURCE: apps/api/src/routes/cases.routes.ts (line 246)
-GATING:
-  - requireCapabilities('CASE_ASSIGN_ROOM') - roles: ADMIN, SCHEDULER
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - idempotent()
-READS:
-  - surgical_case: verify exists
-  - room: validate belongs to facility and is active
-WRITES:
-  - surgical_case: UPDATE (roomId, sortOrder, estimatedDurationMinutes)
-IDEMPOTENCY: Yes
-
---- A.5: ACTIVATE ---
-ROUTE: POST /api/cases/:caseId/activate
-CONTRACT: contract.cases.activate
-SOURCE: apps/api/src/routes/cases.routes.ts (line 386)
-GATING:
-  - requireCapabilities('CASE_ACTIVATE') - roles: ADMIN, SCHEDULER
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - idempotent()
-  - Case must not be cancelled or already active
-READS:
-  - surgical_case: verify exists, not cancelled, not already active
-WRITES:
-  - surgical_case: UPDATE (isActive=true, activatedAt, activatedByUserId, optional date/time override)
-IDEMPOTENCY: Yes
-
---- A.6: DEACTIVATE ---
-ROUTE: POST /api/cases/:caseId/deactivate
-CONTRACT: contract.cases.deactivate
-SOURCE: apps/api/src/routes/cases.routes.ts (line 424)
-GATING:
-  - requireCapabilities('CASE_ACTIVATE') - roles: ADMIN, SCHEDULER
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - idempotent()
-  - Case must be active and NOT in IN_PROGRESS or COMPLETED
-READS:
-  - surgical_case: verify active, not in terminal/in-progress state
-WRITES:
-  - surgical_case: UPDATE (isActive=false, deactivation metadata)
-IDEMPOTENCY: Yes
-
---- A.7: CHECK-IN PREOP ---
-ROUTE: POST /api/cases/:caseId/check-in-preop
-CONTRACT: contract.cases.checkInPreop
-SOURCE: apps/api/src/routes/cases.routes.ts (line 480)
-GATING:
-  - requireCapabilities('CASE_CHECKIN_PREOP') - roles: ADMIN, SCHEDULER, CIRCULATOR
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - idempotent()
-  - Case must be in SCHEDULED status
-READS:
-  - surgical_case: verify exists and status=SCHEDULED
-WRITES:
-  - surgical_case: UPDATE (status=IN_PREOP, preopCheckedInAt, preopCheckedInByUserId)
-IDEMPOTENCY: Yes
-
---- A.8: CANCEL ---
-ROUTE: POST /api/cases/:caseId/cancel
-CONTRACT: contract.cases.cancel
-SOURCE: apps/api/src/routes/cases.routes.ts (line 453)
-GATING:
-  - requireCapabilities('CASE_CANCEL') - roles: ADMIN, SCHEDULER, SURGEON
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - idempotent()
-  - Case must not already be cancelled
-READS:
-  - surgical_case: verify exists, not already cancelled
-WRITES:
-  - surgical_case: UPDATE (isCancelled=true, cancelledAt, cancelledByUserId, cancellation reason)
-IDEMPOTENCY: Yes
-
---- A.9: DASHBOARD VIEW ---
-ROUTE: GET /api/case-dashboard/:caseId
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (line 114)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-READS:
-  - surgical_case JOIN facility, app_user, room: full case details
-  - attestation: latest non-voided attestation
-  - case_card_version JOIN case_card: linked card info
-  - case_anesthesia_plan: modalities, positioning, airway, anticoagulation
-  - case_card_link_event: current link state (snapshot-based)
-  - case_override JOIN app_user: active overrides
-  - case_readiness_cache: readiness state + missing items
-WRITES: None (read-only)
-
---- A.10: ATTEST READINESS (from Dashboard) ---
-ROUTE: POST /api/case-dashboard/:caseId/attest
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (line 364)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - PRECONDITIONS: case_card_version_id must be linked AND anesthesia modality selected
-READS:
-  - surgical_case: attestation_state, case_card_version_id
-  - case_anesthesia_plan: modalities (must not be empty)
-  - case_readiness_cache: readiness_state for attestation record
-WRITES:
-  - attestation: INSERT (type=CASE_READINESS, readiness_state_at_time)
-  - surgical_case: UPDATE (attestation_state=ATTESTED, attestation_void_reason=NULL)
-  - case_event_log: INSERT (event_type=READINESS_ATTESTED) [append-only]
-
---- A.11: VOID ATTESTATION (from Dashboard) ---
-ROUTE: POST /api/case-dashboard/:caseId/void
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (line 444)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - Reason is required
-  - Case must be currently ATTESTED
-READS:
-  - surgical_case: verify attestation_state=ATTESTED
-WRITES:
-  - attestation: UPDATE (voided_at, voided_by_user_id) on latest non-voided
-  - surgical_case: UPDATE (attestation_state=VOIDED, attestation_void_reason)
-  - case_event_log: INSERT (event_type=READINESS_VOIDED) [append-only]
-
---- A.12: UPDATE (status transition) ---
-ROUTE: PATCH /api/cases/:caseId
-CONTRACT: contract.cases.update
-SOURCE: apps/api/src/routes/cases.routes.ts (line 136)
-GATING:
-  - requireCapabilities('CASE_UPDATE') - roles: ADMIN, SCHEDULER, SURGEON
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - Active case schedule changes require CASE_ASSIGN_ROOM
-  - status=IN_PROGRESS requires canStartCase() = Timeout checklist completed
-  - status=COMPLETED requires canCompleteCase() = Debrief checklist completed
-READS:
-  - surgical_case: current status, isActive
-  - canStartCase(): checks case_checklist_instance for TIMEOUT completion
-  - canCompleteCase(): checks case_checklist_instance for DEBRIEF completion
-WRITES:
-  - surgical_case: UPDATE (any permitted fields including status)
-
---- A.13: TIMEOUT CHECKLIST ---
-ROUTE: POST /api/cases/:id/checklists/start (body: {type: 'TIMEOUT'})
-ROUTE: POST /api/cases/:id/checklists/TIMEOUT/respond
-ROUTE: POST /api/cases/:id/checklists/TIMEOUT/sign
-ROUTE: POST /api/cases/:id/checklists/TIMEOUT/complete
-SOURCE: apps/api/src/routes/checklists.routes.ts (lines 304, 338, 380, 435)
-GATING:
-  - Start: ADMIN, CIRCULATOR, SURGEON, SCRUB
-  - Respond: ADMIN, CIRCULATOR, SURGEON, SCRUB, ANESTHESIA
-  - Sign: CIRCULATOR, SURGEON, SCRUB, ADMIN (as CIRCULATOR), ANESTHESIA
-  - Complete: ADMIN, CIRCULATOR only
-  - All require fastify.authenticate + requirePhiAccess('PHI_CLINICAL', {evaluateCase: true})
-  - Feature flag: enable_timeout_debrief facility setting must be enabled
-READS:
-  - case_checklist_instance: current state
-  - checklist_template_version: template items and required signatures
-  - case_checklist_response: current responses
-WRITES:
-  - case_checklist_instance: INSERT/UPDATE (status transitions: NOT_STARTED -> IN_PROGRESS -> COMPLETED)
-  - case_checklist_response: INSERT (per item key/value)
-  - case_checklist_signature: INSERT (role, method, flaggedForReview, flagComment)
-
---- A.14: DEBRIEF CHECKLIST ---
-ROUTE: POST /api/cases/:id/checklists/start (body: {type: 'DEBRIEF'})
-ROUTE: POST /api/cases/:id/checklists/DEBRIEF/respond
-ROUTE: POST /api/cases/:id/checklists/DEBRIEF/sign
-ROUTE: POST /api/cases/:id/checklists/DEBRIEF/complete
-ROUTE: POST /api/cases/:id/checklists/debrief/async-review
-SOURCE: apps/api/src/routes/checklists.routes.ts (lines 304, 338, 380, 435, 474)
-GATING:
-  - Same as TIMEOUT for start/respond/sign/complete
-  - Async review: SCRUB or SURGEON only
-  - Debrief completion is REQUIRED before case can transition to COMPLETED
-READS:
-  - Same as TIMEOUT plus async review state
-WRITES:
-  - Same as TIMEOUT
-  - Async review: case_checklist_signature INSERT (for deferred sign-off)
-
---- A.15: COMPLETE ---
-ROUTE: PATCH /api/cases/:caseId (body: {status: 'COMPLETED'})
-CONTRACT: contract.cases.update
-SOURCE: apps/api/src/routes/cases.routes.ts (line 174)
-GATING:
-  - requireCapabilities('CASE_UPDATE')
-  - canCompleteCase() gate: Debrief checklist must be COMPLETED
-READS:
-  - case_checklist_instance: verify DEBRIEF status=COMPLETED
-WRITES:
-  - surgical_case: UPDATE (status=COMPLETED)
-
---- A.16: DELETE ---
-ROUTE: DELETE /api/cases/:id
-SOURCE: apps/api/src/routes/cases.routes.ts (line 640)
-GATING:
-  - requireCapabilities('CASE_DELETE') - ADMIN only
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - Case must NOT be active
-  - Case must NOT be IN_PROGRESS or COMPLETED
-  - Case must NOT have completed checklists (audit record protection)
-READS:
-  - surgical_case: status, isActive
-  - case_checklist_instance: count of COMPLETED instances
-WRITES (cascade deletion):
-  - case_readiness_cache: DELETE
-  - case_checklist_flag_resolution: DELETE
-  - case_checklist_signature: DELETE
-  - case_checklist_response: DELETE
-  - case_checklist_instance: DELETE
-  - case_override: DELETE
-  - case_requirement: DELETE
-  - case_anesthesia_plan: DELETE
-  - case_card_feedback: DELETE
-  - inventory_item: SET reserved_for_case_id = NULL
-  - attestation: SET case_id = NULL (preserves audit record)
-  - surgical_case_status_event: SET surgical_case_id = NULL (preserves audit record)
-  - case_event_log: SET case_id = NULL (preserves audit record)
-  - surgical_case: DELETE
-
---- A.17: SCHEDULE VIEW ---
-ROUTE: GET /api/schedule/day?date=YYYY-MM-DD
-SOURCE: apps/api/src/routes/schedule.routes.ts (line 66)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL')
-READS:
-  - room: all active rooms for facility
-  - room_day_config: start times per room per date
-  - surgical_case: all cases for date (not cancelled/rejected)
-  - block_time: all block times for date
-  - case_checklist_instance: timeout/debrief status per case
-WRITES: None (read-only)
-
---- A.18: READINESS (day-before) ---
-ROUTE: GET /api/readiness/day-before?date=YYYY-MM-DD
-SOURCE: apps/api/src/routes/readiness.routes.ts (line 36)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL')
-READS:
-  - case_readiness_cache: cached readiness per case
-  - surgical_case: scheduled times, surgeon IDs, active/cancelled status
-  - facility: facility name
-WRITES:
-  - case_readiness_cache: UPSERT (if refresh=true or cache stale)
-
---- A.19: STATUS EVENTS (audit trail) ---
-ROUTE: GET /api/cases/:caseId/status-events
-CONTRACT: contract.cases.statusEvents
-SOURCE: apps/api/src/routes/cases.routes.ts (line 505)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-READS:
-  - surgical_case_status_event: append-only timeline (from_status, to_status, reason, context, actor)
-WRITES: None (read-only)
+Step: COMPLETE
+Routes involved:
+- API: PATCH /cases/:caseId (contract route, status update to COMPLETED)
+Key components:
+- cases.routes.ts update handler (lines 135-197)
+Data reads and writes:
+- API calls: updateCase with status='COMPLETED'
+- Database tables touched:
+  - SELECT from surgical_case (getStatus)
+  - UPDATE surgical_case (set status='COMPLETED')
+Gating and role restrictions:
+- Role: Any authenticated user
+- Capability: CASE_UPDATE
+- PHI Access: PHI_CLINICAL with evaluateCase=true
+- Enforcement location: requireCapabilities middleware, requirePhiAccess middleware (cases.routes.ts line 137)
+- Gate check: canCompleteCase(caseId, facilityId) enforced (cases.routes.ts lines 174-178)
 
 ================================================================================
-SECTION 4: INVENTORY LIFECYCLE
+B) INVENTORY LIFECYCLE
 ================================================================================
 
---- B.1: CATALOG ---
-ROUTE: POST /api/catalog (create)
-ROUTE: PATCH /api/catalog/:id (update)
-SOURCE: apps/api/src/routes/catalog.routes.ts
-GATING:
-  - requireCapabilities('CATALOG_MANAGE') - ADMIN only
-READS:
-  - item_catalog: existing catalog entries
-WRITES:
-  - item_catalog: INSERT/UPDATE with v1.1 risk-intent extensions:
-    requires_lot_tracking, requires_serial_tracking, requires_expiration_tracking,
-    requires_sterility, criticality, expiration_warning_days
+Step: CATALOG
+Routes involved:
+- Web: /app/(app)/admin/catalog/page.tsx
+- Web: /app/(app)/admin/catalog/[catalogId]/cost-history/page.tsx
+- API: GET /catalog (contract route)
+- API: GET /catalog/:catalogId (contract route)
+- API: POST /catalog (contract route)
+Key components:
+- catalog.routes.ts list handler (lines 48-115)
+- catalog.routes.ts get handler (lines 117-168)
+- catalog.routes.ts create handler (lines 170-200+)
+Data reads and writes:
+- API calls: getCatalogItems, getCatalogItem, createCatalogItem
+- Database tables touched:
+  - SELECT from item_catalog (with aggregates for inventory_count, image_count, identifier_count)
+  - SELECT from item_catalog (single item)
+  - INSERT into item_catalog
+Gating and role restrictions:
+- List/Get: Any authenticated user
+- Create: Capability CATALOG_MANAGE
+- Enforcement location: fastify.authenticate (list/get), requireCapabilities middleware (create, catalog.routes.ts line 172)
 
---- B.2: CHECK-IN (create inventory item) ---
-ROUTE: POST /api/inventory/items
-CONTRACT: contract.inventory.createItem
-SOURCE: apps/api/src/routes/inventory.routes.ts (line 646)
-GATING:
-  - requireCapabilities('INVENTORY_MANAGE') - ADMIN only
-READS:
-  - item_catalog: verify exists and active, fetch v1.1 intent flags for W1 validation
-  - location: verify exists in facility (if locationId provided)
-  - inventory_item: barcode uniqueness check
-WRITES:
-  - inventory_item: INSERT with all tracking fields
-W1 VALIDATION (enforced at API level):
-  - catalog.requires_lot_tracking=true => lot_number REQUIRED
-  - catalog.requires_serial_tracking=true => serial_number REQUIRED
-  - catalog.requires_expiration_tracking=true OR requires_sterility=true OR category='IMPLANT' => sterility_expires_at REQUIRED
-  - Returns 400 with field-specific errors listing missingFields and catalogRules
+Step: CHECK-IN
+Routes involved:
+- Web: /app/(app)/admin/inventory/check-in/page.tsx
+- API: POST /inventory/events (inferred from inventory.routes.ts)
+- API: POST /inventory/items (inferred from inventory.routes.ts)
+Key components:
+- InventoryCheckInPage component (lines 1-100+)
+- inventory.routes.ts (lines 1-200)
+Data reads and writes:
+- API calls: createInventoryEvent, createInventoryItem, getCatalogItems, getLocations, getCase (if caseId present)
+- Database tables touched:
+  - INSERT into inventory_event
+  - INSERT into inventory_item (if new item)
+  - UPDATE inventory_item (based on event type)
+Gating and role restrictions:
+- UNKNOWN (inventory.routes.ts handlers not read in detail)
+- UI component: hasCapability check in component (inferred from useAccessControl usage line 77)
 
---- B.3: LOCATION ASSIGNMENT ---
-ROUTE: PATCH /api/inventory/items/:itemId (body: {locationId})
-CONTRACT: contract.inventory.updateItem
-SOURCE: apps/api/src/routes/inventory.routes.ts (line 779)
-GATING:
-  - requireCapabilities('INVENTORY_MANAGE') - ADMIN only
-READS:
-  - inventory_item: verify exists
-  - location: validate belongs to facility (cross-domain check)
-  - barcode uniqueness check if barcode changing
-WRITES:
-  - inventory_item: UPDATE (locationId and/or other fields)
+Step: LOCATION ASSIGNMENT
+Routes involved:
+- Web: /app/(app)/admin/inventory/check-in/page.tsx (mode='location_change')
+- API: POST /inventory/events with eventType='LOCATION_CHANGED' (inferred)
+Key components:
+- InventoryCheckInPage component (lines 1-100+)
+- inventory.routes.ts computeItemUpdate function (lines 108-188, case 'LOCATION_CHANGED' at line 125)
+Data reads and writes:
+- API calls: createInventoryEvent with eventType='LOCATION_CHANGED'
+- Database tables touched:
+  - INSERT into inventory_event
+  - UPDATE inventory_item (set locationId based on event)
+Gating and role restrictions:
+- UNKNOWN (inventory.routes.ts handlers not read in detail)
 
-Alternatively via event:
-ROUTE: POST /api/inventory/events (body: {eventType: 'LOCATION_CHANGED'})
-CONTRACT: contract.inventory.createEvent
-SOURCE: apps/api/src/routes/inventory.routes.ts (line 163)
-WRITES:
-  - inventory_event: INSERT (eventType=LOCATION_CHANGED, previousLocationId captured)
-  - inventory_item: UPDATE (locationId field via computeItemUpdate)
+Step: USE
+Routes involved:
+- API: POST /inventory/events with eventType='RESERVED' or 'CONSUMED' (inferred)
+Key components:
+- inventory.routes.ts computeItemUpdate function (lines 108-188)
+  - Case 'RESERVED' at lines 128-132: sets availabilityStatus='RESERVED', reservedForCaseId=caseId
+  - Case 'CONSUMED' at lines 140-144: sets availabilityStatus='UNAVAILABLE', reservedForCaseId=null
+Data reads and writes:
+- API calls: createInventoryEvent with eventType='RESERVED' or 'CONSUMED'
+- Database tables touched:
+  - INSERT into inventory_event
+  - UPDATE inventory_item (set availabilityStatus, reservedForCaseId)
+Gating and role restrictions:
+- UNKNOWN (inventory.routes.ts handlers not read in detail)
 
---- B.4: VERIFY (scan-based) ---
-ROUTE: POST /api/inventory/device-events (device scan -> candidate lookup)
-SOURCE: apps/api/src/routes/inventory.routes.ts (line 456)
-GATING:
-  - fastify.authenticate (any role)
-  - LAW COMPLIANCE: DeviceEvents may NEVER directly create inventory events
-  - Human confirmation is REQUIRED before creating VERIFIED events
-READS:
-  - inventory_item: lookup by barcode then serial_number
-  - device: verify exists and active (or create keyboard wedge)
-  - catalog_identifier: GS1 GTIN lookup for catalog matching
-  - GS1 parser: classifyBarcode() + parseGS1()
-WRITES:
-  - device_event: INSERT (audit record of the scan, candidate lookup results)
-  - inventory_item: NO WRITE (candidate only, no truth mutation)
-
-Then human confirms:
-ROUTE: POST /api/inventory/events (body: {eventType: 'VERIFIED', deviceEventId})
-GATING:
-  - requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - idempotent()
-WRITES:
-  - inventory_event: INSERT (eventType=VERIFIED)
-  - inventory_item: UPDATE (lastVerifiedAt, lastVerifiedByUserId via computeItemUpdate)
-
---- B.5: USE (consume/reserve) ---
-ROUTE: POST /api/inventory/events (body: {eventType: 'CONSUMED'|'RESERVED'|'RELEASED'})
-CONTRACT: contract.inventory.createEvent
-SOURCE: apps/api/src/routes/inventory.routes.ts (line 163)
-GATING:
-  - requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - idempotent()
-READS:
-  - inventory_item: verify exists
-WRITES:
-  - inventory_event: INSERT (eventType, caseId, etc.)
-  - inventory_item: UPDATE via computeItemUpdate():
-    RESERVED  -> availabilityStatus='RESERVED', reservedForCaseId=caseId
-    RELEASED  -> availabilityStatus='AVAILABLE', reservedForCaseId=NULL
-    CONSUMED  -> availabilityStatus='UNAVAILABLE', reservedForCaseId=NULL
-    EXPIRED   -> sterilityStatus='EXPIRED'
-    RECEIVED  -> sterilityStatus from payload, availabilityStatus='AVAILABLE'
-
---- B.6: FINANCIAL EVENT ---
-ROUTE: POST /api/inventory/events/financial
-SOURCE: apps/api/src/routes/inventory.routes.ts (line 291)
-GATING:
-  - requireCapabilities('INVENTORY_MANAGE') - ADMIN only
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-READS:
-  - inventory_item: verify exists
-  - vendor: validate if providedByVendorId provided (must be active)
-WRITES:
-  - inventory_event: INSERT with financial attribution fields:
-    costOverrideCents, costOverrideReason (from enum), costOverrideNote,
-    providedByVendorId, providedByRepName, isGratis, gratisReason (from enum),
-    financialAttestationUserId (auto-set to acting ADMIN)
-  - inventory_item: UPDATE via computeItemUpdate()
-VALIDATION:
-  - costOverrideCents requires costOverrideReason (cannot be null)
-  - Valid override reasons: CATALOG_ERROR, NEGOTIATED_DISCOUNT, VENDOR_CONCESSION,
-    DAMAGE_CREDIT, EXPIRED_CREDIT, CONTRACT_ADJUSTMENT, GRATIS_CONVERSION, OTHER
-  - isGratis=true requires gratisReason (cannot be null)
-  - Valid gratis reasons: VENDOR_SAMPLE, VENDOR_SUPPORT, CLINICAL_TRIAL,
-    GOODWILL, WARRANTY_REPLACEMENT, OTHER
-  - costOverrideCents cannot be negative
-
---- B.7: RECONCILIATION (Risk Queue) ---
-ROUTE: GET /api/inventory/risk-queue
-CONTRACT: contract.inventory.riskQueue
-SOURCE: apps/api/src/routes/inventory.routes.ts (line 894)
-GATING:
-  - fastify.authenticate (any role)
-  - Read-only (no mutations per LAW)
-READS:
-  - inventory_item JOIN item_catalog: all available items with v1.1 intent fields
-WRITES: None (read-only)
-COMPUTED ALARMS (derived, not stored):
-  A1: MISSING_LOT    - requires_lot_tracking=true but lot_number missing
-  A2: MISSING_SERIAL  - requires_serial_tracking=true but serial_number missing
-  A3: MISSING_EXPIRATION - expiration required but sterility_expires_at missing
-  B1: EXPIRING_SOON  - within warning horizon (catalog or criticality fallback)
-  B2: EXPIRED        - sterility_expires_at <= today OR sterilityStatus='EXPIRED'
-EXPIRATION POLICY:
-  Required if: requires_expiration_tracking=true OR requires_sterility=true OR category='IMPLANT'
-WARNING HORIZON FALLBACK BY CRITICALITY:
-  CRITICAL=90 days, IMPORTANT=60 days, ROUTINE=30 days
-SEVERITY MAPPING:
-  CRITICAL -> RED, IMPORTANT -> ORANGE, ROUTINE -> YELLOW, EXPIRED -> always RED
-SORT ORDER: severity DESC, rule ASC, daysToExpire ASC (null last), catalogName ASC
-
---- B.8: BULK EVENTS ---
-ROUTE: POST /api/inventory/events/bulk
-CONTRACT: contract.inventory.bulkEvents
-SOURCE: apps/api/src/routes/inventory.routes.ts (line 209)
-GATING:
-  - requireCapabilities('INVENTORY_CHECKIN', 'INVENTORY_MANAGE')
-  - requirePhiAccess('PHI_CLINICAL')
-  - idempotent()
-READS:
-  - inventory_item: verify all referenced items exist
-WRITES:
-  - inventory_event: INSERT per event
-  - inventory_item: UPDATE per event via computeItemUpdate()
-VALIDATION: All itemIds must exist; returns 400 with missingIds if any not found
-
---- B.9: ITEM HISTORY ---
-ROUTE: GET /api/inventory/items/:itemId/history
-CONTRACT: contract.inventory.itemHistory
-SOURCE: apps/api/src/routes/inventory.routes.ts (line 842)
-GATING:
-  - fastify.authenticate
-READS:
-  - inventory_event: all events for the item, ordered chronologically
-  - Case link redaction: caseId redacted based on user capabilities
-WRITES: None (read-only)
+Step: RECONCILIATION
+Routes involved:
+- Web: /app/(app)/admin/inventory/missing/page.tsx
+- Web: /app/(app)/admin/inventory/missing-analytics/page.tsx
+- Web: /app/(app)/admin/inventory/missing-events/page.tsx
+- Web: /app/(app)/admin/inventory/open-missing-aging/page.tsx
+- API: UNKNOWN (routes not read in detail)
+Key components:
+- UNKNOWN (pages and API routes not read)
+Data reads and writes:
+- UNKNOWN
+Gating and role restrictions:
+- UNKNOWN
 
 ================================================================================
-SECTION 5: CASE CARDS LIFECYCLE
+C) CASE CARDS LIFECYCLE
 ================================================================================
 
---- C.1: CREATE ---
-ROUTE: POST /api/case-cards
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 451)
-GATING:
-  - fastify.authenticate
-  - Role check: CASE_CARD_ALLOWED_ROLES = [ADMIN, INVENTORY_TECH, CIRCULATOR, SCRUB, SURGEON]
-  - SCHEDULER explicitly excluded
-READS:
-  - app_user: verify surgeon exists, active, has role=SURGEON
-  - case_card: duplicate check (same surgeon + LOWER(procedure_name) + facility)
-WRITES:
-  - case_card: INSERT (status=DRAFT, version=1.0.0, created_by_user_id)
-  - case_card_version: INSERT (version_number='1.0.0', all JSONB section fields)
-  - case_card (current_version_id): UPDATE to point to new version
-  - case_card_edit_log: INSERT (change_summary='Case card created') [append-only]
-VERSION SECTIONS: headerInfo, patientFlags, instrumentation, equipment, supplies, medications, setupPositioning, surgeonNotes
+Step: CREATE
+Routes involved:
+- Web: /app/components/PreferenceCardDialog.tsx
+- API: POST /case-cards
+Key components:
+- PreferenceCardDialog component
+- case-cards.routes.ts POST handler (lines 451-573)
+Data reads and writes:
+- API calls: createCaseCard
+- Database tables touched:
+  - SELECT from app_user (verify surgeon exists, role='SURGEON')
+  - SELECT from case_card (check duplicate procedure name for surgeon)
+  - INSERT into case_card (status='DRAFT', version='1.0.0')
+  - INSERT into case_card_version (initial version with sections)
+  - UPDATE case_card (set current_version_id)
+  - INSERT into case_card_edit_log (log creation)
+Gating and role restrictions:
+- Role: ADMIN, INVENTORY_TECH, CIRCULATOR, SCRUB, SURGEON (SCHEDULER excluded)
+- Capability: None (role-based only)
+- Enforcement location: isRoleAllowed check in handler (case-cards.routes.ts lines 459-461)
 
---- C.2: EDIT ---
-ROUTE: PUT /api/case-cards/:id
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 583)
-GATING:
-  - fastify.authenticate
-  - Role check: SCHEDULER excluded
-  - Status check: DEPRECATED and DELETED are read-only
-  - Soft-lock check: must hold lock or lock must be expired (30-min timeout)
-  - changeSummary is REQUIRED for all edits
-READS:
-  - case_card: current status, version, lock state
-  - case_card_version: prior version composition data (components, overrides)
-WRITES:
-  - case_card: UPDATE (procedure metadata, version bump)
-  - case_card_version: INSERT (new version with bumped semver)
-  - case_card (current_version_id): UPDATE
-  - case_card_edit_log: INSERT (changeSummary, reasonForChange, previous/new version) [append-only]
-VERSION BUMP: patch (default), minor, or major (body.versionBump)
+Step: EDIT
+Routes involved:
+- API: PUT /case-cards/:id
+- API: PATCH /case-cards/:caseCardId/versions/:versionId/components
+- API: PATCH /case-cards/:caseCardId/versions/:versionId/overrides
+Key components:
+- case-cards.routes.ts PUT handler (lines 583-599+)
+- case-cards.routes.ts PATCH handlers (grep results lines 1626, 1685)
+Data reads and writes:
+- API calls: updateCaseCard, patchComponents, patchOverrides
+- Database tables touched:
+  - SELECT from case_card (verify exists, check status, check lock)
+  - INSERT into case_card_version (new version on edit)
+  - UPDATE case_card (set current_version_id, increment version numbers)
+  - INSERT into case_card_edit_log (log edit)
+Gating and role restrictions:
+- Role: ADMIN, INVENTORY_TECH, CIRCULATOR, SCRUB, SURGEON (SCHEDULER excluded)
+- Lock requirement: Must hold lock or lock must be expired
+- Read-only statuses: DELETED, DEPRECATED
+- Enforcement location: isRoleAllowed check, lock check, status check in handler (case-cards.routes.ts lines 592-594, 597, 620-625)
 
---- C.3: VERSION HISTORY ---
-ROUTE: GET /api/case-cards/:id/versions
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 410)
-GATING:
-  - fastify.authenticate
-  - Facility scoped
-READS:
-  - case_card: verify exists
-  - case_card_version: all versions ordered by created_at DESC
-WRITES: None (read-only)
+Step: VERSION
+Routes involved:
+- API: GET /case-cards/:id/versions
+- API: POST /case-cards/:id/revert/:versionId
+Key components:
+- case-cards.routes.ts GET versions handler (lines 410-444)
+- case-cards.routes.ts POST revert handler (grep result line 1217)
+Data reads and writes:
+- API calls: getCaseCardVersions, revertCaseCardVersion
+- Database tables touched:
+  - SELECT from case_card_version (get all versions for card)
+  - INSERT into case_card_version (create new version from reverted content)
+  - UPDATE case_card (set current_version_id)
+  - INSERT into case_card_edit_log (log revert action)
+Gating and role restrictions:
+- Get versions: Any authenticated user
+- Revert: Same as edit restrictions (role-based, lock required, no DELETED/DEPRECATED)
+- Enforcement location: fastify.authenticate (get versions line 411), handler checks for revert
 
---- C.4: EDIT LOG ---
-ROUTE: GET /api/case-cards/:id/edit-log
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 366)
-GATING:
-  - fastify.authenticate
-  - Facility scoped
-READS:
-  - case_card: verify exists
-  - case_card_edit_log: all entries ordered by edited_at DESC
-WRITES: None (read-only, append-only table)
+Step: STATUS
+Routes involved:
+- API: POST /case-cards/:id/activate
+- API: POST /case-cards/:id/deprecate
+- API: POST /case-cards/:id/delete
+Key components:
+- case-cards.routes.ts POST activate handler (grep result line 755)
+- case-cards.routes.ts POST deprecate handler (grep result line 803)
+- case-cards.routes.ts POST delete handler (grep result line 872)
+Data reads and writes:
+- API calls: activateCaseCard, deprecateCaseCard, deleteCaseCard
+- Database tables touched:
+  - UPDATE case_card (set status to ACTIVE, DEPRECATED, or DELETED)
+  - INSERT into case_card_edit_log (log status change)
+  - For delete: UPDATE case_card (set deleted_at, deleted_by_user_id, delete_reason)
+Gating and role restrictions:
+- Activate: UNKNOWN (handler not read in detail)
+- Deprecate: Only OWNER-SURGEON or ADMIN (per governance doc comment line 17)
+- Delete: Only OWNER-SURGEON (per governance doc comment line 18)
+- Enforcement location: Handler logic (not read in detail)
 
---- C.5: ACTIVATE ---
-ROUTE: POST /api/case-cards/:id/activate
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 758)
-GATING:
-  - fastify.authenticate
-  - Cannot activate if already ACTIVE or DEPRECATED
-READS:
-  - case_card: current status, surgeon_id, procedure_name
-WRITES:
-  - case_card: UPDATE existing ACTIVE cards for same surgeon+procedure to DEPRECATED
-  - case_card: UPDATE target card status=ACTIVE
-  - case_card_edit_log: INSERT (change_summary='Status changed to ACTIVE') [append-only]
-UNIQUENESS: Only ONE ACTIVE per (surgeon_id, procedure_name, facility_id)
+Step: LINK TO CASE
+Routes involved:
+- API: PUT /case-dashboard/:caseId/link-case-card
+- API: POST /case-dashboard/:caseId/case-card-unlink
+- API: GET /case-dashboard/:caseId/case-card-link
+Key components:
+- case-dashboard.routes.ts PUT link handler (lines 551-721)
+- case-dashboard.routes.ts POST unlink handler (lines 727-774)
+- case-dashboard.routes.ts GET link handler (lines 780-848)
+Data reads and writes:
+- API calls: linkCaseCard, unlinkCaseCard, getCaseCardLink
+- Database tables touched:
+  - SELECT from surgical_case (verify exists)
+  - SELECT from case_card (resolve ACTIVE version if caseCardId provided)
+  - UPDATE surgical_case (set case_card_version_id)
+  - INSERT into case_card_link_event (write snapshot-based link/relink/unlink event)
+  - INSERT into case_event_log (log action)
+Gating and role restrictions:
+- Role: Any authenticated user
+- Capability: None (authenticated only)
+- PHI Access: PHI_CLINICAL with evaluateCase=true
+- Enforcement location: fastify.authenticate, requirePhiAccess middleware (case-dashboard.routes.ts lines 552, 728, 781)
 
---- C.6: DEPRECATE ---
-ROUTE: POST /api/case-cards/:id/deprecate
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 807)
-GATING:
-  - fastify.authenticate
-  - Authorization: OWNER-SURGEON (card.surgeon_id === userId) OR ADMIN role
-  - Cannot deprecate if already DEPRECATED or DELETED
-  - Reason is REQUIRED
-READS:
-  - case_card: current status, surgeon_id
-WRITES:
-  - case_card: UPDATE (status=DEPRECATED)
-  - case_card_edit_log: INSERT (action_type=DEACTIVATE, reason) [append-only]
+Step: PRINT
+Routes involved:
+- Web: /components/CaseDashboardModal/CaseDashboardPrintView.tsx
+- API: GET /case-cards/:id (to retrieve printable content)
+Key components:
+- CaseDashboardPrintView component
+- case-cards.routes.ts GET handler (lines 257-360)
+Data reads and writes:
+- API calls: getCaseCard
+- Database tables touched:
+  - SELECT from case_card (with joins to app_user for surgeon and creator)
+  - SELECT from case_card_version (get current version sections)
+Gating and role restrictions:
+- Role: Any authenticated user
+- Capability: None (authenticated only)
+- Enforcement location: fastify.authenticate (case-cards.routes.ts line 258)
 
---- C.7: SOFT-DELETE ---
-ROUTE: POST /api/case-cards/:id/delete
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 876)
-GATING:
-  - fastify.authenticate
-  - Authorization: OWNER-SURGEON ONLY (card.surgeon_id === userId)
-  - Cannot delete if already DELETED
-  - Reason is REQUIRED
-READS:
-  - case_card: current status, surgeon_id
-WRITES:
-  - case_card: UPDATE (status=DELETED, deleted_at, deleted_by_user_id, delete_reason)
-  - case_card_edit_log: INSERT (action_type=DELETE, reason) [append-only]
+Step: FEEDBACK
+Routes involved:
+- API: POST /case-cards/:id/feedback
+- API: POST /case-cards/:id/feedback/:feedbackId/review
+Key components:
+- case-cards.routes.ts POST feedback handler (grep result line 1391)
+- case-cards.routes.ts POST review handler (grep result line 1565)
+Data reads and writes:
+- API calls: submitCaseCardFeedback, reviewCaseCardFeedback
+- Database tables touched:
+  - INSERT into case_card_feedback (submit feedback)
+  - UPDATE case_card_feedback (mark as reviewed)
+Gating and role restrictions:
+- UNKNOWN (handlers not read in detail)
 
---- C.8: CLONE/SEED ---
-ROUTE: POST /api/case-cards/:id/clone
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 942)
-GATING:
-  - fastify.authenticate
-  - Role check: SCHEDULER excluded
-  - targetSurgeonId required
-  - Duplicate check: same procedure name + target surgeon + facility
-READS:
-  - case_card + case_card_version: source card and version data
-  - app_user: verify target surgeon exists, active, role=SURGEON
-WRITES:
-  - case_card: INSERT (new ID, status=DRAFT, version=1.0.0, copies metadata)
-  - case_card_version: INSERT (copies all section data from source version, composition data)
-  - case_card_edit_log: INSERT (action_type=CREATE, notes seeding provenance) [append-only]
-
---- C.9: LOCK/UNLOCK ---
-ROUTE: POST /api/case-cards/:id/lock
-ROUTE: POST /api/case-cards/:id/unlock
-SOURCE: apps/api/src/routes/case-cards.routes.ts (lines 1108, 1186)
-GATING:
-  - fastify.authenticate
-  - Role check: SCHEDULER excluded
-  - Cannot lock read-only cards (DEPRECATED, DELETED)
-  - Conflict if locked by another user and lock not expired
-  - Only lock holder can unlock
-READS:
-  - case_card: current lock state
-WRITES:
-  - case_card: UPDATE (locked_by_user_id, locked_at, lock_expires_at)
-LOCK TIMEOUT: 30 minutes (auto-expire)
-
---- C.10: REVERT ---
-ROUTE: POST /api/case-cards/:id/revert/:versionId
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 1221)
-GATING:
-  - fastify.authenticate
-  - Role check: SCHEDULER excluded
-  - Cannot revert read-only cards (DEPRECATED, DELETED)
-  - Lock check (must hold or expired)
-  - Reason is REQUIRED
-READS:
-  - case_card: current version and state
-  - case_card_version: target version content
-WRITES:
-  - case_card_version: INSERT NEW version with old content (append-only, never overwrites)
-  - case_card: UPDATE (current_version_id, version_patch++)
-  - case_card_edit_log: INSERT (action_type=REVERT, references source version) [append-only]
-
---- C.11: LINK TO CASE (snapshot-based) ---
-ROUTE: PUT /api/case-dashboard/:caseId/link-case-card
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (line 551)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - Relink requires reasonCode
-READS:
-  - surgical_case: current case_card_version_id (detect initial vs relink)
-  - case_card + case_card_version + app_user: resolve ACTIVE version, build snapshot
-WRITES (in transaction):
-  - surgical_case: UPDATE (case_card_version_id)
-  - case_card_link_event: INSERT (action=LINKED|RELINKED, snapshot_json, reasonCode, reasonNote) [append-only]
-  - case_event_log: INSERT (event_type=CASE_CARD_LINKED|CASE_CARD_CHANGED) [append-only]
-SNAPSHOT: render-complete JSON containing all version data (caseCardId, surgeonName,
-  caseType, procedureCodes, versionNumber, headerInfo, patientFlags, instrumentation,
-  equipment, supplies, medications, setupPositioning, surgeonNotes)
-
---- C.12: UNLINK FROM CASE ---
-ROUTE: POST /api/case-dashboard/:caseId/case-card-unlink
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (line 727)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - reasonCode is REQUIRED
-  - Must have a card currently linked
-WRITES (in transaction):
-  - surgical_case: UPDATE (case_card_version_id = NULL)
-  - case_card_link_event: INSERT (action=UNLINKED, no snapshot) [append-only]
-  - case_event_log: INSERT (event_type=CASE_CARD_CHANGED) [append-only]
-
---- C.13: PRINT ---
-ROUTE: GET /api/case-cards/:id (fetch full card + version data for print rendering)
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 257)
-GATING:
-  - fastify.authenticate
-  - Facility scoped
-READS:
-  - case_card + case_card_version: all section data
-WRITES: None (print via window.print() on client side)
-
---- C.14: FEEDBACK (from Debrief) ---
-ROUTE: POST /api/case-cards/:id/feedback
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 1394)
-GATING:
-  - fastify.authenticate
-  - Deduplicated per (caseCardId, surgicalCaseId) pair
-READS:
-  - case_card: verify exists
-  - surgical_case: verify exists
-  - case_card_feedback: check no existing feedback for this case
-WRITES:
-  - case_card_feedback: INSERT (items_unused, items_missing, setup_issues, staff_comments, suggested_edits, submitted_by_user_id)
-FIELDS: itemsUnused[], itemsMissing[], setupIssues, staffComments, suggestedEdits
-
---- C.15: FEEDBACK REVIEW ---
-ROUTE: POST /api/case-cards/:id/feedback/:feedbackId/review
-SOURCE: apps/api/src/routes/case-cards.routes.ts (line 1568)
-GATING:
-  - fastify.authenticate
-  - role=ADMIN only
-  - Feedback must not already be reviewed
-READS:
-  - case_card_feedback: verify exists, not already reviewed
-WRITES:
-  - case_card_feedback: UPDATE (reviewed_at, reviewed_by_user_id, review_action, review_notes)
-ACTIONS: ACKNOWLEDGED | APPLIED | DISMISSED
-
---- C.16: COMPOSITION (components + overrides) ---
-ROUTE: PATCH /api/case-cards/:caseCardId/versions/:versionId/components
-ROUTE: PATCH /api/case-cards/:caseCardId/versions/:versionId/overrides
-ROUTE: GET /api/case-cards/versions/:versionId/composed
-SOURCE: apps/api/src/routes/case-cards.routes.ts (lines 1629, 1688, 1744)
-GATING:
-  - fastify.authenticate
-  - Role check: SCHEDULER excluded (for PATCH endpoints)
-  - Only DRAFT cards can be edited (for PATCH endpoints)
-READS:
-  - case_card + case_card_version: verify exists and status
-  - composeCaseCardVersion(): merges base + components + overrides (for GET)
-WRITES (PATCH):
-  - case_card_version: UPDATE (components or overrides JSONB, composed_cache = NULL)
-  - case_card_edit_log: INSERT [append-only]
-WRITES (GET composed):
-  - case_card_version: UPDATE composed_cache (fire-and-forget cache)
+Step: REVIEW
+Routes involved:
+- API: POST /case-cards/:id/feedback/:feedbackId/review
+- Web: UNKNOWN (no dedicated review UI component found)
+Key components:
+- case-cards.routes.ts POST review handler (grep result line 1565)
+Data reads and writes:
+- API calls: reviewCaseCardFeedback
+- Database tables touched:
+  - UPDATE case_card_feedback (set reviewed_at, reviewed_by_user_id, admin_notes)
+Gating and role restrictions:
+- UNKNOWN (handler not read in detail)
 
 ================================================================================
-SECTION 6: CASE DASHBOARD SUPPLEMENTARY ROUTES
-================================================================================
-
---- D.1: ANESTHESIA PLAN ---
-ROUTE: PUT /api/case-dashboard/:caseId/anesthesia
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (line 495)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-WRITES:
-  - case_anesthesia_plan: UPSERT (modalities, positioning, airway, anticoagulation)
-  - case_event_log: INSERT (event_type=ANESTHESIA_PLAN_CHANGED) [append-only]
-
---- D.2: OVERRIDES ---
-ROUTE: POST /api/case-dashboard/:caseId/overrides (add)
-ROUTE: PUT /api/case-dashboard/:caseId/overrides/:overrideId (modify)
-ROUTE: DELETE /api/case-dashboard/:caseId/overrides/:overrideId (revert)
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (lines 854, 901, 942)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-  - target, overrideValue, and reason are required for add
-WRITES:
-  - case_override: INSERT/UPDATE/soft-revert (reverted_at, reverted_by_user_id)
-  - case_event_log: INSERT (OVERRIDE_ADDED|OVERRIDE_MODIFIED|OVERRIDE_REMOVED) [append-only]
-
---- D.3: CASE SUMMARY ---
-ROUTE: PUT /api/case-dashboard/:caseId/case-summary
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (line 1023)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-WRITES:
-  - surgical_case: UPDATE (duration, laterality, orRoom, schedulerNotes, caseType, procedureCodes, patientFlags, admissionTypes)
-  - case_event_log: INSERT (event_type=SCHEDULING_CHANGED) [append-only]
-
---- D.4: SCHEDULING ---
-ROUTE: PUT /api/case-dashboard/:caseId/scheduling
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (line 1096)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-WRITES:
-  - surgical_case: UPDATE (scheduledDate, scheduledTime, orRoom)
-  - case_event_log: INSERT (event_type=SCHEDULING_CHANGED, description includes before/after) [append-only]
-
---- D.5: EVENT LOG ---
-ROUTE: GET /api/case-dashboard/:caseId/event-log
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (line 976)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-READS:
-  - case_event_log: all events for case ordered by created_at DESC
-WRITES: None (read-only)
-
---- D.6: CASE CARD LINK HISTORY ---
-ROUTE: GET /api/case-dashboard/:caseId/case-card-link
-SOURCE: apps/api/src/routes/case-dashboard.routes.ts (line 780)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-READS:
-  - case_card_link_event: all events ordered by performed_at DESC
-  - Derives currentLink from most recent non-UNLINKED event
-WRITES: None (read-only)
-
-================================================================================
-SECTION 7: READINESS SUPPLEMENTARY ROUTES
-================================================================================
-
---- E.1: SINGLE CASE READINESS ---
-ROUTE: GET /api/readiness/cases/:id
-SOURCE: apps/api/src/routes/readiness.routes.ts (line 174)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-READS:
-  - Computes fresh readiness (not from cache)
-  - surgical_case + app_user: case details
-WRITES: None (fresh computation, no cache update)
-
---- E.2: ATTESTATION CRUD ---
-ROUTE: POST /api/readiness/attestations (create)
-ROUTE: GET /api/readiness/cases/:id/attestations (list)
-ROUTE: POST /api/readiness/attestations/:id/void
-SOURCE: apps/api/src/routes/readiness.routes.ts (lines 218, 297, 346)
-TYPES: CASE_READINESS (staff), SURGEON_ACKNOWLEDGMENT (assigned surgeon)
-GATING:
-  - CASE_READINESS: roles ADMIN, CIRCULATOR, INVENTORY_TECH
-  - SURGEON_ACKNOWLEDGMENT: role=SURGEON AND must be assigned surgeon AND readinessState=RED
-  - Void: same roles that can create, OR admin for surgeon attestations
-WRITES:
-  - attestation: INSERT (append-only, facility_id, case_id, type, readiness_state_at_time)
-  - case_readiness_cache: refresh on create/void
-  - attestation: UPDATE (voided_at, voided_by_user_id) on void
-
---- E.3: VERIFICATION DETAIL ---
-ROUTE: GET /api/readiness/cases/:id/verification
-SOURCE: apps/api/src/routes/readiness.routes.ts (line 430)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL', { evaluateCase: true })
-READS:
-  - surgical_case: case details
-  - case_requirement JOIN item_catalog: required items with sterility info
-  - inventory_item JOIN location + app_user: matching items with verification state
-WRITES: None (read-only)
-COMPUTES: Per-requirement: availableCount, verifiedCount, suitableCount, isSatisfied
-
---- E.4: CALENDAR SUMMARY ---
-ROUTE: GET /api/readiness/calendar-summary?startDate=&endDate=&granularity=
-SOURCE: apps/api/src/routes/readiness.routes.ts (line 142)
-GATING:
-  - fastify.authenticate
-READS:
-  - case_readiness_cache: aggregated by day or case for date range
-WRITES: None (read-only)
-
-================================================================================
-SECTION 8: CHECKLIST SUPPLEMENTARY ROUTES
-================================================================================
-
---- F.1: FACILITY SETTINGS ---
-ROUTE: GET /api/facility/settings
-ROUTE: PATCH /api/facility/settings
-SOURCE: apps/api/src/routes/checklists.routes.ts (lines 47, 71)
-GATING:
-  - GET: fastify.authenticate
-  - PATCH: requireCapabilities('SETTINGS_MANAGE') - ADMIN only
-READS:
-  - facility_settings: enableTimeoutDebrief flag
-WRITES:
-  - facility_settings: UPSERT
-
---- F.2: CHECKLIST TEMPLATES ---
-ROUTE: GET /api/checklists/templates
-ROUTE: GET /api/checklists/templates/:type
-ROUTE: PUT|PATCH /api/checklists/templates/:type
-SOURCE: apps/api/src/routes/checklists.routes.ts (lines 112, 131, 163)
-GATING:
-  - All: ADMIN only (role check, not capability)
-READS:
-  - checklist_template + checklist_template_version: template items and signatures
-WRITES:
-  - checklist_template_version: INSERT (new version with updated items/signatures)
-
---- F.3: PENDING REVIEWS ---
-ROUTE: GET /api/pending-reviews (admin view)
-ROUTE: GET /api/my-pending-reviews (SCRUB/SURGEON view)
-SOURCE: apps/api/src/routes/checklists.routes.ts (lines 528, 550)
-GATING:
-  - pending-reviews: ADMIN only
-  - my-pending-reviews: SCRUB or SURGEON (filtered to own role)
-READS:
-  - case_checklist_instance + case_checklist_signature: pending async reviews
-
---- F.4: FLAGGED REVIEWS ---
-ROUTE: GET /api/flagged-reviews
-ROUTE: POST /api/flagged-reviews/:signatureId/resolve
-ROUTE: POST /api/flagged-reviews/:instanceId/resolve-surgeon-flag
-SOURCE: apps/api/src/routes/checklists.routes.ts (lines 587, 619, 649)
-GATING:
-  - All: ADMIN only
-READS:
-  - case_checklist_signature: flagged signatures
-  - case_checklist_instance: debrief items with equipment/improvement notes
-WRITES:
-  - case_checklist_flag_resolution: INSERT (resolution notes, resolver)
-
---- F.5: SURGEON CHECKLISTS ---
-ROUTE: GET /api/surgeon/my-checklists
-ROUTE: PUT|PATCH /api/surgeon/checklists/:instanceId/feedback
-SOURCE: apps/api/src/routes/checklists.routes.ts (lines 683, 244)
-GATING:
-  - my-checklists: SURGEON only (roles array check)
-  - feedback: SURGEON only
-READS:
-  - case_checklist_instance: all checklists for cases where user is surgeon
-WRITES:
-  - case_checklist_instance: UPDATE (surgeon_notes, surgeon_flagged, surgeon_flagged_comment)
-
-================================================================================
-SECTION 9: SCHEDULE SUPPLEMENTARY ROUTES
-================================================================================
-
---- G.1: BLOCK TIMES ---
-ROUTE: POST /api/schedule/block-times (create)
-ROUTE: PATCH /api/schedule/block-times/:id (update)
-ROUTE: DELETE /api/schedule/block-times/:id (delete)
-SOURCE: apps/api/src/routes/schedule.routes.ts (lines 338, 405, 486)
-GATING:
-  - All: requireCapabilities('CASE_ASSIGN_ROOM') - ADMIN, SCHEDULER
-READS:
-  - room: validate belongs to facility, active
-  - Max sort_order computed from cases + block_times for date/room
-WRITES:
-  - block_time: INSERT/UPDATE/DELETE
-
---- G.2: ROOM DAY CONFIG ---
-ROUTE: PUT /api/schedule/rooms/:roomId/day-config?date=
-SOURCE: apps/api/src/routes/schedule.routes.ts (line 509)
-GATING:
-  - requireCapabilities('CASE_ASSIGN_ROOM') - ADMIN, SCHEDULER
-READS:
-  - room: validate belongs to facility, active
-WRITES:
-  - room_day_config: UPSERT (start_time for room on specific date)
-
---- G.3: REORDER ---
-ROUTE: PATCH /api/schedule/reorder
-SOURCE: apps/api/src/routes/schedule.routes.ts (line 568)
-GATING:
-  - requireCapabilities('CASE_ASSIGN_ROOM') - ADMIN, SCHEDULER
-READS:
-  - room: validate if roomId provided
-WRITES (in transaction):
-  - surgical_case: UPDATE (sort_order, room_id) per case item
-  - block_time: UPDATE (sort_order) per block item
-
---- G.4: UNASSIGNED CASES ---
-ROUTE: GET /api/schedule/unassigned
-SOURCE: apps/api/src/routes/schedule.routes.ts (line 286)
-GATING:
-  - fastify.authenticate
-  - requirePhiAccess('PHI_CLINICAL')
-READS:
-  - surgical_case: all SCHEDULED, not cancelled, room_id IS NULL
-WRITES: None (read-only)
-
-================================================================================
-SECTION 10: APPEND-ONLY AUDIT TABLES
-================================================================================
-
-The following tables are append-only or have write-protection triggers:
-
-1. surgical_case_status_event
-   - Triggers: case_status_event_no_update, case_status_event_no_delete
-   - Written by: case-status.service.ts recordStatusEvent()
-   - Fields: surgical_case_id, from_status, to_status, reason, context, actor_user_id
-
-2. case_event_log
-   - Trigger: case_event_log_no_update
-   - Written by: case-dashboard.routes.ts (all mutation handlers)
-   - Fields: case_id, facility_id, event_type, user_id, user_role, user_name, description
-
-3. case_card_edit_log
-   - Written by: case-cards.routes.ts (all mutation handlers)
-   - Fields: case_card_id, editor_user_id, editor_name, editor_role, action_type,
-     change_summary, reason_for_change, previous_version_id, new_version_id
-
-4. case_card_link_event
-   - Written by: case-dashboard.routes.ts (link/unlink handlers)
-   - Fields: case_id, action (LINKED|RELINKED|UNLINKED), source_case_card_id,
-     snapshot_json, reason_code, reason_note, performed_by_user_id
-
-5. inventory_event
-   - Written by: inventory.routes.ts (createEvent, bulkEvents, financial)
-   - Fields: eventType, caseId, locationId, previousLocationId, sterilityStatus,
-     notes, performedByUserId, deviceEventId, financial attribution fields
-
-6. attestation
-   - Written by: readiness.routes.ts, case-dashboard.routes.ts
-   - Fields: case_id, type, attested_by_user_id, readiness_state_at_time
-   - Void is UPDATE (voided_at, voided_by_user_id) not DELETE
-
-7. device_event
-   - Written by: inventory.routes.ts (device-events handler)
-   - Fields: deviceId, rawValue, processedItemId, processingError
-   - LAW: never used as truth source, candidate lookup only
-
-================================================================================
-SECTION 11: CROSS-CUTTING CONCERNS
-================================================================================
-
-Authentication:
-  - JWT-based (fastify.authenticate decorator)
-  - Payload: userId, facilityId, username, email, name, role, roles[]
-  - 24h expiry
-  - Source: apps/api/src/plugins/auth.ts
-
-Capability Derivation:
-  - getUserRoles(user) normalizes to roles[] with legacy fallback
-  - deriveCapabilities(roles) returns UNION of all role capabilities
-  - requireCapabilities() checks ANY of listed capabilities
-  - Source: packages/domain/src/types.ts, apps/api/src/plugins/auth.ts
-
-PHI Access Control:
-  - requirePhiAccess(classification, options) guard
-  - Classifications: PHI_CLINICAL, PHI_WRITE_CLINICAL, PHI_PATIENT_SEARCH, etc.
-  - Options: evaluateCase (verify case belongs to facility), caseIdFrom (param name)
-  - Source: apps/api/src/plugins/phi-guard.js
-
-PHI Governance:
-  - On startup: validates all /api/* routes against phi-route-manifest.ts
-  - Detects undeclared PHI routes (has phiGuard but not in manifest)
-  - Detects missing manifest entries (in manifest but no matching route)
-  - Blocks startup in non-dev mode if violations found
-  - Source: apps/api/src/plugins/phi-governance.ts
-
-Idempotency:
-  - idempotent() middleware checks Idempotency-Key header
-  - Applied to state-changing contract routes (approve, reject, assign-room, etc.)
-  - Source: apps/api/src/plugins/idempotency.ts
-
-Error Envelope:
-  - Centralized error handler in index.ts (line 123)
-  - Standard format: { error: { code, message, requestId } }
-  - 401 for JWT failures, 400 for validation, 500 for unhandled
-  - Stack traces never leaked to client
-
-Request ID:
-  - requestIdPlugin generates X-Request-Id for all requests
-  - Included in all error responses and exposed via response header
-  - Source: apps/api/src/plugins/request-id.ts
-
-Persona:
-  - personaPlugin reads X-Active-Persona header
-  - Used for audit metadata
-  - Source: apps/api/src/plugins/persona.ts
-
-================================================================================
-END OF WORKFLOW SNAPSHOT
+END OF SNAPSHOT
 ================================================================================

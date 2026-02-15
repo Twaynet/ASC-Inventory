@@ -1,307 +1,587 @@
-Navigation and Routing Entrypoints Snapshot
-Generated: 2026-02-12
-Source: apps/web/src/ (Next.js App Router)
+NAVIGATION AND ROUTING SNAPSHOT
+ASC Inventory Truth System
+Generated: 2026-02-14
+
+This document captures all navigation components, links, redirects, and routing entrypoints
+based solely on implemented code. No speculation or UX recommendations are included.
 
 ================================================================================
-1. NAVIGATION COMPONENTS
+SECTION 1: NAVIGATION COMPONENTS
 ================================================================================
 
+1.1 Header
 Component: Header
-File: apps/web/src/app/components/Header.tsx
-Renders on: All authenticated pages (each page imports Header directly)
-Links produced:
-  /dashboard          | "Home" button icon         | Condition: shown when pathname != /dashboard
-  /phi/patients       | "Patient Search" button    | Condition: hasCapability('PHI_PATIENT_SEARCH')
-  /help               | "?" help button            | Condition: always visible when authenticated
-  (dynamic deepLink)  | "View" in AttentionDrawer  | Condition: attention items exist (server-driven deepLink)
-Also renders: AdminNav (role-gated), AttentionDrawer, theme toggle, persona selector, sign out
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\Header.tsx
+Renders in: All authenticated pages via (app)/layout.tsx wrapper
+Props: title (string)
+Purpose: Top navigation bar with user info, controls, and admin menu
 
+1.2 AdminNav
 Component: AdminNav
-File: apps/web/src/app/components/AdminNav.tsx
-Renders on: Header (dropdown menu)
-Condition: only renders if userRoles includes 'ADMIN'
-Links produced:
-  /admin/cases                | "Cases"
-  /admin/users                | "Users"
-  /admin/locations            | "Locations"
-  /admin/catalog              | "Catalog"
-  /admin/inventory            | "Inventory"
-  /admin/inventory/risk-queue | "Risk Queue"
-  /admin/vendors              | "Vendors"
-  /admin/loaner-sets          | "Loaner Sets"
-  /preference-cards           | "Surgeon Preference Cards"
-  /admin/reports              | "Reports"
-  /admin/phi-audit            | "PHI Audit"
-  /admin/general-settings     | "General Settings"
-  /admin/pending-reviews      | "Pending Reviews"
-  /admin/surgery-requests     | "Surgery Requests"
-  /admin/financial-readiness  | "Financial Readiness"
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\AdminNav.tsx
+Renders in: Header component (conditionally)
+Condition: User has ADMIN role
+Purpose: Dropdown menu for admin sections
 
-Component: AdminSettingsSubnav
-File: apps/web/src/components/AdminSettingsSubnav.tsx
-Renders on: General Settings pages (tab-style subnav)
-Links produced:
-  /admin/general-settings                | "General Settings"
-  /admin/general-settings/case-dashboard | "Case Dashboard"
-  /admin/general-settings/operating-rooms| "Operating Rooms"
-  /admin/general-settings/surgeons       | "Surgeons"
-
-Component: CalendarNav
-File: apps/web/src/app/(app)/calendar/components/CalendarNav.tsx
-Renders on: Calendar page
-Links produced: None (prev/next/today/view-mode are in-page state changes, not route changes)
-
-Component: Breadcrumbs
-File: apps/web/src/components/Breadcrumbs.tsx
-Renders on: Various admin subpages
-Links produced (by page):
-  Operating Rooms page:  /admin/general-settings -> "General Settings"
-  Surgeons page:         /admin/general-settings -> "General Settings"
-  Case Dashboard page:   /admin/general-settings -> "General Settings"
-  Catalog Sets page:     /admin/catalog -> "Catalog"
-  Catalog Groups page:   /admin/catalog -> "Catalog"
-  Group Detail page:     /admin/catalog -> "Catalog", /admin/catalog/groups -> "Groups"
-  Inventory Check-In:    /admin (DEAD LINK - no page exists), /admin/inventory -> "Inventory", /admin/inventory/check-in -> "Check-In"
-
-Component: Catalog Subnav (inline in pages, not separate component)
-File: apps/web/src/app/(app)/admin/catalog/page.tsx (and groups/page.tsx, sets/page.tsx)
-Links produced:
-  /admin/catalog        | "Items"
-  /admin/catalog/groups | "Groups"
-  /admin/catalog/sets   | "Set Definitions"
-
+1.3 Footer
 Component: Footer
-File: apps/web/src/app/components/Footer.tsx
-Renders on: All pages (root layout)
-Links produced:
-  /help | "Help"
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\Footer.tsx
+Renders in: Root layout (all pages)
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\layout.tsx
+Purpose: Application footer with version, build time, and help link
 
+1.4 AttentionDrawer
 Component: AttentionDrawer
-File: apps/web/src/app/components/AttentionDrawer.tsx
-Renders on: Header (popover)
-Links produced (server-driven via API /attention endpoint):
-  /admin/loaner-sets?filter=overdue      | type: LOANER_OVERDUE
-  /admin/loaner-sets?filter=open         | type: LOANER_DUE_SOON
-  /admin/inventory?expiry=EXPIRED        | type: ITEM_EXPIRED
-  /admin/inventory?expiry=EXPIRING_SOON  | type: ITEM_EXPIRING_SOON
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\AttentionDrawer.tsx
+Renders in: Header component (as overlay)
+Condition: User clicks attention bell icon
+Purpose: Displays attention items by severity (CRITICAL, WARNING, INFO)
+
+1.5 AuthGuard
+Component: AuthGuard
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\AuthGuard.tsx
+Renders in: (app)/layout.tsx wrapper
+Purpose: Redirects unauthenticated users to /login
+
+1.6 FacilityContextSelect
+Component: FacilityContextSelect
+File: UNKNOWN (referenced in C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\layout.tsx)
+Renders in: Platform facility-view layout
+Purpose: Facility selector for platform admins
 
 ================================================================================
-2. DASHBOARD FEATURE CARDS (access-control-driven navigation)
+SECTION 2: LINKS PRODUCED BY NAVIGATION COMPONENTS
 ================================================================================
 
-Source: apps/web/src/lib/access-control.ts FEATURES array
-Renders on: /dashboard page via FeatureSection/FeatureCard components
+2.1 Header Links
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\Header.tsx
 
-GROUP: core (all authenticated users unless requiredRoles specified)
-  /calendar             | "Calendar"               | Condition: authenticated (no role/cap required)
-  /cases                | "Case Requests"           | Condition: authenticated (no role/cap required)
-  /preference-cards     | "Surgeon Preference Cards"| Condition: authenticated (no role/cap required)
-  /pending-reviews      | "My Pending Reviews"      | Condition: authenticated (no role/cap required)
-  /surgeon/my-checklists| "My Checklists"           | Condition: requiredRoles=['SURGEON']
-  /unassigned-cases     | "Unassigned Cases"        | Condition: requiredRoles=['ADMIN','SCHEDULER']
+Path: /dashboard
+Label: Home icon button
+Condition: Not on dashboard page (pathname !== '/dashboard')
+Line: 54
 
-GROUP: case-workflows (contextual, no direct path)
-  (null)                | "Case Dashboard"          | Condition: requiredCapabilities=['CASE_VIEW'], contextual
-  (null)                | "Readiness Verification"  | Condition: requiredCapabilities=['VERIFY_SCAN'], contextual
-  (null)                | "Debrief"                 | Condition: requiredCapabilities=['OR_DEBRIEF'], contextual
-  (null)                | "OR Timeout"              | Condition: requiredCapabilities=['OR_TIMEOUT'], contextual
+Path: /phi/patients
+Label: Patient Search button
+Condition: hasCapability('PHI_PATIENT_SEARCH')
+Line: 92
 
-GROUP: admin
-  /admin/cases             | "Cases"              | Condition: requiredRoles=['ADMIN','SCHEDULER']
-  /admin/users             | "Users"              | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['USER_MANAGE']
-  /admin/locations         | "Locations"          | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['LOCATION_MANAGE']
-  /admin/catalog           | "Catalog"            | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['CATALOG_MANAGE']
-  /admin/inventory         | "Inventory"          | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['INVENTORY_MANAGE']
-  /admin/inventory/check-in| "Inventory Check-In" | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['INVENTORY_CHECKIN']
-  /admin/reports           | "Reports"            | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['REPORTS_VIEW']
-  /admin/phi-audit         | "PHI Audit"          | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['PHI_AUDIT_ACCESS']
-  /admin/general-settings  | "General Settings"   | Condition: requiredRoles=['ADMIN'], requiredCapabilities=['SETTINGS_MANAGE']
-  /admin/pending-reviews   | "All Pending Reviews"| Condition: requiredRoles=['ADMIN']
+Path: /help
+Label: Help icon button (? icon)
+Condition: Always visible when authenticated
+Line: 188
+
+2.2 AdminNav Links
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\AdminNav.tsx
+Condition: User has ADMIN role
+
+Section: Operations
+Path: /admin/cases
+Label: Cases
+Line: 17
+
+Path: /admin/surgery-requests
+Label: Surgery Requests
+Line: 18
+
+Path: /admin/pending-reviews
+Label: Pending Reviews
+Badge: pendingReviews count (dynamic)
+Line: 19
+
+Path: /admin/operations-health
+Label: Operations Health
+Line: 20
+
+Path: /admin/financial-readiness
+Label: Financial Readiness
+Line: 21
+
+Section: Inventory
+Path: /admin/inventory
+Label: Inventory
+Line: 27
+
+Path: /admin/catalog
+Label: Catalog
+Line: 28
+
+Path: /admin/vendors
+Label: Vendors
+Line: 29
+
+Path: /admin/loaner-sets
+Label: Loaner Sets
+Line: 30
+
+Path: /admin/devices
+Label: Devices
+Line: 31
+
+Path: /preference-cards
+Label: Surgeon Preference Cards
+Line: 32
+
+Path: /admin/inventory/risk-queue
+Label: Risk Queue
+Badge: openMissing count (dynamic)
+Line: 33
+
+Section: Setup
+Path: /admin/users
+Label: Users
+Line: 39
+
+Path: /admin/locations
+Label: Locations
+Line: 40
+
+Path: /admin/general-settings
+Label: Settings
+Line: 41
+
+Section: Governance
+Path: /admin/reports
+Label: Reports
+Line: 47
+
+Path: /admin/phi-audit
+Label: PHI Audit
+Line: 48
+
+2.3 Footer Links
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\Footer.tsx
+
+Path: /help
+Label: Help
+Condition: Always visible
+Line: 38
+
+2.4 AttentionDrawer Links
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\AttentionDrawer.tsx
+
+Path: Dynamic (item.deepLink)
+Label: View button
+Condition: Per attention item
+Line: 172
+Note: Deep links are determined by backend attention API
+
+2.5 Dashboard Feature Cards
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\dashboard\page.tsx
+
+Core Features:
+Path: /calendar
+Label: Calendar
+Description: View surgical schedule by day, week, or month
+Condition: Authenticated-only
+Source: access-control.ts line 38-43
+
+Path: /cases
+Label: Case Requests
+Description: Request new surgical cases and view your submissions
+Condition: Authenticated-only
+Badge: Pending case count (dynamic)
+Source: access-control.ts line 45-50
+
+Path: /preference-cards
+Label: Surgeon Preference Cards
+Description: Manage surgeon preference cards (SPCs)
+Condition: Authenticated-only
+Source: access-control.ts line 52-57
+
+Path: /pending-reviews
+Label: My Pending Reviews
+Description: View your pending review items
+Condition: Authenticated-only
+Source: access-control.ts line 59-64
+
+Path: /surgeon/my-checklists
+Label: My Checklists
+Description: View your completed checklists and add feedback
+Condition: requiredRoles: SURGEON
+Source: access-control.ts line 66-72
+
+Path: /unassigned-cases
+Label: Unassigned Cases
+Description: View scheduled cases not yet assigned to a room
+Condition: requiredRoles: ADMIN, SCHEDULER
+Badge: Unassigned case count (dynamic)
+Source: access-control.ts line 74-80
+
+Admin Features:
+Path: /admin/cases
+Label: Cases
+Description: Approve, reject, and manage all surgical cases
+Condition: requiredRoles: ADMIN, SCHEDULER
+Source: access-control.ts line 130-137
+
+Path: /admin/users
+Label: Users
+Description: Manage user accounts and role assignments
+Condition: requiredRoles: ADMIN, requiredCapabilities: USER_MANAGE
+Source: access-control.ts line 139-147
+
+Path: /admin/locations
+Label: Locations
+Description: Manage facility locations and OR rooms
+Condition: requiredRoles: ADMIN, requiredCapabilities: LOCATION_MANAGE
+Source: access-control.ts line 149-157
+
+Path: /admin/catalog
+Label: Catalog
+Description: Manage equipment and supply catalog
+Condition: requiredRoles: ADMIN, requiredCapabilities: CATALOG_MANAGE
+Source: access-control.ts line 159-167
+
+Path: /admin/inventory
+Label: Inventory
+Description: View and manage inventory levels
+Condition: requiredRoles: ADMIN, requiredCapabilities: INVENTORY_MANAGE
+Source: access-control.ts line 169-177
+
+Path: /admin/inventory/check-in
+Label: Inventory Check-In
+Description: Check in received inventory items
+Condition: requiredRoles: ADMIN, requiredCapabilities: INVENTORY_CHECKIN
+Source: access-control.ts line 179-187
+
+Path: /admin/reports
+Label: Reports
+Description: View operational reports and export data
+Condition: requiredRoles: ADMIN, requiredCapabilities: REPORTS_VIEW
+Source: access-control.ts line 189-197
+
+Path: /admin/phi-audit
+Label: PHI Audit
+Description: View PHI access audit log, sessions, analytics, and retention status
+Condition: requiredRoles: ADMIN, requiredCapabilities: PHI_AUDIT_ACCESS
+Source: access-control.ts line 199-207
+
+Path: /admin/general-settings
+Label: General Settings
+Description: Configure rooms, feature toggles, and case options
+Condition: requiredRoles: ADMIN, requiredCapabilities: SETTINGS_MANAGE
+Source: access-control.ts line 209-217
+
+Path: /admin/pending-reviews
+Label: All Pending Reviews
+Description: Manage all pending reviews across users
+Condition: requiredRoles: ADMIN
+Badge: Admin pending reviews count (dynamic)
+Source: access-control.ts line 219-226
+
+2.6 Platform Admin Links
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\dashboard\page.tsx
+
+Path: /platform
+Label: Open Platform Administration button
+Condition: hasRole('PLATFORM_ADMIN')
+Line: 98
+
+2.7 Platform Admin Page Links
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\page.tsx
+
+Path: /platform/facility-view
+Label: Facility View
+Description: Read-only cross-facility operations visibility
+Line: 309
+
+Path: /platform/config-audit
+Label: Open Dedicated Audit Viewer
+Line: 528
+
+Path: /platform/auth-audit
+Label: Open Dedicated Auth Dashboard
+Line: 620
+
+2.8 Platform Facility View Links
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\page.tsx
+
+Path: /platform/facility-view/operations-health
+Label: Operations Health
+Description: Drill into missing, financial, and device metrics
+Line: 24
+
+Path: /platform/facility-view/reports
+Label: Reports
+Description: Dashboards, analytics, and printable reports
+Line: 30
+
+Path: /platform/facility-view/print/operations-weekly
+Label: Print Weekly Packet button
+Dynamic: Includes start and end date query params
+Line: 78
 
 ================================================================================
-3. REDIRECT RULES AND DEFAULT LANDINGS
+SECTION 3: REDIRECT RULES AND DEFAULT LANDINGS
 ================================================================================
 
-Route: / (root)
-File: apps/web/src/app/page.tsx
-Behavior: If authenticated -> redirect to /dashboard. If not authenticated -> redirect to /login.
+3.1 Root Page Redirect
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\page.tsx
+Source: /
+Destination: /dashboard (if authenticated)
+Destination: /login (if not authenticated)
+Condition: Based on user auth state
+Mechanism: useEffect with router.push
+Line: 11-18
 
-Route: /login
-File: apps/web/src/app/login/page.tsx
-Behavior: If already authenticated (on mount) -> redirect to /dashboard. On successful login -> redirect to /dashboard.
+3.2 Login Page Redirect
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\login\page.tsx
+Source: /login
+Destination: /dashboard (if already authenticated)
+Condition: user exists and not loading
+Mechanism: useEffect with router.push
+Line: 37-41
 
-Route: /case-cards (legacy)
-File: apps/web/src/app/(app)/case-cards/page.tsx
-Behavior: Unconditional redirect to /preference-cards (router.replace). Legacy backward-compat route.
+3.3 AuthGuard Redirect
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\components\AuthGuard.tsx
+Source: Any route wrapped by AuthGuard (all (app)/* routes)
+Destination: /login
+Condition: !user && !isLoading
+Mechanism: useEffect with router.push
+Line: 20-24
 
-Guard: AuthGuard (layout-level)
-File: apps/web/src/app/(app)/layout.tsx -> apps/web/src/app/components/AuthGuard.tsx
-Behavior: All routes under (app)/ group. If not authenticated -> redirect to /login.
-
-Guard: PlatformLayout (layout-level)
-File: apps/web/src/app/(app)/platform/layout.tsx
-Behavior: All routes under (app)/platform/. If not hasRole('PLATFORM_ADMIN') -> renders "Access Denied" (no redirect).
-
-NOTE: There is NO Next.js middleware.ts file in this project. All auth/redirect logic is client-side.
-
-================================================================================
-4. ALL DEFINED ROUTES (page.tsx files)
-================================================================================
-
-UNAUTHENTICATED ROUTES (outside (app) group):
-  /                    | Root redirect page
-  /login               | Login page
-
-AUTHENTICATED ROUTES (inside (app) group, AuthGuard protected):
-
-  Core / General:
-  /dashboard                                  | System Dashboard (home)
-  /calendar                                   | Calendar view (supports ?view=, ?date=, ?openCase= params)
-  /cases                                      | Case Requests
-  /preference-cards                           | Surgeon Preference Cards
-  /pending-reviews                            | My Pending Reviews
-  /unassigned-cases                           | Unassigned Cases
-  /help                                       | Help & FAQ
-  /case-cards                                 | Legacy redirect -> /preference-cards
-  /surgeon/my-checklists                      | Surgeon's completed checklists
-
-  Case Workflow (dynamic):
-  /case/[caseId]                              | Case Dashboard (full page)
-  /case/[caseId]/verify                       | Readiness Verification (supports ?returnTo=, ?openModal= params)
-  /or/timeout/[caseId]                        | OR Timeout checklist
-  /or/debrief/[caseId]                        | Debrief checklist
-
-  PHI:
-  /phi/patients                               | Patient Search
-
-  Admin:
-  /admin/cases                                | Admin Cases management
-  /admin/users                                | User management
-  /admin/locations                            | Location management
-  /admin/catalog                              | Catalog Items
-  /admin/catalog/groups                       | Catalog Groups
-  /admin/catalog/groups/[groupId]             | Catalog Group Detail
-  /admin/catalog/sets                         | Catalog Set Definitions
-  /admin/inventory                            | Inventory management (supports ?expiry= param)
-  /admin/inventory/check-in                   | Inventory Check-In (supports ?caseId= param)
-  /admin/inventory/risk-queue                 | Risk Queue
-  /admin/vendors                              | Vendor management
-  /admin/loaner-sets                          | Loaner Sets (supports ?filter= param)
-  /admin/reports                              | Reports
-  /admin/phi-audit                            | PHI Audit Log
-  /admin/general-settings                     | General Settings hub
-  /admin/general-settings/case-dashboard      | Case Dashboard settings
-  /admin/general-settings/operating-rooms     | Operating Rooms settings
-  /admin/general-settings/surgeons            | Surgeon settings
-  /admin/pending-reviews                      | All Pending Reviews (admin-wide)
-  /admin/surgery-requests                     | Surgery Requests list
-  /admin/surgery-requests/[id]                | Surgery Request detail
-  /admin/financial-readiness                  | Financial Readiness list
-  /admin/financial-readiness/[requestId]      | Financial Readiness detail
-
-  Platform:
-  /platform                                   | Platform Administration (Config Keys, Facility Overrides, Audit Log, Auth Log)
+3.4 Platform Admin Layout Guard
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\layout.tsx
+Source: /platform/*
+Destination: Access Denied UI (not a redirect)
+Condition: !hasRole('PLATFORM_ADMIN')
+Mechanism: Conditional render with access denied message
+Line: 32-48
 
 ================================================================================
-5. PAGE-LEVEL ACCESS GUARDS (client-side)
+SECTION 4: DEEP-LINK ENTRYPOINTS
 ================================================================================
 
-Route                                       | Guard Type         | Condition
---------------------------------------------|--------------------|--------------------------------------------
-All (app)/* routes                          | AuthGuard (layout) | Must be authenticated, else redirect /login
-/platform/*                                 | PlatformLayout     | Must have role PLATFORM_ADMIN, else "Access Denied"
-/admin/cases                                | hasRole check      | ADMIN or SCHEDULER
-/admin/users                                | hasRole check      | ADMIN
-/admin/locations                            | usePageData        | requiredRoles=['ADMIN']
-/admin/catalog                              | usePageData        | requiredRoles=['ADMIN']
-/admin/catalog/groups                       | usePageData        | requiredRoles=['ADMIN']
-/admin/catalog/groups/[groupId]             | usePageData        | requiredRoles=['ADMIN']
-/admin/catalog/sets                         | usePageData        | requiredRoles=['ADMIN']
-/admin/inventory                            | hasRole check      | ADMIN
-/admin/inventory/check-in                   | hasCapability      | INVENTORY_CHECKIN or INVENTORY_MANAGE
-/admin/inventory/risk-queue                 | hasRole check      | ADMIN
-/admin/vendors                              | isAdmin check      | ADMIN (via user.roles.includes)
-/admin/loaner-sets                          | isAdmin check      | ADMIN (via user.roles.includes)
-/admin/phi-audit                            | roles check        | ADMIN (via user.roles.includes)
-/admin/general-settings                     | isAdmin check      | ADMIN (via user.roles.includes)
-/admin/general-settings/case-dashboard      | isAdmin check      | ADMIN (via user.roles.includes)
-/admin/general-settings/operating-rooms     | isAdmin check      | ADMIN (via user.roles.includes)
-/admin/general-settings/surgeons            | isAdmin check      | ADMIN (via user.roles.includes)
-/admin/pending-reviews                      | hasRole check      | ADMIN
-/admin/surgery-requests                     | hasRole check      | ADMIN or SCHEDULER
-/admin/surgery-requests/[id]                | hasRole check      | ADMIN or SCHEDULER
-/admin/financial-readiness                  | hasRole check      | ADMIN
-/admin/financial-readiness/[requestId]      | hasRole check      | ADMIN
-/surgeon/my-checklists                      | hasRole check      | SURGEON
-/phi/patients                               | hasCapability      | PHI_PATIENT_SEARCH (renders "Access Denied" if missing)
+4.1 Case Detail Page
+Route: /case/[caseId]
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\case\[caseId]\page.tsx
+Required params: caseId (numeric string)
+Access: requiredCapabilities: CASE_VIEW
+Entry: From calendar, search, admin case list, attention drawer
 
-NO CLIENT-SIDE GUARD (rely on API-level auth only):
-/admin/reports                              | NONE               | No client role check found
-/calendar                                   | NONE               | Authenticated only (AuthGuard)
-/cases                                      | NONE               | Authenticated only (AuthGuard)
-/preference-cards                           | NONE               | Authenticated only (AuthGuard)
-/pending-reviews                            | NONE               | Authenticated only (AuthGuard)
-/unassigned-cases                           | NONE               | Authenticated only (AuthGuard)
-/help                                       | NONE               | Authenticated only (AuthGuard)
-/case/[caseId]                              | NONE               | Authenticated only (AuthGuard)
-/case/[caseId]/verify                       | NONE               | Authenticated only (AuthGuard, uses roles for UI)
-/or/timeout/[caseId]                        | NONE               | Authenticated only (AuthGuard)
-/or/debrief/[caseId]                        | NONE               | Authenticated only (AuthGuard)
+4.2 Case Verification
+Route: /case/[caseId]/verify
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\case\[caseId]\verify\page.tsx
+Required params: caseId (numeric string)
+Access: requiredCapabilities: VERIFY_SCAN
+Entry: From case dashboard
+
+4.3 OR Timeout
+Route: /or/timeout/[caseId]
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\or\timeout\[caseId]\page.tsx
+Required params: caseId (numeric string)
+Access: requiredCapabilities: OR_TIMEOUT
+Entry: From case dashboard
+
+4.4 OR Debrief
+Route: /or/debrief/[caseId]
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\or\debrief\[caseId]\page.tsx
+Required params: caseId (numeric string)
+Access: requiredCapabilities: OR_DEBRIEF
+Entry: From case dashboard
+
+4.5 Case Timeline
+Route: /case/[caseId]/timeline
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\case\[caseId]\timeline\page.tsx
+Required params: caseId (numeric string)
+Access: UNKNOWN (file exists, constraints not verified)
+Entry: UNKNOWN (no links found in navigation components)
+
+4.6 Surgery Request Detail
+Route: /admin/surgery-requests/[id]
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\surgery-requests\[id]\page.tsx
+Required params: id (string)
+Access: UNKNOWN (file exists, constraints not verified)
+Entry: From surgery requests list
+
+4.7 Financial Readiness Detail
+Route: /admin/financial-readiness/[requestId]
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\financial-readiness\[requestId]\page.tsx
+Required params: requestId (string)
+Access: UNKNOWN (file exists, constraints not verified)
+Entry: From financial readiness list
+
+4.8 Catalog Item Detail
+Route: /admin/catalog/[catalogId]/cost-history
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\catalog\[catalogId]\cost-history\page.tsx
+Required params: catalogId (string)
+Access: UNKNOWN (file exists, constraints not verified)
+Entry: From catalog list
+
+4.9 Catalog Group Detail
+Route: /admin/catalog/groups/[groupId]
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\catalog\groups\[groupId]\page.tsx
+Required params: groupId (string)
+Access: UNKNOWN (file exists, constraints not verified)
+Entry: From catalog groups list
+
+4.10 Readiness Calendar Summary
+Route: /readiness/calendar-summary
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\readiness\calendar-summary\page.tsx
+Required params: None
+Access: UNKNOWN (file exists, constraints not verified)
+Entry: UNKNOWN (no links found in navigation components)
+
+4.11 Case Cards View
+Route: /case-cards
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\case-cards\page.tsx
+Required params: None
+Access: UNKNOWN (file exists, constraints not verified)
+Entry: UNKNOWN (no links found in navigation components)
+
+4.12 Platform Config Audit
+Route: /platform/config-audit
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\config-audit\page.tsx
+Required params: None
+Access: requiredRoles: PLATFORM_ADMIN
+Entry: From platform admin page
+
+4.13 Platform Auth Audit
+Route: /platform/auth-audit
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\auth-audit\page.tsx
+Required params: None
+Access: requiredRoles: PLATFORM_ADMIN
+Entry: From platform admin page
+
+4.14 Platform Facility View Operations Health
+Route: /platform/facility-view/operations-health
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\operations-health\page.tsx
+Required params: facilityId (via query param or context)
+Access: requiredRoles: PLATFORM_ADMIN
+Entry: From platform facility view dashboard
+
+4.15 Platform Facility View Reports
+Route: /platform/facility-view/reports
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\reports\page.tsx
+Required params: facilityId (via query param or context)
+Access: requiredRoles: PLATFORM_ADMIN
+Entry: From platform facility view dashboard
+
+4.16 Admin Print Pages
+Route: /admin/print
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\print\page.tsx
+Route: /admin/print/operations-health
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\print\operations-health\page.tsx
+Route: /admin/print/operations-weekly
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\print\operations-weekly\page.tsx
+Route: /admin/print/open-missing-aging
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\print\open-missing-aging\page.tsx
+Route: /admin/print/financial-integrity
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\print\financial-integrity\page.tsx
+Route: /admin/print/missing-drivers
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\print\missing-drivers\page.tsx
+Route: /admin/print/device-errors
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\print\device-errors\page.tsx
+Required params: Various (date ranges typically via query params)
+Access: UNKNOWN (files exist, constraints not verified)
+Entry: From operations health or reports pages
+
+4.17 Platform Facility View Print Pages
+Route: /platform/facility-view/print
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\print\page.tsx
+Route: /platform/facility-view/print/operations-health
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\print\operations-health\page.tsx
+Route: /platform/facility-view/print/operations-weekly
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\print\operations-weekly\page.tsx
+Route: /platform/facility-view/print/open-missing-aging
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\print\open-missing-aging\page.tsx
+Route: /platform/facility-view/print/missing-drivers
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\print\missing-drivers\page.tsx
+Route: /platform/facility-view/print/device-errors
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\print\device-errors\page.tsx
+Route: /platform/facility-view/print/financial-integrity
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\print\financial-integrity\page.tsx
+Required params: facilityId (via query param or context), date ranges
+Access: requiredRoles: PLATFORM_ADMIN
+Entry: From platform facility view pages
 
 ================================================================================
-6. DEEP-LINK ENTRYPOINTS (routes accessed via programmatic navigation, not primary nav)
+SECTION 5: UNREACHABLE OR ORPHANED ROUTES
 ================================================================================
 
-Route                                       | Linked From
---------------------------------------------|----------------------------------------------------
-/case/[caseId]                              | Calendar DayView, ScheduleCard click, check-in "View Case" button, verify page "Back to Case", debrief/timeout "Back to Case"
-/case/[caseId]/verify                       | CaseDashboardContent "Verify Readiness" button
-/or/timeout/[caseId]                        | CaseDashboardContent "Start Timeout" button, Calendar DayView action button, admin pending-reviews "Complete" button
-/or/debrief/[caseId]                        | CaseDashboardContent "Start Debrief" button, Calendar DayView action button, admin pending-reviews "Complete" button, user pending-reviews "Complete" button
-/admin/inventory/check-in?caseId=X          | CaseDashboardContent "Check In Inventory" button
-/calendar?view=day&date=X                   | Unassigned cases "View in Calendar" button
-/calendar?openCase=X                        | PHI patient search case click, debrief/timeout success "View in Calendar" button, verify page returnTo
-/admin/general-settings/operating-rooms     | RoomBasedDayView "Configure Operating Rooms" link (when no rooms)
-/pending-reviews                            | Calendar DayView "Pending Reviews" link
-/admin/surgery-requests/[id]                | Surgery Requests list row click
-/admin/financial-readiness/[requestId]      | Financial Readiness list row click
-/admin/catalog/groups/[groupId]             | Catalog Groups list (implicit from listing page)
-/admin/loaner-sets?filter=overdue           | AttentionDrawer (LOANER_OVERDUE items)
-/admin/loaner-sets?filter=open              | AttentionDrawer (LOANER_DUE_SOON items)
-/admin/inventory?expiry=EXPIRED             | AttentionDrawer (ITEM_EXPIRED items)
-/admin/inventory?expiry=EXPIRING_SOON       | AttentionDrawer (ITEM_EXPIRING_SOON items)
-/platform                                   | Dashboard "Open Platform Administration" button (PLATFORM_ADMIN only)
+5.1 Case Timeline
+Route: /case/[caseId]/timeline
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\case\[caseId]\timeline\page.tsx
+Status: No links found in Header, AdminNav, Dashboard, or other navigation components
+Note: May be linked from case detail page or accessed via direct URL
+
+5.2 Readiness Calendar Summary
+Route: /readiness/calendar-summary
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\readiness\calendar-summary\page.tsx
+Status: No links found in navigation components
+Note: May be accessed via direct URL or linked from pages not examined
+
+5.3 Case Cards View
+Route: /case-cards
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\case-cards\page.tsx
+Status: No links found in navigation components
+Note: May be accessed via direct URL or linked from pages not examined
+
+5.4 Admin Print Index
+Route: /admin/print
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\print\page.tsx
+Status: No links found in navigation components
+Note: Print pages are linked individually, not via index
+
+5.5 Platform Facility View Print Index
+Route: /platform/facility-view/print
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\facility-view\print\page.tsx
+Status: No links found in navigation components
+Note: Print pages are linked individually, not via index
+
+5.6 Admin Reports Standard
+Route: /admin/reports/standard
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\reports\standard\page.tsx
+Status: Not linked from AdminNav or Dashboard
+Note: May be linked from /admin/reports page
+
+5.7 Admin Page Index
+Route: /admin
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\page.tsx
+Status: No direct links from navigation components
+Note: AdminNav links to specific admin pages, not /admin index
+
+5.8 Inventory Sub-pages
+Route: /admin/inventory/missing
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\missing\page.tsx
+Route: /admin/inventory/missing-analytics
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\missing-analytics\page.tsx
+Route: /admin/inventory/missing-events
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\missing-events\page.tsx
+Route: /admin/inventory/open-missing-aging
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\open-missing-aging\page.tsx
+Route: /admin/inventory/financial-ledger
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\financial-ledger\page.tsx
+Status: Not linked from AdminNav (AdminNav links to /admin/inventory and /admin/inventory/risk-queue only)
+Note: May be linked from /admin/inventory or /admin/operations-health pages
+
+5.9 Device Events
+Route: /admin/devices/events
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\devices\events\page.tsx
+Status: Not linked from AdminNav (AdminNav links to /admin/devices only)
+Note: May be linked from /admin/devices page
+
+5.10 Catalog Sets and Groups
+Route: /admin/catalog/sets
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\catalog\sets\page.tsx
+Route: /admin/catalog/groups
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\catalog\groups\page.tsx
+Status: Not linked from AdminNav (AdminNav links to /admin/catalog only)
+Note: May be linked from /admin/catalog page
+
+5.11 General Settings Sub-pages
+Route: /admin/general-settings/surgeons
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\general-settings\surgeons\page.tsx
+Route: /admin/general-settings/operating-rooms
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\general-settings\operating-rooms\page.tsx
+Route: /admin/general-settings/facility
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\general-settings\facility\page.tsx
+Route: /admin/general-settings/case-dashboard
+File: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\general-settings\case-dashboard\page.tsx
+Status: Not linked from AdminNav (AdminNav links to /admin/general-settings only)
+Note: May be linked from /admin/general-settings page
 
 ================================================================================
-7. ORPHANED OR NOTABLE ROUTE ISSUES
-================================================================================
-
-ROUTES IN ADMINNAV BUT NOT IN DASHBOARD FEATURES ARRAY:
-  /admin/surgery-requests      | In AdminNav, NOT in access-control.ts FEATURES array
-  /admin/financial-readiness   | In AdminNav, NOT in access-control.ts FEATURES array
-  /admin/inventory/risk-queue  | In AdminNav, NOT in access-control.ts FEATURES array
-  /admin/vendors               | In AdminNav, NOT in access-control.ts FEATURES array
-  /admin/loaner-sets           | In AdminNav, NOT in access-control.ts FEATURES array
-
-ROUTES NOT LINKED FROM ANY NAVIGATION COMPONENT:
-  /phi/patients                | Only linked from Header "Patient Search" button (capability-gated), not in AdminNav or Dashboard features
-  /surgeon/my-checklists       | Only linked from Dashboard feature card (role-gated to SURGEON)
-  /case-cards                  | Legacy redirect, no active links point here (backward-compat only)
-
-DEAD BREADCRUMB LINK:
-  /admin                       | Referenced in check-in page breadcrumb ({ label: 'Admin', href: '/admin' }), but no /admin/page.tsx exists. This will render the Next.js 404 page.
-
-ROUTES WITH NO CLIENT-SIDE ROLE GUARD (notable):
-  /admin/reports               | AdminNav lists it, dashboard FEATURES requires ADMIN + REPORTS_VIEW, but the page itself has no client-side guard. API-level protection only.
-
-QUERY PARAMETER ENTRYPOINTS (not separate routes but affect page behavior):
-  /calendar?view=day|week|month&date=YYYY-MM-DD  | Calendar view mode and date
-  /calendar?openCase=[caseId]                     | Auto-opens case dashboard modal
-  /case/[caseId]/verify?returnTo=X&openModal=true | Return path after verification
-  /admin/inventory?expiry=EXPIRED|EXPIRING_SOON   | Pre-filter inventory by expiry status
-  /admin/inventory/check-in?caseId=X              | Pre-load case context for check-in
-  /admin/loaner-sets?filter=all|open|overdue|returned | Pre-filter loaner sets
-
-================================================================================
-END OF SNAPSHOT
+END OF NAVIGATION SNAPSHOT
 ================================================================================

@@ -1,631 +1,603 @@
-================================================================================
-SNAPSHOT: STATE MACHINES
-Generated: 2026-02-12
-Codebase: ASC-Inventory (master @ 4d4e1b0)
-================================================================================
-
-This audit covers every stateful domain object in the system: its states, allowed
-transitions, enforcement points, side effects, blocked transitions, and
-divergences between definition and enforcement.
+STATE MACHINE SNAPSHOT
+Generated: 2026-02-14
+Scope: All implemented state machines in ASC-Inventory codebase
 
 ================================================================================
-SECTION A — STATEFUL DOMAIN OBJECTS (ENUM INVENTORY)
+A) STATE MACHINE INVENTORY
 ================================================================================
 
-A.1  CaseStatus (surgical_case.status)
-      Enum values: DRAFT, REQUESTED, SCHEDULED, IN_PREOP, READY, IN_PROGRESS, COMPLETED, CANCELLED, REJECTED
-      Domain def:  packages/domain/src/types.ts  (lines 227-238, Zod z.enum)
-      DB def:      apps/api/db/migrations/001_initial_schema.sql  (enum case_status: DRAFT, SCHEDULED, READY, IN_PROGRESS, COMPLETED, CANCELLED)
-      DB additions:
-        - migration 018: adds REQUESTED, REJECTED
-        - migration 041: adds IN_PREOP
+1. Surgical Case
+   Status field: status (case_status enum)
+   Active/lifecycle flags: is_active, is_cancelled
+   Defining files:
+   - apps/api/db/migrations/001_initial_schema.sql (line 22-28)
+   - packages/domain/src/types.ts (line 227-238)
 
-A.2  AvailabilityStatus (inventory_item.availability_status)
-      Enum values: AVAILABLE, RESERVED, IN_USE, UNAVAILABLE, MISSING
-      Domain def:  packages/domain/src/types.ts  (lines 274-281, Zod z.enum)
-      DB def:      apps/api/db/migrations/001_initial_schema.sql  (enum availability_status)
+2. Inventory Item (Availability)
+   Status field: availability_status (availability_status enum)
+   Defining files:
+   - apps/api/db/migrations/001_initial_schema.sql (line 51-57)
+   - packages/domain/src/types.ts (line 274-281)
 
-A.3  SterilityStatus (inventory_item.sterility_status)
-      Enum values: STERILE, NON_STERILE, EXPIRED, UNKNOWN
-      Domain def:  packages/domain/src/types.ts  (lines 266-272, Zod z.enum)
-      DB def:      apps/api/db/migrations/001_initial_schema.sql  (enum sterility_status)
+3. Inventory Item (Sterility)
+   Status field: sterility_status (sterility_status enum)
+   Defining files:
+   - apps/api/db/migrations/001_initial_schema.sql (line 44-49)
+   - packages/domain/src/types.ts (line 266-272)
 
-A.4  ChecklistStatus (case_checklist_instance.status)
-      Enum values: NOT_STARTED, IN_PROGRESS, COMPLETED
-      Domain def:  packages/domain/src/types.ts  (lines 663-664, Zod z.enum)
-      DB def:      apps/api/db/migrations/004_timeout_debrief.sql  (enum checklist_status)
+4. Case Card
+   Status field: status (case_card_status enum)
+   Defining files:
+   - apps/api/db/migrations/011_case_cards.sql (line 12-16)
 
-A.5  CaseCardStatus (case_card.status)
-      Enum values: DRAFT, ACTIVE, DEPRECATED, DELETED
-      Domain def:  (no Zod enum; used as string literals in routes)
-      DB def:      apps/api/db/migrations/011_case_cards.sql  (enum case_card_status: DRAFT, ACTIVE, DEPRECATED)
-      DB additions:
-        - migration 015: adds DELETED
+5. Checklist Instance
+   Status field: status (checklist_status enum)
+   Defining files:
+   - apps/api/db/migrations/004_timeout_debrief.sql (line 9)
+   - packages/domain/src/types.ts (line 663-664)
 
-A.6  AttestationState (surgical_case.attestation_state)
-      Enum values: NOT_ATTESTED, ATTESTED, VOIDED
-      Domain def:  (no Zod enum; used as string literals in routes)
-      DB def:      apps/api/db/migrations/012_case_dashboard.sql  (enum attestation_state)
+6. Surgery Request
+   Status field: status (surgery_request_status enum)
+   Defining files:
+   - apps/api/db/migrations/059_surgery_request.sql (line 10-17)
+   - packages/domain/src/types.ts (line 306-314)
 
-A.7  SurgeryRequestStatus (surgery_request.status)
-      Enum values: SUBMITTED, RETURNED_TO_CLINIC, ACCEPTED, REJECTED, WITHDRAWN, CONVERTED
-      Domain def:  packages/domain/src/types.ts  (lines 306-314, Zod z.enum)
-      DB def:      apps/api/db/migrations/059_surgery_request.sql  (enum surgery_request_status)
-
-A.8  SurgeryRequestChecklistStatus (surgery_request_checklist_instance.status)
-      Enum values: PENDING, COMPLETE
-      Domain def:  packages/domain/src/types.ts  (line 330, Zod z.enum)
-      DB def:      apps/api/db/migrations/059_surgery_request.sql  (enum surgery_request_checklist_status)
-
-A.9  ReadinessState (computed, not persisted as mutable column)
-      Enum values: GREEN, ORANGE, RED
-      Domain def:  packages/domain/src/types.ts  (lines 240-245, Zod z.enum)
-      DB def:      apps/api/db/migrations/001_initial_schema.sql  (enum readiness_state)
-      Note: persisted in case_readiness_cache and attestation.readiness_state_at_time, but computed on demand
-
-A.10 ClinicFinancialState (clinic_financial_declaration.state)
-      Enum values: UNKNOWN, DECLARED_CLEARED, DECLARED_AT_RISK
-      Domain def:  packages/domain/src/types.ts  (line 360, Zod z.enum)
-      DB def:      apps/api/db/migrations/060_financial_readiness.sql  (enum clinic_financial_state)
-
-A.11 AscFinancialState (asc_financial_verification.state)
-      Enum values: UNKNOWN, VERIFIED_CLEARED, VERIFIED_AT_RISK
-      Domain def:  packages/domain/src/types.ts  (line 363, Zod z.enum)
-      DB def:      apps/api/db/migrations/060_financial_readiness.sql  (enum asc_financial_state)
-
-A.12 OverrideState (financial_override.state)
-      Enum values: NONE, OVERRIDE_CLEARED, OVERRIDE_AT_RISK
-      Domain def:  packages/domain/src/types.ts  (line 366, Zod z.enum)
-      DB def:      apps/api/db/migrations/060_financial_readiness.sql  (enum override_state)
-
-A.13 FinancialRiskState (financial_readiness_cache.risk_state)
-      Enum values: UNKNOWN, LOW, MEDIUM, HIGH
-      Domain def:  packages/domain/src/types.ts  (line 369, Zod z.enum)
-      DB def:      apps/api/db/migrations/060_financial_readiness.sql  (enum financial_risk_state)
-      Note: deterministically computed from A.10 + A.11 + A.12
-
-A.14 InventoryEventType (inventory_event.event_type)
-      Enum values: RECEIVED, VERIFIED, LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED, EXPIRED, RETURNED, ADJUSTED
-      Domain def:  packages/domain/src/types.ts  (lines 283-294, Zod z.enum)
-      DB def:      apps/api/db/migrations/001_initial_schema.sql  (enum inventory_event_type)
-      Note: not a state machine itself; drives transitions in A.2 and A.3
-
-A.15 Parallel Boolean Dimensions on surgical_case
-      is_active:    boolean (default false)
-      is_cancelled: boolean (default false)
-      DB def:       apps/api/db/migrations/008_case_active_status.sql
-      Note: these are parallel state dimensions alongside CaseStatus (A.1)
-
+7. Surgery Request Checklist Instance
+   Status field: status (surgery_request_checklist_status enum)
+   Defining files:
+   - apps/api/db/migrations/059_surgery_request.sql (line 29-32)
+   - packages/domain/src/types.ts (line 330-331)
 
 ================================================================================
-SECTION B — TRANSITIONS (FROM -> TO, TRIGGER, DEFINING FILE)
+B) STATES
 ================================================================================
 
---- B.1  Surgical Case Status (A.1) ---
+Surgical Case (case_status):
+DRAFT - packages/domain/src/types.ts (line 228)
+REQUESTED - packages/domain/src/types.ts (line 229)
+SCHEDULED - packages/domain/src/types.ts (line 230)
+IN_PREOP - packages/domain/src/types.ts (line 231)
+READY - packages/domain/src/types.ts (line 232)
+IN_PROGRESS - packages/domain/src/types.ts (line 233)
+COMPLETED - packages/domain/src/types.ts (line 234)
+CANCELLED - packages/domain/src/types.ts (line 235)
+REJECTED - packages/domain/src/types.ts (line 236)
 
-FROM             TO              TRIGGER                                  DEFINING FILE
-(new)            REQUESTED       POST /cases (default, no CASE_APPROVE)   apps/api/src/routes/cases.routes.ts (line 334)
-(new)            SCHEDULED       POST /cases (with CASE_APPROVE cap)      apps/api/src/routes/cases.routes.ts (line 342)
-(new)            REQUESTED       convert() surgery request -> case        apps/api/src/services/surgery-request.service.ts (line 461)
-REQUESTED        SCHEDULED       POST /cases/:id/approve                  apps/api/src/repositories/postgres/case.repository.ts (line 336-360)
-REQUESTED        REJECTED        POST /cases/:id/reject                   apps/api/src/repositories/postgres/case.repository.ts (line 362-389)
-(any non-active) SCHEDULED       POST /cases/:id/activate                 apps/api/src/repositories/postgres/case.repository.ts (line 296-328)
-SCHEDULED        IN_PREOP        POST /cases/:id/check-in-preop           apps/api/src/repositories/postgres/case.repository.ts (line 450-483)
-(any active)     DRAFT           POST /cases/:id/deactivate               apps/api/src/repositories/postgres/case.repository.ts (line 391-414)
-(any)            CANCELLED       POST /cases/:id/cancel                   apps/api/src/repositories/postgres/case.repository.ts (line 416-448)
-(any)            (any)           PATCH /cases/:id (status field)          apps/api/src/repositories/postgres/case.repository.ts (line 216-294)
+Inventory Item Availability (availability_status):
+AVAILABLE - packages/domain/src/types.ts (line 275)
+RESERVED - packages/domain/src/types.ts (line 276)
+IN_USE - packages/domain/src/types.ts (line 277)
+UNAVAILABLE - packages/domain/src/types.ts (line 278)
+MISSING - packages/domain/src/types.ts (line 279)
 
-Note: The generic update() method accepts ANY status value without transition validation.
-Status transitions IN_PREOP->READY, READY->IN_PROGRESS, IN_PROGRESS->COMPLETED are handled
-via the generic PATCH update path. Only IN_PROGRESS and COMPLETED have gate checks.
+Inventory Item Sterility (sterility_status):
+STERILE - packages/domain/src/types.ts (line 267)
+NON_STERILE - packages/domain/src/types.ts (line 268)
+EXPIRED - packages/domain/src/types.ts (line 269)
+UNKNOWN - packages/domain/src/types.ts (line 270)
 
---- B.1b Parallel Boolean Transitions (is_active, is_cancelled) ---
+Case Card (case_card_status):
+DRAFT - apps/api/db/migrations/011_case_cards.sql (line 13)
+ACTIVE - apps/api/db/migrations/011_case_cards.sql (line 14)
+DEPRECATED - apps/api/db/migrations/011_case_cards.sql (line 15)
 
-is_active: false -> true     activate(), approve()                    case.repository.ts
-is_active: true -> false     deactivate()                             case.repository.ts
-is_cancelled: false -> true  cancel()                                 case.repository.ts
-is_cancelled: true -> false  (never — cancellation is one-way)
+Checklist Instance (checklist_status):
+NOT_STARTED - packages/domain/src/types.ts (line 663)
+IN_PROGRESS - packages/domain/src/types.ts (line 663)
+COMPLETED - packages/domain/src/types.ts (line 663)
 
---- B.2  Inventory Availability Status (A.2) ---
+Surgery Request (surgery_request_status):
+SUBMITTED - packages/domain/src/types.ts (line 307)
+RETURNED_TO_CLINIC - packages/domain/src/types.ts (line 308)
+ACCEPTED - packages/domain/src/types.ts (line 309)
+REJECTED - packages/domain/src/types.ts (line 310)
+WITHDRAWN - packages/domain/src/types.ts (line 311)
+CONVERTED - packages/domain/src/types.ts (line 312)
 
-FROM         TO            TRIGGER (event type)   DEFINING FILE
-(any)        RESERVED      RESERVED event         apps/api/src/routes/inventory.routes.ts (line 127-130)
-(any)        AVAILABLE     RELEASED event         apps/api/src/routes/inventory.routes.ts (line 132-135)
-(any)        UNAVAILABLE   CONSUMED event         apps/api/src/routes/inventory.routes.ts (line 137-141)
-(any)        AVAILABLE     RECEIVED event         apps/api/src/routes/inventory.routes.ts (line 147-150)
-
-Note: No transition validation. computeItemUpdate() blindly applies the target state.
-
---- B.3  Inventory Sterility Status (A.3) ---
-
-FROM         TO            TRIGGER (event type)   DEFINING FILE
-(any)        EXPIRED       EXPIRED event          apps/api/src/routes/inventory.routes.ts (line 144)
-(any)        (value)       RECEIVED event         apps/api/src/routes/inventory.routes.ts (line 147-150)
-
-Note: No transition validation. Sterility can also be set to any value via RECEIVED event payload.
-
---- B.4  Checklist Status (A.4) ---
-
-FROM             TO              TRIGGER                                  DEFINING FILE
-(new)            IN_PROGRESS     startChecklist()                         apps/api/src/services/checklists.service.ts (line 551-556)
-IN_PROGRESS      COMPLETED       completeChecklist()                      apps/api/src/services/checklists.service.ts (line 811-819)
-
-Note: NOT_STARTED is defined in the enum but never used. startChecklist() creates directly as IN_PROGRESS.
-
---- B.5  Case Card Status (A.5) ---
-
-FROM         TO            TRIGGER                                  DEFINING FILE
-(new)        DRAFT         POST /case-cards                         apps/api/src/routes/case-cards.routes.ts (line 499)
-DRAFT        ACTIVE        POST /case-cards/:id/activate            apps/api/src/routes/case-cards.routes.ts (line 787)
-DRAFT        DEPRECATED    POST /case-cards/:id/deprecate           apps/api/src/routes/case-cards.routes.ts (line 846-848)
-ACTIVE       DEPRECATED    POST /case-cards/:id/deprecate           apps/api/src/routes/case-cards.routes.ts (line 846-848)
-ACTIVE       DEPRECATED    (auto) activate other card same surgeon  apps/api/src/routes/case-cards.routes.ts (line 781-784)
-(any)        DELETED       POST /case-cards/:id/delete              apps/api/src/routes/case-cards.routes.ts (line 910-914)
-(new clone)  DRAFT         POST /case-cards/:id/clone               apps/api/src/routes/case-cards.routes.ts (line 1019)
-
---- B.6  Attestation State (A.6) ---
-
-FROM              TO           TRIGGER                               DEFINING FILE
-NOT_ATTESTED      ATTESTED     POST /case-dashboard/:id/attest       apps/api/src/routes/case-dashboard.routes.ts (line 427)
-ATTESTED          VOIDED       POST /case-dashboard/:id/void         apps/api/src/routes/case-dashboard.routes.ts (line 478)
-VOIDED            ATTESTED     POST /case-dashboard/:id/attest       apps/api/src/routes/case-dashboard.routes.ts (line 427)
-
-Note: Re-attestation after voiding is allowed (VOIDED -> ATTESTED via attest route).
-
---- B.7  Surgery Request Status (A.7) — EXPLICIT TRANSITION MAP ---
-
-FROM                  TO                   TRIGGER                       DEFINING FILE
-(new)                 SUBMITTED            submitOrResubmit() (new)      apps/api/src/services/surgery-request.service.ts (line 194)
-SUBMITTED             RETURNED_TO_CLINIC   returnToClinic()              apps/api/src/services/surgery-request.service.ts (line 348)
-SUBMITTED             ACCEPTED             accept()                      apps/api/src/services/surgery-request.service.ts (line 379)
-SUBMITTED             REJECTED             reject()                      apps/api/src/services/surgery-request.service.ts (line 409)
-SUBMITTED             WITHDRAWN            withdraw()                    apps/api/src/services/surgery-request.service.ts (line 315)
-RETURNED_TO_CLINIC    SUBMITTED            submitOrResubmit() (resub)    apps/api/src/services/surgery-request.service.ts (line 234)
-RETURNED_TO_CLINIC    WITHDRAWN            withdraw()                    apps/api/src/services/surgery-request.service.ts (line 315)
-ACCEPTED              CONVERTED            convert()                     apps/api/src/services/surgery-request.service.ts (line 442)
-ACCEPTED              WITHDRAWN            withdraw()                    apps/api/src/services/surgery-request.service.ts (line 315)
-REJECTED              (none)               terminal state                packages/domain/src/types.ts (line 351)
-WITHDRAWN             (none)               terminal state                packages/domain/src/types.ts (line 352)
-CONVERTED             (none)               terminal state                packages/domain/src/types.ts (line 353)
-
-Transition map defined at: packages/domain/src/types.ts (lines 347-354)
-
---- B.8  Surgery Request Checklist Status (A.8) ---
-
-FROM      TO        TRIGGER                    DEFINING FILE
-(new)     PENDING   createChecklistData()      apps/api/src/services/surgery-request.service.ts (line 773)
-
-Note: Transition to COMPLETE is not implemented in current code. Checklists remain PENDING.
-
---- B.9  Readiness State (A.9) — COMPUTED, NOT TRANSITIONED ---
-
-COMPUTED AS    CONDITION                                          DEFINING FILE
-RED            missingItems.length > 0                            packages/domain/src/readiness.ts (line 190)
-ORANGE         totalVerified < totalRequired (no missing)         packages/domain/src/readiness.ts (line 192)
-GREEN          all items verified, available, locatable, sterile  packages/domain/src/readiness.ts (line 194)
-
---- B.10 Financial Risk State (A.13) — COMPUTED, NOT TRANSITIONED ---
-
-COMPUTED AS    CONDITION (first match wins)                       DEFINING FILE
-LOW            overrideState == OVERRIDE_CLEARED                  packages/domain/src/financial-readiness.ts (line 28)
-HIGH           overrideState == OVERRIDE_AT_RISK                  packages/domain/src/financial-readiness.ts (line 29)
-HIGH           ascState == VERIFIED_AT_RISK                       packages/domain/src/financial-readiness.ts (line 32)
-MEDIUM         clinicState == DECLARED_AT_RISK                    packages/domain/src/financial-readiness.ts (line 35)
-LOW            ascState == VERIFIED_CLEARED AND clinicState == DECLARED_CLEARED  packages/domain/src/financial-readiness.ts (line 38)
-UNKNOWN        everything else                                    packages/domain/src/financial-readiness.ts (line 41)
-
---- B.11 Financial State Dimensions (A.10, A.11, A.12) — APPEND-ONLY ---
-
-Each financial state dimension uses append-only event recording. The "current" state
-is always the latest event. No transition validation exists; any new event overwrites.
-
-ClinicFinancialState (A.10): UNKNOWN -> DECLARED_CLEARED | DECLARED_AT_RISK (any direction)
-AscFinancialState (A.11):    UNKNOWN -> VERIFIED_CLEARED | VERIFIED_AT_RISK (any direction)
-OverrideState (A.12):        NONE -> OVERRIDE_CLEARED | OVERRIDE_AT_RISK | NONE (any direction)
-
-Trigger: recordClinicDeclaration(), recordAscVerification(), recordOverride()
-Defining file: apps/api/src/services/financial-readiness.service.ts
-
+Surgery Request Checklist Instance (surgery_request_checklist_status):
+PENDING - packages/domain/src/types.ts (line 330)
+COMPLETE - packages/domain/src/types.ts (line 330)
 
 ================================================================================
-SECTION C — ENFORCEMENT POINTS
+C) TRANSITIONS
 ================================================================================
 
---- C.1  Surgery Request: assertTransition() — CENTRALIZED ---
+Surgical Case:
 
-Location: apps/api/src/services/surgery-request.service.ts (lines 122-135)
-Mechanism: assertTransition(current, target) checks SURGERY_REQUEST_TRANSITIONS map
-Enforcement: throws 409 INVALID_TRANSITION if not allowed
-Scope: ALL surgery request state changes go through this function
-Locking: SELECT ... FOR UPDATE on surgery_request row before transition
-Transaction: all transitions wrapped in transaction()
+From: null (creation)
+To: REQUESTED
+Trigger: POST /cases (status not specified or surgeon creating)
+File: apps/api/src/repositories/postgres/case.repository.ts (line 180-213)
 
---- C.2  Surgical Case: SCATTERED ENFORCEMENT (no central validator) ---
+From: null (creation)
+To: SCHEDULED
+Trigger: POST /cases (with status=SCHEDULED and CASE_APPROVE capability)
+File: apps/api/src/routes/cases.routes.ts (line 333-342)
+File: apps/api/src/repositories/postgres/case.repository.ts (line 182-183)
 
-C.2.1  approve()
-  Location: apps/api/src/repositories/postgres/case.repository.ts (line 347)
-  Mechanism: SQL WHERE status = 'REQUESTED' — silently returns null if wrong status
+From: REQUESTED
+To: SCHEDULED
+Trigger: POST /cases/:caseId/approve
+File: apps/api/src/routes/cases.routes.ts (line 199-224)
+File: apps/api/src/repositories/postgres/case.repository.ts (line 330-359)
 
-C.2.2  reject()
-  Location: apps/api/src/repositories/postgres/case.repository.ts (line 375)
-  Mechanism: SQL WHERE status = 'REQUESTED' — silently returns null if wrong status
+From: REQUESTED
+To: REJECTED
+Trigger: POST /cases/:caseId/reject
+File: apps/api/src/routes/cases.routes.ts (line 227-242)
+File: apps/api/src/repositories/postgres/case.repository.ts (line 362-388)
 
-C.2.3  checkInPreop()
-  Location: apps/api/src/repositories/postgres/case.repository.ts (lines 460, 470)
-  Mechanism: app-level check (fromStatus !== 'SCHEDULED' returns null) + SQL WHERE status = 'SCHEDULED'
+From: DRAFT
+To: SCHEDULED
+Trigger: POST /cases/:caseId/activate
+File: apps/api/src/routes/cases.routes.ts (line 385-420)
+File: apps/api/src/repositories/postgres/case.repository.ts (line 296-327)
 
-C.2.4  activate() route guard
-  Location: apps/api/src/routes/cases.routes.ts (lines 402-408)
-  Mechanism: blocks if isCancelled or already isActive
+From: any status (except DRAFT)
+To: DRAFT
+Trigger: POST /cases/:caseId/deactivate
+File: apps/api/src/routes/cases.routes.ts (line 423-449)
+File: apps/api/src/repositories/postgres/case.repository.ts (line 391-413)
 
-C.2.5  deactivate() route guard
-  Location: apps/api/src/routes/cases.routes.ts (lines 435-441)
-  Mechanism: blocks if not isActive, blocks if IN_PROGRESS or COMPLETED
+From: SCHEDULED
+To: IN_PREOP
+Trigger: POST /cases/:caseId/check-in-preop
+File: apps/api/src/routes/cases.routes.ts (line 479-502)
+File: apps/api/src/repositories/postgres/case.repository.ts (line 450-482)
 
-C.2.6  cancel() route guard
-  Location: apps/api/src/routes/cases.routes.ts (lines 466-467)
-  Mechanism: blocks if already isCancelled
+From: any status
+To: IN_PROGRESS
+Trigger: PATCH /cases/:caseId (with status=IN_PROGRESS, checklist gate enforced)
+File: apps/api/src/routes/cases.routes.ts (line 167-172)
+File: apps/api/src/repositories/postgres/case.repository.ts (line 216-293)
 
-C.2.7  check-in-preop route guard
-  Location: apps/api/src/routes/cases.routes.ts (lines 491-492)
-  Mechanism: blocks if status !== 'SCHEDULED'
+From: any status
+To: COMPLETED
+Trigger: PATCH /cases/:caseId (with status=COMPLETED, checklist gate enforced)
+File: apps/api/src/routes/cases.routes.ts (line 174-178)
+File: apps/api/src/repositories/postgres/case.repository.ts (line 216-293)
 
-C.2.8  PATCH update gate checks
-  Location: apps/api/src/routes/cases.routes.ts (lines 167-178)
-  Mechanism: IN_PROGRESS requires canStartCase(), COMPLETED requires canCompleteCase()
+From: any status
+To: CANCELLED
+Trigger: POST /cases/:caseId/cancel
+File: apps/api/src/routes/cases.routes.ts (line 452-476)
+File: apps/api/src/repositories/postgres/case.repository.ts (line 416-447)
 
-C.2.9  DELETE guard
-  Location: apps/api/src/routes/cases.routes.ts (lines 651-666)
-  Mechanism: blocks if isActive, blocks if IN_PROGRESS or COMPLETED, blocks if completed checklists exist
+Inventory Item (Availability):
 
-C.2.10 create() initial status
-  Location: apps/api/src/routes/cases.routes.ts (lines 334-343)
-  Mechanism: SCHEDULED requires CASE_APPROVE capability; otherwise REQUESTED
+From: any
+To: AVAILABLE
+Trigger: POST /inventory/events (eventType=RECEIVED or RELEASED or ADJUSTED)
+File: apps/api/src/routes/inventory.routes.ts (line 109-187)
 
---- C.3  Case Card: ROUTE-LEVEL ENFORCEMENT ---
+From: any
+To: RESERVED
+Trigger: POST /inventory/events (eventType=RESERVED)
+File: apps/api/src/routes/inventory.routes.ts (line 129-132)
 
-C.3.1  activate
-  Location: apps/api/src/routes/case-cards.routes.ts (lines 772-778)
-  Mechanism: blocks if already ACTIVE, blocks if DEPRECATED
+From: any
+To: UNAVAILABLE
+Trigger: POST /inventory/events (eventType=CONSUMED)
+File: apps/api/src/routes/inventory.routes.ts (line 140-144)
 
-C.3.2  deprecate
-  Location: apps/api/src/routes/case-cards.routes.ts (lines 833-839)
-  Mechanism: blocks if already DEPRECATED, blocks if DELETED
+From: any
+To: MISSING
+Trigger: POST /inventory/events (eventType=ADJUSTED with [MARK_MISSING] note or adjustment.availabilityStatus=MISSING)
+File: apps/api/src/routes/inventory.routes.ts (line 154-175)
 
-C.3.3  delete (soft)
-  Location: apps/api/src/routes/case-cards.routes.ts (line 900)
-  Mechanism: blocks if already DELETED
+Inventory Item (Sterility):
 
-C.3.4  update (PUT)
-  Location: apps/api/src/routes/case-cards.routes.ts (lines 621-627)
-  Mechanism: blocks if DEPRECATED or DELETED (read-only)
+From: any
+To: STERILE
+Trigger: POST /inventory/events (eventType=RECEIVED with sterilityStatus)
+File: apps/api/src/routes/inventory.routes.ts (line 149-152)
 
-C.3.5  auto-deprecation
-  Location: apps/api/src/routes/case-cards.routes.ts (lines 781-784)
-  Mechanism: when activating, auto-deprecates existing ACTIVE card for same surgeon/procedure
+From: any
+To: EXPIRED
+Trigger: POST /inventory/events (eventType=EXPIRED)
+File: apps/api/src/routes/inventory.routes.ts (line 146-147)
 
---- C.4  Checklist: SERVICE-LEVEL ENFORCEMENT ---
+Checklist Instance:
 
-C.4.1  recordResponse() blocks COMPLETED
-  Location: apps/api/src/services/checklists.service.ts (line 581)
-  Mechanism: throws if status === 'COMPLETED'
+From: NOT_STARTED
+To: IN_PROGRESS
+Trigger: First response submitted to checklist
+File: UNKNOWN (inferred from status enum, no explicit transition code found)
 
-C.4.2  addSignature() blocks COMPLETED
-  Location: apps/api/src/services/checklists.service.ts (line 637)
-  Mechanism: throws if status === 'COMPLETED'
+From: IN_PROGRESS
+To: COMPLETED
+Trigger: All required items and signatures completed
+File: UNKNOWN (inferred from status enum, no explicit transition code found)
 
-C.4.3  completeChecklist() blocks already COMPLETED
-  Location: apps/api/src/services/checklists.service.ts (line 733)
-  Mechanism: throws if status === 'COMPLETED'
+Surgery Request:
 
-C.4.4  completeChecklist() validates completeness
-  Location: apps/api/src/services/checklists.service.ts (lines 764-808)
-  Mechanism: requires all required items answered, required non-conditional signatures present
+From: null (creation)
+To: SUBMITTED
+Trigger: Clinic submission via API
+File: apps/api/src/services/surgery-request.service.ts (line 176-225)
 
-C.4.5  startChecklist() blocks duplicates
-  Location: apps/api/src/services/checklists.service.ts (lines 530-531)
-  Mechanism: throws if checklist of same type already exists for case
+From: SUBMITTED
+To: RETURNED_TO_CLINIC
+Trigger: ASC returns request to clinic
+File: packages/domain/src/types.ts (line 348) (transition map)
 
-C.4.6  startChecklist() requires active case
-  Location: apps/api/src/services/checklists.service.ts (lines 516-522)
-  Mechanism: throws if case is not active or is cancelled
+From: SUBMITTED
+To: ACCEPTED
+Trigger: ASC accepts request
+File: packages/domain/src/types.ts (line 348) (transition map)
 
---- C.5  Attestation: ROUTE + DB-LEVEL ENFORCEMENT ---
+From: SUBMITTED
+To: REJECTED
+Trigger: ASC rejects request
+File: packages/domain/src/types.ts (line 348) (transition map)
 
-C.5.1  attest preconditions
-  Location: apps/api/src/routes/case-dashboard.routes.ts (lines 387-408)
-  Mechanism: requires case_card_version_id linked AND anesthesia modality selected
+From: SUBMITTED
+To: WITHDRAWN
+Trigger: Clinic withdraws request
+File: packages/domain/src/types.ts (line 348) (transition map)
 
-C.5.2  void precondition
-  Location: apps/api/src/routes/case-dashboard.routes.ts (lines 451-465)
-  Mechanism: requires attestation_state === 'ATTESTED', reason required
+From: RETURNED_TO_CLINIC
+To: SUBMITTED
+Trigger: Clinic resubmits
+File: apps/api/src/services/surgery-request.service.ts (line 228-291)
 
-C.5.3  DB trigger: attestation_allow_void_only
-  Location: apps/api/db/migrations/002_attestation_voiding.sql
-  Mechanism: trigger on attestation table allows ONLY setting voided_at from NULL to non-NULL; blocks all other field modifications
+From: RETURNED_TO_CLINIC
+To: WITHDRAWN
+Trigger: Clinic withdraws
+File: packages/domain/src/types.ts (line 349) (transition map)
 
---- C.6  Financial Readiness: SCOPE VERIFICATION ---
+From: ACCEPTED
+To: CONVERTED
+Trigger: ASC converts to surgical_case
+File: packages/domain/src/types.ts (line 350) (transition map)
 
-C.6.1  loadAndVerifyScope()
-  Location: apps/api/src/services/financial-readiness.service.ts (lines 415-433)
-  Mechanism: verifies surgery_request belongs to facility; throws 404 if not found
+From: ACCEPTED
+To: WITHDRAWN
+Trigger: Clinic withdraws
+File: packages/domain/src/types.ts (line 350) (transition map)
 
-C.6.2  DB constraint: chk_override_reason_code
-  Location: apps/api/db/migrations/060_financial_readiness.sql (lines 117-120)
-  Mechanism: state='NONE' requires reason_code IS NULL; state!='NONE' requires reason_code IS NOT NULL
+Case Card:
 
---- C.7  Capability-Based Access Control (Authorization Layer) ---
+From: DRAFT
+To: ACTIVE
+Trigger: UNKNOWN (no explicit transition code found)
 
-Capabilities are checked via requireCapabilities() middleware before route handlers.
-Key capability gates for state transitions:
+From: ACTIVE
+To: DEPRECATED
+Trigger: UNKNOWN (no explicit transition code found)
 
-CASE_CREATE:          POST /cases
-CASE_UPDATE:          PATCH /cases/:id
-CASE_APPROVE:         POST /cases/:id/approve, creating as SCHEDULED
-CASE_REJECT:          POST /cases/:id/reject
-CASE_ACTIVATE:        POST /cases/:id/activate, POST /cases/:id/deactivate
-CASE_CANCEL:          POST /cases/:id/cancel
-CASE_CHECKIN_PREOP:   POST /cases/:id/check-in-preop
-CASE_DELETE:          DELETE /cases/:id
-SURGERY_REQUEST_REVIEW: return, accept, reject surgery requests
-SURGERY_REQUEST_CONVERT: convert accepted request to case
-FINANCIAL_READINESS_EDIT: record verification + overrides
+Surgery Request Checklist Instance:
 
-
-================================================================================
-SECTION D — SIDE EFFECTS
-================================================================================
-
---- D.1  Surgical Case Status Transitions ---
-
-Every status change records to: surgical_case_status_event (append-only)
-  Function: recordStatusEvent() in apps/api/src/services/case-status.service.ts
-  Fields: surgical_case_id, from_status, to_status, reason, context (JSON), actor_user_id
-  Triggered by: case.repository.ts methods (create, update, activate, approve, reject, deactivate, cancel, checkInPreop)
-
-activate() also sets: is_active=true, activated_at=NOW(), activated_by_user_id
-approve()  also sets: is_active=true, activated_at=NOW(), activated_by_user_id, scheduled_date/time
-reject()   also sets: rejected_at=NOW(), rejected_by_user_id, rejection_reason
-deactivate() also sets: is_active=false
-cancel()   also sets: is_cancelled=true, cancelled_at=NOW(), cancelled_by_user_id, appends to notes
-
---- D.2  Surgery Request Transitions ---
-
-Every transition records to: surgery_request_audit_event (append-only)
-  Function: insertAuditEvent() in apps/api/src/services/surgery-request.service.ts
-  Fields: request_id, submission_id, event_type, actor_type, actor_clinic_id, actor_user_id, reason_code, note
-
-submitOrResubmit() also:
-  - Creates surgery_request_submission record (append-only)
-  - Creates surgery_request_checklist_instance + responses (if checklist provided)
-  - Upserts patient_ref record
-
-convert() also:
-  - Creates surgical_case in REQUESTED status
-  - Creates surgical_case_status_event (null -> REQUESTED)
-  - Creates surgery_request_conversion bridge record
-
---- D.3  Checklist Transitions ---
-
-startChecklist(): creates case_checklist_instance as IN_PROGRESS with started_at=NOW()
-recordResponse(): inserts into case_checklist_response (append-only)
-addSignature(): inserts into case_checklist_signature (append-only)
-completeChecklist():
-  - Sets status=COMPLETED, completed_at=NOW()
-  - Sets pending_scrub_review, pending_surgeon_review boolean flags if conditional signatures missing
-
-recordAsyncReview() (post-completion):
-  - Inserts response and signature
-  - Clears pending flag, sets review_completed_at
-
---- D.4  Attestation Transitions ---
-
-attest:
-  - INSERT into attestation table (append-only base)
-  - UPDATE surgical_case.attestation_state = 'ATTESTED', attestation_void_reason = NULL
-  - INSERT into case_event_log (event_type='READINESS_ATTESTED')
-
-void:
-  - UPDATE attestation SET voided_at=NOW(), voided_by_user_id (constrained by DB trigger)
-  - UPDATE surgical_case.attestation_state = 'VOIDED', attestation_void_reason = reason
-  - INSERT into case_event_log (event_type='READINESS_VOIDED')
-
---- D.5  Inventory Event Processing ---
-
-Every event: INSERT into inventory_event table (append-only)
-VERIFIED:  updates inventory_item.lastVerifiedAt, lastVerifiedByUserId
-RESERVED:  sets availability_status='RESERVED', reserved_for_case_id=caseId
-RELEASED:  sets availability_status='AVAILABLE', reserved_for_case_id=NULL
-CONSUMED:  sets availability_status='UNAVAILABLE', reserved_for_case_id=NULL
-EXPIRED:   sets sterility_status='EXPIRED'
-RECEIVED:  sets sterility_status (from payload), availability_status='AVAILABLE'
-LOCATION_CHANGED: updates location_id
-
---- D.6  Case Card Transitions ---
-
-Every status change or edit: INSERT into case_card_edit_log (append-only)
-  Fields: case_card_id, facility_id, editor_user_id, editor_name, editor_role, action_type, change_summary, reason_for_change, previous_version_id, new_version_id
-
-activate: auto-deprecates existing ACTIVE card for same surgeon/procedure
-update (PUT): creates new case_card_version (append-only versions), bumps version number
-clone: creates new card + version, logged with action_type='CREATE'
-delete: sets deleted_at, deleted_by_user_id, delete_reason (soft delete)
-
---- D.7  Financial Readiness ---
-
-recordClinicDeclaration():  INSERT into clinic_financial_declaration (append-only) -> recomputeCache()
-recordAscVerification():    INSERT into asc_financial_verification (append-only) -> recomputeCache()
-recordOverride():           INSERT into financial_override (append-only) -> recomputeCache()
-
-recomputeCache(): UPSERT into financial_readiness_cache
-  - Reads latest declaration, verification, override
-  - Calls computeFinancialRisk() (pure function)
-  - Writes clinic_state, asc_state, override_state, risk_state, recomputed_at
-
+From: PENDING
+To: COMPLETE
+Trigger: UNKNOWN (no explicit transition code found)
 
 ================================================================================
-SECTION E — EXPLICITLY BLOCKED TRANSITIONS
+D) ENFORCEMENT POINTS
 ================================================================================
 
---- E.1  Surgery Request (terminal states) ---
-REJECTED -> (anything)    blocked by assertTransition(): SURGERY_REQUEST_TRANSITIONS['REJECTED'] = []
-WITHDRAWN -> (anything)   blocked by assertTransition(): SURGERY_REQUEST_TRANSITIONS['WITHDRAWN'] = []
-CONVERTED -> (anything)   blocked by assertTransition(): SURGERY_REQUEST_TRANSITIONS['CONVERTED'] = []
+Surgical Case:
+- Repository layer: apps/api/src/repositories/postgres/case.repository.ts
+  Enforces status transitions via dedicated methods (approve, reject, activate, etc.)
+- Route layer: apps/api/src/routes/cases.routes.ts
+  Enforces capability checks (CASE_APPROVE, CASE_REJECT, etc.)
+  Enforces checklist gates for IN_PROGRESS and COMPLETED transitions (lines 167-178)
+- Service layer: apps/api/src/services/checklists.service.ts
+  Functions canStartCase() and canCompleteCase() validate checklist completion
+- Audit layer: apps/api/src/services/case-status.service.ts
+  Records all status transitions to surgical_case_status_event table
 
---- E.2  Surgical Case ---
-cancel() from isCancelled=true:    blocked at route level (cases.routes.ts line 466)
-activate() from isCancelled=true:  blocked at route level (cases.routes.ts line 402)
-activate() from isActive=true:     blocked at route level (cases.routes.ts line 406)
-deactivate() from isActive=false:  blocked at route level (cases.routes.ts line 435)
-deactivate() from IN_PROGRESS:     blocked at route level (cases.routes.ts line 439)
-deactivate() from COMPLETED:       blocked at route level (cases.routes.ts line 439)
-check-in-preop() from != SCHEDULED: blocked at route (line 491) + repo (line 460) + SQL WHERE (line 470)
-approve() from != REQUESTED:       blocked at SQL WHERE status='REQUESTED' (repo line 347)
-reject() from != REQUESTED:        blocked at SQL WHERE status='REQUESTED' (repo line 375)
-DELETE from isActive=true:          blocked at route level (cases.routes.ts line 651)
-DELETE from IN_PROGRESS:            blocked at route level (cases.routes.ts line 655)
-DELETE from COMPLETED:              blocked at route level (cases.routes.ts line 655)
-DELETE with completed checklists:   blocked at route level (cases.routes.ts line 665)
-IN_PROGRESS without TIMEOUT:       blocked at route level via canStartCase() (cases.routes.ts line 168)
-COMPLETED without DEBRIEF:         blocked at route level via canCompleteCase() (cases.routes.ts line 174)
+Inventory Item (Availability & Sterility):
+- Route handler: apps/api/src/routes/inventory.routes.ts
+  Function computeItemUpdate() maps event types to state changes (lines 109-187)
+- No database constraints preventing invalid transitions
+- State changes are append-only via inventory_event table (protected by triggers)
 
---- E.3  Case Card ---
-activate() from ACTIVE:             blocked (case-cards.routes.ts line 772)
-activate() from DEPRECATED:         blocked (case-cards.routes.ts line 776)
-deprecate() from DEPRECATED:        blocked (case-cards.routes.ts line 833)
-deprecate() from DELETED:           blocked (case-cards.routes.ts line 837)
-delete() from DELETED:              blocked (case-cards.routes.ts line 900)
-update (PUT) of DEPRECATED:         blocked (case-cards.routes.ts line 621)
-update (PUT) of DELETED:            blocked (case-cards.routes.ts line 625)
-lock of DEPRECATED:                 blocked (case-cards.routes.ts line 1139)
-lock of DELETED:                    blocked (case-cards.routes.ts line 1139)
-revert of DEPRECATED:               blocked (case-cards.routes.ts line 1259)
-revert of DELETED:                   blocked (case-cards.routes.ts line 1259)
-components/overrides PATCH on non-DRAFT: blocked (case-cards.routes.ts lines 1656, 1714)
+Checklist Instance:
+- Database trigger protection: apps/api/db/migrations/004_timeout_debrief.sql
+  case_checklist_response and case_checklist_signature are append-only (lines 113-142)
+- No explicit status transition enforcement found in application code
 
---- E.4  Checklist ---
-recordResponse() on COMPLETED:       blocked (checklists.service.ts line 581)
-addSignature() on COMPLETED:         blocked (checklists.service.ts line 637)
-completeChecklist() on COMPLETED:    blocked (checklists.service.ts line 733)
-startChecklist() duplicate:          blocked (checklists.service.ts line 530)
-startChecklist() on inactive case:   blocked (checklists.service.ts line 516)
-startChecklist() on cancelled case:  blocked (checklists.service.ts line 520)
+Surgery Request:
+- Service layer: apps/api/src/services/surgery-request.service.ts
+  Function assertTransition() enforces SURGERY_REQUEST_TRANSITIONS map (lines 122-135)
+- Transition map: packages/domain/src/types.ts (lines 347-354)
+  Declarative state machine definition
+- Database: surgery_request table has status column but no CHECK constraint
+- Audit: All transitions recorded in surgery_request_audit_event (append-only)
 
---- E.5  Attestation ---
-void() from != ATTESTED:           blocked at route level (case-dashboard.routes.ts line 464)
-DB: attestation row modification:   blocked by attestation_allow_void_only trigger (except setting voided_at)
+Case Card:
+- No enforcement points found in code
+- Database has case_card_status enum but no transition enforcement
 
---- E.6  Financial Override DB Constraint ---
-state='NONE' with reason_code != NULL:  blocked by chk_override_reason_code constraint
-state!='NONE' with reason_code IS NULL: blocked by chk_override_reason_code constraint
-
---- E.7  Append-Only Table Immutability (DB triggers) ---
-clinic_financial_declaration:         UPDATE/DELETE blocked by prevent_modification() triggers
-asc_financial_verification:           UPDATE/DELETE blocked by prevent_modification() triggers
-financial_override:                   UPDATE/DELETE blocked by prevent_modification() triggers
-case_checklist_response:              UPDATE/DELETE blocked by prevent_modification() triggers
-case_checklist_signature:             UPDATE/DELETE blocked by prevent_modification() triggers
-surgical_case_status_event:           UPDATE/DELETE blocked by prevent_modification() triggers
-surgery_request_submission:           UPDATE/DELETE blocked by prevent_modification() triggers
-surgery_request_audit_event:          UPDATE/DELETE blocked by prevent_modification() triggers
-surgery_request_checklist_response:   UPDATE/DELETE blocked by prevent_modification() triggers
-surgery_request_conversion:           UPDATE/DELETE blocked by prevent_modification() triggers
-
+Surgery Request Checklist Instance:
+- No enforcement points found in code
+- Database has surgery_request_checklist_status enum but no transition enforcement
 
 ================================================================================
-SECTION F — DB-LEVEL CONSTRAINTS & IMMUTABILITY
+E) SIDE EFFECTS
 ================================================================================
 
-F.1  Append-only event tables use prevent_modification() triggers (see E.7 above)
+Surgical Case Transitions:
 
-F.2  financial_readiness_cache uses update_updated_at() trigger for updated_at column
-     Location: apps/api/db/migrations/060_financial_readiness.sql (lines 165-167)
+Transition to SCHEDULED (via approve):
+- Sets is_active = true
+- Sets activated_at and activated_by_user_id
+- Optionally sets room_id and estimated_duration_minutes
+- Writes surgical_case_status_event record
+File: apps/api/src/repositories/postgres/case.repository.ts (line 336-357)
 
-F.3  attestation table uses attestation_allow_void_only trigger
-     Location: apps/api/db/migrations/002_attestation_voiding.sql
-     Behavior: only allows UPDATE when voided_at changes from NULL to non-NULL; rejects all other changes
+Transition to SCHEDULED (via activate):
+- Sets is_active = true
+- Sets activated_at and activated_by_user_id
+- Updates scheduled_date and scheduled_time
+- Writes surgical_case_status_event record
+File: apps/api/src/repositories/postgres/case.repository.ts (line 306-326)
 
-F.4  PostgreSQL enum types enforce valid values at the database level for all state columns
+Transition to REJECTED:
+- Sets rejected_at and rejected_by_user_id
+- Sets rejection_reason
+- Writes surgical_case_status_event record
+File: apps/api/src/repositories/postgres/case.repository.ts (line 368-386)
 
-F.5  ON DELETE CASCADE from surgery_request for:
-     clinic_financial_declaration, asc_financial_verification, financial_override, financial_readiness_cache
+Transition to DRAFT (via deactivate):
+- Sets is_active = false
+- Writes surgical_case_status_event record
+File: apps/api/src/repositories/postgres/case.repository.ts (line 396-411)
 
-F.6  surgery_request table: FOR UPDATE row locking used in all transition functions
-     Location: apps/api/src/services/surgery-request.service.ts (loadAndLock helper, lines 702-720)
+Transition to CANCELLED:
+- Sets is_cancelled = true
+- Sets cancelled_at and cancelled_by_user_id
+- Appends cancellation reason to notes
+- Writes surgical_case_status_event record
+File: apps/api/src/repositories/postgres/case.repository.ts (line 426-445)
 
-F.7  surgical_case: no row-level locking on status transitions (uses simple UPDATE ... WHERE)
+Transition to IN_PREOP:
+- Sets preop_checked_in_at and preop_checked_in_by_user_id
+- Writes surgical_case_status_event record
+File: apps/api/src/repositories/postgres/case.repository.ts (line 464-480)
 
+All status transitions:
+- Trigger updated_at timestamp update
+- Record event in surgical_case_status_event (append-only audit log)
+File: apps/api/src/services/case-status.service.ts
+
+Inventory Item Availability Transitions:
+
+Transition to RESERVED:
+- Sets reserved_for_case_id
+- Writes inventory_event record (append-only)
+File: apps/api/src/routes/inventory.routes.ts (line 129-132)
+
+Transition to RELEASED:
+- Clears reserved_for_case_id
+- Writes inventory_event record (append-only)
+File: apps/api/src/routes/inventory.routes.ts (line 134-138)
+
+Transition to CONSUMED:
+- Clears reserved_for_case_id
+- Writes inventory_event record (append-only)
+File: apps/api/src/routes/inventory.routes.ts (line 140-144)
+
+All inventory state changes:
+- Append-only inventory_event record (protected by database triggers)
+- Database triggers prevent UPDATE/DELETE on inventory_event table
+File: apps/api/db/migrations/001_initial_schema.sql (line 391-397)
+
+Inventory Item Sterility Transitions:
+
+Transition to VERIFIED:
+- Sets last_verified_at and last_verified_by_user_id
+- Writes inventory_event record (append-only)
+File: apps/api/src/routes/inventory.routes.ts (line 119-123)
+
+Surgery Request Transitions:
+
+Transition to SUBMITTED (new request):
+- Creates patient_ref record (upserted)
+- Creates surgery_request_submission record (seq=1)
+- Creates surgery_request_checklist_instance and responses (if provided)
+- Writes surgery_request_audit_event (SUBMITTED)
+File: apps/api/src/services/surgery-request.service.ts (line 176-225)
+
+Transition to SUBMITTED (resubmit):
+- Increments submission_seq
+- Creates new surgery_request_submission record
+- Creates new surgery_request_checklist_instance and responses (if provided)
+- Writes surgery_request_audit_event (RESUBMITTED)
+- Updates last_submitted_at timestamp
+File: apps/api/src/services/surgery-request.service.ts (line 228-291)
+
+Transition to CONVERTED:
+- Creates surgical_case record
+- Creates surgery_request_conversion link record (immutable)
+- Writes surgery_request_audit_event (CONVERTED)
+File: Inferred from schema (apps/api/db/migrations/059_surgery_request.sql line 252-270)
+
+All surgery request transitions:
+- Append-only audit trail in surgery_request_audit_event
+- Database triggers prevent UPDATE/DELETE on audit tables
+File: apps/api/db/migrations/059_surgery_request.sql (line 243-249)
+
+Checklist Instance Transitions:
+
+Transition to IN_PROGRESS:
+- Sets started_at timestamp
+File: Inferred from schema
+
+Transition to COMPLETED:
+- Sets completed_at timestamp
+File: Inferred from schema
+
+All checklist transitions:
+- Append-only case_checklist_response and case_checklist_signature records
+- Database triggers prevent modification of responses and signatures
+File: apps/api/db/migrations/004_timeout_debrief.sql (line 113-142)
+
+Case Card Transitions:
+UNKNOWN (no transition code found)
 
 ================================================================================
-SECTION G — DIVERGENCES
+F) INVALID OR BLOCKED TRANSITIONS
 ================================================================================
 
-G.1  SURGICAL CASE: NO CENTRALIZED TRANSITION VALIDATION
-     The surgery request state machine uses an explicit transition map (SURGERY_REQUEST_TRANSITIONS)
-     enforced by assertTransition(). The surgical case state machine has NO equivalent.
-     The generic update() method in case.repository.ts accepts any status value and writes it
-     directly to the database. Transition guards are scattered across route handlers (cases.routes.ts)
-     and individual repository methods, with inconsistent enforcement:
-       - approve/reject: enforced via SQL WHERE status='REQUESTED' (silent failure)
-       - checkInPreop: enforced via app-level check + SQL WHERE (silent failure)
-       - activate/deactivate/cancel: enforced at route level (explicit error responses)
-       - generic PATCH status: NO transition validation except IN_PROGRESS/COMPLETED gate checks
+Surgical Case:
 
-G.2  INVENTORY: NO TRANSITION VALIDATION
-     computeItemUpdate() applies state changes based solely on event type with no validation
-     of the current state. For example, a RELEASED event sets availability_status='AVAILABLE'
-     regardless of whether the item was previously RESERVED. There is no guard against
-     nonsensical transitions (e.g., MISSING -> RESERVED directly).
+Blocked: SCHEDULED → IN_PROGRESS when timeout checklist incomplete
+Enforcement: apps/api/src/routes/cases.routes.ts (line 167-172)
+Implementation: apps/api/src/services/checklists.service.ts (canStartCase function)
 
-G.3  CHECKLIST: NOT_STARTED ENUM VALUE UNUSED
-     The ChecklistStatus enum defines NOT_STARTED, IN_PROGRESS, COMPLETED. However,
-     startChecklist() creates instances directly as IN_PROGRESS, so NOT_STARTED is never
-     used in practice. This is a domain/DB divergence.
+Blocked: any → COMPLETED when debrief checklist incomplete
+Enforcement: apps/api/src/routes/cases.routes.ts (line 174-178)
+Implementation: apps/api/src/services/checklists.service.ts (canCompleteCase function)
 
-G.4  CASE CARD STATUS: NO DOMAIN-LEVEL ENUM
-     CaseCardStatus values (DRAFT, ACTIVE, DEPRECATED, DELETED) exist only as DB enum values
-     and route-level string comparisons. There is no Zod z.enum definition in the domain package.
-     This means the domain package cannot validate case card status values.
+Blocked: REQUESTED → SCHEDULED when case not in REQUESTED status
+Enforcement: apps/api/src/repositories/postgres/case.repository.ts (line 347)
+SQL WHERE clause: WHERE status = 'REQUESTED'
 
-G.5  ATTESTATION STATE: NO DOMAIN-LEVEL ENUM
-     AttestationState values (NOT_ATTESTED, ATTESTED, VOIDED) exist only as DB enum values
-     and route-level string comparisons. No Zod z.enum in the domain package.
+Blocked: REQUESTED → REJECTED when case not in REQUESTED status
+Enforcement: apps/api/src/repositories/postgres/case.repository.ts (line 375)
+SQL WHERE clause: WHERE status = 'REQUESTED'
 
-G.6  SURGERY REQUEST CHECKLIST: INCOMPLETE STATE MACHINE
-     SurgeryRequestChecklistStatus defines PENDING and COMPLETE, but only PENDING is ever written.
-     No code path transitions a surgery request checklist instance to COMPLETE status.
+Blocked: activate when case is already active
+Enforcement: apps/api/src/routes/cases.routes.ts (line 406-408)
 
-G.7  CASE STATUS: DB ENUM vs DOMAIN ENUM MISMATCH (historical)
-     The original DB enum (migration 001) defined: DRAFT, SCHEDULED, READY, IN_PROGRESS, COMPLETED, CANCELLED.
-     Later migrations added: REQUESTED (018), REJECTED (018), IN_PREOP (041).
-     The domain Zod enum includes all 9 values. The DB enum matches after all migrations are applied,
-     but the values were added incrementally, so environments that did not run all migrations may diverge.
+Blocked: activate when case is cancelled
+Enforcement: apps/api/src/routes/cases.routes.ts (line 402-404)
 
-G.8  READINESS STATE: DUAL EXISTENCE
-     ReadinessState is defined both as a Zod enum (domain package) and a DB enum (migration 001).
-     It is computed on-demand by evaluateCaseReadiness() (pure function) but also persisted in
-     case_readiness_cache.readiness_state and attestation.readiness_state_at_time. The cached
-     value can become stale if inventory changes without cache recomputation.
+Blocked: deactivate when case is already inactive
+Enforcement: apps/api/src/routes/cases.routes.ts (line 435-437)
 
-G.9  FINANCIAL STATE DIMENSIONS: NO TRANSITION RESTRICTIONS
-     The three financial state dimensions (clinic, ASC, override) can be set to any valid enum value
-     regardless of current state. For example, ClinicFinancialState can go from DECLARED_AT_RISK
-     back to UNKNOWN. This is by design (append-only with latest-wins semantics), but contrasts with
-     the surgery request state machine which has explicit terminal states.
+Blocked: deactivate when case is IN_PROGRESS or COMPLETED
+Enforcement: apps/api/src/routes/cases.routes.ts (line 439-441)
 
-G.10 CASE STATUS TRANSITION RECORDING: NOT TRANSACTIONAL
-     recordStatusEvent() in case-status.service.ts uses the global query() function (pool-level),
-     not a transactional client. The comment says "piggy-back on the same connection context" but
-     the function acquires a separate connection from the pool. This means the status event INSERT
-     could succeed or fail independently of the status UPDATE. The surgery request service avoids
-     this by using the transaction client for audit event inserts.
+Blocked: cancel when case is already cancelled
+Enforcement: apps/api/src/routes/cases.routes.ts (line 466-468)
 
-G.11 SILENT FAILURE vs EXPLICIT ERROR
-     approve() and reject() in case.repository.ts return null on wrong status (SQL WHERE clause
-     prevents update). This bubbles up as a 404 "not found" error to the client, which conflates
-     "record does not exist" with "record exists but wrong status". In contrast, surgery request
-     transitions throw explicit 409 INVALID_TRANSITION errors.
+Blocked: check-in to preop when case not in SCHEDULED status
+Enforcement: apps/api/src/repositories/postgres/case.repository.ts (line 460-462)
+SQL WHERE clause: WHERE status = 'SCHEDULED'
+
+Inventory Item:
+NONE FOUND
+All transitions are permitted via inventory events; no validation of state machine rules.
+
+Surgery Request:
+
+All invalid transitions blocked by assertTransition() function
+Enforcement: apps/api/src/services/surgery-request.service.ts (line 122-135)
+Transition map: packages/domain/src/types.ts (line 347-354)
+
+Terminal states (no outbound transitions):
+- REJECTED
+- WITHDRAWN
+- CONVERTED
+
+Blocked transitions enforced by map:
+- SUBMITTED cannot transition to CONVERTED (must go through ACCEPTED first)
+- REJECTED cannot transition to any state (terminal)
+- WITHDRAWN cannot transition to any state (terminal)
+- CONVERTED cannot transition to any state (terminal)
+
+Checklist Instance:
+NONE FOUND
+No explicit validation preventing invalid transitions.
+
+Case Card:
+NONE FOUND
+No explicit validation preventing invalid transitions.
+
+Surgery Request Checklist Instance:
+NONE FOUND
+No explicit validation preventing invalid transitions.
 
 ================================================================================
+G) DIVERGENCES OR INCONSISTENCIES
+================================================================================
+
+1. Surgical Case Status Transitions
+   - Multiple code paths can update case status:
+     * Dedicated repository methods (approve, reject, activate, cancel, etc.)
+     * Generic update() method accepts any status value
+   - The generic update() method (apps/api/src/repositories/postgres/case.repository.ts line 216-293)
+     does not enforce state machine rules; it allows any status transition
+   - Route layer adds checklist gates for IN_PROGRESS and COMPLETED, but these are not
+     enforced at the repository layer
+   - Files: apps/api/src/routes/cases.routes.ts (line 167-178)
+            apps/api/src/repositories/postgres/case.repository.ts (line 216-293)
+
+2. Inventory Item State Management
+   - No explicit state machine definition or transition map exists
+   - Transitions are implicit in the computeItemUpdate() function
+   - Different event types can result in the same state (e.g., RELEASED and ADJUSTED both
+     can set AVAILABLE)
+   - No validation prevents invalid transitions (e.g., MISSING → IN_USE without intermediate states)
+   - File: apps/api/src/routes/inventory.routes.ts (line 109-187)
+
+3. Checklist Instance Status
+   - Enum defines NOT_STARTED, IN_PROGRESS, COMPLETED states
+   - No explicit transition code found in application layer
+   - Status field exists in database but no enforcement of valid transitions
+   - Files: apps/api/db/migrations/004_timeout_debrief.sql (line 77-96)
+            packages/domain/src/types.ts (line 663-664)
+
+4. Case Card Status
+   - Enum defines DRAFT, ACTIVE, DEPRECATED states
+   - No transition enforcement found in code
+   - Constraint "unique_active_card" suggests only one ACTIVE card per surgeon+procedure+facility
+     but no enforcement of transitions to/from ACTIVE
+   - Files: apps/api/db/migrations/011_case_cards.sql (line 12-56)
+
+5. Surgery Request Status
+   - Well-defined state machine with SURGERY_REQUEST_TRANSITIONS map
+   - assertTransition() function enforces valid transitions in service layer
+   - However, no database CHECK constraint enforces the state machine at the database level
+   - Inconsistency: transition enforcement only exists in application code, not at schema level
+   - Files: packages/domain/src/types.ts (line 347-354)
+            apps/api/src/services/surgery-request.service.ts (line 122-135)
+            apps/api/db/migrations/059_surgery_request.sql (line 99-115)
+
+6. Audit Event Immutability
+   - inventory_event, attestation, device_event, case_checklist_response,
+     case_checklist_signature, surgery_request_audit_event are all append-only
+   - Protected by database triggers that prevent UPDATE/DELETE
+   - surgical_case_status_event exists and is append-only
+   - Inconsistency: case_card_edit_log is append-only but case_card table allows updates
+   - Files: apps/api/db/migrations/001_initial_schema.sql (line 382-416)
+            apps/api/db/migrations/004_timeout_debrief.sql (line 113-142)
+            apps/api/db/migrations/011_case_cards.sql (line 156-162)
+            apps/api/db/migrations/059_surgery_request.sql (line 144-149, 213-219, 243-249, 264-270)
+
+7. Status Event Recording
+   - surgical_case transitions consistently record events via recordStatusEvent()
+   - inventory_item state changes recorded in inventory_event (append-only)
+   - surgery_request transitions recorded in surgery_request_audit_event (append-only)
+   - checklist_instance status changes are NOT recorded in any audit log
+   - case_card status changes are NOT recorded in case_card_edit_log (only content edits logged)
+   - Inconsistency: Not all state machines have equivalent audit trails
+   - Files: apps/api/src/services/case-status.service.ts
+            apps/api/db/migrations/011_case_cards.sql (line 100-127)
+
+8. Reserved Case Items
+   - Inventory items can be reserved for a case via reserved_for_case_id
+   - Transition to RESERVED sets this field, RELEASED clears it
+   - However, no enforcement prevents manual UPDATE of reserved_for_case_id outside the
+     inventory event system
+   - Inconsistency: State and foreign key can be modified independently of event log
+   - File: apps/api/src/routes/inventory.routes.ts (line 129-138)
+
+9. ReadinessState (not a status field, computed value)
+   - ReadinessState enum (GREEN, ORANGE, RED) exists in types.ts
+   - This is NOT a state machine but a computed value based on case requirements and inventory
+   - No transitions tracked, no status field in database
+   - Stored in case_readiness_cache table as materialized/computed state
+   - File: packages/domain/src/types.ts (line 240-245)
+
+10. Surgery Request Checklist Status
+    - Enum defines PENDING, COMPLETE states
+    - No explicit transition enforcement or audit trail found
+    - Inconsistency with main surgery_request state machine which has full audit
+    - Files: apps/api/db/migrations/059_surgery_request.sql (line 174-192)
+             packages/domain/src/types.ts (line 330-331)
+
 END OF SNAPSHOT
-================================================================================

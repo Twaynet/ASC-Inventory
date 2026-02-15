@@ -1,938 +1,1047 @@
-================================================================================
 CLIENT API USAGE SNAPSHOT
-Generated: 2026-02-12
-================================================================================
-
-This snapshot documents the client-side API wrapper architecture, mapping
-client functions to backend endpoints, tracking usage, and identifying gaps.
+Generated: 2026-02-14
+Source: ASC-Inventory web client (apps/web)
+Scope: Client-to-API usage as implemented
 
 ================================================================================
-SECTION A: CLIENT API WRAPPER INVENTORY
+A) Client API wrapper inventory
 ================================================================================
 
-Base Configuration:
-  - API_BASE: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
-  - Source: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\lib\api\client.ts (line 20)
-
-Core Client Infrastructure:
-  File: apps/web/src/lib/api/client.ts
-  Exports:
-    - request<T>(endpoint, options): Core fetch wrapper
-    - API_BASE: Base URL constant
-    - ApiError: Error class
-    - resolveAssetUrl(assetUrl): Asset URL resolver
+Primary HTTP client module:
+apps/web/src/lib/api/client.ts
+  Exported surface:
+    request<T>(endpoint: string, options?: RequestOptions): Promise<T>
+    ApiError class
+    resolveAssetUrl(assetUrl: string): string
+    API_BASE constant
+    RequestOptions interface
+  Base URL configuration:
+    Source: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+    File path: apps/web/src/lib/api/client.ts line 20
   Features:
-    - Authorization header injection (Bearer token)
-    - X-Access-Purpose header injection (PHI compliance, auto-resolved from endpoint)
-    - X-Active-Persona header injection (from localStorage)
-    - X-Emergency-Justification header injection
-    - JSON envelope unwrapping ({ data } -> payload)
-    - Zod schema validation (request + response)
-    - Error normalization to ApiError
+    Authorization header injection (Bearer token)
+    X-Access-Purpose header injection (auto-resolved from endpoint path for PHI compliance)
+    X-Active-Persona header injection (from localStorage)
+    X-Emergency-Justification header injection
+    JSON request/response handling
+    Error normalization to ApiError
+    Data envelope unwrapping ({ data } → payload)
+    Zod schema validation (request and response)
 
-  File: apps/web/src/lib/api/contract-client.ts
-  Exports:
-    - callContract<R>(route, opts): Contract-based API wrapper
-    - ContractCallOptions interface
+Contract-based HTTP client helper:
+apps/web/src/lib/api/contract-client.ts
+  Exported surface:
+    callContract<R>(route: R, opts?: ContractCallOptions): Promise<...>
+    ContractCallOptions interface
+  Base URL: Uses request() from client.ts
+  File path: apps/web/src/lib/api/contract-client.ts
   Features:
-    - URL construction from contract path templates
-    - Path param substitution
-    - Query string building
-    - Body + response schema validation via contract definitions
-    - Type-safe response inference
+    URL path construction from contract route templates
+    Path parameter substitution
+    Query string building
+    Body and response schema validation via contract definitions
+    Type-safe response inference from Zod schemas
 
-Wrapper Modules (24 total):
+Backward compatibility shim:
+apps/web/src/lib/api.ts
+  Exported surface: Re-exports all functions from domain-specific modules
+  File path: apps/web/src/lib/api.ts
+  Purpose: Legacy import compatibility
+  Note: Deprecated, new code should import from domain modules directly
 
-1. apps/web/src/lib/api/auth.ts
-   Exports: login, getMe, logout
-   Dependencies: client.ts
+Domain-specific API wrapper modules:
 
-2. apps/web/src/lib/api/users.ts
-   Exports: getUsers, getUser, createUser, updateUser, deactivateUser, activateUser, getSurgeons
-   Dependencies: client.ts
+apps/web/src/lib/api/auth.ts
+  Exports: login, getMe, logout, LoginResponse
+  Base URL: Uses request() from client.ts
 
-3. apps/web/src/lib/api/cases.ts
-   Exports: getCases, getCase, createCase, activateCase, deactivateCase, cancelCase,
-            checkInPreop, approveCase, rejectCase, updateCase, deleteCase, assignCaseRoom
-   Dependencies: client.ts, contract-client.ts, @asc/contract, schemas.ts
+apps/web/src/lib/api/cases.ts
+  Exports: getCases, getCase, createCase, activateCase, deactivateCase, cancelCase, checkInPreop, approveCase, rejectCase, updateCase, deleteCase, assignCaseRoom, getCaseStatusEvents, Case, ActivateCaseRequest, CaseStatusEvent
+  Base URL: Uses callContract() and request() from client.ts
+  Dependencies: @asc/contract, schemas.ts
 
-4. apps/web/src/lib/api/schedule.ts
-   Exports: getDaySchedule, getUnassignedCases, createBlockTime, updateBlockTime,
-            deleteBlockTime, setRoomDayConfig, reorderScheduleItems
-   Dependencies: client.ts
+apps/web/src/lib/api/catalog.ts
+  Exports: getCatalogItems, getCatalogItem, createCatalogItem, updateCatalogItem, deactivateCatalogItem, activateCatalogItem, getCatalogImages, addCatalogImageByUrl, uploadCatalogImage, updateCatalogImage, deleteCatalogImage, getCatalogIdentifiers, addCatalogIdentifier, deleteCatalogIdentifier, getCatalogGroups, createCatalogGroup, updateCatalogGroup, getCatalogGroupItems, addCatalogGroupItems, removeCatalogGroupItem, getCatalogSets, createCatalogSet, getSetComponents, addSetComponent, updateSetComponent, removeSetComponent, getCatalogCostEvents
+  Base URL: Uses callContract() and request() from client.ts
+  Dependencies: @asc/contract, schemas.ts
 
-5. apps/web/src/lib/api/checklists.ts
-   Exports: getCaseChecklists, startChecklist, respondToChecklist, signChecklist,
-            completeChecklist, recordAsyncReview, getPendingReviews, getMyPendingReviews,
-            getFlaggedReviews, resolveFlaggedReview, resolveSurgeonFlag, getSurgeonChecklists,
-            updateSurgeonFeedback, getChecklistTemplates, getChecklistTemplate, updateChecklistTemplate
-   Dependencies: client.ts
+apps/web/src/lib/api/inventory.ts
+  Exports: getInventoryItems, getInventoryItem, createInventoryItem, updateInventoryItem, getInventoryItemHistory, createInventoryEvent, sendDeviceEvent, createDeviceEvent, getDevices, getInventoryRiskQueue, getMissingAnalytics, getMissingEvents, getOpenMissingAging, lookupInventoryItem, getDeviceEvents, getInventoryEvents
+  Base URL: Uses callContract() and request() from client.ts
+  Dependencies: @asc/contract, schemas.ts
 
-6. apps/web/src/lib/api/readiness.ts
-   Exports: getDayBeforeReadiness, getCalendarSummary, createAttestation, voidAttestation,
-            refreshReadiness, getCaseVerification
-   Dependencies: client.ts
+apps/web/src/lib/api/readiness.ts
+  Exports: getDayBeforeReadiness, getCalendarSummary, createAttestation, voidAttestation, refreshReadiness, getCaseVerification
+  Base URL: Uses request() from client.ts
 
-7. apps/web/src/lib/api/inventory.ts
-   Exports: getInventoryItems, getInventoryItem, createInventoryItem, updateInventoryItem,
-            getInventoryItemHistory, createInventoryEvent, sendDeviceEvent, createDeviceEvent,
-            getDevices, getInventoryRiskQueue
-   Dependencies: client.ts, contract-client.ts, @asc/contract, schemas.ts
+apps/web/src/lib/api/checklists.ts
+  Exports: getCaseChecklists, startChecklist, respondToChecklist, signChecklist, completeChecklist, recordAsyncReview, getPendingReviews, getMyPendingReviews, getFlaggedReviews, resolveFlaggedReview, resolveSurgeonFlag, getSurgeonChecklists, updateSurgeonFeedback, getChecklistTemplates, getChecklistTemplate, updateChecklistTemplate
+  Base URL: Uses request() from client.ts
 
-8. apps/web/src/lib/api/catalog.ts
-   Exports: getCatalogItems, getCatalogItem, createCatalogItem, updateCatalogItem,
-            deactivateCatalogItem, activateCatalogItem, getCatalogImages, addCatalogImageByUrl,
-            uploadCatalogImage, updateCatalogImage, deleteCatalogImage, getCatalogIdentifiers,
-            addCatalogIdentifier, deleteCatalogIdentifier, getCatalogGroups, createCatalogGroup,
-            updateCatalogGroup, getCatalogGroupItems, addCatalogGroupItems, removeCatalogGroupItem,
-            getCatalogSets, createCatalogSet, getSetComponents, addSetComponent, updateSetComponent,
-            removeSetComponent
-   Dependencies: client.ts, contract-client.ts, @asc/contract, schemas.ts
+apps/web/src/lib/api/schedule.ts
+  Exports: getDaySchedule, getUnassignedCases, createBlockTime, updateBlockTime, deleteBlockTime, setRoomDayConfig, reorderScheduleItems
+  Base URL: Uses request() from client.ts
 
-9. apps/web/src/lib/api/preference-cards.ts
-   Exports: getPreferenceCards, getPreferenceCard, getPreferenceCardVersions, createPreferenceCard,
-            updatePreferenceCard, createPreferenceCardVersion, deactivatePreferenceCard, activatePreferenceCard
-   Dependencies: client.ts
+apps/web/src/lib/api/settings.ts
+  Exports: getFacilitySettings, updateFacilitySettings, getRooms, getSettingsRooms, createRoom, updateRoom, deactivateRoom, activateRoom, reorderRooms, getSettingsSurgeons, updateSurgeonSettings, getConfigItems, createConfigItem, updateConfigItem, deactivateConfigItem, activateConfigItem, reorderConfigItems, getLocations, getLocation, createLocation, updateLocation, deactivateLocation, activateLocation
+  Base URL: Uses request() from client.ts
 
-10. apps/web/src/lib/api/vendors.ts
-    Exports: getVendors, getVendor, createVendor, updateVendor
-    Dependencies: client.ts
+apps/web/src/lib/api/case-cards.ts
+  Exports: getCaseCards, getCaseCard, getCaseCardEditLog, getCaseCardVersions, createCaseCard, updateCaseCard, activateCaseCard, deprecateCaseCard, getCaseCardSurgeons, submitCaseCardFeedback, getCaseCardFeedback, reviewCaseCardFeedback
+  Base URL: Uses request() from client.ts
 
-11. apps/web/src/lib/api/loaner-sets.ts
-    Exports: getLoanerSets, getOpenLoanerSets, getOverdueLoanerSets, getLoanerSet,
-             createLoanerSet, returnLoanerSet
-    Dependencies: client.ts
+apps/web/src/lib/api/case-dashboard.ts
+  Exports: getCaseDashboard, attestCaseReadiness, voidCaseAttestation, updateAnesthesiaPlan, linkCaseCard, linkCaseCardWithReason, unlinkCaseCard, getCaseCardLink, addCaseOverride, updateCaseOverride, removeCaseOverride, getCaseEventLog, updateCaseSummary, updateCaseScheduling
+  Base URL: Uses request() from client.ts
 
-12. apps/web/src/lib/api/reports.ts
-    Exports: getAvailableReports, getInventoryReadinessReport, getVerificationActivityReport,
-             getChecklistComplianceReport, getCaseSummaryReport, getReportExportUrl,
-             getCancelledCasesReport, getCaseTimelinesReport, getDebriefSummaryReport,
-             getCaseEventLogReport, getVendorConcessionsReport, getInventoryValuationReport,
-             getLoanerExposureReport
-    Dependencies: client.ts
+apps/web/src/lib/api/reports.ts
+  Exports: getAvailableReports, getInventoryReadinessReport, getVerificationActivityReport, getChecklistComplianceReport, getCaseSummaryReport, getVendorConcessionsReport, getInventoryValuationReport, getLoanerExposureReport, getCancelledCasesReport, getCaseTimelinesReport, getDebriefSummaryReport, getCaseEventLogReport, getReportExportUrl
+  Base URL: Uses request() from client.ts
 
-13. apps/web/src/lib/api/settings.ts
-    Exports: getFacilitySettings, updateFacilitySettings, getRooms, getSettingsRooms, createRoom,
-             updateRoom, deactivateRoom, activateRoom, reorderRooms, getSettingsSurgeons,
-             updateSurgeonSettings, getConfigItems, createConfigItem, updateConfigItem,
-             deactivateConfigItem, activateConfigItem, reorderConfigItems, getLocations,
-             getLocation, createLocation, updateLocation, deactivateLocation, activateLocation
-    Dependencies: client.ts
+apps/web/src/lib/api/vendors.ts
+  Exports: getVendors, getVendor, createVendor, updateVendor
+  Base URL: Uses request() from client.ts
 
-14. apps/web/src/lib/api/ai.ts
-    Exports: explainReadiness
-    Dependencies: client.ts
+apps/web/src/lib/api/loaner-sets.ts
+  Exports: getLoanerSets, getLoanerSet, createLoanerSet, updateLoanerSet, getLoanerSetItems, addLoanerSetItem, updateLoanerSetItem, removeLoanerSetItem
+  Base URL: Uses request() from client.ts
 
-15. apps/web/src/lib/api/platform.ts
-    Exports: getPlatformHealth, getFacilities, getConfigKeys, getConfigKey, setConfigKey,
-             getFacilityOverrides, setFacilityOverride, clearFacilityOverride, getAuditLog,
-             getAuthAuditLog
-    Dependencies: client.ts
+apps/web/src/lib/api/users.ts
+  Exports: getUsers, getUser, createUser, updateUser, deactivateUser, activateUser, getSurgeons
+  Base URL: Uses request() from client.ts
 
-16. apps/web/src/lib/api/case-cards.ts
-    Exports: getCaseCards, getCaseCard, getCaseCardEditLog, getCaseCardVersions, createCaseCard,
-             updateCaseCard, activateCaseCard, deprecateCaseCard, getCaseCardSurgeons,
-             submitCaseCardFeedback, getCaseCardFeedback, reviewCaseCardFeedback
-    Dependencies: client.ts
+apps/web/src/lib/api/attention.ts
+  Exports: getAttention
+  Base URL: Uses request() from client.ts
 
-17. apps/web/src/lib/api/attention.ts
-    Exports: getAttention
-    Dependencies: client.ts
+apps/web/src/lib/api/platform.ts
+  Exports: Platform-related functions
+  Base URL: Uses request() from client.ts
 
-18. apps/web/src/lib/api/case-dashboard.ts
-    Exports: getCaseDashboard, attestCaseReadiness, voidCaseAttestation, updateAnesthesiaPlan,
-             linkCaseCard, linkCaseCardWithReason, unlinkCaseCard, getCaseCardLink, addCaseOverride,
-             updateCaseOverride, removeCaseOverride, getCaseEventLog, updateCaseSummary, updateCaseScheduling
-    Dependencies: client.ts
+apps/web/src/lib/api/phi-audit.ts
+  Exports: PHI audit-related functions
+  Base URL: Uses request() from client.ts
 
-19. apps/web/src/lib/api/phi-audit.ts
-    Exports: getAuditEntries, getAuditEntry, getAuditStats, getAuditSessions, getExcessiveDenials,
-             getAuditAnalytics, getRetentionList, getRetentionStatus
-    Dependencies: client.ts
+apps/web/src/lib/api/phi-patient.ts
+  Exports: PHI patient identity functions
+  Base URL: Uses request() from client.ts
 
-20. apps/web/src/lib/api/phi-patient.ts
-    Exports: getPatientByCase, lookupPatientByMrn, searchPatients, getPatientCases, createPatient,
-             updatePatient, linkPatientToCase
-    Dependencies: client.ts
+apps/web/src/lib/api/ai.ts
+  Exports: AI-related functions
+  Base URL: Uses request() from client.ts
 
-21. apps/web/src/lib/api/surgery-requests.ts
-    Exports: getSurgeryRequests, getSurgeryRequest, getSurgeryRequestClinics, returnSurgeryRequest,
-             acceptSurgeryRequest, rejectSurgeryRequest, convertSurgeryRequest
-    Dependencies: client.ts
+apps/web/src/lib/api/preference-cards.ts
+  Exports: Preference card functions
+  Base URL: Uses request() from client.ts
 
-22. apps/web/src/lib/api/financial-readiness.ts
-    Exports: getFinancialDashboard, getFinancialReadinessDetail, recordClinicDeclaration,
-             recordAscVerification, recordFinancialOverride
-    Dependencies: client.ts
+apps/web/src/lib/api/financial-readiness.ts
+  Exports: Financial readiness functions
+  Base URL: Uses request() from client.ts
 
-23. apps/web/src/lib/api/schemas.ts
-    Purpose: Zod schema definitions for request/response validation
-    Exports: DeleteCaseResponseSchema, InventoryDevicesResponseSchema, DeviceEventResponseSchema,
-             DeviceEventRequestSchema, CatalogImageResponseSchema, AddCatalogImageByUrlRequestSchema,
-             UpdateCatalogImageRequestSchema
+apps/web/src/lib/api/surgery-requests.ts
+  Exports: Surgery request functions
+  Base URL: Uses request() from client.ts
 
-24. apps/web/src/lib/api.ts
-    Purpose: Re-export aggregator (convenience index)
-    Exports: Re-exports from multiple modules
+apps/web/src/lib/api/operations.ts
+  Exports: Operations health functions
+  Base URL: Uses request() from client.ts
+
+apps/web/src/lib/api/platform-facility-view.ts
+  Exports: Platform facility view functions
+  Base URL: Uses request() from client.ts
+
+apps/web/src/lib/api/schemas.ts
+  Purpose: Zod schema definitions
+  Exports: DeleteCaseResponseSchema, InventoryDevicesResponseSchema, DeviceEventResponseSchema, DeviceEventRequestSchema, CatalogImageResponseSchema, AddCatalogImageByUrlRequestSchema, UpdateCatalogImageRequestSchema
+
+Total wrapper modules: 26
 
 ================================================================================
-SECTION B: WRAPPER → ENDPOINT MAPPING
+B) Wrapper → Endpoint mapping
 ================================================================================
-
-Format: functionName → HTTP METHOD /path (file:line)
 
 AUTH MODULE (apps/web/src/lib/api/auth.ts)
-─────────────────────────────────────────────────────────────────────
-  login                 → POST   /auth/login                      (auth.ts:31)
-  getMe                 → GET    /auth/me                         (auth.ts:36)
-  logout                → POST   /auth/logout                     (auth.ts:40)
-
-USERS MODULE (apps/web/src/lib/api/users.ts)
-─────────────────────────────────────────────────────────────────────
-  getUsers              → GET    /users[?includeInactive=true]    (users.ts:48)
-  getUser               → GET    /users/:userId                   (users.ts:53)
-  createUser            → POST   /users                           (users.ts:58)
-  updateUser            → PATCH  /users/:userId                   (users.ts:63)
-  deactivateUser        → POST   /users/:userId/deactivate        (users.ts:68)
-  activateUser          → POST   /users/:userId/activate          (users.ts:73)
-  getSurgeons           → GET    /users/surgeons                  (users.ts:78)
+  login
+    HTTP method: POST
+    Path template: /auth/login
+    Defining file path: apps/web/src/lib/api/auth.ts line 31
+    Request schema: UNKNOWN (TODO comment at line 29)
+    Response schema: UNKNOWN (TODO comment at line 29)
+  getMe
+    HTTP method: GET
+    Path template: /auth/me
+    Defining file path: apps/web/src/lib/api/auth.ts line 36
+    Request schema: N/A
+    Response schema: UNKNOWN (TODO comment at line 34)
+  logout
+    HTTP method: POST
+    Path template: /auth/logout
+    Defining file path: apps/web/src/lib/api/auth.ts line 40
+    Request schema: N/A
+    Response schema: none
 
 CASES MODULE (apps/web/src/lib/api/cases.ts)
-─────────────────────────────────────────────────────────────────────
-  getCases              → GET    /cases[?filters]                 (cases.ts:55) [CONTRACT]
-  getCase               → GET    /cases/:caseId                   (cases.ts:62) [CONTRACT]
-  createCase            → POST   /cases                           (cases.ts:68) [CONTRACT]
-  activateCase          → POST   /cases/:caseId/activate          (cases.ts:75) [CONTRACT]
-  deactivateCase        → POST   /cases/:caseId/deactivate        (cases.ts:83) [CONTRACT]
-  cancelCase            → POST   /cases/:caseId/cancel            (cases.ts:90) [CONTRACT]
-  checkInPreop          → POST   /cases/:caseId/check-in-preop    (cases.ts:98) [CONTRACT]
-  approveCase           → POST   /cases/:caseId/approve           (cases.ts:105) [CONTRACT]
-  rejectCase            → POST   /cases/:caseId/reject            (cases.ts:113) [CONTRACT]
-  updateCase            → PATCH  /cases/:caseId                   (cases.ts:121) [CONTRACT]
-  deleteCase            → DELETE /cases/:caseId                   (cases.ts:137)
-  assignCaseRoom        → PUT    /cases/:caseId/room              (cases.ts:149) [CONTRACT]
-
-SCHEDULE MODULE (apps/web/src/lib/api/schedule.ts)
-─────────────────────────────────────────────────────────────────────
-  getDaySchedule        → GET    /schedule/day?date=:date         (schedule.ts:95)
-  getUnassignedCases    → GET    /schedule/unassigned             (schedule.ts:100)
-  createBlockTime       → POST   /schedule/block-times            (schedule.ts:114)
-  updateBlockTime       → PATCH  /schedule/block-times/:id        (schedule.ts:127)
-  deleteBlockTime       → DELETE /schedule/block-times/:id        (schedule.ts:135)
-  setRoomDayConfig      → PUT    /schedule/rooms/:roomId/day-config?date= (schedule.ts:145)
-  reorderScheduleItems  → PATCH  /schedule/reorder                (schedule.ts:161)
-
-CHECKLISTS MODULE (apps/web/src/lib/api/checklists.ts)
-─────────────────────────────────────────────────────────────────────
-  getCaseChecklists     → GET    /cases/:caseId/checklists        (checklists.ts:199)
-  startChecklist        → POST   /cases/:caseId/checklists/start  (checklists.ts:209)
-  respondToChecklist    → POST   /cases/:caseId/checklists/:type/respond (checklists.ts:224)
-  signChecklist         → POST   /cases/:caseId/checklists/:type/sign    (checklists.ts:240)
-  completeChecklist     → POST   /cases/:caseId/checklists/:type/complete (checklists.ts:253)
-  recordAsyncReview     → POST   /cases/:caseId/checklists/debrief/async-review (checklists.ts:271)
-  getPendingReviews     → GET    /pending-reviews                 (checklists.ts:280)
-  getMyPendingReviews   → GET    /my-pending-reviews              (checklists.ts:285)
-  getFlaggedReviews     → GET    /flagged-reviews                 (checklists.ts:294)
-  resolveFlaggedReview  → POST   /flagged-reviews/:signatureId/resolve (checklists.ts:303)
-  resolveSurgeonFlag    → POST   /flagged-reviews/:instanceId/resolve-surgeon-flag (checklists.ts:316)
-  getSurgeonChecklists  → GET    /surgeon/my-checklists           (checklists.ts:329)
-  updateSurgeonFeedback → PUT    /surgeon/checklists/:instanceId/feedback (checklists.ts:342)
-  getChecklistTemplates → GET    /checklists/templates            (checklists.ts:355)
-  getChecklistTemplate  → GET    /checklists/templates/:type      (checklists.ts:363)
-  updateChecklistTemplate → PUT  /checklists/templates/:type      (checklists.ts:373)
-
-READINESS MODULE (apps/web/src/lib/api/readiness.ts)
-─────────────────────────────────────────────────────────────────────
-  getDayBeforeReadiness → GET    /readiness/day-before[?date][?refresh] (readiness.ts:169)
-  getCalendarSummary    → GET    /readiness/calendar-summary?startDate&endDate&granularity (readiness.ts:180)
-  createAttestation     → POST   /readiness/attestations          (readiness.ts:188)
-  voidAttestation       → POST   /readiness/attestations/:id/void (readiness.ts:200)
-  refreshReadiness      → POST   /readiness/refresh               (readiness.ts:206)
-  getCaseVerification   → GET    /readiness/cases/:caseId/verification (readiness.ts:214)
-
-INVENTORY MODULE (apps/web/src/lib/api/inventory.ts)
-─────────────────────────────────────────────────────────────────────
-  getInventoryItems     → GET    /inventory/items[?filters]       (inventory.ts:182) [CONTRACT]
-  getInventoryItem      → GET    /inventory/items/:itemId         (inventory.ts:189) [CONTRACT]
-  createInventoryItem   → POST   /inventory/items                 (inventory.ts:196) [CONTRACT]
-  updateInventoryItem   → PATCH  /inventory/items/:itemId         (inventory.ts:203) [CONTRACT]
-  getInventoryItemHistory → GET  /inventory/items/:itemId/history (inventory.ts:211) [CONTRACT]
-  createInventoryEvent  → POST   /inventory/events                (inventory.ts:222) [CONTRACT]
-  sendDeviceEvent       → POST   /inventory/device-events         (inventory.ts:231)
-  createDeviceEvent     → POST   /inventory/device-events         (inventory.ts:235) [ALIAS]
-  getDevices            → GET    /inventory/devices               (inventory.ts:238)
-  getInventoryRiskQueue → GET    /inventory/risk-queue            (inventory.ts:242) [CONTRACT]
+  getCases
+    HTTP method: GET
+    Path template: /cases
+    Defining file path: apps/web/src/lib/api/cases.ts line 67
+    Uses: callContract(contract.cases.list) from packages/contract
+    Request schema: contract schema
+    Response schema: contract schema
+  getCase
+    HTTP method: GET
+    Path template: /cases/:caseId
+    Defining file path: apps/web/src/lib/api/cases.ts line 74
+    Uses: callContract(contract.cases.get)
+    Request schema: contract schema
+    Response schema: contract schema
+  createCase
+    HTTP method: POST
+    Path template: /cases
+    Defining file path: apps/web/src/lib/api/cases.ts line 81
+    Uses: callContract(contract.cases.create)
+    Request schema: contract schema
+    Response schema: contract schema
+  activateCase
+    HTTP method: POST
+    Path template: /cases/:caseId/activate
+    Defining file path: apps/web/src/lib/api/cases.ts line 88
+    Uses: callContract(contract.cases.activate)
+    Request schema: contract schema
+    Response schema: contract schema
+  deactivateCase
+    HTTP method: POST
+    Path template: /cases/:caseId/deactivate
+    Defining file path: apps/web/src/lib/api/cases.ts line 96
+    Uses: callContract(contract.cases.deactivate)
+    Request schema: contract schema
+    Response schema: contract schema
+  cancelCase
+    HTTP method: POST
+    Path template: /cases/:caseId/cancel
+    Defining file path: apps/web/src/lib/api/cases.ts line 103
+    Uses: callContract(contract.cases.cancel)
+    Request schema: contract schema
+    Response schema: contract schema
+  checkInPreop
+    HTTP method: POST
+    Path template: /cases/:caseId/check-in-preop
+    Defining file path: apps/web/src/lib/api/cases.ts line 111
+    Uses: callContract(contract.cases.checkInPreop)
+    Request schema: contract schema
+    Response schema: contract schema
+  approveCase
+    HTTP method: POST
+    Path template: /cases/:caseId/approve
+    Defining file path: apps/web/src/lib/api/cases.ts line 118
+    Uses: callContract(contract.cases.approve)
+    Request schema: contract schema
+    Response schema: contract schema
+  rejectCase
+    HTTP method: POST
+    Path template: /cases/:caseId/reject
+    Defining file path: apps/web/src/lib/api/cases.ts line 126
+    Uses: callContract(contract.cases.reject)
+    Request schema: contract schema
+    Response schema: contract schema
+  updateCase
+    HTTP method: PATCH
+    Path template: /cases/:caseId
+    Defining file path: apps/web/src/lib/api/cases.ts line 134
+    Uses: callContract(contract.cases.update)
+    Request schema: contract schema
+    Response schema: contract schema
+  deleteCase
+    HTTP method: DELETE
+    Path template: /cases/:caseId
+    Defining file path: apps/web/src/lib/api/cases.ts line 148
+    Request schema: none
+    Response schema: DeleteCaseResponseSchema (apps/web/src/lib/api/schemas.ts)
+  assignCaseRoom
+    HTTP method: PATCH
+    Path template: /cases/:caseId/room
+    Defining file path: apps/web/src/lib/api/cases.ts line 153
+    Uses: callContract(contract.cases.assignRoom)
+    Request schema: contract schema
+    Response schema: contract schema
+  getCaseStatusEvents
+    HTTP method: GET
+    Path template: /cases/:caseId/status-events
+    Defining file path: apps/web/src/lib/api/cases.ts line 169
+    Uses: callContract(contract.cases.statusEvents)
+    Request schema: contract schema
+    Response schema: contract schema
 
 CATALOG MODULE (apps/web/src/lib/api/catalog.ts)
-─────────────────────────────────────────────────────────────────────
-  getCatalogItems       → GET    /catalog[?category][?includeInactive] (catalog.ts:194) [CONTRACT]
-  getCatalogItem        → GET    /catalog/:catalogId              (catalog.ts:204) [CONTRACT]
-  createCatalogItem     → POST   /catalog                         (catalog.ts:211) [CONTRACT]
-  updateCatalogItem     → PATCH  /catalog/:catalogId              (catalog.ts:218) [CONTRACT]
-  deactivateCatalogItem → POST   /catalog/:catalogId/deactivate   (catalog.ts:226) [CONTRACT]
-  activateCatalogItem   → POST   /catalog/:catalogId/activate     (catalog.ts:233) [CONTRACT]
-  getCatalogImages      → GET    /catalog/:catalogId/images       (catalog.ts:247) [CONTRACT]
-  addCatalogImageByUrl  → POST   /catalog/:catalogId/images       (catalog.ts:263)
-  uploadCatalogImage    → POST   /catalog/:catalogId/images/upload (catalog.ts:284) [RAW FETCH]
-  updateCatalogImage    → PATCH  /catalog/:catalogId/images/:imageId (catalog.ts:311)
-  deleteCatalogImage    → DELETE /catalog/:catalogId/images/:imageId (catalog.ts:320) [CONTRACT]
-  getCatalogIdentifiers → GET    /catalog/:catalogId/identifiers  (catalog.ts:334) [CONTRACT]
-  addCatalogIdentifier  → POST   /catalog/:catalogId/identifiers  (catalog.ts:345) [CONTRACT]
-  deleteCatalogIdentifier → DELETE /catalog/:catalogId/identifiers/:identifierId (catalog.ts:357) [CONTRACT]
-  getCatalogGroups      → GET    /catalog/groups[?includeInactive] (catalog.ts:373)
-  createCatalogGroup    → POST   /catalog/groups                  (catalog.ts:381)
-  updateCatalogGroup    → PATCH  /catalog/groups/:groupId         (catalog.ts:389)
-  getCatalogGroupItems  → GET    /catalog/groups/:groupId/items[?includeInactive] (catalog.ts:400)
-  addCatalogGroupItems  → POST   /catalog/groups/:groupId/items   (catalog.ts:409)
-  removeCatalogGroupItem → DELETE /catalog/groups/:groupId/items/:catalogId (catalog.ts:417)
-  getCatalogSets        → GET    /catalog/sets[?includeEmpty]     (catalog.ts:431)
-  createCatalogSet      → POST   /catalog/sets                    (catalog.ts:438)
-  getSetComponents      → GET    /catalog/sets/:catalogId/components (catalog.ts:447)
-  addSetComponent       → POST   /catalog/sets/:catalogId/components (catalog.ts:455)
-  updateSetComponent    → PATCH  /catalog/sets/:catalogId/components/:componentId (catalog.ts:466)
-  removeSetComponent    → DELETE /catalog/sets/:catalogId/components/:componentId (catalog.ts:475)
+  getCatalogItems
+    HTTP method: GET
+    Path template: /catalog
+    Defining file path: apps/web/src/lib/api/catalog.ts line 194
+    Uses: callContract(contract.catalog.list)
+  getCatalogItem
+    HTTP method: GET
+    Path template: /catalog/:catalogId
+    Defining file path: apps/web/src/lib/api/catalog.ts line 204
+    Uses: callContract(contract.catalog.get)
+  createCatalogItem
+    HTTP method: POST
+    Path template: /catalog
+    Defining file path: apps/web/src/lib/api/catalog.ts line 211
+    Uses: callContract(contract.catalog.create)
+  updateCatalogItem
+    HTTP method: PATCH
+    Path template: /catalog/:catalogId
+    Defining file path: apps/web/src/lib/api/catalog.ts line 218
+    Uses: callContract(contract.catalog.update)
+  deactivateCatalogItem
+    HTTP method: POST
+    Path template: /catalog/:catalogId/deactivate
+    Defining file path: apps/web/src/lib/api/catalog.ts line 226
+    Uses: callContract(contract.catalog.deactivate)
+  activateCatalogItem
+    HTTP method: POST
+    Path template: /catalog/:catalogId/activate
+    Defining file path: apps/web/src/lib/api/catalog.ts line 233
+    Uses: callContract(contract.catalog.activate)
+  getCatalogImages
+    HTTP method: GET
+    Path template: /catalog/:catalogId/images
+    Defining file path: apps/web/src/lib/api/catalog.ts line 247
+    Uses: callContract(contract.catalog.listImages)
+  addCatalogImageByUrl
+    HTTP method: POST
+    Path template: /catalog/:catalogId/images
+    Defining file path: apps/web/src/lib/api/catalog.ts line 263
+    Request schema: AddCatalogImageByUrlRequestSchema (apps/web/src/lib/api/schemas.ts)
+    Response schema: CatalogImageResponseSchema (apps/web/src/lib/api/schemas.ts)
+  uploadCatalogImage
+    HTTP method: POST
+    Path template: /catalog/:catalogId/images/upload
+    Defining file path: apps/web/src/lib/api/catalog.ts line 284
+    Note: Uses raw fetch() bypassing request() wrapper (FormData upload requirement)
+    Request schema: N/A (FormData)
+    Response schema: UNKNOWN
+  updateCatalogImage
+    HTTP method: PATCH
+    Path template: /catalog/:catalogId/images/:imageId
+    Defining file path: apps/web/src/lib/api/catalog.ts line 311
+    Request schema: UpdateCatalogImageRequestSchema (apps/web/src/lib/api/schemas.ts)
+    Response schema: CatalogImageResponseSchema (apps/web/src/lib/api/schemas.ts)
+  deleteCatalogImage
+    HTTP method: DELETE
+    Path template: /catalog/:catalogId/images/:imageId
+    Defining file path: apps/web/src/lib/api/catalog.ts line 320
+    Uses: callContract(contract.catalog.deleteImage)
+  getCatalogIdentifiers
+    HTTP method: GET
+    Path template: /catalog/:catalogId/identifiers
+    Defining file path: apps/web/src/lib/api/catalog.ts line 334
+    Uses: callContract(contract.catalog.listIdentifiers)
+  addCatalogIdentifier
+    HTTP method: POST
+    Path template: /catalog/:catalogId/identifiers
+    Defining file path: apps/web/src/lib/api/catalog.ts line 345
+    Uses: callContract(contract.catalog.addIdentifier)
+  deleteCatalogIdentifier
+    HTTP method: DELETE
+    Path template: /catalog/:catalogId/identifiers/:identifierId
+    Defining file path: apps/web/src/lib/api/catalog.ts line 357
+    Uses: callContract(contract.catalog.deleteIdentifier)
+  getCatalogGroups
+    HTTP method: GET
+    Path template: /catalog/groups
+    Defining file path: apps/web/src/lib/api/catalog.ts line 373
+    Request schema: UNKNOWN (TODO comment at line 367)
+    Response schema: UNKNOWN (TODO comment at line 367)
+  createCatalogGroup
+    HTTP method: POST
+    Path template: /catalog/groups
+    Defining file path: apps/web/src/lib/api/catalog.ts line 381
+    Request schema: UNKNOWN (TODO comment at line 376)
+    Response schema: UNKNOWN (TODO comment at line 376)
+  updateCatalogGroup
+    HTTP method: PATCH
+    Path template: /catalog/groups/:groupId
+    Defining file path: apps/web/src/lib/api/catalog.ts line 389
+    Request schema: UNKNOWN (TODO comment at line 384)
+    Response schema: UNKNOWN (TODO comment at line 384)
+  getCatalogGroupItems
+    HTTP method: GET
+    Path template: /catalog/groups/:groupId/items
+    Defining file path: apps/web/src/lib/api/catalog.ts line 400
+    Request schema: UNKNOWN (TODO comment at line 393)
+    Response schema: UNKNOWN (TODO comment at line 393)
+  addCatalogGroupItems
+    HTTP method: POST
+    Path template: /catalog/groups/:groupId/items
+    Defining file path: apps/web/src/lib/api/catalog.ts line 409
+    Request schema: UNKNOWN (TODO comment at line 403)
+    Response schema: UNKNOWN (TODO comment at line 403)
+  removeCatalogGroupItem
+    HTTP method: DELETE
+    Path template: /catalog/groups/:groupId/items/:catalogId
+    Defining file path: apps/web/src/lib/api/catalog.ts line 417
+    Request schema: UNKNOWN (TODO comment at line 412)
+    Response schema: UNKNOWN (TODO comment at line 412)
+  getCatalogSets
+    HTTP method: GET
+    Path template: /catalog/sets
+    Defining file path: apps/web/src/lib/api/catalog.ts line 431
+    Request schema: UNKNOWN (TODO comment at line 425)
+    Response schema: UNKNOWN (TODO comment at line 425)
+  createCatalogSet
+    HTTP method: POST
+    Path template: /catalog/sets
+    Defining file path: apps/web/src/lib/api/catalog.ts line 438
+    Request schema: UNKNOWN (TODO comment at line 434)
+    Response schema: UNKNOWN (TODO comment at line 434)
+  getSetComponents
+    HTTP method: GET
+    Path template: /catalog/sets/:catalogId/components
+    Defining file path: apps/web/src/lib/api/catalog.ts line 447
+    Request schema: UNKNOWN (TODO comment at line 442)
+    Response schema: UNKNOWN (TODO comment at line 442)
+  addSetComponent
+    HTTP method: POST
+    Path template: /catalog/sets/:catalogId/components
+    Defining file path: apps/web/src/lib/api/catalog.ts line 455
+    Request schema: UNKNOWN (TODO comment at line 450)
+    Response schema: UNKNOWN (TODO comment at line 450)
+  updateSetComponent
+    HTTP method: PATCH
+    Path template: /catalog/sets/:catalogId/components/:componentId
+    Defining file path: apps/web/src/lib/api/catalog.ts line 466
+    Request schema: UNKNOWN (TODO comment at line 459)
+    Response schema: UNKNOWN (TODO comment at line 459)
+  removeSetComponent
+    HTTP method: DELETE
+    Path template: /catalog/sets/:catalogId/components/:componentId
+    Defining file path: apps/web/src/lib/api/catalog.ts line 475
+    Request schema: UNKNOWN (TODO comment at line 469)
+    Response schema: UNKNOWN (TODO comment at line 469)
+  getCatalogCostEvents
+    HTTP method: GET
+    Path template: /catalog/:catalogId/cost-events
+    Defining file path: apps/web/src/lib/api/catalog.ts line 510
+    Request schema: none
+    Response schema: UNKNOWN
 
-PREFERENCE CARDS MODULE (apps/web/src/lib/api/preference-cards.ts)
-─────────────────────────────────────────────────────────────────────
-  getPreferenceCards    → GET    /preference-cards[?surgeonId][?includeInactive] (preference-cards.ts:70)
-  getPreferenceCard     → GET    /preference-cards/:cardId        (preference-cards.ts:75)
-  getPreferenceCardVersions → GET /preference-cards/:cardId/versions (preference-cards.ts:80)
-  createPreferenceCard  → POST   /preference-cards                (preference-cards.ts:85)
-  updatePreferenceCard  → PATCH  /preference-cards/:cardId        (preference-cards.ts:90)
-  createPreferenceCardVersion → POST /preference-cards/:cardId/versions (preference-cards.ts:99)
-  deactivatePreferenceCard → POST /preference-cards/:cardId/deactivate (preference-cards.ts:104)
-  activatePreferenceCard → POST  /preference-cards/:cardId/activate (preference-cards.ts:109)
+INVENTORY MODULE (apps/web/src/lib/api/inventory.ts)
+  getInventoryItems
+    HTTP method: GET
+    Path template: /inventory/items
+    Defining file path: apps/web/src/lib/api/inventory.ts line 184
+    Uses: callContract(contract.inventory.listItems)
+  getInventoryItem
+    HTTP method: GET
+    Path template: /inventory/items/:itemId
+    Defining file path: apps/web/src/lib/api/inventory.ts line 191
+    Uses: callContract(contract.inventory.getItem)
+  createInventoryItem
+    HTTP method: POST
+    Path template: /inventory/items
+    Defining file path: apps/web/src/lib/api/inventory.ts line 198
+    Uses: callContract(contract.inventory.createItem)
+  updateInventoryItem
+    HTTP method: PATCH
+    Path template: /inventory/items/:itemId
+    Defining file path: apps/web/src/lib/api/inventory.ts line 205
+    Uses: callContract(contract.inventory.updateItem)
+  getInventoryItemHistory
+    HTTP method: GET
+    Path template: /inventory/items/:itemId/history
+    Defining file path: apps/web/src/lib/api/inventory.ts line 213
+    Uses: callContract(contract.inventory.itemHistory)
+  createInventoryEvent
+    HTTP method: POST
+    Path template: /inventory/events
+    Defining file path: apps/web/src/lib/api/inventory.ts line 222
+    Uses: callContract(contract.inventory.createEvent)
+  sendDeviceEvent
+    HTTP method: POST
+    Path template: /inventory/device-events
+    Defining file path: apps/web/src/lib/api/inventory.ts line 233
+    Request schema: DeviceEventRequestSchema (apps/web/src/lib/api/schemas.ts)
+    Response schema: DeviceEventResponseSchema (apps/web/src/lib/api/schemas.ts)
+  createDeviceEvent
+    HTTP method: POST
+    Path template: /inventory/device-events
+    Defining file path: apps/web/src/lib/api/inventory.ts line 237
+    Note: Alias for sendDeviceEvent
+  getDevices
+    HTTP method: GET
+    Path template: /inventory/devices
+    Defining file path: apps/web/src/lib/api/inventory.ts line 240
+    Request schema: none
+    Response schema: InventoryDevicesResponseSchema (apps/web/src/lib/api/schemas.ts)
+  getInventoryRiskQueue
+    HTTP method: GET
+    Path template: /inventory/risk-queue
+    Defining file path: apps/web/src/lib/api/inventory.ts line 244
+    Uses: callContract(contract.inventory.riskQueue)
+  getMissingAnalytics
+    HTTP method: GET
+    Path template: /inventory/missing-analytics
+    Defining file path: apps/web/src/lib/api/inventory.ts line 283
+    Uses: callContract(contract.inventory.missingAnalytics)
+  getMissingEvents
+    HTTP method: GET
+    Path template: /inventory/missing-events
+    Defining file path: apps/web/src/lib/api/inventory.ts line 323
+    Uses: callContract(contract.inventory.missingEvents)
+  getOpenMissingAging
+    HTTP method: GET
+    Path template: /inventory/open-missing-aging
+    Defining file path: apps/web/src/lib/api/inventory.ts line 359
+    Uses: callContract(contract.inventory.openMissingAging)
+  lookupInventoryItem
+    HTTP method: GET
+    Path template: /inventory/items/lookup
+    Defining file path: apps/web/src/lib/api/inventory.ts line 395
+    Request schema: none
+    Response schema: UNKNOWN
+  getDeviceEvents
+    HTTP method: GET
+    Path template: /inventory/device-events
+    Defining file path: apps/web/src/lib/api/inventory.ts line 444
+    Request schema: none
+    Response schema: UNKNOWN
+  getInventoryEvents
+    HTTP method: GET
+    Path template: /inventory/events
+    Defining file path: apps/web/src/lib/api/inventory.ts line 507
+    Request schema: none
+    Response schema: UNKNOWN
+
+READINESS MODULE (apps/web/src/lib/api/readiness.ts)
+  getDayBeforeReadiness
+    HTTP method: GET
+    Path template: /readiness/day-before
+    Defining file path: apps/web/src/lib/api/readiness.ts line 169
+    Request schema: UNKNOWN (TODO comment at line 159)
+    Response schema: UNKNOWN (TODO comment at line 159)
+  getCalendarSummary
+    HTTP method: GET
+    Path template: /readiness/calendar-summary
+    Defining file path: apps/web/src/lib/api/readiness.ts line 180
+    Request schema: UNKNOWN (TODO comment at line 172)
+    Response schema: UNKNOWN (TODO comment at line 172)
+  createAttestation
+    HTTP method: POST
+    Path template: /readiness/attestations
+    Defining file path: apps/web/src/lib/api/readiness.ts line 188
+    Request schema: UNKNOWN (TODO comment at line 183)
+    Response schema: UNKNOWN (TODO comment at line 183)
+  voidAttestation
+    HTTP method: POST
+    Path template: /readiness/attestations/:attestationId/void
+    Defining file path: apps/web/src/lib/api/readiness.ts line 200
+    Request schema: UNKNOWN (TODO comment at line 191)
+    Response schema: UNKNOWN (TODO comment at line 191)
+  refreshReadiness
+    HTTP method: POST
+    Path template: /readiness/refresh
+    Defining file path: apps/web/src/lib/api/readiness.ts line 206
+    Request schema: UNKNOWN (TODO comment at line 204)
+    Response schema: UNKNOWN (TODO comment at line 204)
+  getCaseVerification
+    HTTP method: GET
+    Path template: /readiness/cases/:caseId/verification
+    Defining file path: apps/web/src/lib/api/readiness.ts line 214
+    Request schema: UNKNOWN (TODO comment at line 209)
+    Response schema: UNKNOWN (TODO comment at line 209)
+
+SCHEDULE MODULE (apps/web/src/lib/api/schedule.ts)
+  getDaySchedule
+    HTTP method: GET
+    Path template: /schedule/day
+    Defining file path: apps/web/src/lib/api/schedule.ts line 95
+    Request schema: UNKNOWN (TODO comment at line 90)
+    Response schema: UNKNOWN (TODO comment at line 90)
+  getUnassignedCases
+    HTTP method: GET
+    Path template: /schedule/unassigned
+    Defining file path: apps/web/src/lib/api/schedule.ts line 100
+    Request schema: UNKNOWN (TODO comment at line 98)
+    Response schema: UNKNOWN (TODO comment at line 98)
+  createBlockTime
+    HTTP method: POST
+    Path template: /schedule/block-times
+    Defining file path: apps/web/src/lib/api/schedule.ts line 114
+    Request schema: UNKNOWN (TODO comment at line 103)
+    Response schema: UNKNOWN (TODO comment at line 103)
+  updateBlockTime
+    HTTP method: PATCH
+    Path template: /schedule/block-times/:blockTimeId
+    Defining file path: apps/web/src/lib/api/schedule.ts line 127
+    Request schema: UNKNOWN (TODO comment at line 117)
+    Response schema: UNKNOWN (TODO comment at line 117)
+  deleteBlockTime
+    HTTP method: DELETE
+    Path template: /schedule/block-times/:blockTimeId
+    Defining file path: apps/web/src/lib/api/schedule.ts line 135
+    Request schema: UNKNOWN (TODO comment at line 130)
+    Response schema: UNKNOWN (TODO comment at line 130)
+  setRoomDayConfig
+    HTTP method: PUT
+    Path template: /schedule/rooms/:roomId/day-config
+    Defining file path: apps/web/src/lib/api/schedule.ts line 145
+    Request schema: UNKNOWN (TODO comment at line 138)
+    Response schema: UNKNOWN (TODO comment at line 138)
+  reorderScheduleItems
+    HTTP method: PATCH
+    Path template: /schedule/reorder
+    Defining file path: apps/web/src/lib/api/schedule.ts line 161
+    Request schema: UNKNOWN (TODO comment at line 152)
+    Response schema: UNKNOWN (TODO comment at line 152)
 
 VENDORS MODULE (apps/web/src/lib/api/vendors.ts)
-─────────────────────────────────────────────────────────────────────
-  getVendors            → GET    /vendors[?filters]               (vendors.ts:60)
-  getVendor             → GET    /vendors/:vendorId               (vendors.ts:67)
-  createVendor          → POST   /vendors                         (vendors.ts:74)
-  updateVendor          → PATCH  /vendors/:vendorId               (vendors.ts:82)
+  getVendors
+    HTTP method: GET
+    Path template: /vendors
+    Defining file path: apps/web/src/lib/api/vendors.ts line 60
+    Request schema: none
+    Response schema: UNKNOWN
+  getVendor
+    HTTP method: GET
+    Path template: /vendors/:vendorId
+    Defining file path: apps/web/src/lib/api/vendors.ts line 67
+    Request schema: none
+    Response schema: UNKNOWN
+  createVendor
+    HTTP method: POST
+    Path template: /vendors
+    Defining file path: apps/web/src/lib/api/vendors.ts line 74
+    Request schema: none
+    Response schema: UNKNOWN
+  updateVendor
+    HTTP method: PATCH
+    Path template: /vendors/:vendorId
+    Defining file path: apps/web/src/lib/api/vendors.ts line 82
+    Request schema: none
+    Response schema: UNKNOWN
 
-LOANER SETS MODULE (apps/web/src/lib/api/loaner-sets.ts)
-─────────────────────────────────────────────────────────────────────
-  getLoanerSets         → GET    /loaner-sets[?filters]           (loaner-sets.ts:65)
-  getOpenLoanerSets     → GET    /loaner-sets/open                (loaner-sets.ts:71)
-  getOverdueLoanerSets  → GET    /loaner-sets/overdue             (loaner-sets.ts:77)
-  getLoanerSet          → GET    /loaner-sets/:loanerSetId        (loaner-sets.ts:84)
-  createLoanerSet       → POST   /loaner-sets                     (loaner-sets.ts:91)
-  returnLoanerSet       → POST   /loaner-sets/:loanerSetId/return (loaner-sets.ts:99)
+USERS MODULE (apps/web/src/lib/api/users.ts)
+  getUsers
+    HTTP method: GET
+    Path template: /users
+    Defining file path: apps/web/src/lib/api/users.ts line 48
+    Request schema: UNKNOWN (TODO comment at line 45)
+    Response schema: UNKNOWN (TODO comment at line 45)
+  getUser
+    HTTP method: GET
+    Path template: /users/:userId
+    Defining file path: apps/web/src/lib/api/users.ts line 53
+    Request schema: UNKNOWN (TODO comment at line 51)
+    Response schema: UNKNOWN (TODO comment at line 51)
+  createUser
+    HTTP method: POST
+    Path template: /users
+    Defining file path: apps/web/src/lib/api/users.ts line 58
+    Request schema: UNKNOWN (TODO comment at line 56)
+    Response schema: UNKNOWN (TODO comment at line 56)
+  updateUser
+    HTTP method: PATCH
+    Path template: /users/:userId
+    Defining file path: apps/web/src/lib/api/users.ts line 63
+    Request schema: UNKNOWN (TODO comment at line 61)
+    Response schema: UNKNOWN (TODO comment at line 61)
+  deactivateUser
+    HTTP method: POST
+    Path template: /users/:userId/deactivate
+    Defining file path: apps/web/src/lib/api/users.ts line 68
+    Request schema: UNKNOWN (TODO comment at line 66)
+    Response schema: UNKNOWN (TODO comment at line 66)
+  activateUser
+    HTTP method: POST
+    Path template: /users/:userId/activate
+    Defining file path: apps/web/src/lib/api/users.ts line 73
+    Request schema: UNKNOWN (TODO comment at line 71)
+    Response schema: UNKNOWN (TODO comment at line 71)
+  getSurgeons
+    HTTP method: GET
+    Path template: /users/surgeons
+    Defining file path: apps/web/src/lib/api/users.ts line 78
+    Request schema: UNKNOWN (TODO comment at line 76)
+    Response schema: UNKNOWN (TODO comment at line 76)
 
-REPORTS MODULE (apps/web/src/lib/api/reports.ts)
-─────────────────────────────────────────────────────────────────────
-  getAvailableReports   → GET    /reports                         (reports.ts:152)
-  getInventoryReadinessReport → GET /reports/inventory-readiness[?filters] (reports.ts:166)
-  getVerificationActivityReport → GET /reports/verification-activity[?filters] (reports.ts:180)
-  getChecklistComplianceReport → GET /reports/checklist-compliance[?filters] (reports.ts:193)
-  getCaseSummaryReport  → GET    /reports/case-summary[?filters]  (reports.ts:207)
-  getReportExportUrl    → N/A    [CLIENT-SIDE URL BUILDER]        (reports.ts:232)
-  getCancelledCasesReport → GET  /reports/cancelled-cases[?filters] (reports.ts:440)
-  getCaseTimelinesReport → GET   /reports/case-timelines[?filters] (reports.ts:453)
-  getDebriefSummaryReport → GET  /reports/debrief-summary[?filters] (reports.ts:466)
-  getCaseEventLogReport → GET    /reports/case-event-log[?filters] (reports.ts:478)
-  getVendorConcessionsReport → GET /reports/vendor-concessions[?filters] (reports.ts:491)
-  getInventoryValuationReport → GET /reports/inventory-valuation[?filters] (reports.ts:502)
-  getLoanerExposureReport → GET  /reports/loaner-exposure[?filters] (reports.ts:513)
-
-SETTINGS MODULE (apps/web/src/lib/api/settings.ts)
-─────────────────────────────────────────────────────────────────────
-  getFacilitySettings   → GET    /facility/settings               (settings.ts:104)
-  updateFacilitySettings → PATCH /facility/settings               (settings.ts:112)
-  getRooms              → GET    /rooms                           (settings.ts:117)
-  getSettingsRooms      → GET    /settings/rooms[?includeInactive] (settings.ts:130)
-  createRoom            → POST   /settings/rooms                  (settings.ts:135)
-  updateRoom            → PATCH  /settings/rooms/:roomId          (settings.ts:140)
-  deactivateRoom        → POST   /settings/rooms/:roomId/deactivate (settings.ts:145)
-  activateRoom          → POST   /settings/rooms/:roomId/activate (settings.ts:150)
-  reorderRooms          → POST   /settings/rooms/reorder          (settings.ts:155)
-  getSettingsSurgeons   → GET    /settings/surgeons               (settings.ts:164)
-  updateSurgeonSettings → PATCH  /settings/surgeons/:surgeonId    (settings.ts:173)
-  getConfigItems        → GET    /general-settings/config-items[?filters] (settings.ts:190)
-  createConfigItem      → POST   /general-settings/config-items   (settings.ts:198)
-  updateConfigItem      → PATCH  /general-settings/config-items/:id (settings.ts:207)
-  deactivateConfigItem  → POST   /general-settings/config-items/:id/deactivate (settings.ts:215)
-  activateConfigItem    → POST   /general-settings/config-items/:id/activate (settings.ts:223)
-  reorderConfigItems    → PUT    /general-settings/config-items/reorder (settings.ts:232)
-  getLocations          → GET    /locations[?includeInactive]     (settings.ts:245)
-  getLocation           → GET    /locations/:locationId           (settings.ts:250)
-  createLocation        → POST   /locations                       (settings.ts:255)
-  updateLocation        → PATCH  /locations/:locationId           (settings.ts:260)
-  deactivateLocation    → POST   /locations/:locationId/deactivate (settings.ts:265)
-  activateLocation      → POST   /locations/:locationId/activate  (settings.ts:269)
-
-AI MODULE (apps/web/src/lib/api/ai.ts)
-─────────────────────────────────────────────────────────────────────
-  explainReadiness      → POST   /ai/explain-readiness            (ai.ts:51)
-
-PLATFORM MODULE (apps/web/src/lib/api/platform.ts)
-─────────────────────────────────────────────────────────────────────
-  getPlatformHealth     → GET    /platform/health                 (platform.ts:112)
-  getFacilities         → GET    /platform/facilities             (platform.ts:120)
-  getConfigKeys         → GET    /platform/config/keys            (platform.ts:128)
-  getConfigKey          → GET    /platform/config/keys/:key       (platform.ts:132)
-  setConfigKey          → PATCH  /platform/config/keys/:key       (platform.ts:140)
-  getFacilityOverrides  → GET    /platform/config/facilities/:facilityId/overrides (platform.ts:155)
-  setFacilityOverride   → PATCH  /platform/config/facilities/:facilityId/overrides/:key (platform.ts:167)
-  clearFacilityOverride → DELETE /platform/config/facilities/:facilityId/overrides/:key (platform.ts:177)
-  getAuditLog           → GET    /platform/config/audit[?filters] (platform.ts:196)
-  getAuthAuditLog       → GET    /platform/config/auth-audit[?filters] (platform.ts:224)
-
-CASE CARDS MODULE (apps/web/src/lib/api/case-cards.ts)
-─────────────────────────────────────────────────────────────────────
-  getCaseCards          → GET    /case-cards[?filters]            (case-cards.ts:138)
-  getCaseCard           → GET    /case-cards/:id                  (case-cards.ts:146)
-  getCaseCardEditLog    → GET    /case-cards/:id/edit-log         (case-cards.ts:154)
-  getCaseCardVersions   → GET    /case-cards/:id/versions         (case-cards.ts:162)
-  createCaseCard        → POST   /case-cards                      (case-cards.ts:170)
-  updateCaseCard        → PUT    /case-cards/:id                  (case-cards.ts:179)
-  activateCaseCard      → POST   /case-cards/:id/activate         (case-cards.ts:187)
-  deprecateCaseCard     → POST   /case-cards/:id/deprecate        (case-cards.ts:196)
-  getCaseCardSurgeons   → GET    /case-cards/surgeons             (case-cards.ts:203)
-  submitCaseCardFeedback → POST  /case-cards/:caseCardId/feedback (case-cards.ts:212)
-  getCaseCardFeedback   → GET    /case-cards/:caseCardId/feedback[?status] (case-cards.ts:224)
-  reviewCaseCardFeedback → POST  /case-cards/:caseCardId/feedback/:feedbackId/review (case-cards.ts:239)
-
-ATTENTION MODULE (apps/web/src/lib/api/attention.ts)
-─────────────────────────────────────────────────────────────────────
-  getAttention          → GET    /attention[?filters]             (attention.ts:53)
-
-CASE DASHBOARD MODULE (apps/web/src/lib/api/case-dashboard.ts)
-─────────────────────────────────────────────────────────────────────
-  getCaseDashboard      → GET    /case-dashboard/:caseId          (case-dashboard.ts:154)
-  attestCaseReadiness   → POST   /case-dashboard/:caseId/attest   (case-dashboard.ts:162)
-  voidCaseAttestation   → POST   /case-dashboard/:caseId/void     (case-dashboard.ts:171)
-  updateAnesthesiaPlan  → PUT    /case-dashboard/:caseId/anesthesia (case-dashboard.ts:185)
-  linkCaseCard          → PUT    /case-dashboard/:caseId/link-case-card (case-dashboard.ts:194)
-  linkCaseCardWithReason → PUT   /case-dashboard/:caseId/link-case-card (case-dashboard.ts:207)
-  unlinkCaseCard        → POST   /case-dashboard/:caseId/case-card-unlink (case-dashboard.ts:219)
-  getCaseCardLink       → GET    /case-dashboard/:caseId/case-card-link (case-dashboard.ts:230)
-  addCaseOverride       → POST   /case-dashboard/:caseId/overrides (case-dashboard.ts:244)
-  updateCaseOverride    → PUT    /case-dashboard/:caseId/overrides/:overrideId (case-dashboard.ts:257)
-  removeCaseOverride    → DELETE /case-dashboard/:caseId/overrides/:overrideId (case-dashboard.ts:266)
-  getCaseEventLog       → GET    /case-dashboard/:caseId/event-log (case-dashboard.ts:274)
-  updateCaseSummary     → PUT    /case-dashboard/:caseId/case-summary (case-dashboard.ts:292)
-  updateCaseScheduling  → PUT    /case-dashboard/:caseId/scheduling (case-dashboard.ts:305)
-
-PHI AUDIT MODULE (apps/web/src/lib/api/phi-audit.ts)
-─────────────────────────────────────────────────────────────────────
-  getAuditEntries       → GET    /phi-audit[?filters]             (phi-audit.ts:171)
-  getAuditEntry         → GET    /phi-audit/:id                   (phi-audit.ts:175)
-  getAuditStats         → GET    /phi-audit/stats[?filters]       (phi-audit.ts:180)
-  getAuditSessions      → GET    /phi-audit/sessions[?filters]    (phi-audit.ts:185)
-  getExcessiveDenials   → GET    /phi-audit/excessive-denials[?filters] (phi-audit.ts:190)
-  getAuditAnalytics     → GET    /phi-audit/analytics[?filters]   (phi-audit.ts:195)
-  getRetentionList      → GET    /phi-audit/retention[?filters]   (phi-audit.ts:200)
-  getRetentionStatus    → GET    /phi-audit/retention/:entityId   (phi-audit.ts:204)
-
-PHI PATIENT MODULE (apps/web/src/lib/api/phi-patient.ts)
-─────────────────────────────────────────────────────────────────────
-  getPatientByCase      → GET    /phi-patient/by-case/:caseId     (phi-patient.ts:76)
-  lookupPatientByMrn    → GET    /phi-patient/lookup?mrn=:mrn     (phi-patient.ts:82)
-  searchPatients        → GET    /phi-patient/search[?filters]    (phi-patient.ts:94)
-  getPatientCases       → GET    /phi-patient/:patientId/cases    (phi-patient.ts:99)
-  createPatient         → POST   /phi-patient                     (phi-patient.ts:104)
-  updatePatient         → PUT    /phi-patient/:patientId          (phi-patient.ts:113)
-  linkPatientToCase     → PUT    /phi-patient/link-case/:caseId   (phi-patient.ts:122)
-
-SURGERY REQUESTS MODULE (apps/web/src/lib/api/surgery-requests.ts)
-─────────────────────────────────────────────────────────────────────
-  getSurgeryRequests    → GET    /admin/surgery-requests[?filters] (surgery-requests.ts:133)
-  getSurgeryRequest     → GET    /admin/surgery-requests/:id      (surgery-requests.ts:140)
-  getSurgeryRequestClinics → GET /admin/surgery-requests/clinics  (surgery-requests.ts:146)
-  returnSurgeryRequest  → POST   /admin/surgery-requests/:id/return (surgery-requests.ts:154)
-  acceptSurgeryRequest  → POST   /admin/surgery-requests/:id/accept (surgery-requests.ts:166)
-  rejectSurgeryRequest  → POST   /admin/surgery-requests/:id/reject (surgery-requests.ts:178)
-  convertSurgeryRequest → POST   /admin/surgery-requests/:id/convert (surgery-requests.ts:189)
-
-FINANCIAL READINESS MODULE (apps/web/src/lib/api/financial-readiness.ts)
-─────────────────────────────────────────────────────────────────────
-  getFinancialDashboard → GET    /admin/financial-readiness/dashboard[?filters] (financial-readiness.ts:118)
-  getFinancialReadinessDetail → GET /admin/financial-readiness/:requestId (financial-readiness.ts:125)
-  recordClinicDeclaration → POST /admin/financial-readiness/:requestId/declare (financial-readiness.ts:134)
-  recordAscVerification → POST   /admin/financial-readiness/:requestId/verify (financial-readiness.ts:143)
-  recordFinancialOverride → POST /admin/financial-readiness/:requestId/override (financial-readiness.ts:154)
+Additional modules with similar patterns (detailed mapping requires individual file analysis):
+  apps/web/src/lib/api/checklists.ts
+  apps/web/src/lib/api/settings.ts
+  apps/web/src/lib/api/case-cards.ts
+  apps/web/src/lib/api/case-dashboard.ts
+  apps/web/src/lib/api/reports.ts
+  apps/web/src/lib/api/loaner-sets.ts
+  apps/web/src/lib/api/attention.ts
+  apps/web/src/lib/api/platform.ts
+  apps/web/src/lib/api/phi-audit.ts
+  apps/web/src/lib/api/phi-patient.ts
+  apps/web/src/lib/api/ai.ts
+  apps/web/src/lib/api/preference-cards.ts
+  apps/web/src/lib/api/financial-readiness.ts
+  apps/web/src/lib/api/surgery-requests.ts
+  apps/web/src/lib/api/operations.ts
+  apps/web/src/lib/api/platform-facility-view.ts
 
 ================================================================================
-SECTION C: ENDPOINT USAGE SUMMARY (USED vs UNUSED)
+C) Endpoint usage summary (used vs unused)
 ================================================================================
 
-Usage Analysis Methodology:
-  - Searched for imports from '@/lib/api' and 'lib/api/*' across web app
-  - Found 50+ call sites across pages, components, and hooks
-  - All major wrapper modules have at least one call site
-  - Backend endpoints registered in apps/api/src/index.ts (routes)
+Backend endpoint registration source:
+apps/api/src/index.ts
 
-Key Findings:
+Registered route groups:
+/api/auth - authRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/auth.ts
 
-CONFIRMED USED MODULES (by import analysis):
-  ✓ auth.ts          - Used in: Header.tsx
-  ✓ cases.ts         - Used in: cases/page.tsx, admin/cases/page.tsx
-  ✓ schedule.ts      - Used in: calendar components (RoomBasedDayView, DayView, WeekView, MonthView, BlockTimeModal)
-  ✓ checklists.ts    - Used in: TimeoutModal.tsx, DebriefModal.tsx
-  ✓ readiness.ts     - Used in: dashboard/page.tsx, ExplainReadinessPanel.tsx
-  ✓ inventory.ts     - Used in: admin/inventory/page.tsx, admin/inventory/check-in/page.tsx
-  ✓ catalog.ts       - Used in: admin/catalog/page.tsx, admin/catalog/groups/[groupId]/page.tsx
-  ✓ vendors.ts       - Used in: admin/vendors/page.tsx
-  ✓ loaner-sets.ts   - Used in: admin/loaner-sets/page.tsx
-  ✓ reports.ts       - Used in: admin/reports/page.tsx
-  ✓ case-dashboard.ts - Used in: CaseDashboardContent.tsx, useCaseDashboardData.ts
-  ✓ attention.ts     - Used in: AttentionDrawer.tsx
-  ✓ phi-audit.ts     - Used in: admin/phi-audit/page.tsx
-  ✓ phi-patient.ts   - Used in: phi/patients/page.tsx, PatientSearchModal.tsx, PatientFormModal.tsx
-  ✓ surgery-requests.ts - Used in: admin/surgery-requests/page.tsx, admin/surgery-requests/[id]/page.tsx
-  ✓ financial-readiness.ts - Used in: admin/financial-readiness/page.tsx, admin/financial-readiness/[requestId]/page.tsx
-  ✓ ai.ts            - Used in: ExplainReadinessPanel.tsx
+/api/users - usersRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/users.ts
 
-LIKELY USED (standard patterns, no grep hits but expected):
-  ~ users.ts         - Expected in admin/users/page.tsx
-  ~ preference-cards.ts - Expected in preference-cards/page.tsx
-  ~ settings.ts      - Expected in settings pages (rooms, surgeons, locations, config-items)
-  ~ platform.ts      - Expected in platform/page.tsx
-  ~ case-cards.ts    - Expected in case-cards pages
+/api/cases - casesRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/cases.ts, apps/web/src/app/(app)/cases/page.tsx, apps/web/src/app/(app)/admin/cases/page.tsx
 
-Backend Route Registration:
-  All route modules registered in apps/api/src/index.ts:
-    - /api/auth          → authRoutes
-    - /api/users         → usersRoutes
-    - /api/cases         → casesRoutes
-    - /api/schedule      → scheduleRoutes
-    - /api/checklists    → checklistsRoutes (also /pending-reviews, /my-pending-reviews, /flagged-reviews, /surgeon/my-checklists)
-    - /api/readiness     → readinessRoutes
-    - /api/inventory     → inventoryRoutes
-    - /api/catalog       → catalogRoutes + catalogGroupsRoutes + catalogSetsRoutes + catalogImagesRoutes
-    - /api/preference-cards → preferenceCardsRoutes
-    - /api/vendors       → vendorsRoutes
-    - /api/loaner-sets   → loanerSetsRoutes
-    - /api/reports       → reportsRoutes
-    - /api/settings      → settingsRoutes (also /facility/settings, /rooms)
-    - /api/general-settings → generalSettingsRoutes
-    - /api/locations     → locationsRoutes
-    - /api/case-cards    → caseCardsRoutes
-    - /api/case-dashboard → caseDashboardRoutes
-    - /api/attention     → attentionRoutes
-    - /api/ai            → aiRoutes
-    - /api/platform      → platformRoutes
-    - /api/phi-audit     → phiAuditRoutes
-    - /api/phi-patient   → phiPatientRoutes
-    - /api/admin/surgery-requests → adminSurgeryRequestRoutes
-    - /api/admin/financial-readiness → financialReadinessRoutes
+/api/inventory - inventoryRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/inventory.ts, apps/web/src/app/(app)/admin/inventory/page.tsx
 
-UNUSED BACKEND ENDPOINTS (no client wrapper):
-  - /api/clinic/surgery-requests/*  (clinic-surgery-requests.routes.ts)
-    → Clinic-side API, not consumed by ASC web app
-  - /api/organization/*  (organization.routes.ts)
-    → Backend-only, no client wrapper found
-  - /api/admin-settings/* (admin-settings.routes.ts)
-    → Backend route exists but no dedicated client wrapper (may use direct fetch)
-  - /api/platform-config/* (platform-config.routes.ts)
-    → Platform config routes - likely merged into platform.ts wrapper
+/api/readiness - readinessRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/readiness.ts, apps/web/src/app/(app)/dashboard/page.tsx
 
-GAPS IDENTIFIED:
-  1. Organization API: Backend routes exist (organization.routes.ts) but no client wrapper
-     → Suggests organization management is backend-only or server-side only
-  2. Clinic Surgery Requests: Backend routes exist but no ASC client wrapper
-     → Expected: This is the clinic-facing API, not ASC-facing
-  3. Admin Settings: Backend route registered but no clear wrapper
-     → May be deprecated or using direct fetch
+/api (checklists prefix) - checklistsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/checklists.ts, apps/web/src/components/Checklists/TimeoutModal.tsx, apps/web/src/components/Checklists/DebriefModal.tsx
 
-================================================================================
-SECTION D: CALL SITES (WHERE CLIENT CALLS OCCUR)
-================================================================================
+/api/locations - locationsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/settings.ts, apps/web/src/app/(app)/admin/locations/page.tsx
 
-Sample Call Sites by Module (top 25 most active):
+/api/catalog - catalogRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/catalog.ts, apps/web/src/app/(app)/admin/catalog/page.tsx
 
-1. apps/web/src/app/components/Header.tsx
-   Imports: getMe, logout (from @/lib/api/auth)
-   Context: Header navigation component
-   Environment: Client-side component
+/api/catalog/groups - catalogGroupsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/catalog.ts, apps/web/src/app/(app)/admin/catalog/groups/page.tsx
 
-2. apps/web/src/app/(app)/cases/page.tsx
-   Imports: getCases (from @/lib/api/cases)
-   Context: Cases list page
-   Environment: Server component (Next.js App Router)
+/api/catalog/sets - catalogSetsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/catalog.ts, apps/web/src/app/(app)/admin/catalog/sets/page.tsx
 
-3. apps/web/src/app/(app)/admin/cases/page.tsx
-   Imports: getCases (from @/lib/api/cases)
-   Context: Admin cases management page
-   Environment: Server component
+/api/catalog (images prefix) - catalogImagesRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/catalog.ts
 
-4. apps/web/src/app/(app)/calendar/components/RoomBasedDayView.tsx
-   Imports: getDaySchedule (from @/lib/api/schedule)
-   Context: Calendar day view component
-   Environment: Client-side component
+/api/preference-cards - preferenceCardsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/preference-cards.ts, apps/web/src/app/(app)/preference-cards/page.tsx
 
-5. apps/web/src/app/(app)/calendar/components/BlockTimeModal.tsx
-   Imports: createBlockTime, updateBlockTime, deleteBlockTime (from @/lib/api/schedule)
-   Context: Block time management modal
-   Environment: Client-side component
+/api/settings - settingsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/settings.ts
 
-6. apps/web/src/components/Checklists/TimeoutModal.tsx
-   Imports: getCaseChecklists, startChecklist, respondToChecklist, signChecklist, completeChecklist
-   Context: OR Timeout checklist modal
-   Environment: Client-side component
+/api/case-cards - caseCardsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/case-cards.ts
 
-7. apps/web/src/components/Checklists/DebriefModal.tsx
-   Imports: getCaseChecklists, startChecklist, respondToChecklist, signChecklist, completeChecklist, recordAsyncReview
-   Context: Post-op Debrief checklist modal
-   Environment: Client-side component
+/api/case-dashboard - caseDashboardRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/case-dashboard.ts, apps/web/src/components/CaseDashboardModal/useCaseDashboardData.ts
 
-8. apps/web/src/app/(app)/dashboard/page.tsx
-   Imports: getDayBeforeReadiness (from @/lib/api/readiness)
-   Context: Main dashboard page (day-before readiness)
-   Environment: Server component
+/api/reports - reportsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/reports.ts, apps/web/src/app/(app)/admin/reports/standard/page.tsx
 
-9. apps/web/src/app/(app)/admin/inventory/page.tsx
-   Imports: getInventoryItems (from @/lib/api/inventory)
-   Context: Inventory management page
-   Environment: Server component
+/api/general-settings - generalSettingsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/settings.ts
 
-10. apps/web/src/app/(app)/admin/catalog/page.tsx
-    Imports: getCatalogItems (from @/lib/api/catalog)
-    Context: Catalog item management page
-    Environment: Server component
+/api/schedule - scheduleRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/schedule.ts, apps/web/src/app/(app)/calendar/page.tsx
 
-11. apps/web/src/app/(app)/admin/vendors/page.tsx
-    Imports: getVendors (from @/lib/api/vendors)
-    Context: Vendor management page
-    Environment: Server component
+/api/admin/settings - adminSettingsRoutes
+USED_BY_CLIENT: UNKNOWN (no dedicated wrapper found)
 
-12. apps/web/src/app/(app)/admin/loaner-sets/page.tsx
-    Imports: getLoanerSets (from @/lib/api/loaner-sets)
-    Context: Loaner set tracking page
-    Environment: Server component
+/api/ai - aiRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/ai.ts, apps/web/src/components/ExplainReadinessPanel.tsx
 
-13. apps/web/src/app/(app)/admin/reports/page.tsx
-    Imports: getAvailableReports, getInventoryReadinessReport, getVerificationActivityReport, etc.
-    Context: Reports dashboard
-    Environment: Server component
+/api/platform - platformRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/platform.ts
 
-14. apps/web/src/components/CaseDashboardModal/CaseDashboardContent.tsx
-    Imports: getCaseDashboard, attestCaseReadiness, voidCaseAttestation, linkCaseCard, etc.
-    Context: Case dashboard modal
-    Environment: Client-side component
+/api/vendors - vendorsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/vendors.ts, apps/web/src/app/(app)/admin/vendors/page.tsx
 
-15. apps/web/src/components/CaseDashboardModal/useCaseDashboardData.ts
-    Imports: getCaseDashboard (from @/lib/api/case-dashboard)
-    Context: Custom React hook for case dashboard data
-    Environment: Client-side hook
+/api/loaner-sets - loanerSetsRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/loaner-sets.ts, apps/web/src/app/(app)/admin/loaner-sets/page.tsx
 
-16. apps/web/src/app/components/AttentionDrawer.tsx
-    Imports: getAttention (from @/lib/api/attention)
-    Context: Attention items drawer (overdue loaners, expiring inventory)
-    Environment: Client-side component
+/api/attention - attentionRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/attention.ts
 
-17. apps/web/src/app/(app)/admin/phi-audit/page.tsx
-    Imports: getAuditEntries, getAuditStats, getAuditSessions (from @/lib/api/phi-audit)
-    Context: PHI audit log page
-    Environment: Server component
+/api/organizations - organizationRoutes
+USED_BY_CLIENT: no
+No client wrapper module found
 
-18. apps/web/src/app/(app)/phi/patients/page.tsx
-    Imports: searchPatients (from @/lib/api/phi-patient)
-    Context: Patient identity search page
-    Environment: Server component
+/api/phi-audit - phiAuditRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/phi-audit.ts
 
-19. apps/web/src/components/PatientSearchModal.tsx
-    Imports: searchPatients, lookupPatientByMrn (from @/lib/api/phi-patient)
-    Context: Patient search modal
-    Environment: Client-side component
+/api/phi-patient - phiPatientRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/phi-patient.ts, apps/web/src/app/(app)/phi/patients/page.tsx
 
-20. apps/web/src/components/PatientFormModal.tsx
-    Imports: createPatient, updatePatient (from @/lib/api/phi-patient)
-    Context: Patient identity form modal
-    Environment: Client-side component
+/api/clinic/surgery-requests - clinicSurgeryRequestRoutes
+USED_BY_CLIENT: no
+No ASC client wrapper module found (expected: clinic-facing API)
 
-21. apps/web/src/app/(app)/admin/surgery-requests/page.tsx
-    Imports: getSurgeryRequests, getSurgeryRequestClinics (from @/lib/api/surgery-requests)
-    Context: Surgery request dashboard (admin)
-    Environment: Server component
+/api/admin/surgery-requests - adminSurgeryRequestRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/surgery-requests.ts, apps/web/src/app/(app)/admin/surgery-requests/page.tsx
 
-22. apps/web/src/app/(app)/admin/surgery-requests/[id]/page.tsx
-    Imports: getSurgeryRequest, returnSurgeryRequest, acceptSurgeryRequest, rejectSurgeryRequest, convertSurgeryRequest
-    Context: Surgery request detail page
-    Environment: Server component
+/api/admin/financial-readiness - financialReadinessRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/financial-readiness.ts
 
-23. apps/web/src/app/(app)/admin/financial-readiness/page.tsx
-    Imports: getFinancialDashboard (from @/lib/api/financial-readiness)
-    Context: Financial readiness dashboard
-    Environment: Server component
+/api/operations - operationsHealthRoutes
+USED_BY_CLIENT: yes
+Primary call sites: apps/web/src/lib/api/operations.ts
 
-24. apps/web/src/app/(app)/admin/financial-readiness/[requestId]/page.tsx
-    Imports: getFinancialReadinessDetail, recordClinicDeclaration, recordAscVerification, recordFinancialOverride
-    Context: Financial readiness detail page
-    Environment: Server component
-
-25. apps/web/src/components/ExplainReadinessPanel.tsx
-    Imports: explainReadiness (from @/lib/api/ai)
-    Context: AI explanation panel for case readiness
-    Environment: Client-side component
-
-Server-Side vs Client-Side Distribution:
-  - Server Components (Next.js App Router pages): ~60% of call sites
-    → Uses token from server-side session/cookies
-    → Direct import and await of API functions
-  - Client Components (modals, forms, interactive): ~40% of call sites
-    → Uses token from client-side context/localStorage
-    → Typically wrapped in React hooks (useState, useEffect, useQuery)
+Unused backend endpoints (no client wrapper):
+/api/organizations/* - organizationRoutes (backend-only or admin-only)
+/api/clinic/surgery-requests/* - clinicSurgeryRequestRoutes (clinic portal, not ASC web app)
+/api/admin/settings/* - adminSettingsRoutes (unclear if used)
 
 ================================================================================
-SECTION E: AUTH TOKEN HANDLING AND REQUEST CONTEXT
+D) Call sites (where client calls occur)
 ================================================================================
 
-Token Storage & Injection:
+Call sites by route/page/component (selected examples):
 
-1. TOKEN STORAGE
-   Location: Client-side (browser)
-   Mechanism: Not explicitly managed in client.ts
-   Pattern Analysis:
-     - Server components: Token passed as function parameter from server session
-     - Client components: Token sourced from React context or localStorage (not visible in API wrappers)
-     - All wrapper functions accept `token: string` parameter
-     - No automatic token retrieval in wrappers (caller responsibility)
+apps/web/src/app/login/page.tsx
+  Wrapper used: login (from apps/web/src/lib/api/auth.ts)
+  Environment: client-side component
 
-2. TOKEN ATTACHMENT
-   File: apps/web/src/lib/api/client.ts (lines 148-150)
-   Code:
-     if (token) {
-       headers['Authorization'] = `Bearer ${token}`;
-     }
-   Format: Bearer token scheme (JWT)
+apps/web/src/lib/auth.tsx
+  Wrapper used: getMe, logout (from apps/web/src/lib/api/auth.ts)
+  Environment: client-side context provider
 
-3. HEADER INJECTION (Automatic)
-   File: apps/web/src/lib/api/client.ts
+apps/web/src/app/(app)/cases/page.tsx
+  Wrapper used: getCases (from apps/web/src/lib/api/cases.ts)
+  Environment: server-side component (Next.js RSC)
 
-   a) X-Access-Purpose (PHI compliance):
-      - Auto-resolved from endpoint path (lines 34-70)
-      - PHI_PURPOSE_RULES maps endpoint patterns to AccessPurpose
-      - Example: /cases/* → CLINICAL_CARE, /reports/vendor-concessions → BILLING
-      - Attached only for PHI_EXPOSING endpoints (lines 161-164)
-      - Can be overridden via RequestOptions.accessPurpose
+apps/web/src/app/(app)/admin/cases/page.tsx
+  Wrapper used: getCases (from apps/web/src/lib/api/cases.ts)
+  Environment: server-side component
 
-   b) X-Active-Persona (UX metadata):
-      - Read from localStorage: PERSONA_STORAGE_KEY (lines 153-158)
-      - Only in browser environment (typeof window !== 'undefined')
-      - Not authorization, just audit metadata
-      - Constant imported from @asc/domain
+apps/web/src/app/(app)/calendar/page.tsx
+  Wrapper used: getDaySchedule (from apps/web/src/lib/api/schedule.ts)
+  Environment: server-side component
 
-   c) X-Emergency-Justification (PHI Phase 3):
-      - Attached if RequestOptions.emergencyJustification provided (lines 167-169)
-      - Used for emergency access override scenarios
+apps/web/src/app/(app)/calendar/components/RoomBasedDayView.tsx
+  Wrapper used: getDaySchedule, reorderScheduleItems (from apps/web/src/lib/api/schedule.ts)
+  Environment: client-side component
 
-4. SERVER VS BROWSER DIFFERENCES
+apps/web/src/app/(app)/calendar/components/BlockTimeModal.tsx
+  Wrapper used: createBlockTime, updateBlockTime, deleteBlockTime (from apps/web/src/lib/api/schedule.ts)
+  Environment: client-side component
 
-   Server-Side (Next.js App Router Server Components):
-     - Token sourced from server session/cookies (outside API wrapper scope)
-     - Direct function calls (await getCases(token, ...))
-     - No localStorage access (X-Active-Persona not attached)
-     - Full access to all endpoints
+apps/web/src/components/CreateCaseModal.tsx
+  Wrapper used: createCase (from apps/web/src/lib/api/cases.ts)
+  Environment: client-side component
 
-   Client-Side (React Client Components):
-     - Token sourced from React context/localStorage (caller manages)
-     - Wrapped in React hooks (useEffect, useMutation, etc.)
-     - localStorage available (X-Active-Persona attached)
-     - Subject to browser CORS, CSP policies
+apps/web/src/components/ScheduleCaseModal.tsx
+  Wrapper used: approveCase, assignCaseRoom (from apps/web/src/lib/api/cases.ts)
+  Environment: client-side component
 
-5. REQUEST ID CORRELATION
-   File: apps/api/src/plugins/request-id.ts
-   Header: X-Request-Id
-   Purpose: Request correlation for logging/debugging
-   Injected: Server-side by Fastify plugin (not client)
-   Exposed: Via response header (exposedHeaders in CORS config)
+apps/web/src/components/Checklists/TimeoutModal.tsx
+  Wrapper used: getCaseChecklists, startChecklist, respondToChecklist, signChecklist, completeChecklist (from apps/web/src/lib/api/checklists.ts)
+  Environment: client-side component
 
-6. IDEMPOTENCY SUPPORT
-   File: apps/api/src/plugins/idempotency.js
-   Header: Idempotency-Key
-   Client Usage: Not automatically injected, caller must provide
-   Pattern: Used for mutation endpoints (POST, PUT, PATCH) to prevent duplicates
+apps/web/src/components/Checklists/DebriefModal.tsx
+  Wrapper used: getCaseChecklists, startChecklist, respondToChecklist, signChecklist, completeChecklist, recordAsyncReview (from apps/web/src/lib/api/checklists.ts)
+  Environment: client-side component
 
-7. CONTRACT-BASED VALIDATION
-   Pattern: callContract() uses @asc/contract route definitions
-   Validation:
-     - Request body validated against contract.body schema (if present)
-     - Response validated against contract.response schema (if present)
-     - Type-safe inference from Zod schemas
-   Benefit: Schema-first development, client-server contract enforcement
+apps/web/src/app/(app)/dashboard/page.tsx
+  Wrapper used: getDayBeforeReadiness (from apps/web/src/lib/api/readiness.ts)
+  Environment: server-side component
+
+apps/web/src/app/(app)/admin/inventory/page.tsx
+  Wrapper used: getInventoryItems (from apps/web/src/lib/api/inventory.ts)
+  Environment: server-side component
+
+apps/web/src/app/(app)/admin/catalog/page.tsx
+  Wrapper used: getCatalogItems (from apps/web/src/lib/api/catalog.ts)
+  Environment: server-side component
+
+apps/web/src/app/(app)/admin/vendors/page.tsx
+  Wrapper used: getVendors (from apps/web/src/lib/api/vendors.ts)
+  Environment: server-side component
+
+apps/web/src/app/(app)/admin/loaner-sets/page.tsx
+  Wrapper used: getLoanerSets (from apps/web/src/lib/api/loaner-sets.ts)
+  Environment: server-side component
+
+apps/web/src/app/(app)/admin/reports/standard/page.tsx
+  Wrapper used: getAvailableReports, various report functions (from apps/web/src/lib/api/reports.ts)
+  Environment: server-side component
+
+apps/web/src/components/CaseDashboardModal/useCaseDashboardData.ts
+  Wrapper used: getCaseDashboard (from apps/web/src/lib/api/case-dashboard.ts)
+  Environment: client-side hook
+
+apps/web/src/components/CaseDashboardModal/CaseDashboardContent.tsx
+  Wrapper used: attestCaseReadiness, voidCaseAttestation, linkCaseCard, addCaseOverride (from apps/web/src/lib/api/case-dashboard.ts)
+  Environment: client-side component
+
+apps/web/src/components/ExplainReadinessPanel.tsx
+  Wrapper used: explainReadiness (from apps/web/src/lib/api/ai.ts), getDayBeforeReadiness (from apps/web/src/lib/api/readiness.ts)
+  Environment: client-side component
+
+Server-side vs client-side pattern:
+Server components call API wrappers directly during render (Next.js App Router)
+Client components call API wrappers in event handlers, useEffect, or React hooks
+Token is passed explicitly to all wrapper functions (not globally stored)
 
 ================================================================================
-SECTION F: INCONSISTENCIES, GAPS, AND ISSUES
+E) Auth token handling and request context
 ================================================================================
 
-FINDINGS:
+Token storage location:
+File: apps/web/src/lib/auth.tsx
+Mechanism: localStorage (client-side)
+Key: 'asc-auth-token' (inferred from pattern)
 
-1. INCONSISTENT SCHEMA VALIDATION
-   Issue: Many wrapper functions have TODO comments for Zod schemas
-   Pattern: "// TODO(api-schema): needs Zod request + response schema"
-   Count: 100+ occurrences across all wrapper modules
-   Impact: Runtime type safety missing, potential for shape mismatches
-   Files Affected: All wrapper modules except contract-based endpoints
-   Recommendation: Migrate to contract-based wrappers or add Zod schemas
+Token attachment mechanism:
+File: apps/web/src/lib/api/client.ts lines 148-150
+Pattern: if (token) { headers['Authorization'] = `Bearer ${token}`; }
+All wrapper functions accept token as explicit parameter
 
-2. DUAL WRAPPER PATTERNS
-   Issue: Some endpoints have both direct request() and callContract() wrappers
-   Example: cases.ts uses callContract for most functions, but deleteCase uses request()
-   Explanation: Contract migration in progress (Wave 6B.2)
-   Impact: Inconsistent validation, dual maintenance burden
-   Marked: [CONTRACT] annotations in Section B indicate contract-based routes
-   Recommendation: Complete contract migration for consistency
+Additional headers automatically attached:
 
-3. DIRECT FETCH BYPASS
-   Issue: uploadCatalogImage() uses raw fetch() instead of request() wrapper
-   File: apps/web/src/lib/api/catalog.ts (lines 284-299)
-   Reason: FormData upload requires raw fetch (request() only handles JSON)
-   Comment: "// fetch-allowlist: FormData upload requires raw fetch"
-   Impact: Bypasses centralized error handling, header injection
-   Note: Special case justified by technical limitation
+X-Access-Purpose (PHI compliance):
+  File: apps/web/src/lib/api/client.ts lines 34-70 (resolveAccessPurpose function)
+  Pattern: Auto-resolved from endpoint path using PHI_PURPOSE_RULES array
+  Attached: Only for PHI_EXPOSING endpoints (lines 161-164)
+  Examples: /cases → CLINICAL_CARE, /reports/vendor-concessions → BILLING, /schedule/day → SCHEDULING
+  Override: Can be explicitly provided via RequestOptions.accessPurpose
 
-4. UNUSED BACKEND ROUTES (No Client Wrapper)
-   a) Organization API (apps/api/src/routes/organization.routes.ts)
-      - Backend routes registered at /api/organization/*
-      - No client wrapper in apps/web/src/lib/api/
-      - Likely server-side only or admin-only direct access
-      - PHI Phase 1 feature (multi-org support)
+X-Active-Persona (UX metadata):
+  File: apps/web/src/lib/api/client.ts lines 153-158
+  Source: localStorage.getItem(PERSONA_STORAGE_KEY)
+  Constant: From @asc/domain package
+  Environment guard: typeof window !== 'undefined'
+  Purpose: Audit metadata, not authorization
 
-   b) Clinic Surgery Requests (apps/api/src/routes/clinic-surgery-requests.routes.ts)
-      - Backend routes registered at /api/clinic/surgery-requests/*
-      - No ASC client wrapper (expected: separate clinic portal)
-      - Phase 1 Readiness feature for clinic-to-ASC workflow
+X-Emergency-Justification (PHI Phase 3):
+  File: apps/web/src/lib/api/client.ts lines 167-169
+  Attached: If RequestOptions.emergencyJustification is provided
+  Purpose: Emergency access override scenarios
 
-   c) Admin Settings (apps/api/src/routes/admin-settings.routes.ts)
-      - Backend route registered
-      - No dedicated client wrapper found
-      - Possible deprecated route or merged into settings.ts
+Server-side vs browser-side differences:
 
-   d) Platform Config (apps/api/src/routes/platform-config.routes.ts)
-      - Backend route file exists (inferred from imports)
-      - Wrapper functions exist in platform.ts (getConfigKeys, etc.)
-      - Likely consolidated into platform.ts module
+Server-side (Next.js App Router server components):
+  Token sourced from server session/cookies (outside wrapper scope)
+  Direct function calls (await getCases(token, ...))
+  No localStorage access (X-Active-Persona not attached)
+  Call pattern: Synchronous await in component render
 
-5. NAMING INCONSISTENCIES
-   Issue: Endpoint paths don't always match wrapper function names
-   Examples:
-     - getSettingsRooms() → /settings/rooms (why not getRooms? getRooms exists but points to /rooms)
-     - getMyPendingReviews() → /my-pending-reviews (global path, not scoped to /pending-reviews)
-     - getSurgeonChecklists() → /surgeon/my-checklists (path uses /surgeon prefix)
-   Impact: Developer confusion, harder to trace endpoint from function name
-   Severity: Minor (documented in Section B)
+Client-side (React client components):
+  Token sourced from React context or localStorage
+  Wrapped in React hooks (useEffect, useMutation, custom hooks)
+  localStorage available (X-Active-Persona attached)
+  Call pattern: Asynchronous in event handlers or hooks
 
-6. DUPLICATE/OVERLAPPING FUNCTIONS
-   Issue: Multiple ways to achieve same result
-   Examples:
-     - createDeviceEvent vs sendDeviceEvent (inventory.ts:235 - alias)
-     - linkCaseCard vs linkCaseCardWithReason (case-dashboard.ts:194, 207)
-       → Both call same endpoint, different parameter structures
-   Impact: API surface bloat, caller confusion
-   Recommendation: Deprecate aliases, consolidate to single canonical function
+Base URL configuration:
+Environment variable: process.env.NEXT_PUBLIC_API_URL
+Default: 'http://localhost:3001/api'
+File: apps/web/src/lib/api/client.ts line 20
 
-7. MISSING ENV VAR FALLBACK WARNING
-   Issue: API_BASE falls back to localhost:3001 silently
-   Code: const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-   Risk: Production builds without NEXT_PUBLIC_API_URL will call localhost
-   Recommendation: Add build-time validation for NEXT_PUBLIC_API_URL in production
+Error handling:
+Class: ApiError (apps/web/src/lib/api/client.ts lines 79-91)
+Properties: status, code, message, details
+Envelope support: Handles both new { error: { code, message } } and legacy { error: "string" } formats
 
-8. TOKEN PARAMETER VERBOSITY
-   Issue: Every function requires explicit token parameter
-   Pattern: getUsers(token: string, ...) across all 200+ functions
-   Alternative Pattern: Global token context or singleton client instance
-   Trade-offs:
-     - Current: Explicit, testable, server/client agnostic
-     - Alternative: Less verbose, harder to test, requires context setup
-   Status: Deliberate design choice (explicit > implicit)
+Response envelope unwrapping:
+File: apps/web/src/lib/api/client.ts lines 195-203
+Pattern: Auto-unwrap { data } envelope if present, fallback to raw JSON
 
-9. RESPONSE ENVELOPE MIGRATION IN PROGRESS
-   Issue: Client handles both { data } envelope and legacy bare payloads
-   Code: client.ts lines 195-203 (auto-unwrap logic)
-   Comment: "// Auto-unwrap { data } envelope if present (new convention)"
-   Impact: Backend migration incomplete, client must handle both shapes
-   Recommendation: Complete backend migration, remove legacy handling
+Schema validation:
+Request validation: If RequestOptions.requestSchema provided (lines 130-139)
+Response validation: If RequestOptions.responseSchema provided (lines 206-215)
+Validation library: Zod
 
-10. ERROR HANDLING INCONSISTENCY
-    Issue: Some wrappers have custom error logic, others rely on client.ts
-    Example: uploadCatalogImage() has inline .catch() (catalog.ts:294)
-    Standard: client.ts throws ApiError for all failures
-    Impact: Caller must handle both ApiError and generic Error
-    Recommendation: Standardize all wrappers to use client.ts error handling
+================================================================================
+F) Inconsistencies or gaps (factual only)
+================================================================================
 
-11. PHI ACCESS PURPOSE GAPS
-    Issue: Some PHI-exposing endpoints might not be in PHI_PURPOSE_RULES
-    File: client.ts lines 34-57 (PHI_PURPOSE_RULES array)
-    Risk: New PHI endpoints bypass access purpose header
-    Pattern: First match wins (early patterns take precedence)
-    Recommendation: Add governance test to validate all PHI endpoints have purpose mapping
+Wrapper functions defined but never used:
+UNKNOWN (requires comprehensive grep of all call sites across entire codebase)
 
-12. CONTRACT ROUTE COVERAGE
-    Analysis: ~30% of endpoints use contract-based validation
-    Marked: [CONTRACT] annotations in Section B
-    Contract Endpoints:
-      - cases.* (12/12 functions)
-      - inventory.* (6/10 functions)
-      - catalog.* (8/27 functions)
-    Non-Contract Endpoints:
-      - All reports.* functions
-      - All checklists.* functions
-      - All settings.* functions
-      - All PHI modules
-    Impact: Inconsistent validation, schema drift risk
-    Recommendation: Phase 2 contract migration for remaining endpoints
+Client call sites bypassing wrapper:
+apps/web/src/lib/api/catalog.ts line 284-298
+  Function: uploadCatalogImage
+  Reason: FormData upload requires raw fetch (request() only handles JSON)
+  Comment present: fetch-allowlist: FormData upload requires raw fetch
+  File path: apps/web/src/lib/api/catalog.ts
 
-13. MISSING WRAPPER FOR ORGANIZATION API
-    Backend Route File: apps/api/src/routes/organization.routes.ts
-    Expected Wrapper: apps/web/src/lib/api/organization.ts (NOT FOUND)
-    Endpoints (inferred):
-      - GET /api/organization (list organizations)
-      - POST /api/organization (create organization)
-      - PATCH /api/organization/:id (update organization)
-    Status: PHI Phase 1 (multi-org support)
-    Reason: Server-side only, or admin-only feature not exposed to standard users
-    Impact: No gap if intentional, missing capability if oversight
+Endpoint naming mismatches:
+UNKNOWN (no obvious mismatches identified in sample review)
 
-14. POTENTIAL SECURITY ISSUE: TOKEN IN QUERY STRING
-    Risk Assessment: All wrappers pass token in Authorization header (CORRECT)
-    No instances found of token in URL query parameters
-    Status: COMPLIANT with security best practices
-    Note: Audit confirms no token leakage in URLs
+Divergent base URLs:
+No divergent base URLs found
+All wrappers use API_BASE from apps/web/src/lib/api/client.ts line 20
 
-15. REDUNDANT BASE URL IMPORTS
-    Issue: Some modules import API_BASE but don't use it
-    Example: inventory.ts imports API_BASE but only uses it in uploadCatalogImage raw fetch
-    Impact: Minor code bloat, confusing imports
-    Recommendation: Remove unused imports
+Duplicated configuration locations:
+No duplicated base URL configuration found
+Single source: apps/web/src/lib/api/client.ts
+
+TODO comments indicating missing schemas:
+auth.ts: 3 TODO(api-schema) comments
+readiness.ts: 5 TODO(api-schema) comments
+schedule.ts: 7 TODO(api-schema) comments
+users.ts: 7 TODO(api-schema) comments
+catalog.ts: 10+ TODO(api-schema) comments (groups and sets endpoints)
+settings.ts: multiple TODO(api-schema) comments
+checklists.ts: multiple TODO(api-schema) comments
+case-dashboard.ts: multiple TODO(api-schema) comments
+reports.ts: multiple TODO(api-schema) comments
+
+Dual wrapper patterns (contract-based vs direct request):
+cases.ts: Mostly uses callContract(), but deleteCase uses request() (line 148)
+catalog.ts: Mixed usage - core catalog uses callContract(), groups/sets use request()
+inventory.ts: Mixed usage - core inventory uses callContract(), analytics use request()
+
+Function aliases:
+inventory.ts line 237: createDeviceEvent is alias for sendDeviceEvent
+
+Backend routes without client wrapper:
+/api/organizations/* - organizationRoutes registered but no client wrapper found
+/api/clinic/surgery-requests/* - clinicSurgeryRequestRoutes registered but no ASC client wrapper (expected: clinic portal)
+/api/admin/settings/* - adminSettingsRoutes registered but no dedicated wrapper found
+
+Contract package coverage:
+Contract routes defined: cases, inventory, catalog, operations (packages/contract/src/routes/index.ts)
+Missing contract definitions: auth, users, settings, schedule, checklists, reports, vendors, loaner-sets, case-cards, case-dashboard, readiness, attention, platform, phi-audit, phi-patient, ai, preference-cards, financial-readiness, surgery-requests
+
+PHI_PURPOSE_RULES coverage:
+File: apps/web/src/lib/api/client.ts lines 34-57
+Rules defined: 34 pattern rules
+Coverage: Major PHI_EXPOSING endpoints covered
+Gap analysis: UNKNOWN (requires audit of all PHI endpoints vs rules)
+
+Environment variable fallback:
+API_BASE defaults to localhost:3001 if NEXT_PUBLIC_API_URL not set
+Risk: Production builds without env var will call localhost
+File: apps/web/src/lib/api/client.ts line 20
 
 ================================================================================
 END OF SNAPSHOT
-================================================================================
-
-Summary Statistics:
-  - Total Client Wrapper Modules: 24
-  - Total Exported Functions: 200+
-  - Contract-Based Endpoints: ~60 (30% coverage)
-  - Schema-Validated Endpoints: ~60 (30% coverage)
-  - Call Sites Identified: 50+
-  - Backend Route Files: 31
-  - Confirmed Used Modules: 17
-  - Likely Used Modules: 5
-  - Unused Backend Routes: 4
-  - Identified Gaps/Issues: 15
-
-Health Score: 75/100
-  + Strong centralized client architecture (client.ts + contract-client.ts)
-  + Comprehensive wrapper coverage for all major features
-  + PHI compliance built into request layer (X-Access-Purpose)
-  + Type-safe contract-based validation for 30% of endpoints
-  - Schema validation incomplete (100+ TODO markers)
-  - Contract migration in progress (70% remaining)
-  - Dual patterns (request + callContract) create maintenance burden
-  - Missing wrappers for some backend routes (organization, clinic APIs)
-
-Recommendations:
-  1. Complete Zod schema migration for all non-contract endpoints
-  2. Complete contract-based wrapper migration (target: 100% coverage)
-  3. Add build-time check for NEXT_PUBLIC_API_URL in production
-  4. Create organization.ts wrapper if organization API is user-facing
-  5. Deprecate function aliases (createDeviceEvent, etc.)
-  6. Add governance test for PHI_PURPOSE_RULES completeness
-  7. Clean up unused imports (API_BASE, etc.)
-  8. Document token sourcing patterns (server vs client)
-  9. Add E2E test coverage for critical paths
-  10. Consider OpenAPI spec generation from @asc/contract for external docs
-
 ================================================================================

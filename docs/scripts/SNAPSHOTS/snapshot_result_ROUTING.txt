@@ -1,108 +1,785 @@
-ROUTING SNAPSHOT - COMPLETE ANALYSIS
-================================================================================
-
-**Generated:** 2026-02-12
-**Framework(s) Used:**
-- Web: Next.js 14.2.0 (App Router)
-- API: Fastify 4.27.0 (plugin pattern)
-
-**High-Level Separation:**
-- Web app: Separate Next.js application with file-system routing under `apps/web/src/app`
-- API: Separate Fastify server with plugin-based route registration under `apps/api/src/routes`
-- All API routes prefixed with `/api/`
-- Production: Caddy reverse proxy routes `/api/*` → `api:3001`, `/*` → `web:3000`
+ROUTING STRUCTURE SNAPSHOT
+ASC Inventory Truth System
+Generated: 2026-02-14
 
 ================================================================================
-WEB APPLICATION ROUTES (Next.js App Router - File System Based)
+1. TOP-LEVEL SUMMARY
 ================================================================================
 
-**Root Layout:** `apps/web/src/app/layout.tsx`
-- Provides: AuthProvider, PersonaProvider, global CSS, theme script
-- Applies to: All routes
+Framework(s):
+- Web Application: Next.js 14.2 (App Router)
+- API: Fastify (Node.js)
 
-**Unauthenticated Routes:**
-```
-/                 → page.tsx (redirects based on auth)
-/login            → login/page.tsx
-```
-
-**Route Group (app):** `(app)/layout.tsx`
-- Applies: AuthGuard wrapper to all nested routes
-- URL impact: None (parentheses indicate grouping only)
-- All routes below require authentication
-
-**Authenticated Routes:**
-```
-Dashboard & Navigation:
-  /dashboard                  → (app)/dashboard/page.tsx
-  /calendar                   → (app)/calendar/page.tsx
-  /help                       → (app)/help/page.tsx
-
-Case Management:
-  /cases                      → (app)/cases/page.tsx
-  /case-cards                 → (app)/case-cards/page.tsx
-  /case/[caseId]              → (app)/case/[caseId]/page.tsx (dynamic)
-  /case/[caseId]/verify       → (app)/case/[caseId]/verify/page.tsx (dynamic)
-
-Operating Room Workflows:
-  /or/timeout/[caseId]        → (app)/or/timeout/[caseId]/page.tsx (dynamic)
-  /or/debrief/[caseId]        → (app)/or/debrief/[caseId]/page.tsx (dynamic)
-
-User-Specific:
-  /surgeon/my-checklists      → (app)/surgeon/my-checklists/page.tsx
-  /pending-reviews            → (app)/pending-reviews/page.tsx
-  /unassigned-cases           → (app)/unassigned-cases/page.tsx
-  /phi/patients               → (app)/phi/patients/page.tsx
-
-Administrative (/admin):
-  /admin/cases                → (app)/admin/cases/page.tsx
-  /admin/users                → (app)/admin/users/page.tsx
-  /admin/locations            → (app)/admin/locations/page.tsx
-  /admin/vendors              → (app)/admin/vendors/page.tsx
-
-  /admin/catalog              → (app)/admin/catalog/page.tsx
-  /admin/catalog/groups       → (app)/admin/catalog/groups/page.tsx
-  /admin/catalog/groups/[groupId] → (app)/admin/catalog/groups/[groupId]/page.tsx (dynamic)
-  /admin/catalog/sets         → (app)/admin/catalog/sets/page.tsx
-
-  /admin/inventory            → (app)/admin/inventory/page.tsx
-  /admin/inventory/check-in   → (app)/admin/inventory/check-in/page.tsx
-  /admin/inventory/risk-queue → (app)/admin/inventory/risk-queue/page.tsx
-
-  /admin/general-settings     → (app)/admin/general-settings/page.tsx
-  /admin/general-settings/case-dashboard → (app)/admin/general-settings/case-dashboard/page.tsx
-  /admin/general-settings/facility → (app)/admin/general-settings/facility/page.tsx
-  /admin/general-settings/operating-rooms → (app)/admin/general-settings/operating-rooms/page.tsx
-  /admin/general-settings/surgeons → (app)/admin/general-settings/surgeons/page.tsx
-
-  /admin/loaner-sets          → (app)/admin/loaner-sets/page.tsx
-  /admin/preference-cards     → (app)/preference-cards/page.tsx
-  /admin/pending-reviews      → (app)/admin/pending-reviews/page.tsx
-  /admin/reports              → (app)/admin/reports/page.tsx
-  /admin/phi-audit            → (app)/admin/phi-audit/page.tsx
-
-  /admin/surgery-requests     → (app)/admin/surgery-requests/page.tsx
-  /admin/surgery-requests/[id] → (app)/admin/surgery-requests/[id]/page.tsx (dynamic)
-
-  /admin/financial-readiness  → (app)/admin/financial-readiness/page.tsx
-  /admin/financial-readiness/[requestId] → (app)/admin/financial-readiness/[requestId]/page.tsx (dynamic)
-
-Platform Control Plane:
-  /platform                   → (app)/platform/page.tsx (custom layout at platform/layout.tsx)
-```
+High-level Separation:
+- Web app: Next.js frontend (apps/web)
+- API: Fastify backend (apps/api)
+- Web app makes HTTP requests to API endpoints
+- Reverse proxy (Caddy) routes /api/* to API service in production
 
 ================================================================================
-API ROUTES (Fastify)
+2. APPLICATION ROUTES (Next.js App Router)
 ================================================================================
 
-**All routes prefixed with `/api/`**
-**Registration:** `apps/api/src/index.ts` lines 182-216
+Root Layout:
+apps/web/src/app/layout.tsx
+- Provides AuthProvider, PersonaProvider, theme initialization
+- Renders Footer component
+- Applies to all routes
 
-**Admin Settings (prefix: /api/admin/settings)** → `admin-settings.routes.ts`
-```
-GET  /api/admin/settings   Aggregator: returns all settings (facility, rooms, surgeons, config items)
-```
+Root Route:
+/
+apps/web/src/app/page.tsx
+
+Login Route:
+/login
+apps/web/src/app/login/page.tsx
+
+Authenticated Route Group:
+(app)
+apps/web/src/app/(app)/layout.tsx
+- Wraps all authenticated routes with AuthGuard
+- All child routes require authentication
+
+Authenticated Routes Tree:
+├── /dashboard
+│   apps/web/src/app/(app)/dashboard/page.tsx
+├── /cases
+│   apps/web/src/app/(app)/cases/page.tsx
+├── /case/:caseId
+│   apps/web/src/app/(app)/case/[caseId]/page.tsx
+├── /case/:caseId/verify
+│   apps/web/src/app/(app)/case/[caseId]/verify/page.tsx
+├── /case/:caseId/timeline
+│   apps/web/src/app/(app)/case/[caseId]/timeline/page.tsx
+├── /calendar
+│   apps/web/src/app/(app)/calendar/page.tsx
+├── /case-cards
+│   apps/web/src/app/(app)/case-cards/page.tsx
+├── /preference-cards
+│   apps/web/src/app/(app)/preference-cards/page.tsx
+├── /pending-reviews
+│   apps/web/src/app/(app)/pending-reviews/page.tsx
+├── /unassigned-cases
+│   apps/web/src/app/(app)/unassigned-cases/page.tsx
+├── /help
+│   apps/web/src/app/(app)/help/page.tsx
+├── /readiness/calendar-summary
+│   apps/web/src/app/(app)/readiness/calendar-summary/page.tsx
+├── /or/timeout/:caseId
+│   apps/web/src/app/(app)/or/timeout/[caseId]/page.tsx
+├── /or/debrief/:caseId
+│   apps/web/src/app/(app)/or/debrief/[caseId]/page.tsx
+├── /surgeon/my-checklists
+│   apps/web/src/app/(app)/surgeon/my-checklists/page.tsx
+├── /phi/patients
+│   apps/web/src/app/(app)/phi/patients/page.tsx
+├── /admin
+│   apps/web/src/app/(app)/admin/page.tsx
+├── /admin/cases
+│   apps/web/src/app/(app)/admin/cases/page.tsx
+├── /admin/pending-reviews
+│   apps/web/src/app/(app)/admin/pending-reviews/page.tsx
+├── /admin/users
+│   apps/web/src/app/(app)/admin/users/page.tsx
+├── /admin/locations
+│   apps/web/src/app/(app)/admin/locations/page.tsx
+├── /admin/vendors
+│   apps/web/src/app/(app)/admin/vendors/page.tsx
+├── /admin/loaner-sets
+│   apps/web/src/app/(app)/admin/loaner-sets/page.tsx
+├── /admin/devices
+│   apps/web/src/app/(app)/admin/devices/page.tsx
+├── /admin/devices/events
+│   apps/web/src/app/(app)/admin/devices/events/page.tsx
+├── /admin/phi-audit
+│   apps/web/src/app/(app)/admin/phi-audit/page.tsx
+├── /admin/surgery-requests
+│   apps/web/src/app/(app)/admin/surgery-requests/page.tsx
+├── /admin/surgery-requests/:id
+│   apps/web/src/app/(app)/admin/surgery-requests/[id]/page.tsx
+├── /admin/financial-readiness
+│   apps/web/src/app/(app)/admin/financial-readiness/page.tsx
+├── /admin/financial-readiness/:requestId
+│   apps/web/src/app/(app)/admin/financial-readiness/[requestId]/page.tsx
+├── /admin/operations-health
+│   apps/web/src/app/(app)/admin/operations-health/page.tsx
+├── /admin/reports
+│   apps/web/src/app/(app)/admin/reports/page.tsx
+├── /admin/reports/standard
+│   apps/web/src/app/(app)/admin/reports/standard/page.tsx
+├── /admin/catalog
+│   apps/web/src/app/(app)/admin/catalog/page.tsx
+├── /admin/catalog/groups
+│   apps/web/src/app/(app)/admin/catalog/groups/page.tsx
+├── /admin/catalog/groups/:groupId
+│   apps/web/src/app/(app)/admin/catalog/groups/[groupId]/page.tsx
+├── /admin/catalog/sets
+│   apps/web/src/app/(app)/admin/catalog/sets/page.tsx
+├── /admin/catalog/:catalogId/cost-history
+│   apps/web/src/app/(app)/admin/catalog/[catalogId]/cost-history/page.tsx
+├── /admin/inventory
+│   apps/web/src/app/(app)/admin/inventory/page.tsx
+├── /admin/inventory/check-in
+│   apps/web/src/app/(app)/admin/inventory/check-in/page.tsx
+├── /admin/inventory/risk-queue
+│   apps/web/src/app/(app)/admin/inventory/risk-queue/page.tsx
+├── /admin/inventory/missing
+│   apps/web/src/app/(app)/admin/inventory/missing/page.tsx
+├── /admin/inventory/missing-analytics
+│   apps/web/src/app/(app)/admin/inventory/missing-analytics/page.tsx
+├── /admin/inventory/missing-events
+│   apps/web/src/app/(app)/admin/inventory/missing-events/page.tsx
+├── /admin/inventory/open-missing-aging
+│   apps/web/src/app/(app)/admin/inventory/open-missing-aging/page.tsx
+├── /admin/inventory/financial-ledger
+│   apps/web/src/app/(app)/admin/inventory/financial-ledger/page.tsx
+├── /admin/general-settings
+│   apps/web/src/app/(app)/admin/general-settings/page.tsx
+├── /admin/general-settings/facility
+│   apps/web/src/app/(app)/admin/general-settings/facility/page.tsx
+├── /admin/general-settings/operating-rooms
+│   apps/web/src/app/(app)/admin/general-settings/operating-rooms/page.tsx
+├── /admin/general-settings/surgeons
+│   apps/web/src/app/(app)/admin/general-settings/surgeons/page.tsx
+├── /admin/general-settings/case-dashboard
+│   apps/web/src/app/(app)/admin/general-settings/case-dashboard/page.tsx
+├── /admin/print
+│   apps/web/src/app/(app)/admin/print/page.tsx
+├── /admin/print/operations-health
+│   apps/web/src/app/(app)/admin/print/operations-health/page.tsx
+├── /admin/print/operations-weekly
+│   apps/web/src/app/(app)/admin/print/operations-weekly/page.tsx
+├── /admin/print/open-missing-aging
+│   apps/web/src/app/(app)/admin/print/open-missing-aging/page.tsx
+├── /admin/print/financial-integrity
+│   apps/web/src/app/(app)/admin/print/financial-integrity/page.tsx
+├── /admin/print/missing-drivers
+│   apps/web/src/app/(app)/admin/print/missing-drivers/page.tsx
+├── /admin/print/device-errors
+│   apps/web/src/app/(app)/admin/print/device-errors/page.tsx
+└── /platform (Platform Admin Route Group)
+    apps/web/src/app/(app)/platform/layout.tsx
+    - Requires PLATFORM_ADMIN role
+    - Client-side access control check
+    ├── /platform
+    │   apps/web/src/app/(app)/platform/page.tsx
+    ├── /platform/config-audit
+    │   apps/web/src/app/(app)/platform/config-audit/page.tsx
+    ├── /platform/auth-audit
+    │   apps/web/src/app/(app)/platform/auth-audit/page.tsx
+    └── /platform/facility-view (Nested Layout)
+        apps/web/src/app/(app)/platform/facility-view/layout.tsx
+        - Adds FacilityContextSelect component
+        ├── /platform/facility-view
+        │   apps/web/src/app/(app)/platform/facility-view/page.tsx
+        ├── /platform/facility-view/operations-health
+        │   apps/web/src/app/(app)/platform/facility-view/operations-health/page.tsx
+        ├── /platform/facility-view/reports
+        │   apps/web/src/app/(app)/platform/facility-view/reports/page.tsx
+        ├── /platform/facility-view/print
+        │   apps/web/src/app/(app)/platform/facility-view/print/page.tsx
+        ├── /platform/facility-view/print/operations-health
+        │   apps/web/src/app/(app)/platform/facility-view/print/operations-health/page.tsx
+        ├── /platform/facility-view/print/operations-weekly
+        │   apps/web/src/app/(app)/platform/facility-view/print/operations-weekly/page.tsx
+        ├── /platform/facility-view/print/open-missing-aging
+        │   apps/web/src/app/(app)/platform/facility-view/print/open-missing-aging/page.tsx
+        ├── /platform/facility-view/print/missing-drivers
+        │   apps/web/src/app/(app)/platform/facility-view/print/missing-drivers/page.tsx
+        ├── /platform/facility-view/print/device-errors
+        │   apps/web/src/app/(app)/platform/facility-view/print/device-errors/page.tsx
+        └── /platform/facility-view/print/financial-integrity
+            apps/web/src/app/(app)/platform/facility-view/print/financial-integrity/page.tsx
+
+Dynamic Route Parameters:
+- [caseId] - Surgical case identifier
+- [catalogId] - Catalog item identifier
+- [groupId] - Catalog group identifier
+- [id] - Generic identifier (surgery requests)
+- [requestId] - Financial readiness request identifier
 
 ================================================================================
-END OF ROUTING SNAPSHOT
+3. API ROUTES (Fastify)
+================================================================================
+
+Entry Point:
+apps/api/src/index.ts
+- Registers all route modules with prefix /api/*
+- Health check at /api/health
+
+Authentication Routes:
+Prefix: /api/auth
+File: apps/api/src/routes/auth.routes.ts
+- POST /api/auth/login
+- GET /api/auth/me
+- POST /api/auth/logout
+
+User Routes:
+Prefix: /api/users
+File: apps/api/src/routes/users.routes.ts
+- GET /api/users
+- GET /api/users/surgeons
+- GET /api/users/:id
+- POST /api/users
+- PATCH /api/users/:id
+- POST /api/users/:id/deactivate
+- POST /api/users/:id/activate
+
+Case Routes:
+Prefix: /api/cases
+File: apps/api/src/routes/cases.routes.ts
+- GET /api/cases (contract route)
+- GET /api/cases/:caseId (contract route)
+- PATCH /api/cases/:caseId (contract route)
+- POST /api/cases/:caseId/approve (contract route)
+- POST /api/cases/:caseId/reject (contract route)
+- POST /api/cases/:caseId/assign-room (contract route)
+- POST /api/cases (contract route)
+- POST /api/cases/:caseId/activate (contract route)
+- POST /api/cases/:caseId/deactivate (contract route)
+- POST /api/cases/:caseId/cancel (contract route)
+- POST /api/cases/:caseId/check-in-preop (contract route)
+- GET /api/cases/:caseId/status-events (contract route)
+- POST /api/cases/:id/preference-card
+- PUT /api/cases/:id/requirements
+- DELETE /api/cases/:id
+
+Inventory Routes:
+Prefix: /api/inventory
+File: apps/api/src/routes/inventory.routes.ts
+- POST /api/inventory/events (contract route)
+- POST /api/inventory/bulk-events (contract route)
+- POST /api/inventory/items
+- GET /api/inventory/items/lookup
+- POST /api/inventory/device-events
+- GET /api/inventory/devices
+- GET /api/inventory/items (contract route)
+- GET /api/inventory/items/:itemId (contract route)
+- POST /api/inventory/items (contract route)
+- PATCH /api/inventory/items/:itemId (contract route)
+- GET /api/inventory/items/:itemId/history (contract route)
+- GET /api/inventory/risk-queue (contract route)
+- GET /api/inventory/missing-analytics (contract route)
+- GET /api/inventory/missing-events (contract route)
+- GET /api/inventory/open-missing-aging (contract route)
+
+Readiness Routes:
+Prefix: /api/readiness
+File: apps/api/src/routes/readiness.routes.ts
+- GET /api/readiness/day-before
+- GET /api/readiness/calendar-summary
+- GET /api/readiness/cases/:id
+- POST /api/readiness/attestations
+- GET /api/readiness/cases/:id/attestations
+- POST /api/readiness/attestations/:id/void
+- GET /api/readiness/cases/:id/verification
+- POST /api/readiness/refresh
+
+Checklist Routes:
+Prefix: /api
+File: apps/api/src/routes/checklists.routes.ts
+- GET /api/facility/settings
+- PATCH /api/facility/settings
+- GET /api/rooms
+- GET /api/checklists/templates
+- GET /api/checklists/templates/:type
+- PUT /api/checklists/templates/:type
+- PATCH /api/checklists/templates/:type
+- PUT /api/surgeon/checklists/:instanceId/feedback
+- PATCH /api/surgeon/checklists/:instanceId/feedback
+- GET /api/cases/:id/checklists
+- POST /api/cases/:id/checklists/start
+- POST /api/cases/:id/checklists/:type/respond
+- POST /api/cases/:id/checklists/:type/sign
+- POST /api/cases/:id/checklists/:type/complete
+- POST /api/cases/:id/checklists/debrief/async-review
+- GET /api/pending-reviews
+- GET /api/my-pending-reviews
+- GET /api/flagged-reviews
+- POST /api/flagged-reviews/:signatureId/resolve
+- POST /api/flagged-reviews/:instanceId/resolve-surgeon-flag
+- GET /api/surgeon/my-checklists
+
+Location Routes:
+Prefix: /api/locations
+File: apps/api/src/routes/locations.routes.ts
+- GET /api/locations
+- GET /api/locations/:id
+- POST /api/locations
+- PATCH /api/locations/:id
+- POST /api/locations/:id/deactivate
+- POST /api/locations/:id/activate
+
+Catalog Routes:
+Prefix: /api/catalog
+File: apps/api/src/routes/catalog.routes.ts
+- GET /api/catalog (contract route)
+- GET /api/catalog/:catalogId (contract route)
+- POST /api/catalog (contract route)
+- PATCH /api/catalog/:catalogId (contract route)
+- POST /api/catalog/:catalogId/deactivate (contract route)
+- POST /api/catalog/:catalogId/activate (contract route)
+- GET /api/catalog/:catalogId/identifiers (contract route)
+- POST /api/catalog/:catalogId/identifiers (contract route)
+- DELETE /api/catalog/:catalogId/identifiers/:identifierId (contract route)
+- GET /api/catalog/:catalogId/cost-history
+
+Catalog Group Routes:
+Prefix: /api/catalog/groups
+File: apps/api/src/routes/catalog-groups.routes.ts
+- GET /api/catalog/groups
+- POST /api/catalog/groups
+- PATCH /api/catalog/groups/:groupId
+- GET /api/catalog/groups/:groupId/items
+- POST /api/catalog/groups/:groupId/items
+- DELETE /api/catalog/groups/:groupId/items/:catalogId
+
+Catalog Set Routes:
+Prefix: /api/catalog/sets
+File: apps/api/src/routes/catalog-sets.routes.ts
+- GET /api/catalog/sets
+- POST /api/catalog/sets
+- GET /api/catalog/sets/:catalogId/components
+- POST /api/catalog/sets/:catalogId/components
+- PATCH /api/catalog/sets/:catalogId/components/:componentId
+- DELETE /api/catalog/sets/:catalogId/components/:componentId
+
+Catalog Image Routes:
+Prefix: /api/catalog
+File: apps/api/src/routes/catalog-images.routes.ts
+- DELETE /api/catalog/:catalogId/images/:imageId (contract route)
+- GET /api/catalog/:catalogId/images (contract route)
+- POST /api/catalog/:catalogId/images
+- POST /api/catalog/:catalogId/images/upload
+- PATCH /api/catalog/:catalogId/images/:imageId/order
+
+Preference Card Routes:
+Prefix: /api/preference-cards
+File: apps/api/src/routes/preference-cards.routes.ts
+- GET /api/preference-cards
+- GET /api/preference-cards/:id
+- GET /api/preference-cards/:id/versions
+- POST /api/preference-cards
+- PATCH /api/preference-cards/:id
+- POST /api/preference-cards/:id/versions
+- POST /api/preference-cards/:id/deactivate
+- POST /api/preference-cards/:id/activate
+
+Settings Routes:
+Prefix: /api/settings
+File: apps/api/src/routes/settings.routes.ts
+- GET /api/settings/rooms
+- POST /api/settings/rooms
+- PATCH /api/settings/rooms/:id
+- POST /api/settings/rooms/:id/deactivate
+- POST /api/settings/rooms/:id/activate
+- POST /api/settings/rooms/reorder
+- GET /api/settings/surgeons
+- PATCH /api/settings/surgeons/:id
+
+Case Card Routes:
+Prefix: /api/case-cards
+File: apps/api/src/routes/case-cards.routes.ts
+- GET /api/case-cards
+- GET /api/case-cards/:id
+- GET /api/case-cards/:id/edit-log
+- GET /api/case-cards/:id/versions
+- POST /api/case-cards
+- PUT /api/case-cards/:id
+- POST /api/case-cards/:id/activate
+- POST /api/case-cards/:id/deprecate
+- POST /api/case-cards/:id/delete
+- POST /api/case-cards/:id/clone
+- POST /api/case-cards/:id/lock
+- POST /api/case-cards/:id/unlock
+- POST /api/case-cards/:id/revert/:versionId
+- GET /api/case-cards/surgeons
+- POST /api/case-cards/:caseCardId/versions
+- GET /api/case-cards/:caseCardId/versions/:versionId/sections
+- POST /api/case-cards/:caseCardId/versions/:versionId/sections
+- PATCH /api/case-cards/:caseCardId/versions/:versionId/sections/:sectionId
+- PATCH /api/case-cards/:caseCardId/versions/:versionId/sections/:sectionId/items/:itemId
+- GET /api/case-cards/versions/:versionId/full
+
+Case Dashboard Routes:
+Prefix: /api/case-dashboard
+File: apps/api/src/routes/case-dashboard.routes.ts
+- GET /api/case-dashboard/:caseId
+- POST /api/case-dashboard/:caseId/attest
+- POST /api/case-dashboard/:caseId/void
+- PUT /api/case-dashboard/:caseId/anesthesia
+- PUT /api/case-dashboard/:caseId/link-case-card
+- POST /api/case-dashboard/:caseId/case-card-unlink
+- GET /api/case-dashboard/:caseId/case-card-link
+- POST /api/case-dashboard/:caseId/overrides
+- PUT /api/case-dashboard/:caseId/overrides/:overrideId
+- DELETE /api/case-dashboard/:caseId/overrides/:overrideId
+- GET /api/case-dashboard/:caseId/event-log
+- PUT /api/case-dashboard/:caseId/case-summary
+- PUT /api/case-dashboard/:caseId/scheduling
+
+Report Routes:
+Prefix: /api/reports
+File: apps/api/src/routes/reports.routes.ts
+- GET /api/reports
+- GET /api/reports/financial-ledger
+- GET /api/reports/risk-queue-summary
+- GET /api/reports/missing-analytics
+- GET /api/reports/open-missing-aging
+- GET /api/reports/device-errors
+- GET /api/reports/operations-health
+- GET /api/reports/operations-weekly
+- GET /api/reports/missing-drivers
+- GET /api/reports/financial-integrity
+- GET /api/reports/standard
+
+General Settings Routes:
+Prefix: /api/general-settings
+File: apps/api/src/routes/general-settings.routes.ts
+- GET /api/general-settings/config-items
+- POST /api/general-settings/config-items
+- PATCH /api/general-settings/config-items/:id
+- POST /api/general-settings/config-items/:id/deactivate
+- POST /api/general-settings/config-items/:id/activate
+- PUT /api/general-settings/config-items/reorder
+- PATCH /api/general-settings/config-items/reorder
+
+Schedule Routes:
+Prefix: /api/schedule
+File: apps/api/src/routes/schedule.routes.ts
+- GET /api/schedule/day
+- GET /api/schedule/unassigned
+- POST /api/schedule/block-times
+- PATCH /api/schedule/block-times/:id
+- DELETE /api/schedule/block-times/:id
+- PUT /api/schedule/rooms/:roomId/day-config
+- PATCH /api/schedule/rooms/:roomId/cases/reorder
+
+Admin Settings Routes:
+Prefix: /api/admin/settings
+File: apps/api/src/routes/admin-settings.routes.ts
+- GET /api/admin/settings
+
+AI Routes:
+Prefix: /api/ai
+File: apps/api/src/routes/ai.routes.ts
+- POST /api/ai/explain-readiness
+
+Vendor Routes:
+Prefix: /api/vendors
+File: apps/api/src/routes/vendors.routes.ts
+- GET /api/vendors
+- GET /api/vendors/:vendorId
+- POST /api/vendors
+- PATCH /api/vendors/:vendorId
+
+Loaner Set Routes:
+Prefix: /api/loaner-sets
+File: apps/api/src/routes/loaner-sets.routes.ts
+- GET /api/loaner-sets
+- GET /api/loaner-sets/open
+- GET /api/loaner-sets/overdue
+- GET /api/loaner-sets/:loanerSetId
+- POST /api/loaner-sets
+- POST /api/loaner-sets/:loanerSetId/check-in
+
+Attention Routes:
+Prefix: /api/attention
+File: apps/api/src/routes/attention.routes.ts
+- GET /api/attention
+
+Organization Routes:
+Prefix: /api/organizations
+File: apps/api/src/routes/organization.routes.ts
+- GET /api/organizations
+- POST /api/organizations
+- PATCH /api/organizations/:id
+- GET /api/organizations/:id/members
+- POST /api/organizations/:id/members
+- DELETE /api/organizations/:id/members/:userId
+
+PHI Audit Routes:
+Prefix: /api/phi-audit
+File: apps/api/src/routes/phi-audit.routes.ts
+- GET /api/phi-audit/access-log
+- GET /api/phi-audit/emergency-log
+- GET /api/phi-audit/break-glass-log
+- GET /api/phi-audit/user-activity
+- GET /api/phi-audit/patient-access-history
+- GET /api/phi-audit/export-log
+- GET /api/phi-audit/data-inventory
+- GET /api/phi-audit/compliance-summary
+
+PHI Patient Routes:
+Prefix: /api/phi-patient
+File: apps/api/src/routes/phi-patient.routes.ts
+- GET /api/phi-patient/by-case/:caseId
+- GET /api/phi-patient/lookup
+- GET /api/phi-patient
+- GET /api/phi-patient/:patientId/cases
+- POST /api/phi-patient
+- PUT /api/phi-patient/:patientId
+- PUT /api/phi-patient/:caseId/link
+
+Clinic Surgery Request Routes:
+Prefix: /api/clinic/surgery-requests
+File: apps/api/src/routes/clinic-surgery-requests.routes.ts
+- POST /api/clinic/surgery-requests
+- GET /api/clinic/surgery-requests
+- GET /api/clinic/surgery-requests/:id
+- POST /api/clinic/surgery-requests/:id/withdraw
+
+Admin Surgery Request Routes:
+Prefix: /api/admin/surgery-requests
+File: apps/api/src/routes/admin-surgery-requests.routes.ts
+- GET /api/admin/surgery-requests
+- GET /api/admin/surgery-requests/clinics
+- GET /api/admin/surgery-requests/:id
+- POST /api/admin/surgery-requests/:id/return
+- POST /api/admin/surgery-requests/:id/accept
+- POST /api/admin/surgery-requests/:id/reject
+- POST /api/admin/surgery-requests/:id/checklist/complete
+- POST /api/admin/surgery-requests/:id/convert
+
+Financial Readiness Routes:
+Prefix: /api/admin/financial-readiness
+File: apps/api/src/routes/financial-readiness.routes.ts
+- GET /api/admin/financial-readiness/dashboard
+- GET /api/admin/financial-readiness/:requestId
+- POST /api/admin/financial-readiness/:requestId/declare
+- POST /api/admin/financial-readiness/:requestId/verify
+- POST /api/admin/financial-readiness/:requestId/override
+
+Operations Health Routes:
+Prefix: /api/operations
+File: apps/api/src/routes/operations-health.routes.ts
+- GET /api/operations/health-summary (contract route)
+
+Platform Routes:
+Prefix: /api/platform
+File: apps/api/src/routes/platform.routes.ts
+- GET /api/platform/health
+- GET /api/platform/facilities
+
+Platform Config Routes:
+Prefix: /api/platform/config
+File: apps/api/src/routes/platform-config.routes.ts
+- GET /api/platform/config/keys
+- GET /api/platform/config/keys/:key
+- PATCH /api/platform/config/keys/:key
+- GET /api/platform/config/facilities/:facilityId/overrides
+- PATCH /api/platform/config/facilities/:facilityId/overrides/:key
+- DELETE /api/platform/config/facilities/:facilityId/overrides/:key
+- GET /api/platform/config/audit-log
+- GET /api/platform/config/auth-audit
+
+Platform Facility View Routes:
+Prefix: /api/platform/facility-view
+File: apps/api/src/routes/platform-facility-view.routes.ts
+- GET /api/platform/facility-view/reports
+- GET /api/platform/facility-view/operations-health
+- GET /api/platform/facility-view/missing-analytics
+- GET /api/platform/facility-view/open-missing-aging
+- GET /api/platform/facility-view/device-errors
+- GET /api/platform/facility-view/financial-integrity
+
+================================================================================
+4. ROUTE GROUPING AND LAYOUT BOUNDARIES
+================================================================================
+
+Next.js Route Groups:
+(app)
+- Route group (not part of URL path)
+- Layout: apps/web/src/app/(app)/layout.tsx
+- Enforces authentication via AuthGuard
+- All authenticated routes are children of this group
+
+Nested Layout: Platform Admin
+- Path: /platform
+- Layout: apps/web/src/app/(app)/platform/layout.tsx
+- Enforces PLATFORM_ADMIN role check
+- Client-side access control
+- Renders access denied UI for non-platform admins
+
+Nested Layout: Facility View
+- Path: /platform/facility-view
+- Layout: apps/web/src/app/(app)/platform/facility-view/layout.tsx
+- Adds FacilityContextSelect component for cross-facility viewing
+- Used by PLATFORM_ADMIN to view data from any facility
+
+API Route Registration:
+- All API routes registered in apps/api/src/index.ts
+- Routes organized by domain/feature into separate files
+- Each route file exports a Fastify plugin function
+- Common prefixes:
+  - /api/auth - Authentication
+  - /api/cases - Case management
+  - /api/inventory - Inventory operations
+  - /api/catalog - Catalog management
+  - /api/admin/* - Admin-specific operations
+  - /api/platform/* - Platform admin control plane
+  - /api/phi-* - PHI-related operations
+  - /api/clinic/* - Clinic-facing operations
+
+Shared Middleware/Guards:
+- fastify.authenticate - JWT verification (API-wide)
+- requireCapabilities - Capability-based authorization
+- requirePhiAccess - PHI access control and audit
+- requirePlatformAdmin - Platform admin role check
+- idempotent - Idempotency key handling
+
+================================================================================
+5. NAMING COLLISIONS OR AMBIGUITIES
+================================================================================
+
+Case vs Cases:
+- /case/:caseId - Individual case detail page (singular)
+- /cases - Case listing page (plural)
+- Consistent with REST convention (singular for detail, plural for list)
+
+Admin Routes Overlap:
+- /admin/cases - Admin case listing
+- /cases - General case listing
+- Both exist as separate routes with different access controls
+
+Pending Reviews:
+- /pending-reviews - User-facing pending reviews
+- /admin/pending-reviews - Admin pending reviews view
+- Different pages with potentially different authorization
+
+Print Routes:
+- /admin/print - Admin print index
+- /admin/print/* - Multiple print-specific views
+- /platform/facility-view/print/* - Platform admin print views
+- Pattern: print routes are nested under their respective areas
+
+Catalog Routes:
+- /api/catalog - Base catalog operations
+- /api/catalog/groups - Catalog group operations
+- /api/catalog/sets - Catalog set operations
+- /api/catalog/:catalogId/images - Image operations for specific catalog item
+- No collision: groups and sets are prefixed, images use catalogId parameter
+
+Settings Routes:
+- /api/settings - Operating room and surgeon settings
+- /api/general-settings - General configuration items
+- /api/admin/settings - Admin-level settings
+- Different route prefixes prevent collision
+
+Surgery Request Routes:
+- /api/clinic/surgery-requests - Clinic-facing API
+- /api/admin/surgery-requests - Admin-facing API
+- /admin/surgery-requests - Admin UI page
+- Clear separation by prefix (clinic vs admin)
+
+Platform Routes:
+- /platform - Platform admin UI pages
+- /api/platform - Platform admin API routes
+- Consistent separation between UI (no /api prefix) and API (with /api prefix)
+
+Checklists Routes:
+- Prefix: /api (not /api/checklists)
+- Routes use paths like /api/facility/settings, /api/rooms, /api/cases/:id/checklists
+- Non-standard prefix compared to other route groups
+- Source: apps/api/src/routes/checklists.routes.ts registered with prefix '/api'
+
+Operations Health:
+- /admin/operations-health - Admin UI page
+- /api/operations/health-summary - API endpoint
+- Different path segments (operations-health vs operations)
+
+================================================================================
+6. NOTES ON INFERRED INTENT
+================================================================================
+
+Route Group Naming:
+- (app) indicates authenticated application routes
+- Parentheses in Next.js 14 App Router denote route groups (excluded from URL)
+
+Dynamic Parameters:
+- [caseId] indicates a case identifier parameter
+- [catalogId] indicates a catalog item identifier
+- [groupId] indicates a catalog group identifier
+- [id] indicates a generic identifier (context-dependent)
+- [requestId] indicates a financial readiness request identifier
+- Square brackets indicate dynamic route segments in Next.js App Router
+
+Authentication Boundaries:
+- Root (/) and /login are outside (app) group - public access
+- All routes within (app) group require authentication
+- Platform routes require additional PLATFORM_ADMIN role
+
+Access Control Layers:
+- Layout-level guards (AuthGuard in (app)/layout.tsx)
+- Nested layout guards (PLATFORM_ADMIN check in platform/layout.tsx)
+- API-level guards (requireCapabilities, requirePhiAccess, requirePlatformAdmin)
+- Multi-layered defense: client-side UI guards + server-side API enforcement
+
+PHI Protection:
+- Routes with phi-* prefix indicate PHI-sensitive operations
+- requirePhiAccess middleware enforces access logging and authorization
+- PHI audit routes provide visibility into PHI access patterns
+
+Print Routes:
+- /admin/print/* routes likely serve print-optimized views
+- /platform/facility-view/print/* routes serve print views for platform admins
+- Separated from main UI routes for specialized rendering
+
+Contract Routes:
+- Some API routes use registerContractRoute instead of fastify.get/post/etc
+- Indicates validation against @asc/contract schemas
+- Contract routes provide type-safe, validated API endpoints
+- Source: registerContractRoute calls in routes/*.routes.ts files
+
+Facility Context:
+- /platform/facility-view routes allow viewing data across facilities
+- FacilityContextSelect component enables facility switching
+- PLATFORM_ADMIN can view any facility's data (read-only based on naming)
+
+Separation of Concerns:
+- /admin/* routes are facility-scoped administrative functions
+- /platform/* routes are cross-facility platform administration
+- Clear boundary between tenant operations and platform operations
+
+RESTful Patterns:
+- Activate/deactivate pattern used instead of DELETE (soft delete)
+- POST for actions (activate, deactivate, convert, accept, reject)
+- PATCH for partial updates, PUT for full replacement
+- Consistent across catalog, users, locations, preference cards
+
+Checklist Workflow:
+- /api/cases/:id/checklists/start - Initiate checklist
+- /api/cases/:id/checklists/:type/respond - Answer questions
+- /api/cases/:id/checklists/:type/sign - Sign off
+- /api/cases/:id/checklists/:type/complete - Mark complete
+- Sequential workflow pattern inferred from route naming
+
+Versioning Pattern:
+- Preference cards and case cards have /versions endpoints
+- GET /:id/versions - List versions
+- POST /:id/versions - Create new version
+- POST /:id/revert/:versionId - Revert to previous version
+- Indicates versioned content management
+
+Financial Readiness Workflow:
+- /api/admin/financial-readiness/:requestId/declare - Declare status
+- /api/admin/financial-readiness/:requestId/verify - Verify status
+- /api/admin/financial-readiness/:requestId/override - Override status
+- Sequential workflow with escalation path
+
+Loaner Set Lifecycle:
+- POST /api/loaner-sets - Create/checkout loaner set
+- GET /api/loaner-sets/open - List open loaner sets
+- GET /api/loaner-sets/overdue - List overdue loaner sets
+- POST /api/loaner-sets/:loanerSetId/check-in - Return loaner set
+- Checkout and check-in pattern for tracking vendor equipment
+
+Missing Inventory Analysis:
+- /api/inventory/missing-analytics - Analytics view
+- /api/inventory/missing-events - Event history
+- /api/inventory/open-missing-aging - Aging report
+- Multiple views of missing inventory from different analytical perspectives
+
+================================================================================
+END OF SNAPSHOT
 ================================================================================

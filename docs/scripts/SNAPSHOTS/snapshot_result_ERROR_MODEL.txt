@@ -1,6 +1,6 @@
 ================================================================================
 ERROR MODEL SNAPSHOT
-Generated: 2026-02-12
+Generated: 2026-02-14
 ================================================================================
 
 This snapshot documents the error handling model across the ASC Inventory system,
@@ -127,7 +127,7 @@ Endpoints: All protected routes, /api/auth/login, /api/clinic/surgery-requests
 ---------------
 Condition: Authenticated but lacking authorization (role, capability, PHI access)
 Files:
-- apps/api/src/plugins/auth.ts:111,136,178,206 (role/capability/facility context failures)
+- apps/api/src/plugins/auth.ts:111,136,178,206 (role/capability/context guards)
 - apps/api/src/plugins/phi-guard.ts:312,333,349,375,391,421,437,460,493,512,540,562,595 (PHI access denials)
 - apps/api/src/routes/reports.routes.ts:156 (report access denial)
 - apps/api/src/routes/admin-surgery-requests.routes.ts:35,51,109,131,153,172 (facility context required)

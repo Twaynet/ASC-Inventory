@@ -1,739 +1,421 @@
-EVENTS SNAPSHOT
-Generated: 2026-02-12
-Codebase: C:\Users\missp\source\repos\ASC-Inventory
-Commit: 4d4e1b0 (master)
-
 ================================================================================
-A) EVENT TYPE / ENUM DEFINITIONS
+SNAPSHOT: EVENT AND AUDIT LOGGING MODEL (EVENTS)
+Generated: 2026-02-14
+Scope: Implemented event sources, persistence, types, emission, and consumption
 ================================================================================
 
-InventoryEventType (Zod enum)
-  Values: RECEIVED, VERIFIED, LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED, EXPIRED, RETURNED, ADJUSTED
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 283-294
-  DB enum: inventory_event_type (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 59-69)
-  Consumed by: apps/api/src/routes/inventory.routes.ts, apps/api/src/repositories/postgres/inventory.repository.ts
+A) Event sources and definitions
+================================================================================
+C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts
+Defines: InventoryEventType, AttestationType, ChecklistType, ChecklistStatus, SignatureMethod, SurgeryRequestEventType, SurgeryRequestActorType, PhiClassification, AccessPurpose
 
-AttestationType (Zod enum)
-  Values: CASE_READINESS, SURGEON_ACKNOWLEDGMENT
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 296-300
-  DB enum: attestation_type (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 71-74)
-  Consumed by: apps/api/src/routes/readiness.routes.ts
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts
+Defines: CreateInventoryEventRequestSchema, CreateAttestationRequestSchema, CreateDeviceEventRequestSchema, SignChecklistRequestSchema
 
-DeviceType (Zod enum)
-  Values: barcode, rfid, nfc, other
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 574
-  DB enum: device_type (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 76-81)
-  Consumed by: apps/api/src/routes/inventory.routes.ts
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts
+Defines: AuthEventType, AuthFailureReason, AuthAuditContext
 
-DevicePayloadType (Zod enum)
-  Values: scan, presence, input
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 578
-  DB enum: device_payload_type (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 83-87)
-  Consumed by: apps/api/src/routes/inventory.routes.ts
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\phi-audit.service.ts
+Defines: PhiClassificationType, AccessPurposeType, AccessOutcome, PhiAccessContext
 
-ChecklistType (Zod enum)
-  Values: TIMEOUT, DEBRIEF
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 660-661
-  DB enum: checklist_type (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql line 8)
-  Consumed by: apps/api/src/services/checklists.service.ts, apps/api/src/routes/checklists.routes.ts
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\case-status.service.ts
+Defines: StatusTransitionContext, StatusEventRow
 
-ChecklistStatus (Zod enum)
-  Values: NOT_STARTED, IN_PROGRESS, COMPLETED
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 663-664
-  DB enum: checklist_status (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql line 9)
-  Consumed by: apps/api/src/services/checklists.service.ts
+C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\012_case_dashboard.sql
+Defines: case_event_type enum (CASE_CARD_LINKED, CASE_CARD_CHANGED, READINESS_ATTESTED, READINESS_VOIDED, OVERRIDE_ADDED, OVERRIDE_MODIFIED, OVERRIDE_REMOVED, SCHEDULING_CHANGED, ANESTHESIA_PLAN_CHANGED, CASE_CREATED, CASE_ACTIVATED, CASE_CANCELLED)
 
-SignatureMethod (Zod enum)
-  Values: LOGIN, PIN, BADGE, KIOSK_TAP
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 666-667
-  DB enum: signature_method (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql line 10)
-  Consumed by: apps/api/src/services/checklists.service.ts
+B) Event persistence tables (DB)
+================================================================================
+Table name: inventory_event
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Key columns: id, facility_id, inventory_item_id, event_type (inventory_event_type), case_id, location_id, previous_location_id, sterility_status, notes, performed_by_user_id, device_event_id, occurred_at, created_at
+Append-only enforcement: prevent_modification() trigger (inventory_event_no_update, inventory_event_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
 
-AuthEventType (TypeScript union type, NOT Zod)
-  Values: LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts line 14
-  No DB enum (stored as VARCHAR(50))
-  Consumed by: apps/api/src/routes/auth.routes.ts, apps/api/src/routes/platform-config.routes.ts
+Table name: attestation
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Key columns: id, facility_id, case_id, type (attestation_type), attested_by_user_id, readiness_state_at_time, notes, created_at
+Append-only enforcement: prevent_modification() trigger (attestation_no_update, attestation_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
 
-AuthFailureReason (TypeScript union type, NOT Zod)
-  Values: user_not_found, bad_password, account_disabled, facility_not_found, invalid_token
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts lines 16-21
-  No DB enum (stored as VARCHAR(100))
-  Consumed by: apps/api/src/routes/auth.routes.ts
+Table name: device_event
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
+Key columns: id, facility_id, device_id, device_type, payload_type, raw_value, processed_item_id, processed, processing_error, occurred_at, created_at
+Append-only enforcement: prevent_modification() trigger (device_event_no_update, device_event_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql
 
-SurgeryRequestEventType (Zod enum)
-  Values: SUBMITTED, RESUBMITTED, RETURNED, ACCEPTED, REJECTED, WITHDRAWN, CONVERTED
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 316-325
-  DB enum: surgery_request_event_type (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\059_surgery_request.sql lines 19-27)
-  Consumed by: apps/api/src/services/surgery-request.service.ts
+Table name: case_checklist_response
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql
+Key columns: id, instance_id, item_key, value, completed_by_user_id, completed_at, created_at
+Append-only enforcement: prevent_modification() trigger (case_checklist_response_no_update, case_checklist_response_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql
 
-SurgeryRequestActorType (Zod enum)
-  Values: CLINIC, ASC
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 327-328
-  DB enum: surgery_request_actor_type (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\059_surgery_request.sql lines 34-37)
-  Consumed by: apps/api/src/services/surgery-request.service.ts
+Table name: case_checklist_signature
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql
+Key columns: id, instance_id, role, signed_by_user_id, signed_at, method (signature_method), created_at
+Append-only enforcement: prevent_modification() trigger (case_checklist_signature_no_update, case_checklist_signature_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql
 
-PhiClassification (Zod enum)
-  Values: PHI_CLINICAL, PHI_BILLING, PHI_AUDIT
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 56
-  DB enum: phi_classification (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\054_phi_access_audit_log.sql line 9)
-  Consumed by: apps/api/src/plugins/phi-guard.ts, apps/api/src/services/phi-audit.service.ts
+Table name: case_event_log
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\012_case_dashboard.sql
+Key columns: id, case_id, facility_id, event_type (case_event_type), user_id, user_role, user_name, description, override_id, case_card_version_id, created_at
+Append-only enforcement: prevent_modification() trigger (case_event_log_no_update, case_event_log_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\012_case_dashboard.sql
 
-AccessPurpose (Zod enum)
-  Values: CLINICAL_CARE, SCHEDULING, BILLING, AUDIT, EMERGENCY
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 60-67
-  DB enum: access_purpose (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\054_phi_access_audit_log.sql line 10)
-  Consumed by: apps/api/src/plugins/phi-guard.ts, apps/api/src/services/phi-audit.service.ts
+Table name: surgical_case_status_event
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\036_case_status_events.sql
+Key columns: id, surgical_case_id, from_status, to_status, reason, context (JSONB), actor_user_id, created_at
+Append-only enforcement: prevent_modification() trigger (case_status_event_no_update, case_status_event_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\036_case_status_events.sql
 
-AccessOutcome (DB enum only)
-  Values: ALLOWED, DENIED
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\054_phi_access_audit_log.sql line 11
-  TypeScript type: apps/api/src/services/phi-audit.service.ts line 28
-  Consumed by: apps/api/src/plugins/phi-guard.ts, apps/api/src/services/phi-audit.service.ts
+Table name: catalog_event
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\037_catalog_event.sql
+Key columns: id, facility_id, catalog_item_id, action (TEXT), actor_user_id, payload (JSONB), created_at
+Append-only enforcement: prevent_modification() trigger (catalog_event_no_update, catalog_event_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\037_catalog_event.sql
 
-CatalogEventAction (no enum, free TEXT)
-  Observed values: IMAGE_ADDED, IMAGE_REMOVED, IDENTIFIER_ADDED, IDENTIFIER_REMOVED
-  No DB enum. Stored as TEXT field in catalog_event.action
-  Consumed by: apps/api/src/routes/catalog-images.routes.ts, apps/api/src/routes/catalog.routes.ts
+Table name: auth_audit_log
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\048_auth_audit_log.sql
+Key columns: id, event_type (VARCHAR), facility_id, user_id, username, user_roles (TEXT[]), success, failure_reason, request_id, ip_address, user_agent, created_at
+Append-only enforcement: prevent_modification() trigger (auth_audit_log_no_update, auth_audit_log_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\048_auth_audit_log.sql
 
-CaseCardLinkAction (CHECK constraint, not enum)
-  Values: LINKED, UNLINKED, RELINKED
-  Defined by CHECK constraint in migration 049 line 13
-  Consumed by: apps/api/src/routes/case-dashboard.routes.ts
+Table name: case_card_link_event
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\049_case_card_link_events.sql
+Key columns: id, case_id, facility_id, action (VARCHAR), source_case_card_id, source_case_card_version_id, snapshot_json (JSONB), reason_code, reason_note, performed_by_user_id, performed_by_name, performed_at, created_at
+Append-only enforcement: prevent_modification() trigger (case_card_link_event_no_update, case_card_link_event_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\049_case_card_link_events.sql
 
-CostOverrideReason (DB enum)
-  Values: CATALOG_ERROR, NEGOTIATED_DISCOUNT, VENDOR_CONCESSION, DAMAGE_CREDIT, EXPIRED_CREDIT, CONTRACT_ADJUSTMENT, GRATIS_CONVERSION, OTHER
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\043_financial_attribution.sql lines 41-50
-  Consumed by: apps/api/src/routes/inventory.routes.ts (validation only, no Zod schema)
+Table name: phi_access_audit_log
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\054_phi_access_audit_log.sql
+Key columns: id, user_id, user_roles (TEXT[]), facility_id, organization_ids (UUID[]), case_id, phi_classification, access_purpose, outcome, denial_reason, request_id, endpoint, http_method, created_at
+Append-only enforcement: prevent_modification() trigger (phi_access_audit_log_no_update, phi_access_audit_log_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\054_phi_access_audit_log.sql
+Extended columns (Phase 3): is_emergency, emergency_justification — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\055_phi_phase3_audit_extensions.sql
+Extended columns (Phase 4): breach_context (JSONB) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\056_phi_phase4_retention_breach.sql
 
-GratisReason (DB enum)
-  Values: VENDOR_SAMPLE, VENDOR_SUPPORT, CLINICAL_TRIAL, GOODWILL, WARRANTY_REPLACEMENT, OTHER
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\043_financial_attribution.sql lines 52-59
-  Consumed by: apps/api/src/routes/inventory.routes.ts (validation only, no Zod schema)
+Table name: phi_export_audit_log
+Defining migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\055_phi_phase3_audit_extensions.sql
+Key columns: id, phi_access_log_id, export_format (VARCHAR), export_row_count (INTEGER), created_at
+Append-only enforcement: prevent_modification() trigger (phi_export_audit_log_no_update, phi_export_audit_log_no_delete) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\055_phi_phase3_audit_extensions.sql
 
-ConfigAuditAction (no enum, free VARCHAR)
-  Observed values: SET, CLEAR, DEPRECATE
-  No DB enum. Stored as VARCHAR(20)
-  Consumed by: apps/api/src/services/config.service.ts
+C) Event types/enums
+================================================================================
+Name: inventory_event_type
+Values: RECEIVED, VERIFIED, LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED, EXPIRED, RETURNED, ADJUSTED
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql (DB enum)
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts (TypeScript enum)
+Consumed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\inventory.repository.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts
 
-ClinicFinancialState (Zod enum + DB enum)
-  Values: UNKNOWN, DECLARED_CLEARED, DECLARED_AT_RISK
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 360
-  DB enum: clinic_financial_state (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\060_financial_readiness.sql lines 11-15)
-  Consumed by: apps/api/src/services/financial-readiness.service.ts
+Name: attestation_type
+Values: CASE_READINESS, SURGEON_ACKNOWLEDGMENT
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql (DB enum)
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts (TypeScript enum)
+Consumed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-dashboard.routes.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts
 
-AscFinancialState (Zod enum + DB enum)
-  Values: UNKNOWN, VERIFIED_CLEARED, VERIFIED_AT_RISK
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 363
-  DB enum: asc_financial_state (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\060_financial_readiness.sql lines 17-21)
-  Consumed by: apps/api/src/services/financial-readiness.service.ts
+Name: case_event_type
+Values: CASE_CARD_LINKED, CASE_CARD_CHANGED, READINESS_ATTESTED, READINESS_VOIDED, OVERRIDE_ADDED, OVERRIDE_MODIFIED, OVERRIDE_REMOVED, SCHEDULING_CHANGED, ANESTHESIA_PLAN_CHANGED, CASE_CREATED, CASE_ACTIVATED, CASE_CANCELLED
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\012_case_dashboard.sql (DB enum)
+Consumed: UNKNOWN (no TypeScript application-level usage found; DB-only definition)
 
-OverrideState (Zod enum + DB enum)
-  Values: NONE, OVERRIDE_CLEARED, OVERRIDE_AT_RISK
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts line 366
-  DB enum: override_state (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\060_financial_readiness.sql lines 23-27)
-  Consumed by: apps/api/src/services/financial-readiness.service.ts
+Name: checklist_type
+Values: TIMEOUT, DEBRIEF
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql (DB enum)
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts (TypeScript enum)
+Consumed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
 
-OverrideReasonCode (Zod enum + DB enum)
-  Values: ADMIN_JUDGMENT, URGENT_CASE, CLINIC_CONFIRMED, PATIENT_PAID, OTHER
-  Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts lines 372-375
-  DB enum: override_reason_code (C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\060_financial_readiness.sql lines 36-42)
-  Consumed by: apps/api/src/services/financial-readiness.service.ts
+Name: signature_method
+Values: LOGIN, PIN, BADGE, KIOSK_TAP
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql (DB enum)
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts (TypeScript enum)
+Consumed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\schemas\index.ts
+
+Name: phi_classification
+Values: PHI_CLINICAL, PHI_BILLING, PHI_AUDIT
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\054_phi_access_audit_log.sql (DB enum)
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts (TypeScript enum)
+Consumed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\phi-guard.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\phi-audit.service.ts
+
+Name: access_purpose
+Values: CLINICAL_CARE, SCHEDULING, BILLING, AUDIT, EMERGENCY
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\054_phi_access_audit_log.sql (DB enum)
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts (TypeScript enum)
+Consumed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\phi-guard.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\phi-audit.service.ts
+
+Name: access_outcome
+Values: ALLOWED, DENIED
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\054_phi_access_audit_log.sql (DB enum)
+Consumed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\phi-audit.service.ts (TypeScript: AccessOutcome type)
+
+Name: AuthEventType
+Values: LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts (TypeScript type, stored as VARCHAR in DB)
+Consumed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts
+
+Name: SurgeryRequestEventType
+Values: SUBMITTED, RESUBMITTED, RETURNED, ACCEPTED, REJECTED, WITHDRAWN, CONVERTED
+Defining file: C:\Users\missp\source\repos\ASC-Inventory\packages\domain\src\types.ts (TypeScript enum)
+Consumed: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\surgery-request.service.ts
+
+D) Emission points (who writes events)
+================================================================================
+Event table: inventory_event
+Emitting API routes: POST /inventory/events — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts
+Emitting API routes: POST /inventory/events/bulk — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts
+Emitting API routes: POST /inventory/events/financial — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts
+Emitting repository: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\inventory.repository.ts (INSERT INTO inventory_event)
+Required auth: JWT token, request.user.userId, request.user.facilityId — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts
+
+Event table: attestation
+Emitting API routes: POST /readiness/attestations — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Emitting API routes: POST /readiness/attestations/:id/void — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Emitting routes: POST (case-dashboard routes) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-dashboard.routes.ts
+Required auth: JWT token, request.user.userId, request.user.facilityId — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+
+Event table: device_event
+Emitting API routes: POST /inventory/device-events — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts
+Emitting repository: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\device.repository.ts
+Required auth: JWT token, request.user.userId, request.user.facilityId — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts
+
+Event table: case_checklist_response
+Emitting API routes: POST /cases/:id/checklists/:type/respond — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts
+Emitting service: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts (INSERT INTO case_checklist_response)
+Required auth: JWT token, request.user.userId, request.user.facilityId — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts
+
+Event table: case_checklist_signature
+Emitting API routes: POST /cases/:id/checklists/:type/sign — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts
+Emitting service: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts (INSERT INTO case_checklist_signature)
+Required auth: JWT token, request.user.userId, request.user.roles — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts
+
+Event table: case_event_log
+Emitting routes: UNKNOWN (no direct INSERT found; table defined but unused)
+Required auth: UNKNOWN
+
+Event table: surgical_case_status_event
+Emitting service: recordStatusEvent() — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\case-status.service.ts
+Emitting API routes: POST /cases — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Emitting API routes: POST /cases/:caseId/approve — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Emitting API routes: POST /cases/:caseId/reject — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Emitting API routes: POST /cases/:caseId/activate — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Emitting API routes: POST /cases/:caseId/cancel — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Emitting API routes: POST /cases/:caseId/check-in-preop — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\cases.routes.ts
+Required auth: JWT token, request.user.userId passed to recordStatusEvent() — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\case-status.service.ts
+
+Event table: catalog_event
+Emitting API routes: POST /catalog/:catalogId/images — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog-images.routes.ts
+Emitting API routes: DELETE /catalog/:catalogId/images/:imageId — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog-images.routes.ts
+Emitting routes: catalog.routes.ts (INSERT INTO catalog_event) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts
+Required auth: JWT token, request.user.userId, request.user.facilityId — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts
+
+Event table: auth_audit_log
+Emitting service: logAuthEvent() — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts
+Emitting API routes: POST /auth/login, POST /auth/logout (via logAuthEvent call)
+Required auth: None (auth events record login/logout attempts themselves)
+
+Event table: case_card_link_event
+Emitting API routes: POST (case-dashboard routes) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-dashboard.routes.ts (INSERT INTO case_card_link_event)
+Required auth: JWT token, request.user.userId, request.user.facilityId — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-dashboard.routes.ts
+
+Event table: phi_access_audit_log
+Emitting service: logPhiAccess() — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\phi-audit.service.ts
+Emitting plugin: phi-guard.ts (via logPhiAccess call on every PHI-classified request) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\phi-guard.ts
+Required auth: JWT token, request.user.userId, request.user.roles, request.user.facilityId — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\plugins\phi-guard.ts
+
+Event table: phi_export_audit_log
+Emitting service: logPhiExport() — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\phi-audit.service.ts
+Emitting routes: UNKNOWN (no direct caller found; service function defined)
+Required auth: UNKNOWN (linked to phi_access_audit_log entry)
+
+E) Read/consumption points (who reads events)
+================================================================================
+Event table: inventory_event
+API endpoints: GET /inventory/events (query by item, case, facility) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts
+API endpoints: GET /reports/inventory-ledger (aggregate inventory events) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\reports.routes.ts
+Web pages: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\devices\events\page.tsx (device events display)
+Web pages: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\inventory\check-in\page.tsx (inventory event context)
+Aggregation: readiness.service.ts (consumes last_verified_at derived from inventory_event) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\readiness.service.ts
+
+Event table: attestation
+API endpoints: GET /readiness/cases/:caseId/attestations — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+API endpoints: GET /readiness/day-before/:date (includes attestation flags) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Web pages: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\reports\page.tsx (attestation display in reports)
+Aggregation: case_readiness_cache table (has_attestation, attested_at derived from attestation table)
+
+Event table: device_event
+API endpoints: GET /inventory/device-events — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\inventory.routes.ts
+Web pages: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\admin\devices\events\page.tsx (device events page)
+
+Event table: case_checklist_response
+API endpoints: GET /cases/:id/checklists (returns responses as part of checklist instance) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts
+Web pages: UNKNOWN (consumed via checklist instance API, no direct page component found)
+
+Event table: case_checklist_signature
+API endpoints: GET /cases/:id/checklists (returns signatures as part of checklist instance) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\checklists.routes.ts
+Web pages: UNKNOWN (consumed via checklist instance API, no direct page component found)
+
+Event table: case_event_log
+API endpoints: UNKNOWN (no read endpoint found)
+Web pages: UNKNOWN (no consumption found)
+
+Event table: surgical_case_status_event
+API endpoints: getStatusEvents() service function — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\case-status.service.ts
+Web pages: UNKNOWN (service function exists but no API route or page component found)
+
+Event table: catalog_event
+API endpoints: UNKNOWN (no read endpoint found)
+Web pages: UNKNOWN (no consumption found)
+
+Event table: auth_audit_log
+API endpoints: getAuthAuditLog() service function — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts
+Web pages: C:\Users\missp\source\repos\ASC-Inventory\apps\web\src\app\(app)\platform\auth-audit\page.tsx (auth audit log page)
+
+Event table: case_card_link_event
+API endpoints: UNKNOWN (no read endpoint found)
+Web pages: UNKNOWN (no consumption found)
+
+Event table: phi_access_audit_log
+API endpoints: getPhiAccessLog(), getPhiAccessLogEntry(), getPhiAccessStats() — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\phi-audit.service.ts
+Web pages: UNKNOWN (service functions exist; no web page component found in search scope)
+
+Event table: phi_export_audit_log
+API endpoints: getPhiAccessStats() (includes exportCount aggregation) — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\phi-audit.service.ts
+Web pages: UNKNOWN (consumed via stats aggregation)
+
+F) Event-to-state effects (factual only)
+================================================================================
+Base table: inventory_item
+State field: last_verified_at
+Implementation: Updated when inventory_event.event_type = VERIFIED is inserted — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\inventory.repository.ts
+Implementation: No automatic trigger; application code updates inventory_item.last_verified_at when creating VERIFIED event
+
+Base table: inventory_item
+State field: availability_status, location_id
+Implementation: Updated when inventory_event.event_type = LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\inventory.repository.ts
+Implementation: No automatic trigger; application code updates inventory_item state when creating event
+
+Base table: case_readiness_cache
+State refresh: Cache invalidation triggered on inventory_event, attestation writes
+Implementation: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\readiness.service.ts (cache refresh logic)
+Implementation: No DB trigger; application-level cache refresh after event writes
+
+Base table: surgical_case
+State field: status
+Implementation: surgical_case.status is updated simultaneously with surgical_case_status_event insertion — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\case-status.service.ts
+Implementation: recordStatusEvent() is called after surgical_case.status UPDATE; no automatic trigger
+
+Base table: surgical_case
+State field: attestation_state, attestation_void_reason
+Implementation: Updated when attestation record is created or voided — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts
+Implementation: Application code updates surgical_case attestation fields after inserting attestation event
+
+Base table: case_checklist_instance
+State field: status, completed_at
+Implementation: Updated when case_checklist_signature is written and all required signatures are present — C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+Implementation: Application code updates case_checklist_instance.status after signature insertion
+
+G) Traceability fields
+================================================================================
+Event table: inventory_event
+Actor attribution: performed_by_user_id
+Correlation: inventory_item_id, case_id, device_event_id, facility_id
+Timestamp: occurred_at, created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\inventory.repository.ts
+
+Event table: attestation
+Actor attribution: attested_by_user_id
+Correlation: case_id, facility_id
+Timestamp: created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\readiness.routes.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-dashboard.routes.ts
+
+Event table: device_event
+Actor attribution: None (device-initiated events, no user attribution)
+Correlation: device_id, facility_id, processed_item_id
+Timestamp: occurred_at, created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\repositories\postgres\device.repository.ts
+
+Event table: case_checklist_response
+Actor attribution: completed_by_user_id
+Correlation: instance_id, item_key
+Timestamp: completed_at, created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+
+Event table: case_checklist_signature
+Actor attribution: signed_by_user_id, role
+Correlation: instance_id
+Timestamp: signed_at, created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\checklists.service.ts
+
+Event table: case_event_log
+Actor attribution: user_id, user_role, user_name
+Correlation: case_id, facility_id, override_id, case_card_version_id
+Timestamp: created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\012_case_dashboard.sql
+
+Event table: surgical_case_status_event
+Actor attribution: actor_user_id
+Correlation: surgical_case_id, context (JSONB)
+Timestamp: created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\case-status.service.ts
+
+Event table: catalog_event
+Actor attribution: actor_user_id
+Correlation: catalog_item_id, facility_id, payload (JSONB)
+Timestamp: created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog.routes.ts, C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\catalog-images.routes.ts
+
+Event table: auth_audit_log
+Actor attribution: user_id, username, user_roles (TEXT[])
+Correlation: facility_id, request_id, ip_address, user_agent
+Timestamp: created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\auth-audit.service.ts
+
+Event table: case_card_link_event
+Actor attribution: performed_by_user_id, performed_by_name
+Correlation: case_id, facility_id, source_case_card_id, source_case_card_version_id
+Timestamp: performed_at, created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\routes\case-dashboard.routes.ts
+
+Event table: phi_access_audit_log
+Actor attribution: user_id, user_roles (TEXT[])
+Correlation: facility_id, organization_ids (UUID[]), case_id, request_id, endpoint, http_method
+Timestamp: created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\phi-audit.service.ts
+
+Event table: phi_export_audit_log
+Actor attribution: Inherited from phi_access_audit_log (linked by phi_access_log_id)
+Correlation: phi_access_log_id
+Timestamp: created_at
+File path: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\phi-audit.service.ts
+
+H) Inconsistencies or gaps (factual only)
+================================================================================
+Mixed timestamp conventions:
+- inventory_event, device_event: occurred_at + created_at (explicit event time vs. log time)
+- attestation, case_checklist_response, case_checklist_signature, catalog_event, auth_audit_log, phi_access_audit_log, phi_export_audit_log, surgical_case_status_event: created_at only (no explicit occurred_at)
+- case_checklist_signature: signed_at + created_at (mirrors occurred_at pattern but named differently)
+- case_card_link_event: performed_at + created_at (mirrors occurred_at pattern but named differently)
+
+Actor attribution field naming inconsistencies:
+- inventory_event: performed_by_user_id
+- attestation: attested_by_user_id
+- case_checklist_response: completed_by_user_id
+- case_checklist_signature: signed_by_user_id
+- catalog_event, surgical_case_status_event: actor_user_id
+- case_event_log: user_id
+- case_card_link_event: performed_by_user_id
+- auth_audit_log, phi_access_audit_log: user_id
+
+Event enums defined but not used in application code:
+- case_event_type: Defined in C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\012_case_dashboard.sql but no TypeScript enum or INSERT/SELECT queries found
+
+Event tables with no consumption endpoint:
+- case_event_log: Table exists, append-only enforced, but no API endpoint or service function to query events
+- catalog_event: Table exists, write emissions found, but no API endpoint to retrieve catalog event history
+- case_card_link_event: Table exists, write emissions found, but no API endpoint to retrieve link event history
+- surgical_case_status_event: Table exists, getStatusEvents() service function exists, but no API route exposes it
+
+Tables with missing user attribution (device-initiated or system events):
+- device_event: No user attribution (device-initiated events); processed_item_id links to resolved inventory item
+
+Duplicated event concepts:
+- attestation table (original LAW v1.0) vs. surgical_case.attestation_state (mutable projection added in v1.1) — dual storage of attestation state
+- case_event_log (defined for case dashboard events) vs. surgical_case_status_event (case status transitions) — both record case-level events but for different purposes
+
+Event types stored as TEXT vs. DB enum:
+- catalog_event.action: TEXT (no enum constraint)
+- case_card_link_event.action: VARCHAR with CHECK constraint (LINKED, UNLINKED, RELINKED)
+- auth_audit_log.event_type: VARCHAR (LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT defined in TypeScript only)
+- surgical_case_status_event.from_status, to_status: TEXT (no enum constraint; case_status enum exists but not enforced here)
 
 ================================================================================
-B) EVENT PERSISTENCE TABLES
+END OF SNAPSHOT
 ================================================================================
-
-1. inventory_event
-   Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 265-279
-   Extended by: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\043_financial_attribution.sql lines 193-212
-   Key columns: id, facility_id, inventory_item_id, event_type, case_id, location_id, previous_location_id, sterility_status, notes, performed_by_user_id, device_event_id, occurred_at, created_at
-   Financial columns (043): cost_snapshot_cents, cost_override_cents, cost_override_reason, cost_override_note, provided_by_vendor_id, provided_by_rep_name, is_gratis, gratis_reason, financial_attestation_user_id
-   Append-only: YES. Triggers inventory_event_no_update, inventory_event_no_delete (001 lines 391-397)
-   DB constraints: chk_event_override_requires_reason, chk_event_gratis_requires_reason (043 lines 206-212)
-
-2. attestation
-   Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 290-299
-   Extended by: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\002_attestation_voiding.sql
-   Key columns: id, facility_id, case_id, type, attested_by_user_id, readiness_state_at_time, notes, created_at, voided_at, voided_by_user_id
-   Append-only: PARTIAL. Original no-update trigger replaced by attestation_allow_void_only which permits ONLY setting voided_at and voided_by_user_id from NULL. Delete trigger remains.
-
-3. device_event
-   Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 324-336
-   Key columns: id, facility_id, device_id, device_type, payload_type, raw_value, processed_item_id, processed, processing_error, occurred_at, created_at
-   Append-only: YES. Triggers device_event_no_update, device_event_no_delete (001 lines 409-415)
-
-4. surgical_case_status_event
-   Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\036_case_status_events.sql
-   Key columns: id, surgical_case_id, from_status (nullable), to_status, reason, context (JSONB), actor_user_id (nullable), created_at
-   Append-only: YES. Triggers case_status_event_no_update, case_status_event_no_delete (036 lines 20-26)
-
-5. catalog_event
-   Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\037_catalog_event.sql
-   Key columns: id, facility_id, catalog_item_id, action (TEXT), actor_user_id, payload (JSONB), created_at
-   Append-only: YES. Triggers catalog_event_no_update, catalog_event_no_delete (037 lines 18-24)
-
-6. catalog_cost_event
-   Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\043_financial_attribution.sql lines 120-141
-   Key columns: id, catalog_id, previous_cost_cents, new_cost_cents, effective_at, reason, changed_by_user_id, created_at
-   Append-only: YES. Triggers catalog_cost_event_no_update, catalog_cost_event_no_delete (043 lines 135-141)
-
-7. auth_audit_log
-   Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\048_auth_audit_log.sql
-   Key columns: id, event_type, facility_id (nullable), user_id (nullable), username, user_roles, success, failure_reason, request_id, ip_address, user_agent, created_at
-   Append-only: YES. Triggers auth_audit_log_no_update, auth_audit_log_no_delete (048 lines 43-49)
-
-8. case_card_link_event
-   Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\049_case_card_link_events.sql
-   Key columns: id, case_id, facility_id, action (LINKED|UNLINKED|RELINKED), source_case_card_id, source_case_card_version_id, snapshot_json (JSONB), reason_code, reason_note, performed_by_user_id, performed_by_name, performed_at, created_at
-   Append-only: YES. Triggers case_card_link_event_no_update, case_card_link_event_no_delete (049 lines 43-49)
-
-9. phi_access_audit_log
-   Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\054_phi_access_audit_log.sql
-   Extended by: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\055_phi_phase3_audit_extensions.sql (is_emergency, emergency_justification)
-   Extended by: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\056_phi_phase4_retention_breach.sql (breach_context JSONB)
-   Key columns: id, user_id, user_roles, facility_id, organization_ids (UUID[]), case_id, phi_classification, access_purpose, outcome, denial_reason, request_id, endpoint, http_method, is_emergency, emergency_justification, breach_context, created_at
-   Append-only: YES. Triggers phi_access_audit_log_no_update, phi_access_audit_log_no_delete (054 lines 56-62)
-
-10. phi_export_audit_log
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\055_phi_phase3_audit_extensions.sql lines 26-47
-    Key columns: id, phi_access_log_id (FK to phi_access_audit_log), export_format, export_row_count, created_at
-    Append-only: YES. Triggers phi_export_audit_log_no_update, phi_export_audit_log_no_delete (055 lines 41-47)
-
-11. config_audit_log
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\047_config_registry.sql lines 191-237
-    Key columns: id, config_key, scope, facility_id (nullable), action, old_value, new_value, version_before, version_after, change_reason, change_note, actor_user_id, actor_name, actor_roles, request_id, ip_address, user_agent, created_at
-    Append-only: YES. Triggers config_audit_log_no_update, config_audit_log_no_delete (047 lines 230-236)
-
-12. case_checklist_response
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql lines 99-107
-    Key columns: id, instance_id, item_key, value, completed_by_user_id, completed_at, created_at
-    Append-only: YES. Triggers case_checklist_response_no_update, case_checklist_response_no_delete (004 lines 113-119)
-
-13. case_checklist_signature
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\004_timeout_debrief.sql lines 122-131
-    Key columns: id, instance_id, role, signed_by_user_id, signed_at, method, created_at
-    Extended by: 026_checklist_flag_for_review.sql (flagged_for_review, flag_comment)
-    Append-only: YES. Triggers case_checklist_signature_no_update, case_checklist_signature_no_delete (004 lines 136-142)
-
-14. surgery_request_submission
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\059_surgery_request.sql lines 131-150
-    Key columns: id, request_id, submission_seq, submitted_at, received_at, payload_version, created_at
-    Append-only: YES. Triggers surgery_request_submission_no_update, surgery_request_submission_no_delete (059 lines 144-150)
-
-15. surgery_request_audit_event
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\059_surgery_request.sql lines 225-249
-    Key columns: id, request_id, submission_id (nullable), event_type, actor_type, actor_clinic_id (nullable), actor_user_id (nullable), reason_code, note, created_at
-    Append-only: YES. Triggers surgery_request_audit_event_no_update, surgery_request_audit_event_no_delete (059 lines 243-249)
-
-16. surgery_request_checklist_response
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\059_surgery_request.sql lines 198-219
-    Key columns: id, instance_id, item_key, response (JSONB), actor_type, actor_clinic_id (nullable), actor_user_id (nullable), created_at
-    Append-only: YES. Triggers surgery_request_checklist_response_no_update, surgery_request_checklist_response_no_delete (059 lines 213-219)
-
-17. surgery_request_conversion
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\059_surgery_request.sql lines 255-270
-    Key columns: request_id (PK), surgical_case_id (UNIQUE), converted_at, converted_by_user_id
-    Append-only: YES. Triggers surgery_request_conversion_no_update, surgery_request_conversion_no_delete (059 lines 264-270)
-
-18. clinic_financial_declaration
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\060_financial_readiness.sql lines 50-72
-    Key columns: id, surgery_request_id, state, reason_codes (TEXT[]), note, actor_clinic_id, recorded_by_user_id, created_at
-    Append-only: YES. Triggers clinic_financial_declaration_no_update, clinic_financial_declaration_no_delete (060 lines 66-72)
-
-19. asc_financial_verification
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\060_financial_readiness.sql lines 79-100
-    Key columns: id, surgery_request_id, state, reason_codes (TEXT[]), note, verified_by_user_id, created_at
-    Append-only: YES. Triggers asc_financial_verification_no_update, asc_financial_verification_no_delete (060 lines 96-100)
-
-20. financial_override
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\060_financial_readiness.sql lines 108-134
-    Key columns: id, surgery_request_id, state, reason_code (nullable), note, overridden_by_user_id, created_at
-    Append-only: YES. Triggers financial_override_no_update, financial_override_no_delete (060 lines 128-134)
-    DB constraint: chk_override_reason_code (state=NONE requires reason_code IS NULL; state!=NONE requires reason_code IS NOT NULL)
-
-21. platform_config_value (versioned, immutable rows)
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\047_config_registry.sql lines 88-132
-    Key columns: id, config_key_id, version, value, changed_by_user_id, change_reason, change_note, effective_at, created_at
-    Append-only: YES. Triggers platform_config_value_no_update (custom: prevent_config_value_modification), platform_config_value_no_delete
-
-22. facility_config_override (versioned, immutable rows)
-    Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\047_config_registry.sql lines 140-183
-    Key columns: id, facility_id, config_key_id, version, override_value, changed_by_user_id, change_reason, change_note, effective_at, cleared_at, cleared_by_user_id, created_at
-    Append-only: YES. Triggers facility_config_override_no_update, facility_config_override_no_delete
-
-================================================================================
-C) MUTABLE CACHE TABLES DERIVED FROM EVENTS
-================================================================================
-
-case_readiness_cache
-  Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\001_initial_schema.sql lines 357-376
-  Derived from: inventory_event, attestation, case_requirement, inventory_item
-  Recomputed by: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\readiness.service.ts
-
-financial_readiness_cache
-  Migration: C:\Users\missp\source\repos\ASC-Inventory\apps\api\db\migrations\060_financial_readiness.sql lines 142-167
-  Derived from: clinic_financial_declaration, asc_financial_verification, financial_override
-  Recomputed by: C:\Users\missp\source\repos\ASC-Inventory\apps\api\src\services\financial-readiness.service.ts (recomputeCache function)
-
-================================================================================
-D) ALL EVENT ENUMS SUMMARY
-================================================================================
-
-Enum Name                      | Values                                                                                   | Defining File                                                                              | Consuming Files
--------------------------------|------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|-----------------
-InventoryEventType             | RECEIVED,VERIFIED,LOCATION_CHANGED,RESERVED,RELEASED,CONSUMED,EXPIRED,RETURNED,ADJUSTED  | packages/domain/src/types.ts:283                                                           | apps/api/src/routes/inventory.routes.ts, apps/api/src/repositories/postgres/inventory.repository.ts
-AttestationType                | CASE_READINESS,SURGEON_ACKNOWLEDGMENT                                                    | packages/domain/src/types.ts:296                                                           | apps/api/src/routes/readiness.routes.ts
-DeviceType                     | barcode,rfid,nfc,other                                                                   | packages/domain/src/types.ts:574                                                           | apps/api/src/routes/inventory.routes.ts
-DevicePayloadType              | scan,presence,input                                                                      | packages/domain/src/types.ts:578                                                           | apps/api/src/routes/inventory.routes.ts
-ChecklistType                  | TIMEOUT,DEBRIEF                                                                          | packages/domain/src/types.ts:660                                                           | apps/api/src/services/checklists.service.ts, apps/api/src/routes/checklists.routes.ts
-ChecklistStatus                | NOT_STARTED,IN_PROGRESS,COMPLETED                                                        | packages/domain/src/types.ts:663                                                           | apps/api/src/services/checklists.service.ts
-SignatureMethod                | LOGIN,PIN,BADGE,KIOSK_TAP                                                                | packages/domain/src/types.ts:666                                                           | apps/api/src/services/checklists.service.ts
-AuthEventType                  | LOGIN_SUCCESS,LOGIN_FAILED,LOGOUT                                                        | apps/api/src/services/auth-audit.service.ts:14                                             | apps/api/src/routes/auth.routes.ts, apps/api/src/routes/platform-config.routes.ts
-AuthFailureReason              | user_not_found,bad_password,account_disabled,facility_not_found,invalid_token             | apps/api/src/services/auth-audit.service.ts:16                                             | apps/api/src/routes/auth.routes.ts
-SurgeryRequestEventType        | SUBMITTED,RESUBMITTED,RETURNED,ACCEPTED,REJECTED,WITHDRAWN,CONVERTED                     | packages/domain/src/types.ts:316                                                           | apps/api/src/services/surgery-request.service.ts
-SurgeryRequestActorType        | CLINIC,ASC                                                                               | packages/domain/src/types.ts:327                                                           | apps/api/src/services/surgery-request.service.ts
-PhiClassification              | PHI_CLINICAL,PHI_BILLING,PHI_AUDIT                                                       | packages/domain/src/types.ts:56                                                            | apps/api/src/plugins/phi-guard.ts, apps/api/src/services/phi-audit.service.ts
-AccessPurpose                  | CLINICAL_CARE,SCHEDULING,BILLING,AUDIT,EMERGENCY                                         | packages/domain/src/types.ts:60                                                            | apps/api/src/plugins/phi-guard.ts, apps/api/src/services/phi-audit.service.ts
-AccessOutcome                  | ALLOWED,DENIED                                                                           | apps/api/db/migrations/054_phi_access_audit_log.sql:11                                     | apps/api/src/plugins/phi-guard.ts, apps/api/src/services/phi-audit.service.ts
-CatalogEventAction (TEXT)      | IMAGE_ADDED,IMAGE_REMOVED,IDENTIFIER_ADDED,IDENTIFIER_REMOVED                            | (not enumerated; inferred from usage in routes)                                            | apps/api/src/routes/catalog-images.routes.ts, apps/api/src/routes/catalog.routes.ts
-CaseCardLinkAction (CHECK)     | LINKED,UNLINKED,RELINKED                                                                 | apps/api/db/migrations/049_case_card_link_events.sql:13                                    | apps/api/src/routes/case-dashboard.routes.ts
-CostOverrideReason (DB enum)   | CATALOG_ERROR,NEGOTIATED_DISCOUNT,VENDOR_CONCESSION,DAMAGE_CREDIT,EXPIRED_CREDIT,...     | apps/api/db/migrations/043_financial_attribution.sql:41                                    | apps/api/src/routes/inventory.routes.ts
-GratisReason (DB enum)         | VENDOR_SAMPLE,VENDOR_SUPPORT,CLINICAL_TRIAL,GOODWILL,WARRANTY_REPLACEMENT,OTHER          | apps/api/db/migrations/043_financial_attribution.sql:52                                    | apps/api/src/routes/inventory.routes.ts
-ConfigAuditAction (VARCHAR)    | SET,CLEAR,DEPRECATE                                                                      | (not enumerated; inferred from config.service.ts usage)                                    | apps/api/src/services/config.service.ts
-ClinicFinancialState           | UNKNOWN,DECLARED_CLEARED,DECLARED_AT_RISK                                                | packages/domain/src/types.ts:360                                                           | apps/api/src/services/financial-readiness.service.ts
-AscFinancialState              | UNKNOWN,VERIFIED_CLEARED,VERIFIED_AT_RISK                                                | packages/domain/src/types.ts:363                                                           | apps/api/src/services/financial-readiness.service.ts
-OverrideState                  | NONE,OVERRIDE_CLEARED,OVERRIDE_AT_RISK                                                   | packages/domain/src/types.ts:366                                                           | apps/api/src/services/financial-readiness.service.ts
-OverrideReasonCode             | ADMIN_JUDGMENT,URGENT_CASE,CLINIC_CONFIRMED,PATIENT_PAID,OTHER                           | packages/domain/src/types.ts:372                                                           | apps/api/src/services/financial-readiness.service.ts
-
-================================================================================
-E) EMISSION POINTS (which API routes/services write events)
-================================================================================
-
-inventory_event
-  POST /inventory/events (single event) -> apps/api/src/routes/inventory.routes.ts via inventoryRepo.createEventWithItemUpdate
-  POST /inventory/events/bulk (bulk events) -> apps/api/src/routes/inventory.routes.ts via inventoryRepo.createEventWithItemUpdate
-  POST /inventory/events/financial (financial event) -> apps/api/src/routes/inventory.routes.ts via inventoryRepo.createEventWithItemUpdate
-  Repository: apps/api/src/repositories/postgres/inventory.repository.ts createEvent and createEventWithItemUpdate methods
-  Required capabilities: INVENTORY_CHECKIN or INVENTORY_MANAGE (standard), INVENTORY_MANAGE (financial)
-
-attestation
-  POST /readiness/attestations -> apps/api/src/routes/readiness.routes.ts (direct INSERT query)
-  POST /readiness/attestations/:id/void -> apps/api/src/routes/readiness.routes.ts (UPDATE voided_at only)
-  Required capabilities: CHECKLIST_ATTEST
-
-device_event
-  POST /inventory/device-events -> apps/api/src/routes/inventory.routes.ts via deviceRepo.createEvent
-  Repository: apps/api/src/repositories/postgres/device.repository.ts createEvent method
-  Required capabilities: authenticated user (no specific capability)
-
-surgical_case_status_event
-  Service function: recordStatusEvent in apps/api/src/services/case-status.service.ts
-  Called from apps/api/src/repositories/postgres/case.repository.ts in methods: create (DRAFT), update (any status change), activate (->SCHEDULED), approve (REQUESTED->SCHEDULED), reject (REQUESTED->REJECTED), deactivate (->DRAFT), cancel (->CANCELLED), preopCheckin (->IN_PREOP)
-  Called from apps/api/src/services/surgery-request.service.ts convert method (inline INSERT, same transaction, ->REQUESTED)
-  Required capabilities: varies (CASE_CREATE, CASE_UPDATE, CASE_ACTIVATE, CASE_APPROVE, CASE_REJECT, CASE_CANCEL, CASE_CHECKIN_PREOP, SURGERY_REQUEST_CONVERT)
-
-catalog_event
-  POST /catalog/:catalogId/images (IMAGE_ADDED) -> apps/api/src/routes/catalog-images.routes.ts (direct INSERT)
-  DELETE /catalog/:catalogId/images/:imageId (IMAGE_REMOVED) -> apps/api/src/routes/catalog-images.routes.ts (direct INSERT)
-  POST /catalog/:catalogId/identifiers (IDENTIFIER_ADDED) -> apps/api/src/routes/catalog.routes.ts (direct INSERT)
-  DELETE /catalog/:catalogId/identifiers/:identifierId (IDENTIFIER_REMOVED) -> apps/api/src/routes/catalog.routes.ts (direct INSERT)
-  Required capabilities: CATALOG_MANAGE
-
-catalog_cost_event
-  No direct emission point found in current code. Migration 043 defines the table but no route or service writes to it yet.
-
-auth_audit_log
-  POST /auth/login (LOGIN_SUCCESS and LOGIN_FAILED) -> apps/api/src/routes/auth.routes.ts via logAuthEvent
-  POST /auth/logout (LOGOUT) -> apps/api/src/routes/auth.routes.ts via logAuthEvent
-  Service: apps/api/src/services/auth-audit.service.ts logAuthEvent function
-  Required capabilities: none (public login endpoint)
-
-case_card_link_event
-  POST /case-dashboard/:caseId/link-card (LINKED or RELINKED) -> apps/api/src/routes/case-dashboard.routes.ts (direct INSERT in transaction)
-  POST /case-dashboard/:caseId/unlink-card (UNLINKED) -> apps/api/src/routes/case-dashboard.routes.ts (direct INSERT)
-  Required capabilities: CASE_PREFERENCE_CARD_LINK
-
-phi_access_audit_log
-  Middleware: apps/api/src/plugins/phi-guard.ts via logPhiAccess (every PHI access attempt, both ALLOWED and DENIED)
-  Service: apps/api/src/services/phi-audit.service.ts logPhiAccess function
-  Required capabilities: none (fired automatically by phi-guard middleware on every PHI-classified request)
-  DENIED outcomes: logged synchronously (fail closed)
-  ALLOWED outcomes: logged fire-and-forget (non-blocking)
-
-phi_export_audit_log
-  Middleware: apps/api/src/plugins/phi-guard.ts (linked via phiContext.auditLogId)
-  Service: apps/api/src/services/phi-audit.service.ts logPhiExport function
-  Called from: apps/api/src/routes/phi-patient.routes.ts (patient data export endpoint)
-  Required capabilities: PHI_AUDIT_ACCESS
-
-config_audit_log
-  Service: apps/api/src/services/config.service.ts (direct INSERT in transaction)
-  Called on: setPlatformConfigValue (SET), setFacilityConfigOverride (SET), clearFacilityConfigOverride (CLEAR)
-  Required capabilities: PLATFORM_CONFIG_MANAGE or SETTINGS_MANAGE
-
-case_checklist_response
-  POST /cases/:id/checklists/:type/respond -> apps/api/src/routes/checklists.routes.ts via checklists.service.ts
-  POST /cases/:id/checklists/:type/feedback -> apps/api/src/services/checklists.service.ts (surgeon/scrub feedback notes)
-  Service: apps/api/src/services/checklists.service.ts (direct INSERT)
-  Required capabilities: CHECKLIST_ATTEST, OR_TIMEOUT, or OR_DEBRIEF
-
-case_checklist_signature
-  POST /cases/:id/checklists/:type/sign -> apps/api/src/routes/checklists.routes.ts via checklists.service.ts
-  POST /cases/:id/checklists/:type/feedback -> apps/api/src/services/checklists.service.ts (surgeon/scrub feedback signature)
-  Service: apps/api/src/services/checklists.service.ts (direct INSERT)
-  Required capabilities: CHECKLIST_ATTEST, OR_TIMEOUT, or OR_DEBRIEF
-
-surgery_request_submission
-  POST /clinic/surgery-requests (submit) -> apps/api/src/services/surgery-request.service.ts createNewRequest, resubmitExisting (INSERT in transaction)
-  Required capabilities: clinic API key authentication
-
-surgery_request_audit_event
-  Emitted by: apps/api/src/services/surgery-request.service.ts insertAuditEvent helper (INSERT in transaction)
-  Called on every state transition: SUBMITTED, RESUBMITTED, RETURNED, ACCEPTED, REJECTED, WITHDRAWN, CONVERTED
-  Required capabilities: clinic API key (SUBMITTED, RESUBMITTED, WITHDRAWN) or SURGERY_REQUEST_REVIEW/SURGERY_REQUEST_CONVERT (ASC actions)
-
-surgery_request_checklist_response
-  POST /clinic/surgery-requests (submit with checklist) -> apps/api/src/services/surgery-request.service.ts createChecklistData (INSERT in transaction)
-  Required capabilities: clinic API key authentication
-
-surgery_request_conversion
-  POST /admin/surgery-requests/:id/convert -> apps/api/src/services/surgery-request.service.ts convert (INSERT in transaction)
-  Required capabilities: SURGERY_REQUEST_CONVERT
-
-clinic_financial_declaration
-  POST /financial-readiness/:requestId/clinic-declaration -> apps/api/src/services/financial-readiness.service.ts recordClinicDeclaration (INSERT in transaction)
-  Required capabilities: FINANCIAL_READINESS_EDIT
-
-asc_financial_verification
-  POST /financial-readiness/:requestId/asc-verification -> apps/api/src/services/financial-readiness.service.ts recordAscVerification (INSERT in transaction)
-  Required capabilities: FINANCIAL_READINESS_EDIT
-
-financial_override
-  POST /financial-readiness/:requestId/override -> apps/api/src/services/financial-readiness.service.ts recordOverride (INSERT in transaction)
-  Required capabilities: FINANCIAL_READINESS_EDIT
-
-================================================================================
-F) READ / CONSUMPTION POINTS
-================================================================================
-
-inventory_event
-  API: GET /inventory/items/:itemId/history -> apps/api/src/routes/inventory.routes.ts via inventoryRepo.getItemHistory
-  API: GET /reports/inventory-events (CSV export) -> apps/api/src/routes/reports.routes.ts (direct query)
-  API: GET /reports/financial-attribution (CSV export) -> apps/api/src/routes/reports.routes.ts (direct query)
-  Web: apps/web/src/lib/api/inventory.ts (API client function)
-
-attestation
-  API: GET /readiness/cases/:id/attestations -> apps/api/src/routes/readiness.routes.ts (direct query)
-  Aggregation: apps/api/src/services/readiness.service.ts (used in case_readiness_cache computation)
-  Web: apps/web/src/lib/api/readiness.ts, apps/web/src/components/CaseDashboardModal/CaseDashboardContent.tsx
-
-device_event
-  No dedicated GET endpoint. Created in POST /inventory/device-events and its ID returned to caller for linking to inventory_event.
-
-surgical_case_status_event
-  API: GET /cases/:caseId/status-events -> apps/api/src/routes/cases.routes.ts via getStatusEvents
-  Service: apps/api/src/services/case-status.service.ts getStatusEvents function
-  Read by: apps/api/src/plugins/phi-guard.ts (finds COMPLETED status event for clinical care window check)
-  Read by: apps/api/src/services/phi-retention.service.ts (completion date for retention calculation)
-  Read by: apps/api/src/routes/reports.routes.ts (case status history in reports)
-
-catalog_event
-  No dedicated GET endpoint found.
-
-catalog_cost_event
-  No dedicated GET endpoint found.
-
-auth_audit_log
-  API: GET /platform/auth-audit -> apps/api/src/routes/platform-config.routes.ts via getAuthAuditLog
-  Service: apps/api/src/services/auth-audit.service.ts getAuthAuditLog function
-  Web: apps/web/src/app/(app)/platform/page.tsx, apps/web/src/lib/api/platform.ts
-
-case_card_link_event
-  API: GET /case-dashboard/:caseId (embedded in case dashboard response, latest link event) -> apps/api/src/routes/case-dashboard.routes.ts
-  API: GET /case-dashboard/:caseId/link-history -> apps/api/src/routes/case-dashboard.routes.ts (full history)
-  Web: apps/web/src/lib/api/case-dashboard.ts
-
-phi_access_audit_log
-  API: GET /phi-audit -> apps/api/src/routes/phi-audit.routes.ts via getPhiAccessLog
-  API: GET /phi-audit/stats -> apps/api/src/routes/phi-audit.routes.ts via getPhiAccessStats
-  API: GET /phi-audit/sessions -> apps/api/src/routes/phi-audit.routes.ts via getAuditSessions
-  API: GET /phi-audit/excessive-denials -> apps/api/src/routes/phi-audit.routes.ts via getExcessiveDenials
-  API: GET /phi-audit/analytics -> apps/api/src/routes/phi-audit.routes.ts via getAuditAnalytics
-  API: GET /phi-audit/retention -> apps/api/src/routes/phi-audit.routes.ts via getRetentionEligibility
-  API: GET /phi-audit/retention/:entityId -> apps/api/src/routes/phi-audit.routes.ts via getRetentionStatus
-  API: GET /phi-audit/:id -> apps/api/src/routes/phi-audit.routes.ts via getPhiAccessLogEntry
-  Web: apps/web/src/app/(app)/admin/phi-audit/page.tsx, apps/web/src/lib/api/phi-audit.ts
-
-phi_export_audit_log
-  API: GET /phi-audit/stats -> apps/api/src/routes/phi-audit.routes.ts (export count included in stats)
-  No dedicated list endpoint.
-
-config_audit_log
-  API: GET /platform/config/audit -> apps/api/src/routes/platform-config.routes.ts via getAuditLog
-  Web: apps/web/src/app/(app)/platform/page.tsx (inferred from route structure)
-
-case_checklist_response
-  API: Embedded in checklist instance response via checklists.routes.ts
-  Web: apps/web/src/components/Checklists/TimeoutModal.tsx, apps/web/src/components/Checklists/DebriefModal.tsx, apps/web/src/app/(app)/or/timeout/[caseId]/page.tsx, apps/web/src/app/(app)/or/debrief/[caseId]/page.tsx
-
-case_checklist_signature
-  API: Embedded in checklist instance response via checklists.routes.ts
-  Web: apps/web/src/components/Checklists/TimeoutModal.tsx, apps/web/src/components/Checklists/DebriefModal.tsx
-
-surgery_request_audit_event
-  API: GET /admin/surgery-requests/:id (embedded in detail response) -> apps/api/src/routes/admin-surgery-requests.routes.ts via getAuditEvents
-  Service: apps/api/src/services/surgery-request.service.ts getAuditEvents function
-  Web: apps/web/src/app/(app)/admin/surgery-requests/[id]/page.tsx, apps/web/src/lib/api/surgery-requests.ts
-
-surgery_request_submission
-  API: GET /admin/surgery-requests/:id (embedded in detail response) -> via getSubmissions
-  Service: apps/api/src/services/surgery-request.service.ts getSubmissions function
-  Web: apps/web/src/app/(app)/admin/surgery-requests/[id]/page.tsx
-
-surgery_request_checklist_response
-  API: GET /admin/surgery-requests/:id (embedded in detail response) -> via getChecklistResponses
-  Service: apps/api/src/services/surgery-request.service.ts getChecklistResponses function
-
-surgery_request_conversion
-  API: GET /admin/surgery-requests/:id (embedded in detail response) -> via getConversion
-  Service: apps/api/src/services/surgery-request.service.ts getConversion function
-
-clinic_financial_declaration
-  API: GET /financial-readiness/:requestId -> apps/api/src/services/financial-readiness.service.ts getDetail (declarations array)
-  Web: apps/web/src/lib/api/financial-readiness.ts
-
-asc_financial_verification
-  API: GET /financial-readiness/:requestId -> apps/api/src/services/financial-readiness.service.ts getDetail (verifications array)
-  Web: apps/web/src/lib/api/financial-readiness.ts
-
-financial_override
-  API: GET /financial-readiness/:requestId -> apps/api/src/services/financial-readiness.service.ts getDetail (overrides array)
-  Web: apps/web/src/lib/api/financial-readiness.ts
-
-================================================================================
-G) EVENT-TO-STATE EFFECTS
-================================================================================
-
-inventory_event emission -> updates inventory_item (mutable projection)
-  VERIFIED: sets last_verified_at, last_verified_by_user_id
-  LOCATION_CHANGED: sets location_id
-  RESERVED: sets availability_status=RESERVED, reserved_for_case_id
-  RELEASED: sets availability_status=AVAILABLE, reserved_for_case_id=NULL
-  CONSUMED: sets availability_status=UNAVAILABLE, reserved_for_case_id=NULL
-  EXPIRED: sets sterility_status=EXPIRED
-  RECEIVED: sets sterility_status, availability_status=AVAILABLE
-  Implemented in: apps/api/src/routes/inventory.routes.ts computeItemUpdate function, applied via inventoryRepo.createEventWithItemUpdate (single transaction)
-
-attestation creation -> updates case_readiness_cache
-  Sets has_attestation=true, attested_at, attested_by_name
-  Implemented in: apps/api/src/services/readiness.service.ts updateReadinessCache
-
-attestation voiding -> updates case_readiness_cache
-  Recomputes has_attestation (may revert to false)
-  Implemented in: apps/api/src/routes/readiness.routes.ts (triggers cache recomputation after void)
-
-surgical_case_status_event emission -> surgical_case.status updated in parallel
-  The event does NOT update surgical_case.status. Instead both the status UPDATE and the event INSERT happen together.
-  Implemented in: apps/api/src/repositories/postgres/case.repository.ts (UPDATE surgical_case, then recordStatusEvent)
-  Special case: surgery_request.service.ts convert() does inline INSERT into surgical_case_status_event within same transaction as case creation.
-
-case_checklist_signature emission -> may update case_checklist_instance.status
-  When all required signatures are collected, instance status transitions to COMPLETED, and completed_at is set.
-  Implemented in: apps/api/src/services/checklists.service.ts (checks required signatures after each sign)
-
-clinic_financial_declaration/asc_financial_verification/financial_override emission -> recomputes financial_readiness_cache
-  Each write triggers recomputeCache which deterministically re-derives risk_state from latest events.
-  Implemented in: apps/api/src/services/financial-readiness.service.ts recomputeCache (in same transaction)
-
-config value changes -> no direct state effect
-  Config values are versioned and immutable. The effective config is resolved at read time via v_effective_config view.
-
-surgery_request_audit_event emission -> surgery_request.status updated in parallel
-  The event does NOT update surgery_request.status. Both the status UPDATE and the audit event INSERT happen in the same transaction.
-  Implemented in: apps/api/src/services/surgery-request.service.ts (UPDATE surgery_request, then insertAuditEvent, same transaction)
-
-================================================================================
-H) TRACEABILITY FIELDS
-================================================================================
-
-inventory_event
-  Actor: performed_by_user_id (NOT NULL), financial_attestation_user_id (nullable)
-  Correlation: inventory_item_id, case_id, device_event_id, facility_id
-  Timestamps: occurred_at (business time), created_at (system time)
-  No request_id field.
-
-attestation
-  Actor: attested_by_user_id (NOT NULL), voided_by_user_id (nullable)
-  Correlation: case_id, facility_id
-  Timestamps: created_at, voided_at (nullable)
-  No request_id or ip_address fields.
-
-device_event
-  Actor: none (device-originated, no user attribution)
-  Correlation: device_id, processed_item_id, facility_id
-  Timestamps: occurred_at (business time), created_at (system time)
-  No request_id field.
-
-surgical_case_status_event
-  Actor: actor_user_id (nullable, NULL for system-initiated)
-  Correlation: surgical_case_id
-  Context: context JSONB (structured metadata: source, checklistId, etc.)
-  Timestamps: created_at
-  No request_id, ip_address fields.
-
-catalog_event
-  Actor: actor_user_id (nullable FK)
-  Correlation: catalog_item_id, facility_id
-  Context: payload JSONB
-  Timestamps: created_at
-  No request_id, ip_address fields.
-
-catalog_cost_event
-  Actor: changed_by_user_id (NOT NULL)
-  Correlation: catalog_id
-  Timestamps: effective_at (business time), created_at (system time)
-  No request_id, ip_address, facility_id fields.
-
-auth_audit_log
-  Actor: user_id (nullable), username (NOT NULL)
-  Correlation: facility_id (nullable), request_id
-  Context: user_roles, failure_reason, ip_address, user_agent
-  Timestamps: created_at
-
-case_card_link_event
-  Actor: performed_by_user_id (NOT NULL), performed_by_name (denormalized, NOT NULL)
-  Correlation: case_id, facility_id, source_case_card_id, source_case_card_version_id
-  Context: snapshot_json (JSONB, full card snapshot at link time), reason_code, reason_note
-  Timestamps: performed_at (business time), created_at (system time)
-
-phi_access_audit_log
-  Actor: user_id (NOT NULL), user_roles (NOT NULL)
-  Correlation: facility_id (NOT NULL), case_id (nullable), organization_ids (UUID[]), request_id, endpoint, http_method
-  Context: phi_classification, access_purpose, outcome, denial_reason, is_emergency, emergency_justification, breach_context (JSONB with hashed metadata)
-  Timestamps: created_at
-
-phi_export_audit_log
-  Actor: inherited via phi_access_log_id FK
-  Correlation: phi_access_log_id
-  Context: export_format, export_row_count
-  Timestamps: created_at
-
-config_audit_log
-  Actor: actor_user_id (NOT NULL), actor_name (NOT NULL), actor_roles (NOT NULL)
-  Correlation: config_key, scope, facility_id (nullable), request_id, ip_address, user_agent
-  Context: action, old_value, new_value, version_before, version_after, change_reason, change_note
-  Timestamps: created_at
-
-case_checklist_response
-  Actor: completed_by_user_id (NOT NULL)
-  Correlation: instance_id
-  Timestamps: completed_at, created_at
-
-case_checklist_signature
-  Actor: signed_by_user_id (NOT NULL)
-  Correlation: instance_id
-  Context: role, method, flagged_for_review, flag_comment
-  Timestamps: signed_at, created_at
-
-surgery_request_submission
-  Actor: none (clinic-originated via API key)
-  Correlation: request_id
-  Timestamps: submitted_at (clinic time), received_at (system time), created_at
-
-surgery_request_audit_event
-  Actor: actor_type (CLINIC or ASC), actor_clinic_id (nullable), actor_user_id (nullable)
-  Correlation: request_id, submission_id (nullable)
-  Context: event_type, reason_code, note
-  Timestamps: created_at
-
-surgery_request_checklist_response
-  Actor: actor_type (CLINIC or ASC), actor_clinic_id (nullable), actor_user_id (nullable)
-  Correlation: instance_id
-  Context: item_key, response (JSONB)
-  Timestamps: created_at
-
-surgery_request_conversion
-  Actor: converted_by_user_id (NOT NULL)
-  Correlation: request_id (PK), surgical_case_id (UNIQUE)
-  Timestamps: converted_at
-
-clinic_financial_declaration
-  Actor: recorded_by_user_id (NOT NULL), actor_clinic_id (NOT NULL)
-  Correlation: surgery_request_id
-  Context: state, reason_codes (TEXT[]), note
-  Timestamps: created_at
-
-asc_financial_verification
-  Actor: verified_by_user_id (NOT NULL)
-  Correlation: surgery_request_id
-  Context: state, reason_codes (TEXT[]), note
-  Timestamps: created_at
-
-financial_override
-  Actor: overridden_by_user_id (NOT NULL)
-  Correlation: surgery_request_id
-  Context: state, reason_code, note
-  Timestamps: created_at
-
-================================================================================
-I) INCONSISTENCIES AND GAPS
-================================================================================
-
-1. Timestamp field naming inconsistency
-   inventory_event, device_event, case_card_link_event use both occurred_at/performed_at (business time) and created_at (system time).
-   attestation, surgical_case_status_event, catalog_event, auth_audit_log use created_at only with no separate business timestamp.
-   surgery_request_submission uses submitted_at + received_at + created_at (three timestamps).
-
-2. Actor attribution inconsistency
-   inventory_event: performed_by_user_id (NOT NULL)
-   surgical_case_status_event: actor_user_id (nullable)
-   catalog_event: actor_user_id (nullable FK)
-   case_card_link_event: performed_by_user_id (NOT NULL) + performed_by_name (denormalized)
-   auth_audit_log: user_id (nullable for failed logins)
-   device_event: no actor at all
-   surgery_request_audit_event: dual actor model (actor_type + actor_clinic_id/actor_user_id)
-
-3. CatalogEventAction not enumerated
-   catalog_event.action is TEXT type with no DB enum or CHECK constraint.
-   Values IMAGE_ADDED, IMAGE_REMOVED, IDENTIFIER_ADDED, IDENTIFIER_REMOVED are inferred from code usage only.
-   New action values can be introduced without schema migration.
-
-4. ConfigAuditAction not enumerated
-   config_audit_log.action is VARCHAR(20) with no DB enum or CHECK constraint.
-   Values SET, CLEAR, DEPRECATE are inferred from code usage only.
-
-5. catalog_cost_event has no write path
-   Table defined in migration 043 with append-only triggers, but no API route or service function writes to it.
-   item_catalog.unit_cost_cents can be set directly without going through catalog_cost_event.
-
-6. Missing request_id/ip_address on most event tables
-   Only auth_audit_log, phi_access_audit_log, and config_audit_log have request correlation fields.
-   inventory_event, attestation, surgical_case_status_event, catalog_event, case_card_link_event lack request_id for incident reconstruction.
-
-7. No dedicated GET endpoint for catalog_event or device_event
-   catalog_event data is write-only from the API perspective. No route returns it.
-   device_event data is not directly queryable. Only its ID is returned on creation.
-
-8. Mixed event persistence patterns
-   Some tables use dedicated service functions: auth-audit.service.ts (logAuthEvent), phi-audit.service.ts (logPhiAccess), case-status.service.ts (recordStatusEvent), surgery-request.service.ts (insertAuditEvent), financial-readiness.service.ts.
-   Some tables use direct SQL in route handlers: catalog_event (catalog-images.routes.ts, catalog.routes.ts), attestation (readiness.routes.ts), case_card_link_event (case-dashboard.routes.ts).
-   No consistent event bus or mediator pattern.
-
-9. case_card_link_event denormalizes performed_by_name
-   This is the only event table that stores the actor name alongside the actor ID.
-   All other tables require a JOIN to app_user to resolve actor names.
-
-10. surgical_case_status_event and surgery_request_audit_event lack transactional coupling guarantee
-    case.repository.ts calls recordStatusEvent after the UPDATE but not in an explicit DB transaction (relies on separate queries).
-    surgery-request.service.ts uses explicit transaction(client) for both status UPDATE and audit event INSERT.
-
-11. attestation is not strictly append-only
-    The attestation_allow_void_only trigger permits UPDATE of voided_at and voided_by_user_id from NULL.
-    This makes attestation a "soft-voidable append-only" table, not strictly immutable.
-
-12. No facility_id on catalog_cost_event
-    catalog_cost_event links to catalog_id (FK to item_catalog) but has no direct facility_id column.
-    Multi-tenant scoping requires a JOIN through item_catalog.
-
---- END OF REPORT ---

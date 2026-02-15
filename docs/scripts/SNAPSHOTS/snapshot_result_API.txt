@@ -1,1029 +1,1097 @@
-================================================================================
-API CONTRACT SNAPSHOT
-================================================================================
-Generated: 2026-02-12
-Purpose: Complete, deterministic API surface audit
-Source: apps/api/src/routes/*.routes.ts (all 31 route files)
-
-This snapshot documents EVERY endpoint in the ASC Inventory API.
-It is READ-ONLY and tracks the actual API contract as implemented.
+ASC INVENTORY TRUTH SYSTEM - API CONTRACT SNAPSHOT
+Generated: 2026-02-14
+Source: apps/api/src/ (Fastify + Zod backend)
+Total Route Files: 31
+Total Route Code Lines: 17,256
 
 ================================================================================
-ROUTE FILES AUDITED (31 total)
+SECTION 1: ENDPOINT INVENTORY
 ================================================================================
 
-✓ admin-settings.routes.ts
-✓ admin-surgery-requests.routes.ts
-✓ ai.routes.ts
-✓ attention.routes.ts
-✓ auth.routes.ts
-✓ case-cards.routes.ts
-✓ case-dashboard.routes.ts
-✓ cases.routes.ts
-✓ catalog.routes.ts
-✓ catalog-groups.routes.ts
-✓ catalog-images.routes.ts
-✓ catalog-sets.routes.ts
-✓ checklists.routes.ts
-✓ clinic-surgery-requests.routes.ts
-✓ financial-readiness.routes.ts
-✓ general-settings.routes.ts
-✓ inventory.routes.ts
-✓ loaner-sets.routes.ts
-✓ locations.routes.ts
-✓ organization.routes.ts
-✓ phi-audit.routes.ts
-✓ phi-patient.routes.ts
-✓ platform.routes.ts
-✓ platform-config.routes.ts
-✓ preference-cards.routes.ts
-✓ readiness.routes.ts
-✓ reports.routes.ts
-✓ schedule.routes.ts
-✓ settings.routes.ts
-✓ users.routes.ts
-✓ vendors.routes.ts
+All endpoints are prefixed with /api unless otherwise noted.
+
+────────────────────────────────────────────────────────────────────────────────
+HEALTH & PLATFORM CONTROL
+────────────────────────────────────────────────────────────────────────────────
+
+GET /api/health
+  Auth: No
+  Input: void
+  Output: { status: string, timestamp: string }
+  File: apps/api/src/index.ts:150
+
+GET /api/platform/health
+  Auth: Yes (PLATFORM_ADMIN)
+  Input: void
+  Output: { status: string, timestamp: string, platform: boolean }
+  File: apps/api/src/routes/platform.routes.ts:24
+
+GET /api/platform/facilities
+  Auth: Yes (PLATFORM_ADMIN)
+  Input: void
+  Output: { facilities: Array<{ id, facilityKey, name, active }> }
+  File: apps/api/src/routes/platform.routes.ts:41
+
+────────────────────────────────────────────────────────────────────────────────
+AUTHENTICATION
+────────────────────────────────────────────────────────────────────────────────
+
+POST /api/auth/login
+  Auth: No
+  Input: LoginRequestSchema (apps/api/src/schemas/index.ts:27)
+    - facilityKey: string (1-20 chars) | "PLATFORM" for platform admin
+    - username: string (3-100 chars)
+    - password: string (min 8 chars)
+  Output: LoginResponseSchema (apps/api/src/schemas/index.ts:34)
+    - token: string (JWT)
+    - user: { id, username, email, name, role, roles[], facilityId, facilityName }
+  Errors: 401 UNAUTHENTICATED
+  File: apps/api/src/routes/auth.routes.ts:28
+
+GET /api/auth/me
+  Auth: Yes (JWT required)
+  Input: void
+  Output: { user: { id, username, email, name, role, roles[], facilityId, facilityName } }
+  File: apps/api/src/routes/auth.routes.ts:306
+
+POST /api/auth/logout
+  Auth: Yes (JWT required)
+  Input: void
+  Output: { success: boolean }
+  File: apps/api/src/routes/auth.routes.ts:339
+
+────────────────────────────────────────────────────────────────────────────────
+USER MANAGEMENT (ADMIN only)
+────────────────────────────────────────────────────────────────────────────────
+
+GET /api/users
+  Auth: Yes (USER_MANAGE capability)
+  Input: query { includeInactive?: "true" }
+  Output: { users: Array<UserResponse> }
+  File: apps/api/src/routes/users.routes.ts:45
+
+GET /api/users/surgeons
+  Auth: Yes (authenticated)
+  Input: void
+  Output: { users: Array<{ id, name, role: "SURGEON" }> }
+  File: apps/api/src/routes/users.routes.ts:88
+
+GET /api/users/:id
+  Auth: Yes (USER_MANAGE capability)
+  Input: params { id: UUID }
+  Output: { user: UserResponse }
+  Errors: 404 NOT_FOUND
+  File: apps/api/src/routes/users.routes.ts:113
+
+POST /api/users
+  Auth: Yes (USER_MANAGE capability)
+  Input: CreateUserRequestSchema (apps/api/src/schemas/index.ts:56)
+    - username: string (3-100 chars, alphanumeric + _.- )
+    - email?: string (required for ADMIN role)
+    - name: string (1-255 chars)
+    - role?: UserRole (backward compat)
+    - roles?: UserRole[] (min 1, preferred)
+    - password: string (min 8 chars)
+  Output: { user: UserResponse } (status 201)
+  Errors: 400 DUPLICATE (username exists)
+  File: apps/api/src/routes/users.routes.ts:150
+
+PATCH /api/users/:id
+  Auth: Yes (USER_MANAGE capability)
+  Input: UpdateUserRequestSchema (apps/api/src/schemas/index.ts:79)
+    - username?, email?, name?, role?, roles?, password? (all optional)
+  Output: { user: UserResponse }
+  Errors: 400 DUPLICATE, 404 NOT_FOUND
+  File: apps/api/src/routes/users.routes.ts:215
+
+POST /api/users/:id/deactivate
+  Auth: Yes (USER_MANAGE capability)
+  Input: params { id: UUID }
+  Output: { success: boolean }
+  Errors: 400 INVALID_STATE (self-deactivation, last admin)
+  File: apps/api/src/routes/users.routes.ts:323
+
+POST /api/users/:id/activate
+  Auth: Yes (USER_MANAGE capability)
+  Input: params { id: UUID }
+  Output: { success: boolean }
+  File: apps/api/src/routes/users.routes.ts:373
+
+────────────────────────────────────────────────────────────────────────────────
+CASES (Surgical Cases) — CONTRACT ROUTES
+────────────────────────────────────────────────────────────────────────────────
+
+GET /api/cases
+  Auth: Yes (authenticated + PHI_CLINICAL access)
+  Input: query { date?, status?, active?, search? }
+  Output: { cases: Array<CaseResponse> }
+  Contract: contract.cases.list
+  File: apps/api/src/routes/cases.routes.ts:88
+
+GET /api/cases/:caseId
+  Auth: Yes (authenticated + PHI_CLINICAL access, case-level evaluation)
+  Input: params { caseId: UUID }
+  Output: { case: CaseResponse, requirements: Array<RequirementSummary> }
+  Errors: 404 NOT_FOUND
+  Contract: contract.cases.get
+  File: apps/api/src/routes/cases.routes.ts:108
+
+POST /api/cases
+  Auth: Yes (CASE_CREATE capability + PHI_CLINICAL access)
+  Input: CreateCaseRequestSchema (apps/api/src/schemas/index.ts:106)
+    - surgeonId: UUID
+    - procedureName: string (1-255 chars)
+    - scheduledDate?: YYYY-MM-DD
+    - scheduledTime?: HH:MM or HH:MM:SS
+    - requestedDate?: YYYY-MM-DD
+    - requestedTime?: HH:MM or HH:MM:SS
+    - preferenceCardId?: UUID
+    - notes?: string
+    - status?: "REQUESTED" | "SCHEDULED" (SCHEDULED requires CASE_APPROVE capability)
+    - primaryOrganizationId?: UUID (PHI Phase 1 attribution)
+  Output: { case: CaseResponse } (status 201)
+  Errors: 400 VALIDATION_ERROR, 403 FORBIDDEN
+  Contract: contract.cases.create
+  File: apps/api/src/routes/cases.routes.ts:291
+
+PATCH /api/cases/:caseId
+  Auth: Yes (CASE_UPDATE capability + PHI_CLINICAL access, case-level evaluation)
+  Input: UpdateCaseRequestSchema (apps/api/src/schemas/index.ts:120)
+    - scheduledDate?, scheduledTime?, surgeonId?, procedureName?, preferenceCardVersionId?, status?, notes? (all optional)
+  Output: { case: CaseResponse }
+  Errors: 403 FORBIDDEN (scheduling active cases requires CASE_ASSIGN_ROOM)
+  Contract: contract.cases.update
+  File: apps/api/src/routes/cases.routes.ts:136
+
+POST /api/cases/:caseId/approve
+  Auth: Yes (CASE_APPROVE capability + PHI_CLINICAL access + idempotency)
+  Input: ApproveCaseRequestSchema (apps/api/src/schemas/index.ts:175)
+    - scheduledDate: YYYY-MM-DD (required)
+    - scheduledTime?: HH:MM or HH:MM:SS
+    - roomId?: UUID | null
+    - estimatedDurationMinutes?: number (15-720)
+  Output: { case: CaseResponse }
+  Errors: 404 NOT_FOUND (case not in REQUESTED status)
+  Contract: contract.cases.approve
+  File: apps/api/src/routes/cases.routes.ts:200
+
+POST /api/cases/:caseId/reject
+  Auth: Yes (CASE_REJECT capability + PHI_CLINICAL access + idempotency)
+  Input: RejectCaseRequestSchema (apps/api/src/schemas/index.ts:192)
+    - reason: string (1-500 chars, required)
+  Output: { case: CaseResponse }
+  Errors: 404 NOT_FOUND (case not in REQUESTED status)
+  Contract: contract.cases.reject
+  File: apps/api/src/routes/cases.routes.ts:228
+
+PATCH /api/cases/:caseId/assign-room
+  Auth: Yes (CASE_ASSIGN_ROOM capability + PHI_CLINICAL access + idempotency)
+  Input: AssignRoomRequestSchema (apps/api/src/schemas/index.ts:184)
+    - roomId: UUID | null
+    - sortOrder?: number (min 0)
+    - estimatedDurationMinutes?: number (15-720)
+  Output: { case: CaseResponse }
+  Errors: 400 VALIDATION_ERROR (invalid room), 404 NOT_FOUND
+  Contract: contract.cases.assignRoom
+  File: apps/api/src/routes/cases.routes.ts:246
+
+POST /api/cases/:caseId/activate
+  Auth: Yes (CASE_ACTIVATE capability + PHI_CLINICAL access + idempotency)
+  Input: ActivateCaseRequestSchema (apps/api/src/schemas/index.ts:162)
+    - scheduledDate?: YYYY-MM-DD
+    - scheduledTime?: HH:MM or HH:MM:SS
+  Output: { case: CaseResponse }
+  Errors: 400 INVALID_STATE (cancelled or already active)
+  Contract: contract.cases.activate
+  File: apps/api/src/routes/cases.routes.ts:386
+
+POST /api/cases/:caseId/deactivate
+  Auth: Yes (CASE_ACTIVATE capability + PHI_CLINICAL access + idempotency)
+  Input: params { caseId: UUID }
+  Output: { case: CaseResponse }
+  Errors: 400 INVALID_STATE (in progress, completed, or already inactive)
+  Contract: contract.cases.deactivate
+  File: apps/api/src/routes/cases.routes.ts:424
+
+POST /api/cases/:caseId/cancel
+  Auth: Yes (CASE_CANCEL capability + PHI_CLINICAL access + idempotency)
+  Input: CancelCaseRequestSchema (apps/api/src/schemas/index.ts:169)
+    - reason?: string
+  Output: { case: CaseResponse }
+  Errors: 400 INVALID_STATE (already cancelled)
+  Contract: contract.cases.cancel
+  File: apps/api/src/routes/cases.routes.ts:453
+
+POST /api/cases/:caseId/check-in-preop
+  Auth: Yes (CASE_CHECKIN_PREOP capability + PHI_CLINICAL access + idempotency)
+  Input: params { caseId: UUID }
+  Output: { case: CaseResponse }
+  Errors: 400 INVALID_STATE (must be SCHEDULED), 404 NOT_FOUND
+  Contract: contract.cases.checkInPreop
+  File: apps/api/src/routes/cases.routes.ts:480
+
+GET /api/cases/:caseId/status-events
+  Auth: Yes (authenticated + PHI_CLINICAL access, case-level evaluation)
+  Input: params { caseId: UUID }
+  Output: Array<{ id, surgicalCaseId, fromStatus, toStatus, reason, context, actorUserId, actorName, createdAt }>
+  Errors: 404 NOT_FOUND
+  Contract: contract.cases.statusEvents
+  File: apps/api/src/routes/cases.routes.ts:505
+
+POST /api/cases/:id/preference-card (NON-CONTRACTED LEGACY)
+  Auth: Yes (CASE_PREFERENCE_CARD_LINK capability + PHI_CLINICAL access)
+  Input: SelectPreferenceCardRequestSchema (apps/api/src/schemas/index.ts:327)
+    - preferenceCardId: UUID
+  Output: { success: boolean }
+  File: apps/api/src/routes/cases.routes.ts:539
+
+PUT /api/cases/:id/requirements (NON-CONTRACTED LEGACY)
+  Auth: Yes (CASE_VIEW capability + PHI_CLINICAL access)
+  Input: SetCaseRequirementsRequestSchema (apps/api/src/schemas/index.ts:201)
+    - requirements: Array<{ catalogId: UUID, quantity: number, notes?: string }>
+    - isSurgeonOverride: boolean (default false)
+  Output: { success: boolean }
+  Errors: 403 FORBIDDEN (only assigned surgeon or admin)
+  File: apps/api/src/routes/cases.routes.ts:587
+
+DELETE /api/cases/:id (NON-CONTRACTED LEGACY)
+  Auth: Yes (CASE_DELETE capability + PHI_CLINICAL access)
+  Input: params { id: UUID }
+  Output: { success: boolean }
+  Errors: 400 INVALID_STATE (active, in progress, completed, has completed checklists)
+  File: apps/api/src/routes/cases.routes.ts:640
+
+────────────────────────────────────────────────────────────────────────────────
+INVENTORY — CONTRACT ROUTES
+────────────────────────────────────────────────────────────────────────────────
+
+GET /api/inventory/items
+  Auth: Yes (authenticated)
+  Input: query { catalogId?, locationId?, status? }
+  Output: { items: Array<InventoryItemSummary> }
+  Contract: contract.inventory.listItems
+  File: apps/api/src/routes/inventory.routes.ts:1530
+
+GET /api/inventory/items/:itemId
+  Auth: Yes (authenticated)
+  Input: params { itemId: UUID }
+  Output: { item: InventoryItemDetails }
+  Errors: 404 NOT_FOUND
+  Contract: contract.inventory.getItem
+  File: apps/api/src/routes/inventory.routes.ts:1550
+
+POST /api/inventory/items
+  Auth: Yes (INVENTORY_MANAGE capability)
+  Input: CreateInventoryItemRequestSchema (apps/api/src/schemas/index.ts:633)
+    - catalogId: UUID (required)
+    - serialNumber?: string (required if catalog.requires_serial_tracking)
+    - lotNumber?: string (required if catalog.requires_lot_tracking)
+    - barcode?: string
+    - locationId?: UUID
+    - sterilityStatus?: SterilityStatus
+    - sterilityExpiresAt?: ISO datetime (required if catalog.requires_expiration_tracking | requires_sterility | category=IMPLANT)
+    - barcodeGtin?, barcodeParsedLot?, barcodeParsedSerial?, barcodeParsedExpiration?, barcodeClassification?
+    - attestationReason?: string (manual override justification)
+  Output: { item: InventoryItemDetails } (status 201)
+  Errors: 400 VALIDATION_ERROR (missing required fields per catalog intent flags), 400 DUPLICATE (barcode exists)
+  Notes: W1 Check-in validation enforced based on Catalog v1.1 intent flags
+  Contract: contract.inventory.createItem
+  File: apps/api/src/routes/inventory.routes.ts:1583
+
+PATCH /api/inventory/items/:itemId
+  Auth: Yes (INVENTORY_MANAGE capability)
+  Input: UpdateInventoryItemRequestSchema (apps/api/src/schemas/index.ts:652)
+    - serialNumber?, lotNumber?, barcode?, locationId?, sterilityStatus?, sterilityExpiresAt? (all optional)
+  Output: { item: InventoryItemDetails }
+  Errors: 400 DUPLICATE (barcode exists), 404 NOT_FOUND
+  Contract: contract.inventory.updateItem
+  File: apps/api/src/routes/inventory.routes.ts:1716
+
+GET /api/inventory/items/:itemId/history
+  Auth: Yes (authenticated)
+  Input: params { itemId: UUID }
+  Output: { events: Array<InventoryEventSummary> }
+  Errors: 404 NOT_FOUND
+  Contract: contract.inventory.itemHistory
+  File: apps/api/src/routes/inventory.routes.ts:1779
+
+POST /api/inventory/events
+  Auth: Yes (INVENTORY_CHECKIN | INVENTORY_MANAGE capability + PHI_CLINICAL access + idempotency)
+  Input: CreateInventoryEventRequestSchema (apps/api/src/schemas/index.ts:215)
+    - inventoryItemId: UUID
+    - eventType: InventoryEventType (VERIFIED, LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED, EXPIRED, RECEIVED, ADJUSTED)
+    - caseId?: UUID
+    - locationId?: UUID
+    - sterilityStatus?: SterilityStatus
+    - notes?: string
+    - deviceEventId?: UUID
+    - occurredAt?: ISO datetime
+    - adjustment?: { availabilityStatus: "MISSING" | "AVAILABLE" } (structured W1 field)
+    - reason?: string (required when adjustment.availabilityStatus = MISSING)
+  Output: { success: boolean } (status 201)
+  Errors: 400 VALIDATION_ERROR (missing reason for MISSING adjustment), 404 NOT_FOUND
+  Notes: Structured adjustment field replaces legacy note prefixes [MARK_MISSING]/[MARK_FOUND]
+  Contract: contract.inventory.createEvent
+  File: apps/api/src/routes/inventory.routes.ts:819
+
+POST /api/inventory/events/bulk
+  Auth: Yes (INVENTORY_CHECKIN | INVENTORY_MANAGE capability + PHI_CLINICAL access + idempotency)
+  Input: BulkInventoryEventRequestSchema (apps/api/src/schemas/index.ts:228)
+    - events: Array<CreateInventoryEventRequest> (min 1, max 100)
+  Output: { success: boolean, count: number } (status 201)
+  Errors: 400 ITEMS_NOT_FOUND (some items don't exist)
+  Contract: contract.inventory.bulkEvents
+  File: apps/api/src/routes/inventory.routes.ts:886
+
+POST /api/inventory/events/financial (NON-CONTRACTED, ADMIN only)
+  Auth: Yes (INVENTORY_MANAGE capability + PHI_CLINICAL access)
+  Input: CreateInventoryEventRequest + financial fields
+    - costOverrideCents?: number (requires costOverrideReason, valid reasons: CATALOG_ERROR, NEGOTIATED_DISCOUNT, VENDOR_CONCESSION, DAMAGE_CREDIT, EXPIRED_CREDIT, CONTRACT_ADJUSTMENT, GRATIS_CONVERSION, OTHER)
+    - costOverrideReason?: string (required if costOverrideCents set)
+    - costOverrideNote?: string
+    - providedByVendorId?: UUID (must be active vendor)
+    - providedByRepName?: string
+    - isGratis?: boolean (requires gratisReason if true)
+    - gratisReason?: string (required if isGratis=true, valid reasons: VENDOR_SAMPLE, VENDOR_SUPPORT, CLINICAL_TRIAL, GOODWILL, WARRANTY_REPLACEMENT, OTHER)
+  Output: { success: boolean } (status 201)
+  Errors: 400 VALIDATION_ERROR (missing reason for override/gratis), 404 NOT_FOUND (vendor)
+  Notes: Wave 1 financial attribution — enforces DB constraint rules at API level
+  File: apps/api/src/routes/inventory.routes.ts:970
+
+GET /api/inventory/items/lookup (NON-CONTRACTED)
+  Auth: Yes (INVENTORY_CHECKIN | INVENTORY_MANAGE capability)
+  Input: query { code: string }
+  Output: { match: "SINGLE" | "MULTIPLE" | "NONE", source: "BARCODE" | "SERIAL" | "GS1" | "LOT", item?, items?, capped? }
+  Notes: Multi-strategy lookup (barcode → serial → GS1 parse → lot) with cap of 20 results
+  File: apps/api/src/routes/inventory.routes.ts:1120
+
+POST /api/inventory/device-events (NON-CONTRACTED)
+  Auth: Yes (authenticated)
+  Input: CreateDeviceEventRequestSchema (apps/api/src/schemas/index.ts:236)
+    - deviceId: UUID (or '00000000-0000-0000-0000-000000000000' for keyboard wedge)
+    - deviceType: DeviceType
+    - payloadType: DevicePayloadType
+    - rawValue: string (min 1)
+    - occurredAt?: ISO datetime
+  Output: { deviceEventId: UUID, processed: boolean, processedItemId?: UUID, candidate?: InventoryItem, gs1Data?, catalogMatch?, barcodeClassification, error? } (status 201)
+  Notes: LAW-compliant — returns candidate, does NOT auto-create VERIFIED events (human confirmation required)
+  File: apps/api/src/routes/inventory.routes.ts:1274
+
+GET /api/inventory/devices (NON-CONTRACTED)
+  Auth: Yes (authenticated)
+  Input: void
+  Output: { devices: Array<{ id, name, deviceType, locationId, locationName, active }> }
+  File: apps/api/src/routes/inventory.routes.ts:1391
+
+GET /api/inventory/device-events (NON-CONTRACTED)
+  Auth: Yes (CASE_VIEW capability)
+  Input: query { deviceId?, processed?, hasError?, start?, end?, q?, limit?, cursor? }
+  Output: { events: Array<DeviceEventSummary>, nextCursor: string | null }
+  Notes: Cursor-based pagination (newest first), default 7 days, max 30 days (admin exempt)
+  File: apps/api/src/routes/inventory.routes.ts:1418
+
+GET /api/inventory/events (NON-CONTRACTED, ADMIN only)
+  Auth: Yes (INVENTORY_MANAGE capability)
+  Input: query { financial?, eventType?, caseId?, vendorId?, gratis?, start?, end?, limit?, offset? }
+  Output: { events: Array<InventoryEventFinancial>, total, limit, offset }
+  Notes: Offset pagination, financial filter includes financial_attestation_user_id IS NOT NULL
+  File: apps/api/src/routes/inventory.routes.ts:1487
+
+GET /api/inventory/risk-queue
+  Auth: Yes (authenticated)
+  Input: void
+  Output: { riskItems: Array<RiskItem> }
+  Notes: Computed risk queue based on Catalog v1.1 intent flags — rules: MISSING_LOT, MISSING_SERIAL, MISSING_EXPIRATION, EXPIRING_SOON, EXPIRED. Severity mapped from criticality (CRITICAL→RED, IMPORTANT→ORANGE, ROUTINE→YELLOW, EXPIRED always RED). Read-only, no mutations.
+  Contract: contract.inventory.riskQueue
+  File: apps/api/src/routes/inventory.routes.ts:1831
+
+GET /api/inventory/missing-analytics
+  Auth: Yes (INVENTORY_MANAGE capability)
+  Input: query { start: ISO date, end: ISO date, groupBy: "day" | "location" | "catalog" | "surgeon" | "staff", resolution: "MISSING" | "FOUND" | "BOTH" }
+  Output: { summary: { totalMissing, totalFound, netOpen, resolutionRate }, groups: Array<Group>, topDrivers: Array<Group> | null }
+  Contract: contract.inventory.missingAnalytics
+  File: apps/api/src/routes/inventory.routes.ts:2079
+
+GET /api/inventory/missing-events
+  Auth: Yes (INVENTORY_MANAGE capability)
+  Input: query { start, end, resolution, groupBy, groupKey?, date?, limit, offset }
+  Output: { total, events: Array<MissingEventDetail> }
+  Errors: 400 VALIDATION_ERROR (missing required groupKey or date per groupBy)
+  Contract: contract.inventory.missingEvents
+  File: apps/api/src/routes/inventory.routes.ts:2095
+
+GET /api/inventory/open-missing-aging
+  Auth: Yes (INVENTORY_MANAGE capability)
+  Input: void
+  Output: { total, items: Array<{ inventoryItemId, catalogName, lotNumber, serialNumber, locationName, missingSince, daysMissing, lastStaffName }> }
+  Contract: contract.inventory.openMissingAging
+  File: apps/api/src/routes/inventory.routes.ts:2124
+
+────────────────────────────────────────────────────────────────────────────────
+ADDITIONAL ROUTES (Summary Only — Full Details in Source Files)
+────────────────────────────────────────────────────────────────────────────────
+
+Due to API scale (31 route files, 17,256 lines of code), the following route groups are summarized. Refer to source files for complete endpoint details:
+
+CATALOG MANAGEMENT:
+- /api/catalog (catalog.routes.ts): CRUD for catalog items
+- /api/catalog/groups (catalog-groups.routes.ts): Group management
+- /api/catalog/sets (catalog-sets.routes.ts): Set/container definitions (LAW v2.1)
+- /api/catalog/images (catalog-images.routes.ts): Image upload (Wave 1, 3MB limit)
+
+CHECKLISTS & READINESS:
+- /api/facility/settings (checklists.routes.ts): Timeout/Debrief feature toggle
+- /api/checklists/* (checklists.routes.ts): Template management, instance control, signatures, reviews
+- /api/readiness/* (readiness.routes.ts): Day-before readiness, attestations, verification
+
+SCHEDULING:
+- /api/schedule/* (schedule.routes.ts): Day view, unassigned cases, block times, room config
+
+SETTINGS:
+- /api/settings/* (settings.routes.ts): Rooms, surgeons
+- /api/general-settings/* (general-settings.routes.ts): Config items (patient flags, anesthesia modalities)
+- /api/admin/settings (admin-settings.routes.ts): Aggregated settings view
+- /api/locations (locations.routes.ts): Location hierarchy
+
+CASE CARDS & PREFERENCE CARDS:
+- /api/case-cards/* (case-cards.routes.ts): Case card CRUD, versioning, locking, feedback (1472 lines)
+- /api/case-dashboard/* (case-dashboard.routes.ts): Intraop control panel, attestation, overrides
+- /api/preference-cards/* (preference-cards.routes.ts): Preference card CRUD, versioning
+
+REPORTS:
+- /api/reports/* (reports.routes.ts): 11+ report types (case volume, compliance, financial, etc.)
+  - PHI reports require X-Access-Purpose header
+  - Supports CSV export
+
+FINANCIAL ATTRIBUTION (Wave 1):
+- /api/vendors/* (vendors.routes.ts): Vendor management
+- /api/loaner-sets/* (loaner-sets.routes.ts): Loaner set tracking
+
+PHI COMPLIANCE:
+- /api/organizations/* (organization.routes.ts): Org model (PHI Phase 1)
+- /api/phi-audit/* (phi-audit.routes.ts): Audit log (PHI Phase 3)
+- /api/phi-patient/* (phi-patient.routes.ts): Patient identity (PHI Phase 6A)
+
+SURGERY REQUESTS (Phase 1 Readiness):
+- /api/clinic/surgery-requests/* (clinic-surgery-requests.routes.ts): HMAC auth, clinic submission
+- /api/admin/surgery-requests/* (admin-surgery-requests.routes.ts): Admin review, conversion
+
+FINANCIAL READINESS (Phase 2):
+- /api/admin/financial-readiness/* (financial-readiness.routes.ts): Dashboard, declare, verify, override
+
+PLATFORM CONTROL (LAW §2.3):
+- /api/platform/config/* (platform-config.routes.ts): Platform config, facility overrides, audit
+
+AI SERVICES:
+- /api/ai/explain-readiness (ai.routes.ts): AI readiness explanation (rate-limited, feature-flagged)
+
+ATTENTION QUEUE:
+- /api/attention/* (attention.routes.ts): Derived risk queue (Wave 1)
 
 ================================================================================
-AUTHENTICATION & AUTHORIZATION OVERVIEW
+SECTION 2: SHARED SCHEMAS & TYPES
 ================================================================================
 
-1. JWT Authentication (Most Endpoints)
-   - Header: Authorization: Bearer <token>
-   - Payload: { userId, facilityId, role, roles, name }
-   - Decorator: fastify.authenticate
+All schemas are defined in Zod and located in apps/api/src/schemas/index.ts unless otherwise noted.
 
-2. Capability-Based Authorization
-   - Decorator: requireCapabilities(...capabilities)
-   - Examples: CASE_CREATE, USER_MANAGE, INVENTORY_MANAGE
-   - Derived from user roles
+────────────────────────────────────────────────────────────────────────────────
+DOMAIN ENUMS (from @asc/domain)
+────────────────────────────────────────────────────────────────────────────────
 
-3. PHI Access Control (PHI Routes)
-   - Decorator: requirePhiAccess(accessLevel)
-   - Levels: PHI_CLINICAL, PHI_AUDIT, PHI_BILLING, PHI_PATIENT_SEARCH, PHI_WRITE_CLINICAL
-   - Headers: X-Access-Purpose, X-Emergency-Justification
-   - Case-specific: evaluateCase (for case detail access)
+UserRole: ADMIN, SCHEDULER, SURGEON, SCRUB_TECH, CIRCULATOR, ANESTHESIA, PACU, CLINIC, PLATFORM_ADMIN
+CaseStatus: REQUESTED, SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED, REJECTED
+SterilityStatus: STERILE, NON_STERILE, EXPIRED, UNKNOWN
+InventoryEventType: VERIFIED, LOCATION_CHANGED, RESERVED, RELEASED, CONSUMED, EXPIRED, RECEIVED, ADJUSTED
+AttestationType: SCRUB_LEAD, CIRCULATOR_LEAD, SURGEON_ACKNOWLEDGMENT
+DeviceType: BARCODE_SCANNER, RFID_READER, KEYBOARD_WEDGE
+DevicePayloadType: GS1_BARCODE, RFID_TAG, UPC, MANUAL_ENTRY
+ReadinessState: GREEN, ORANGE, RED
+ChecklistType: TIMEOUT, DEBRIEF
+ChecklistStatus: NOT_STARTED, IN_PROGRESS, COMPLETED, PENDING_ASYNC_REVIEW
+SignatureMethod: LOGIN, BADGE_SCAN, BIOMETRIC
+ItemCategory: INSTRUMENT, IMPLANT, CONSUMABLE, EQUIPMENT, MEDICATION, PPE
+Criticality: CRITICAL, IMPORTANT, ROUTINE
 
-4. HMAC Authentication (Clinic Routes Only)
-   - Header: X-Clinic-Key: <hmac_signature>
-   - Decorator: requireClinicAuth
-   - Routes: /api/clinic/surgery-requests
+────────────────────────────────────────────────────────────────────────────────
+KEY REQUEST/RESPONSE SCHEMAS
+────────────────────────────────────────────────────────────────────────────────
 
-5. Platform Admin (Control Plane - LAW §2.3)
-   - Decorator: requirePlatformAdmin()
-   - Login: facilityKey = "PLATFORM"
-   - Routes: /api/platform/*
+Full schema definitions (808 lines) available in apps/api/src/schemas/index.ts
+
+Examples (see file for complete list):
+- LoginRequestSchema, LoginResponseSchema
+- CreateUserRequestSchema, UpdateUserRequestSchema, UserResponseSchema
+- CreateCaseRequestSchema, UpdateCaseRequestSchema, CaseResponseSchema
+- ActivateCaseRequestSchema, CancelCaseRequestSchema, ApproveCaseRequestSchema, AssignRoomRequestSchema, RejectCaseRequestSchema
+- CreateInventoryEventRequestSchema, BulkInventoryEventRequestSchema
+- CreateInventoryItemRequestSchema, UpdateInventoryItemRequestSchema
+- CreateAttestationRequestSchema, AttestationResponseSchema
+- CaseReadinessResponseSchema, DayBeforeReadinessResponseSchema
+- ChecklistInstanceResponseSchema, CaseChecklistsResponseSchema
+- (and 80+ more...)
 
 ================================================================================
-ERROR ENVELOPE STRUCTURE
+SECTION 3: CLIENT WRAPPERS
 ================================================================================
 
-All errors:
+────────────────────────────────────────────────────────────────────────────────
+CORE CLIENT
+────────────────────────────────────────────────────────────────────────────────
+
+File: apps/web/src/lib/api/client.ts
+
+Purpose: Shared HTTP client for all API requests
+
+Key Functions:
+- request<T>(endpoint, options): Core fetch wrapper
+  - Injects Authorization header (Bearer token)
+  - Injects X-Active-Persona header (UX metadata)
+  - Injects X-Access-Purpose header (PHI compliance) based on endpoint pattern
+  - Injects X-Emergency-Justification header if provided (PHI Phase 3)
+  - Handles JSON request/response
+  - Unwraps { data } envelope automatically
+  - Normalizes errors to ApiError class
+  - Validates request/response schemas if provided (Zod)
+
+- resolveAssetUrl(assetUrl): Converts relative URLs to absolute (for /uploads/...)
+
+Error Envelope:
+- New format: { error: { code, message, details?, requestId } }
+- Legacy format: { error: "string" }
+- Both supported during migration
+
+PHI Access Purpose Rules (PHI_PURPOSE_RULES):
+- /phi-audit → AUDIT
+- /phi-patient → CLINICAL_CARE
+- /reports/vendor-concessions → BILLING
+- /reports/inventory-valuation → BILLING
+- /reports/loaner-exposure → BILLING
+- /reports/case-* → AUDIT
+- /reports/cancelled-cases → AUDIT
+- /reports/checklist-compliance → AUDIT
+- /reports/debrief-summary → AUDIT
+- /schedule/day → SCHEDULING
+- /schedule/unassigned → SCHEDULING
+- /cases → CLINICAL_CARE
+- /case-dashboard → CLINICAL_CARE
+- /readiness → CLINICAL_CARE
+- /inventory/events → CLINICAL_CARE
+- /ai/ → CLINICAL_CARE
+
+────────────────────────────────────────────────────────────────────────────────
+CONTRACT CLIENT
+────────────────────────────────────────────────────────────────────────────────
+
+File: apps/web/src/lib/api/contract-client.ts
+
+Purpose: Contract-based API client helper
+
+Key Functions:
+- callContract<R>(route, opts): Calls API endpoint using ContractRoute definition
+  - Builds URL from route.path + params + query
+  - Validates request body against route.body schema
+  - Validates response against route.response schema
+  - Returns typed response
+
+────────────────────────────────────────────────────────────────────────────────
+DOMAIN-SPECIFIC CLIENT MODULES
+────────────────────────────────────────────────────────────────────────────────
+
+All domain modules import request() from apps/web/src/lib/api/client.ts
+
+Client Module Files (all in apps/web/src/lib/api/):
+- auth.ts: login, getMe, logout
+- users.ts: getUsers, getSurgeons, createUser, updateUser, deactivate/activate
+- checklists.ts: facility settings, templates, checklist lifecycle, reviews
+- readiness.ts: day-before, calendar summary, attestations, verification
+- schedule.ts: day schedule, block times, room config
+- case-cards.ts: CRUD, versioning, locking, feedback (extensive)
+- case-dashboard.ts: dashboard, attestation, anesthesia, overrides, event log
+- preference-cards.ts: CRUD, versioning
+- vendors.ts: vendor CRUD
+- loaner-sets.ts: loaner set tracking
+- attention.ts: attention queue
+- phi-audit.ts: audit events, user/case/patient access trails
+- reports.ts: all report types
+- settings.ts: rooms, locations, config items
+- platform.ts: platform health, facilities
+- ai.ts: AI readiness explanation
+- schemas.ts: re-exports Zod schemas from @asc/contract
+
+================================================================================
+SECTION 4: AUTHENTICATION & AUTHORIZATION
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+AUTHENTICATION MECHANISM
+────────────────────────────────────────────────────────────────────────────────
+
+JWT (JSON Web Tokens)
+- Library: @fastify/jwt
+- Secret: process.env.JWT_SECRET (default "dev-secret-change-in-production")
+- Expiration: 24 hours
+- Payload structure (JwtPayload):
+  - userId: UUID (NOT "id" — request.user.userId)
+  - facilityId: UUID | null (null for PLATFORM_ADMIN)
+  - username: string
+  - email: string | null
+  - name: string
+  - role: UserRole (primary role, backward compat)
+  - roles: UserRole[] (all assigned roles)
+
+Token Transmission:
+- Client → Server: Authorization header (Bearer <token>)
+- Server → Client: { token: string } in login response
+
+fastify.authenticate:
+- Decorated method on FastifyInstance
+- Prehandler that verifies JWT via request.jwtVerify()
+- On failure: 401 { error: { code: "UNAUTHENTICATED", message: "Authentication required", requestId } }
+- File: apps/api/src/index.ts:112
+
+────────────────────────────────────────────────────────────────────────────────
+AUTHORIZATION MECHANISM
+────────────────────────────────────────────────────────────────────────────────
+
+Capability-Based Access Control:
+- Capabilities derived from roles via deriveCapabilities(roles) in @asc/domain
+- Role → Capabilities mapping (examples):
+  - ADMIN → all capabilities
+  - SCHEDULER → CASE_VIEW, CASE_CREATE, CASE_APPROVE, CASE_REJECT, CASE_ASSIGN_ROOM, etc.
+  - SURGEON → CASE_VIEW, CASE_CREATE (REQUESTED only), CASE_CANCEL (own cases)
+  - SCRUB_TECH, CIRCULATOR → CASE_VIEW, INVENTORY_CHECKIN, CHECKLIST_PARTICIPATE, etc.
+  - PLATFORM_ADMIN → PLATFORM_* capabilities
+
+Enforcement:
+- requireCapabilities(...caps): Prehandler that checks if user has ALL specified capabilities
+  - Multiple capabilities = OR logic (user needs at least one)
+  - Returns 403 FORBIDDEN if user lacks capabilities
+  - File: apps/api/src/plugins/auth.ts
+
+PHI Access Control (Phase 2+):
+- requirePhiAccess(level, opts?): Prehandler that enforces PHI access requirements
+  - Levels: "PHI_CLINICAL", "PHI_ADMIN", "PHI_AUDIT"
+  - Options: { evaluateCase: boolean, caseIdFrom: string }
+  - Logs access events to phi_access_log table
+  - Attaches X-Access-Purpose header from client (CLINICAL_CARE, BILLING, AUDIT, SCHEDULING)
+  - Emergency override: X-Emergency-Justification header (logs as EMERGENCY access)
+  - File: apps/api/src/plugins/phi-guard.ts
+
+────────────────────────────────────────────────────────────────────────────────
+PLATFORM_ADMIN SPECIAL HANDLING
+────────────────────────────────────────────────────────────────────────────────
+
+Login:
+- facilityKey = "PLATFORM" (case-insensitive)
+- User must have facility_id IS NULL in database
+- JWT payload has facilityId = null
+- facilityName = "Platform" (hardcoded)
+
+Access:
+- PLATFORM_ADMIN users can access /api/platform/* endpoints
+- Read-only cross-facility access via /api/platform/facility-view/* (LAW §3.1)
+- Cannot access tenant-scoped endpoints (require facilityId)
+
+File: apps/api/src/routes/auth.routes.ts:39
+
+────────────────────────────────────────────────────────────────────────────────
+PERSONA (UX METADATA, NOT AUTHORIZATION)
+────────────────────────────────────────────────────────────────────────────────
+
+X-Active-Persona header:
+- Client sends user's selected "active role" for UX context
+- Stored in localStorage (PERSONA_STORAGE_KEY from @asc/domain)
+- Server logs it in audit metadata but does NOT use for authorization
+- Authorization always uses JWT payload roles
+- File: apps/api/src/plugins/persona.ts
+
+================================================================================
+SECTION 5: ERROR HANDLING
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+ERROR ENVELOPE FORMAT
+────────────────────────────────────────────────────────────────────────────────
+
+Standard Error Envelope (NEW):
 {
   "error": {
     "code": "ERROR_CODE",
     "message": "Human-readable message",
-    "requestId": "correlation-id",
-    "details?": { ... }
+    "details": { /* optional structured details */ },
+    "requestId": "uuid-correlation-id"
   }
 }
 
-HTTP Status Codes:
-200 OK
-201 Created
-400 Bad Request (VALIDATION_ERROR, DUPLICATE)
-401 Unauthorized (UNAUTHENTICATED)
-403 Forbidden (FORBIDDEN)
-404 Not Found (NOT_FOUND)
-409 Conflict (CONFLICT, INVALID_STATE)
-422 Unprocessable Entity (UNPROCESSABLE_ENTITY)
-500 Internal Server Error (INTERNAL_ERROR)
-
-================================================================================
-RESPONSE ENVELOPE PATTERNS
-================================================================================
-
-Contract Routes (via @asc/contract):
+Legacy Error Envelope (DEPRECATED):
 {
-  "success": true,
-  "data": { ... }
+  "error": "error message string"
 }
 
-Legacy Routes:
+Both formats supported during migration.
+
+────────────────────────────────────────────────────────────────────────────────
+ERROR CODES
+────────────────────────────────────────────────────────────────────────────────
+
+Standard Codes (observed in codebase):
+- UNAUTHENTICATED: Missing or invalid JWT (401)
+- FORBIDDEN: Insufficient capabilities (403)
+- NOT_FOUND: Resource not found (404)
+- VALIDATION_ERROR: Schema validation failure or business rule violation (400)
+- DUPLICATE: Unique constraint violation (e.g., username, barcode) (400)
+- INVALID_STATE: Operation not allowed in current state (e.g., deactivate active case) (400)
+- TIMEOUT_REQUIRED: Cannot start case without completed Timeout checklist (400)
+- DEBRIEF_REQUIRED: Cannot complete case without completed Debrief checklist (400)
+- ITEMS_NOT_FOUND: Bulk operation failed due to missing items (400)
+- INTERNAL_ERROR: Unhandled server error (500)
+- CLIENT_SCHEMA_VALIDATION: Client-side Zod validation failure (not sent to server)
+
+────────────────────────────────────────────────────────────────────────────────
+CENTRALIZED ERROR HANDLER
+────────────────────────────────────────────────────────────────────────────────
+
+fastify.setErrorHandler:
+- JWT errors → 401 UNAUTHENTICATED
+- Fastify validation errors → 400 VALIDATION_ERROR
+- All other errors → 500 INTERNAL_ERROR (logs error, no stack trace in response)
+- Always includes requestId (X-Request-Id header)
+- File: apps/api/src/index.ts:125
+
+────────────────────────────────────────────────────────────────────────────────
+REPLY HELPERS
+────────────────────────────────────────────────────────────────────────────────
+
+File: apps/api/src/utils/reply.ts
+
+ok(reply, data, status?):
+  - Sends { data } envelope
+  - Default status 200
+
+fail(reply, code, message, status?, details?):
+  - Sends { error: { code, message, details?, requestId } } envelope
+  - Default status 400
+
+validated(reply, schema, body):
+  - Validates request body against Zod schema
+  - Returns parsed data or sends 400 VALIDATION_ERROR and returns null
+
+================================================================================
+SECTION 6: DATA ENVELOPE
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+SUCCESS ENVELOPE
+────────────────────────────────────────────────────────────────────────────────
+
+New Convention (migrating to):
 {
-  <data fields directly at root level>
+  "data": <payload>
 }
 
-================================================================================
-COMPLETE ENDPOINT LISTING
-================================================================================
+Legacy Convention (still supported):
+<payload>
 
-────────────────────────────────────────────────────────────────────────────
-/api/health
-────────────────────────────────────────────────────────────────────────────
-GET /api/health
-  Auth: None (public)
-  Output (200): { status: 'ok', timestamp: string }
+Client auto-unwraps { data } envelope if present (apps/web/src/lib/api/client.ts:199)
 
-────────────────────────────────────────────────────────────────────────────
-/api/auth (auth.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-POST /api/auth/login
-  Auth: None
-  Input: { username, password, facilityKey }  // "PLATFORM" for platform admin
-  Output (200): { token, user: { id, username, name, role, roles, facilityId, facilityName } }
-  Errors: 401 INVALID_CREDENTIALS, 403 ACCOUNT_INACTIVE
+────────────────────────────────────────────────────────────────────────────────
+ENVELOPE HELPERS
+────────────────────────────────────────────────────────────────────────────────
 
-GET /api/auth/me
-  Auth: JWT
-  Output (200): { user: { ... } }
+File: packages/contract/src/envelope.ts
 
-POST /api/auth/logout
-  Auth: JWT
-  Output (200): { success: true }
-  Side effects: Auth audit event created
-
-────────────────────────────────────────────────────────────────────────────
-/api/users (users.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/users
-  Auth: requireCapabilities('USER_MANAGE')
-  Query: includeInactive?
-  Output (200): { users: Array<User> }
-
-GET /api/users/surgeons
-  Auth: JWT
-  Output (200): { users: Array<{ id, name, role: 'SURGEON' }> }
-
-GET /api/users/:id
-  Auth: requireCapabilities('USER_MANAGE')
-  Output (200): { user: User }
-  Errors: 404 NOT_FOUND
-
-POST /api/users
-  Auth: requireCapabilities('USER_MANAGE')
-  Input: { username, password, name, email?, role, roles? }
-  Output (201): { user: User }
-  Errors: 400 DUPLICATE, 400 VALIDATION_ERROR
-  Side effects: Auto-affiliates with facility's ASC organization
-
-PATCH /api/users/:id
-  Auth: requireCapabilities('USER_MANAGE')
-  Input: { username?, password?, name?, email?, role?, roles? }
-  Output (200): { user: User }
-  Errors: 404 NOT_FOUND, 400 DUPLICATE
-
-POST /api/users/:id/deactivate
-  Auth: requireCapabilities('USER_MANAGE')
-  Output (200): { success: true }
-  Errors: 400 INVALID_STATE (self or last admin)
-
-POST /api/users/:id/activate
-  Auth: requireCapabilities('USER_MANAGE')
-  Output (200): { success: true }
-
-────────────────────────────────────────────────────────────────────────────
-/api/cases (cases.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: Uses contract routes extensively (registerContractRoute)
-
-GET /api/cases
-  Auth: requirePhiAccess('PHI_CLINICAL')
-  Contract: CasesContract.list
-  Query: status?, surgeonId?, fromDate?, toDate?, includeInactive?, limit?, offset?
-  Output (200): { success: true, data: { cases, total } }
-
-GET /api/cases/:caseId
-  Auth: requirePhiAccess('PHI_CLINICAL') + evaluateCase
-  Contract: CasesContract.getById
-  Output (200): { success: true, data: { case } }
-
-POST /api/cases
-  Auth: requireCapabilities('CASE_CREATE')
-  Contract: CasesContract.create
-  Input: CreateCaseRequest
-  Output (201): { success: true, data: { case } }
-
-PATCH /api/cases/:caseId
-  Auth: requireCapabilities('CASE_UPDATE')
-  Contract: CasesContract.update
-  Input: UpdateCaseRequest
-  Output (200): { success: true, data: { case } }
-
-POST /api/cases/:caseId/activate
-  Auth: requireCapabilities('CASE_ACTIVATE')
-  Contract: CasesContract.activate
-  Plugin: idempotent()
-  Output (200): { success: true, data: { case } }
-
-POST /api/cases/:caseId/approve
-  Auth: requireCapabilities('CASE_APPROVE')
-  Contract: CasesContract.approve
-  Output (200): { success: true, data: { case } }
-
-DELETE /api/cases/:id
-  Auth: requireCapabilities('CASE_DELETE')
-  Output (200): { success: true }
-  Errors: 404 NOT_FOUND, 409 CONFLICT (case is active)
-
-────────────────────────────────────────────────────────────────────────────
-/api/case-cards (case-cards.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/case-cards
-  Auth: JWT
-  Query: status?, search?, includeDeleted?, limit?, offset?
-  Output (200): { caseCards, total }
-  Note: Excludes DELETED by default
-
-GET /api/case-cards/:id
-  Auth: JWT
-  Output (200): { caseCard }
-
-GET /api/case-cards/:id/versions
-  Auth: JWT
-  Output (200): { versions: Array<CaseCardVersion> }
-
-POST /api/case-cards
-  Auth: requireCapabilities('CASE_CARD_MANAGE')
-  Input: { procedureName, defaultSurgeonId?, anesthesiaType?, estimatedDurationMinutes? }
-  Output (201): { caseCard, version }
-  Note: Creates initial version on creation
-
-PUT /api/case-cards/:id
-  Auth: requireCapabilities('CASE_CARD_MANAGE')
-  Input: (card fields + changeNote)
-  Output (200): { caseCard, version }
-  Note: Creates NEW version on each update
-
-POST /api/case-cards/:id/activate
-POST /api/case-cards/:id/deprecate
-POST /api/case-cards/:id/delete
-POST /api/case-cards/:id/lock
-POST /api/case-cards/:id/unlock
-  Auth: requireCapabilities('CASE_CARD_MANAGE')
-  Output (200): { caseCard }
-
-POST /api/case-cards/:id/clone
-  Auth: requireCapabilities('CASE_CARD_MANAGE')
-  Input: { newProcedureName }
-  Output (201): { caseCard, version }
-
-POST /api/case-cards/:id/revert/:versionId
-  Auth: requireCapabilities('CASE_CARD_MANAGE')
-  Input: { changeNote? }
-  Output (200): { caseCard, version }
-  Note: Creates NEW version based on old content
-
-POST /api/case-cards/:id/feedback
-  Auth: requireCapabilities('CASE_DEBRIEF_RESPOND')
-  Input: { caseId, feedbackType: 'SUGGESTION' | 'ISSUE', description }
-  Output (201): { feedback }
-
-PATCH /api/case-cards/:caseCardId/versions/:versionId/components
-  Auth: requireCapabilities('CASE_CARD_MANAGE')
-  Input: { components: Array<{ catalogId, quantityRequired, notes? }> }
-  Output (200): { components }
-
-────────────────────────────────────────────────────────────────────────────
-/api/case-dashboard (case-dashboard.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/case-dashboard/:caseId
-  Auth: requirePhiAccess('PHI_CLINICAL') + evaluateCase
-  Output (200): { case, readiness, items, patient, attestation }
-
-POST /api/case-dashboard/:caseId/attest
-  Auth: requireCapabilities('CASE_READINESS')
-  Output (201): { attestation }
-
-POST /api/case-dashboard/:caseId/void
-  Auth: requireCapabilities('CASE_READINESS')
-  Input: { reason }
-  Output (200): { success: true }
-
-PUT /api/case-dashboard/:caseId/anesthesia
-  Auth: requireCapabilities('CASE_UPDATE')
-  Input: { anesthesiaType }
-  Output (200): { case }
-
-PUT /api/case-dashboard/:caseId/link-case-card
-  Auth: requireCapabilities('CASE_UPDATE')
-  Input: { caseCardId }
-  Output (200): { case, snapshot }
-
-POST /api/case-dashboard/:caseId/case-card-unlink
-  Auth: requireCapabilities('CASE_UPDATE')
-  Output (200): { case }
-
-POST /api/case-dashboard/:caseId/overrides
-  Auth: requireCapabilities('CASE_UPDATE')
-  Input: { overrideType, value, reason, notes? }
-  Output (201): { override }
-
-────────────────────────────────────────────────────────────────────────────
-/api/checklists (checklists.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/facility/settings
-  Auth: JWT
-  Output (200): { settings: { checklistFeatureEnabled } }
-
-GET /api/cases/:id/checklists
-  Auth: JWT
-  Output (200): { timeout?, debrief? }
-
-POST /api/cases/:id/checklists/start
-  Auth: requireCapabilities('TIMEOUT_START' | 'CASE_DEBRIEF')
-  Input: { type: 'TIMEOUT' | 'DEBRIEF' }
-  Output (201): { instance }
-
-POST /api/cases/:id/checklists/:type/respond
-  Auth: JWT
-  Params: type = 'timeout' | 'debrief'
-  Input: { itemKey, response }
-  Output (200): { response }
-
-POST /api/cases/:id/checklists/:type/sign
-  Auth: JWT
-  Params: type = 'timeout' | 'debrief'
-  Input: { role: 'CIRCULATOR' | 'SURGEON' | 'SCRUB' | 'ANESTHESIA' }
-  Output (201): { signature }
-
-POST /api/cases/:id/checklists/:type/complete
-  Auth: requireCapabilities('TIMEOUT_COMPLETE' | 'CASE_DEBRIEF')
-  Params: type = 'timeout' | 'debrief'
-  Output (200): { instance }
-
-POST /api/cases/:id/checklists/debrief/async-review
-  Auth: JWT (SCRUB or SURGEON role only)
-  Input: { role: 'SCRUB' | 'SURGEON' }
-  Output (200): { instance }
-
-GET /api/flagged-reviews
-  Auth: requireCapabilities('SETTINGS_MANAGE')
-  Output (200): { instances: Array<FlaggedChecklist> }
-
-────────────────────────────────────────────────────────────────────────────
-/api/readiness (readiness.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/readiness/day-before
-  Auth: JWT
-  Query: date? (default: tomorrow)
-  Output (200): { date, cases: Array<CaseWithReadiness> }
-
-GET /api/readiness/calendar-summary
-  Auth: JWT
-  Query: startDate, endDate (required)
-  Output (200): { dates: Array<{ date, totalCases, greenCount, orangeCount, redCount }> }
-
-GET /api/readiness/cases/:id
-  Auth: requirePhiAccess('PHI_CLINICAL') + evaluateCase
-  Output (200): { case, readiness, items }
-
-POST /api/readiness/attestations
-  Auth: requireCapabilities('CASE_READINESS' | 'SURGEON_ACKNOWLEDGMENT')
-  Input: { caseId, attestationType, note? }
-  Output (201): { attestation }
-
-POST /api/readiness/attestations/:id/void
-  Auth: requireCapabilities('CASE_READINESS')
-  Input: { reason }
-  Output (200): { attestation }
-
-GET /api/readiness/cases/:id/verification
-  Auth: requirePhiAccess('PHI_CLINICAL') + evaluateCase
-  Output (200): { case, readiness, verifications, missingItems }
-
-────────────────────────────────────────────────────────────────────────────
-/api/inventory (inventory.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-POST /api/inventory/events
-  Auth: JWT
-  Contract: InventoryContract.recordEvent
-  Input: RecordEventRequest
-  Output (201): { success: true, data: { event } }
-
-POST /api/inventory/events/bulk
-  Auth: JWT
-  Contract: InventoryContract.recordBulkEvents
-  Input: { events: Array<RecordEventRequest> }
-  Output (201): { success: true, data: { events, count } }
-
-POST /api/inventory/events/financial
-  Auth: requireCapabilities('SETTINGS_MANAGE')
-  Input: { inventoryItemId, eventType, occurredAt, caseId?, notes?, providedByVendorId?, providedByRepName?, costOverrideCents?, costOverrideReason?, costOverrideNote?, isGratis?, gratisReason? }
-  Output (201): { event }
-  Note: Wave 1 - Financial attribution
-
-POST /api/inventory/device-events
-  Auth: JWT
-  Input: { deviceId, scannedAt, barcode, caseId?, eventType? }
-  Output (201): { event?, warning?, pendingApproval? }
-  Note: LAW-compliant - never auto-creates items
-
-GET /api/inventory/items
-  Auth: JWT
-  Contract: InventoryContract.listItems
-  Query: search?, category?, locationId?, availabilityStatus?, limit?, offset?
-  Output (200): { success: true, data: { items, total } }
-
-POST /api/inventory/items
-  Auth: requireCapabilities('INVENTORY_MANAGE')
-  Input: { catalogId, serialNumber?, lotNumber?, barcode?, locationId?, sterility_expires_at?, requiresLotTracking?, requiresSerialTracking?, requiresExpirationTracking?, ownershipType?, loanerSetId? }
-  Output (201): { item }
-  Note: Wave 1 validation enforced
-
-GET /api/inventory/risk-queue
-  Auth: JWT
-  Contract: InventoryContract.getRiskQueue
-  Output (200): { success: true, data: { items } }
-  Note: Read-only computed risk items
-
-────────────────────────────────────────────────────────────────────────────
-/api/catalog (catalog.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/catalog
-  Auth: JWT
-  Contract: CatalogContract.list
-  Query: search?, category?, manufacturer?, limit?, offset?
-  Output (200): { success: true, data: { items, total } }
-
-POST /api/catalog
-  Auth: requireCapabilities('CATALOG_MANAGE')
-  Input: { name, manufacturer?, category, unitCostCents?, ownershipType?, consignmentVendorId? }
-  Output (201): { item }
-
-POST /api/catalog/:catalogId/identifiers
-  Auth: requireCapabilities('CATALOG_MANAGE')
-  Input: { barcode?, gtin?, udiDi?, rawGs1? }
-  Output (201): { identifier }
-  Note: Supports GS1 parsing
-
-────────────────────────────────────────────────────────────────────────────
-/api/catalog/groups (catalog-groups.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/catalog/groups
-  Auth: JWT
-  Output (200): { groups }
-
-POST /api/catalog/groups
-  Auth: requireCapabilities('CATALOG_MANAGE')
-  Input: { name, description? }
-  Output (201): { group }
-
-PATCH /api/catalog/groups/:groupId
-  Auth: requireCapabilities('CATALOG_MANAGE')
-  Input: { name?, description? }
-  Output (200): { group }
-
-POST /api/catalog/groups/:groupId/items/:catalogId
-  Auth: requireCapabilities('CATALOG_MANAGE')
-  Output (201): { success: true }
-
-DELETE /api/catalog/groups/:groupId/items/:catalogId
-DELETE /api/catalog/groups/:groupId
-  Auth: requireCapabilities('CATALOG_MANAGE')
-  Output (200): { success: true }
-
-────────────────────────────────────────────────────────────────────────────
-/api/catalog/sets (catalog-sets.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/catalog/sets
-POST /api/catalog/sets
-PATCH /api/catalog/sets/:setId
-POST /api/catalog/sets/:setId/components
-DELETE /api/catalog/sets/:setId/components/:componentId
-DELETE /api/catalog/sets/:setId
-  Auth: requireCapabilities('CATALOG_MANAGE') for mutations
-  Similar pattern to catalog-groups
-
-────────────────────────────────────────────────────────────────────────────
-/api/catalog/images (catalog-images.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/catalog/:catalogId/images
-  Auth: JWT
-  Output (200): { images }
-
-POST /api/catalog/:catalogId/images/upload
-  Auth: requireCapabilities('CATALOG_MANAGE')
-  Content-Type: multipart/form-data
-  Input: file (max 3MB)
-  Output (201): { image }
-
-POST /api/catalog/:catalogId/images/url
-  Auth: requireCapabilities('CATALOG_MANAGE')
-  Input: { url }
-  Output (201): { image }
-
-POST /api/catalog/:catalogId/images/:imageId/set-primary
-DELETE /api/catalog/:catalogId/images/:imageId
-  Auth: requireCapabilities('CATALOG_MANAGE')
-
-────────────────────────────────────────────────────────────────────────────
-/api/preference-cards (preference-cards.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/preference-cards
-GET /api/preference-cards/:cardId
-POST /api/preference-cards
-PATCH /api/preference-cards/:cardId
-POST /api/preference-cards/:cardId/items
-DELETE /api/preference-cards/:cardId/items/:itemId
-DELETE /api/preference-cards/:cardId
-  Auth patterns similar to other CRUD resources
-
-────────────────────────────────────────────────────────────────────────────
-/api/locations (locations.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/locations
-POST /api/locations
-PATCH /api/locations/:id
-DELETE /api/locations/:id
-  Auth: requireCapabilities('SETTINGS_MANAGE') for mutations
-  Supports hierarchical locations (parentLocationId)
-
-────────────────────────────────────────────────────────────────────────────
-/api/vendors (vendors.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: Wave 1 - Financial Attribution
-
-GET /api/vendors
-  Auth: requireCapabilities('SETTINGS_MANAGE')
-  Query: vendorType?, isActive?, search?
-  Output (200): { vendors }
-
-GET /api/vendors/:vendorId
-POST /api/vendors
-  Input: { name, vendorType, contactName?, contactEmail?, contactPhone?, notes? }
-  VendorTypes: MANUFACTURER, DISTRIBUTOR, LOANER_PROVIDER, CONSIGNMENT
-
-PATCH /api/vendors/:vendorId
-  Auth: requireCapabilities('SETTINGS_MANAGE')
-
-────────────────────────────────────────────────────────────────────────────
-/api/loaner-sets (loaner-sets.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: Wave 1 - Financial Attribution
-
-GET /api/loaner-sets
-  Auth: requireCapabilities('SETTINGS_MANAGE')
-  Query: vendorId?, status?, limit?, offset?
-  Output (200): { sets, total }
-
-GET /api/loaner-sets/:setId
-  Output (200): { set, items }
-
-POST /api/loaner-sets
-  Input: { vendorId, setIdentifier, description?, expectedReturnDate?, itemCount?, caseId?, notes? }
-  Output (201): { set }
-
-POST /api/loaner-sets/:setId/return
-  Input: { notes? }
-  Output (200): { set }
-
-────────────────────────────────────────────────────────────────────────────
-/api/attention (attention.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: Read-only derived truth (Wave 1)
-
-GET /api/attention
-  Auth: JWT
-  Output (200): { items: Array<AttentionItem> }
-  Types: RISK_ITEM, MISSING_BARCODE, PENDING_APPROVAL, EXPIRED_ITEM, etc.
-  Severity: LOW, MEDIUM, HIGH, CRITICAL
-
-GET /api/attention/stats
-  Auth: JWT
-  Output (200): { total, bySeverity, byType }
-
-────────────────────────────────────────────────────────────────────────────
-/api/organizations (organization.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: PHI Phase 1
-
-GET /api/organizations
-POST /api/organizations
-  Input: { name, organizationType: 'ASC' | 'CLINIC' | 'PRACTICE', npi?, taxId? }
-
-GET /api/organizations/:id
-  Output (200): { organization, affiliations }
-
-PATCH /api/organizations/:id
-POST /api/organizations/:id/affiliations
-  Input: { userId, affiliationType: 'PRIMARY' | 'SECONDARY' }
-
-DELETE /api/organizations/:organizationId/affiliations/:affiliationId
-
-────────────────────────────────────────────────────────────────────────────
-/api/phi-patient (phi-patient.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: PHI Phase 6A - Patient Identity Domain
-
-GET /api/phi-patient/by-case/:caseId
-  Auth: requirePhiAccess('PHI_CLINICAL') + evaluateCase
-  Output (200): { patient | null }
-
-GET /api/phi-patient/lookup
-  Auth: requirePhiAccess('PHI_CLINICAL')
-  Query: mrn (required)
-  Output (200): { patient | null }
-
-GET /api/phi-patient/search
-  Auth: requireCapabilities('PHI_PATIENT_SEARCH')
-  Query: firstName?, lastName?, dateOfBirth?, mrn?, gender?, limit?, offset?
-  Output (200): { patients, total }
-
-POST /api/phi-patient
-  Auth: requireCapabilities('PHI_WRITE_CLINICAL')
-  Input: { mrn, firstName, lastName, dateOfBirth, gender?, phoneNumber?, email?, address?, emergencyContact?, notes? }
-  Output (201): { patient }
-
-PUT /api/phi-patient/:patientId
-  Auth: requireCapabilities('PHI_WRITE_CLINICAL')
-  Output (200): { patient }
-
-PUT /api/phi-patient/link-case/:caseId
-  Auth: requireCapabilities('PHI_WRITE_CLINICAL')
-  Input: { patientId }
-  Output (200): { case }
-
-────────────────────────────────────────────────────────────────────────────
-/api/phi-audit (phi-audit.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: PHI Phase 3 - Audit Visibility
-
-GET /api/phi-audit
-  Auth: requireCapabilities('PHI_AUDIT_VIEW')
-  Query: startDate?, endDate?, userId?, eventType?, limit?, offset?
-  Output (200): { events, total }
-  Note: Read-only PHI access log
-
-────────────────────────────────────────────────────────────────────────────
-/api/clinic/surgery-requests (clinic-surgery-requests.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: Phase 1 Readiness - HMAC Authentication (X-Clinic-Key header)
-
-POST /api/clinic/surgery-requests
-  Auth: requireClinicAuth
-  Input: { targetFacilityId, sourceRequestId, procedureName, surgeonId, scheduledDate, scheduledTime?, patientRefId, patientDisplayName?, patientClinicKey?, patientBirthYear?, checklistResponses? }
-  Output (201 or 200): { request, created?, resubmitted?, existing? }
-  Note: Idempotent via sourceRequestId
-
-GET /api/clinic/surgery-requests
-  Auth: requireClinicAuth
-  Query: status?, since?, limit?
-  Output (200): { requests }
-
-GET /api/clinic/surgery-requests/:id
-  Auth: requireClinicAuth
-  Output (200): { request }
-
-POST /api/clinic/surgery-requests/:id/withdraw
-  Auth: requireClinicAuth
-  Output (200): { request }
-
-────────────────────────────────────────────────────────────────────────────
-/api/admin/surgery-requests (admin-surgery-requests.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: Phase 1 Readiness - Admin Review
-
-GET /api/admin/surgery-requests
-  Auth: requireCapabilities('SURGERY_REQUEST_REVIEW')
-  Query: status?, clinicId?, surgeonId?, dateFrom?, dateTo?, limit?, offset?
-  Output (200): { requests, total }
-
-GET /api/admin/surgery-requests/clinics
-  Auth: requireCapabilities('SURGERY_REQUEST_REVIEW')
-  Output (200): { clinics }
-
-GET /api/admin/surgery-requests/:id
-  Auth: requireCapabilities('SURGERY_REQUEST_REVIEW')
-  Output (200): { request, submissions, auditEvents, checklistInstances, checklistResponses, conversion }
-
-POST /api/admin/surgery-requests/:id/return
-  Input: { reasonCode, note? }
-  Output (200): { request }
-
-POST /api/admin/surgery-requests/:id/accept
-  Input: { note? }
-  Output (200): { request }
-
-POST /api/admin/surgery-requests/:id/reject
-  Input: { reasonCode, note? }
-  Output (200): { request }
-
-POST /api/admin/surgery-requests/:id/convert
-  Auth: requireCapabilities('SURGERY_REQUEST_CONVERT')
-  Output (201): { request, surgicalCaseId }
-  Note: Converts accepted request to surgical_case
-
-────────────────────────────────────────────────────────────────────────────
-/api/admin/financial-readiness (financial-readiness.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: Phase 2 - Financial Readiness (Observational, non-blocking)
-
-GET /api/admin/financial-readiness/dashboard
-  Auth: requireCapabilities('FINANCIAL_READINESS_VIEW')
-  Query: riskState?, clinicId?, surgeonId?, dateFrom?, dateTo?, limit?, offset?
-  Output (200): { rows, total }
-
-GET /api/admin/financial-readiness/:requestId
-  Auth: requireCapabilities('FINANCIAL_READINESS_VIEW')
-  Output (200): { request, cache, declarations, verifications, overrides }
-
-POST /api/admin/financial-readiness/:requestId/declare
-  Auth: requireCapabilities('FINANCIAL_READINESS_EDIT')
-  Input: { state: 'COMPLIANT' | 'REQUIRES_ATTENTION' | 'NON_COMPLIANT', reasonCodes?, note? }
-  Output (201): { cache }
-
-POST /api/admin/financial-readiness/:requestId/verify
-  Auth: requireCapabilities('FINANCIAL_READINESS_EDIT')
-  Input: { state: 'VERIFIED' | 'PENDING' | 'BLOCKED', reasonCodes?, note? }
-  Output (201): { cache }
-
-POST /api/admin/financial-readiness/:requestId/override
-  Auth: requireCapabilities('FINANCIAL_READINESS_EDIT')
-  Input: { state: 'APPROVED' | 'DENIED' | 'NONE', reasonCode?, note? }
-  Output (201): { cache }
-  Note: 'NONE' clears override
-
-────────────────────────────────────────────────────────────────────────────
-/api/settings (settings.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/settings/rooms
-POST /api/settings/rooms
-PATCH /api/settings/rooms/:id
-POST /api/settings/rooms/:id/deactivate
-POST /api/settings/rooms/:id/activate
-POST /api/settings/rooms/reorder
-  Input: { orderedIds: string[] }
-
-GET /api/settings/surgeons
-  Auth: requireCapabilities('SETTINGS_MANAGE')
-  Output (200): { surgeons: Array<{ id, name, username, displayColor }> }
-
-PATCH /api/settings/surgeons/:id
-  Auth: requireCapabilities('SETTINGS_MANAGE')
-  Input: { displayColor?: string }  // hex color #RRGGBB
-  Output (200): { success: true }
-
-────────────────────────────────────────────────────────────────────────────
-/api/admin/settings (admin-settings.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/admin/settings
-  Auth: [requireCapabilities('SETTINGS_MANAGE')]
-  Output (200): { facility, rooms[], surgeons[], configItems[] }
-  Purpose: Aggregator — fetches all settings domains in parallel
-
-────────────────────────────────────────────────────────────────────────────
-/api/general-settings (general-settings.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/general-settings
-  Auth: requireCapabilities('SETTINGS_MANAGE')
-  Output (200): { settings: Record<string, ConfigItem> }
-
-GET /api/general-settings/:section
-  Params: section = 'CASE_DASHBOARD' | 'INVENTORY' | 'READINESS' | ...
-  Output (200): { settings: Record<string, ConfigItem> }
-
-PATCH /api/general-settings/:section/:key
-  Input: { value }
-  Output (200): { item }
-
-────────────────────────────────────────────────────────────────────────────
-/api/reports (reports.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: All PHI reports require X-Access-Purpose header for CSV export
-
-GET /api/reports
-  Auth: JWT
-  Output (200): { reports: Array<ReportDefinition> }
-
-GET /api/reports/inventory-readiness
-  Auth: JWT
-  Query: startDate?, endDate?, readinessState?, surgeonId?, format?
-  Output (200 or CSV): { rows, summary }
-
-GET /api/reports/verification-activity
-  Auth: JWT
-  Query: startDate?, endDate?, eventType?, userId?, format?
-  Output (200 or CSV): { rows, summary }
-
-GET /api/reports/checklist-compliance
-  Auth: requirePhiAccess('PHI_CLINICAL')
-  Query: startDate?, endDate?, checklistType?, format?
-  Output (200 or CSV): { rows, summary }
-  Note: PHI export enforcement
-
-GET /api/reports/case-summary
-  Auth: requirePhiAccess('PHI_CLINICAL')
-  Query: startDate?, endDate?, status?, surgeonId?, format?
-  Output (200 or CSV): { rows, summary }
-
-GET /api/reports/vendor-concessions
-  Auth: requirePhiAccess('PHI_BILLING')
-  Query: startDate?, endDate?, vendorId?, overrideReason?, format?
-  Output (200 or CSV): { rows, summary }
-  Note: Wave 1 - Financial attribution
-
-GET /api/reports/inventory-valuation
-  Auth: requirePhiAccess('PHI_BILLING')
-  Query: ownershipType?, category?, format?
-  Output (200 or CSV): { rows, summary }
-  Note: Wave 1 - Financial attribution
-
-GET /api/reports/loaner-exposure
-  Auth: requirePhiAccess('PHI_BILLING')
-  Query: vendorId?, isOverdue?, format?
-  Output (200 or CSV): { rows, summary }
-  Note: Wave 1 - Financial attribution
-
-GET /api/reports/cancelled-cases
-GET /api/reports/case-timelines
-GET /api/reports/debrief-summary
-GET /api/reports/case-event-log
-  Auth: requirePhiAccess('PHI_CLINICAL')
-  Similar pattern with date ranges, filters, CSV export
-
-────────────────────────────────────────────────────────────────────────────
-/api/schedule (schedule.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-GET /api/schedule/day
-  Auth: requirePhiAccess('PHI_CLINICAL')
-  Query: date (required, YYYY-MM-DD)
-  Output (200): { date, facilityId, rooms, unassignedCases }
-
-GET /api/schedule/unassigned
-  Auth: requirePhiAccess('PHI_CLINICAL')
-  Output (200): { unassignedCases, count }
-
-POST /api/schedule/block-times
-  Auth: requireCapabilities('CASE_ASSIGN_ROOM')
-  Input: { roomId, blockDate, durationMinutes, notes?, sortOrder? }
-  Output (201): { blockTime }
-
-PATCH /api/schedule/block-times/:id
-DELETE /api/schedule/block-times/:id
-
-PUT /api/schedule/rooms/:roomId/day-config
-  Auth: requireCapabilities('CASE_ASSIGN_ROOM')
-  Query: date (required)
-  Input: { startTime }
-  Output (200): { config }
-
-PATCH /api/schedule/reorder
-  Auth: requireCapabilities('CASE_ASSIGN_ROOM')
-  Input: { roomId, date, orderedItems: Array<{ type: 'case' | 'block', id }> }
-  Output (200): { success: true }
-
-────────────────────────────────────────────────────────────────────────────
-/api/platform (platform.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: LAW §2.3 - Separation is mandatory
-
-GET /api/platform/health
-  Auth: requirePlatformAdmin()
-  Output (200): { status, timestamp, platform, database }
-
-GET /api/platform/facilities
-  Auth: requirePlatformAdmin()
-  Output (200): { facilities: Array<{ id, key, name, activeUserCount, createdAt }> }
-
-────────────────────────────────────────────────────────────────────────────
-/api/platform/config (platform-config.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-Note: LAW §5 - Configuration Governance
-
-GET /api/platform/config/keys
-  Auth: requirePlatformAdmin()
-  Output (200): { keys: Array<ConfigKeyWithValues> }
-  Note: Sensitive values redacted
-
-GET /api/platform/config/keys/:key
-  Auth: requirePlatformAdmin()
-  Output (200): { key, platformValue }
-
-PATCH /api/platform/config/keys/:key
-  Auth: requirePlatformAdmin()
-  Input: { value, reason?, note?, effectiveAt? }
-  Output (200): { version }
-  Note: MEDIUM/HIGH/CRITICAL risk classes require reason
-
-GET /api/platform/config/facilities/:facilityId/overrides
-  Auth: requirePlatformAdmin()
-  Output (200): { facilityId, overrides }
-  Note: LAW §3.3 - Explicit targetFacilityId required
-
-PATCH /api/platform/config/facilities/:facilityId/overrides/:key
-  Auth: requirePlatformAdmin()
-  Input: { value, reason?, note?, effectiveAt? }
-  Output (200): { version }
-
-DELETE /api/platform/config/facilities/:facilityId/overrides/:key
-  Auth: requirePlatformAdmin()
-  Input: { reason }
-  Output (200): { cleared: true }
-
-GET /api/platform/config/audit
-  Auth: requirePlatformAdmin()
-  Query: key?, facilityId?, limit?, offset?
-  Output (200): { entries }
-
-GET /api/platform/config/auth-audit
-  Auth: requirePlatformAdmin()
-  Query: facilityId?, eventType?, success?, userId?, limit?, offset?
-  Output (200): { events, total }
-  Note: facilityId='platform' filters to platform admin logins
-
-────────────────────────────────────────────────────────────────────────────
-/api/ai (ai.routes.ts)
-────────────────────────────────────────────────────────────────────────────
-POST /api/ai/explain-readiness
-  Auth: requirePhiAccess('PHI_CLINICAL') + evaluateCase + requireCapabilities('CASE_VIEW')
-  Plugin: rate-limited (10 requests/min per facility)
-  Feature flag: AI_READINESS_EXPLAIN_ENABLED
-  Input: { caseId }
-  Output (200): { explanation, caseId, readinessState }
-  Errors: 503 SERVICE_UNAVAILABLE (feature disabled), 429 TOO_MANY_REQUESTS
+DataEnvelope<T>: Type helper for { data: T }
+ErrorEnvelope: Type helper for { error: { code, message, details?, requestId } }
+SuccessEnvelope<T>: Union of DataEnvelope<T> | T (supports both formats)
 
 ================================================================================
-SPECIAL ROUTES & PATTERNS
+SECTION 7: FACTUAL INCONSISTENCIES
 ================================================================================
 
-Static File Server:
-GET /uploads/*
-  Auth: None (public)
-  Note: Serves uploaded catalog images (3MB max per LAW)
+────────────────────────────────────────────────────────────────────────────────
+ENVELOPE MIGRATION IN PROGRESS
+────────────────────────────────────────────────────────────────────────────────
 
-Contract Routes:
-  - Uses @asc/contract package via registerContractRoute
-  - Response envelope: { success: true, data: { ... } }
-  - Used in: cases, inventory, catalog routes
+Observation: Some routes return { data } envelope, others return payload directly
 
-Idempotent Routes:
-  - Uses idempotent() plugin
-  - Header: Idempotency-Key
-  - Examples: POST /api/cases/:caseId/activate, POST /api/cases/:caseId/approve
+Evidence:
+- ok(reply, data) wraps in { data } envelope (apps/api/src/utils/reply.ts)
+- Many legacy routes return payload directly (e.g., auth.routes.ts:138, 322)
+- Client supports both (apps/web/src/lib/api/client.ts:199)
 
-PHI Routes:
-  - All PHI access logged in phi_access_log table
-  - Headers: X-Access-Purpose, X-Emergency-Justification
-  - Governance validation via phi-route-manifest.ts
+Status: Migration in progress, not an error — both formats supported
 
-Platform Routes:
-  - Require facilityId = NULL in JWT
-  - Separate control plane (LAW §2.3)
-  - No facility context
+────────────────────────────────────────────────────────────────────────────────
+ROLE VS ROLES DUALITY
+────────────────────────────────────────────────────────────────────────────────
 
-Clinic Routes:
-  - Use HMAC authentication (X-Clinic-Key)
-  - No JWT required
-  - Scoped to clinic's own requests
+Observation: JWT payload and schemas have both "role" (singular) and "roles" (array)
+
+Evidence:
+- LoginResponseSchema has both role (UserRole) and roles (UserRole[]) (apps/api/src/schemas/index.ts:42)
+- UserResponseSchema has both (apps/api/src/schemas/index.ts:94)
+- CreateUserRequestSchema accepts both (apps/api/src/schemas/index.ts:60, 61)
+- Database user table has both role (varchar) and roles (varchar[])
+
+Purpose: Backward compatibility during migration from single-role to multi-role system
+- role = primary role (first in roles array)
+- roles = all assigned roles
+
+Status: Intentional design during migration, not an error
+
+────────────────────────────────────────────────────────────────────────────────
+CONTRACT ROUTES VS LEGACY ROUTES
+────────────────────────────────────────────────────────────────────────────────
+
+Observation: Some routes registered via registerContractRoute(), others via standard fastify.get/post/etc.
+
+Evidence:
+- Cases routes: mix of contract (list, get, create, update, approve, etc.) and legacy (preference-card, requirements, delete)
+- Inventory routes: mix of contract (listItems, getItem, createItem, createEvent, bulkEvents) and legacy (events/financial, items/lookup, device-events)
+- Contract routes use defineRoute() from @asc/contract (packages/contract/src/define-route.ts)
+- Contract routes have explicit schemas, HTTP methods, paths defined in packages/contract/src/routes/
+
+Purpose: Gradual migration to contract-first API design
+- Contract routes: @asc/contract package defines schema + route → used by both API and generated clients
+- Legacy routes: Zod schemas in apps/api/src/schemas/index.ts, route defined directly in route file
+
+Status: Migration in progress, both approaches coexist
+
+────────────────────────────────────────────────────────────────────────────────
+JWT PAYLOAD FIELD: userId vs id
+────────────────────────────────────────────────────────────────────────────────
+
+Observation: JWT payload uses userId, not id
+
+Evidence:
+- JwtPayload type has userId field (apps/api/src/plugins/auth.ts)
+- All route handlers access request.user.userId (not request.user.id)
+- Memory note confirms: "JWT payload uses userId not id — request.user.userId (not request.user.id)"
+
+Rationale: Avoid collision with route param names (e.g., /:id)
+
+Status: Consistent across codebase, not an error
+
+────────────────────────────────────────────────────────────────────────────────
+NO STANDARDIZED PAGINATION STRATEGY
+────────────────────────────────────────────────────────────────────────────────
+
+Observation: Different endpoints use different pagination strategies
+
+Evidence:
+- GET /api/inventory/device-events: Cursor-based pagination (cursor, limit, nextCursor)
+- GET /api/inventory/events: Offset pagination (limit, offset, total)
+- GET /api/catalog: Limit-based (limit, no offset or cursor)
+
+Rationale: Different access patterns require different strategies
+- Device events: High-volume append-only → cursor pagination (performance)
+- Inventory events: Admin-only analytics → offset pagination (acceptable)
+- Catalog: Read-heavy, bounded size → simple limit
+
+Status: Intentional design choice per domain, not an inconsistency
+
+────────────────────────────────────────────────────────────────────────────────
+FINANCIAL EVENT VALIDATION AT API LEVEL (not DB constraint only)
+────────────────────────────────────────────────────────────────────────────────
+
+Observation: POST /api/inventory/events/financial enforces Wave 1 financial constraints at API level before DB
+
+Evidence:
+- Comment at line 1026: "WAVE 1 FINANCIAL VALIDATION (enforced at API level). These constraints match Phase 1 DB constraints but are enforced here to provide clear error messages and reject bad requests early."
+- Validates cost_override_cents requires cost_override_reason
+- Validates is_gratis=true requires gratis_reason
+- Validates providedByVendorId references active vendor
+- Returns 400 VALIDATION_ERROR with specific constraint details
+
+Rationale: Better UX (clear error messages) vs relying on DB constraint violation errors
+
+Status: Intentional dual enforcement (API + DB), not an error
+
+────────────────────────────────────────────────────────────────────────────────
+DEVICE EVENT AUTO-CREATION PROHIBITION
+────────────────────────────────────────────────────────────────────────────────
+
+Observation: POST /api/inventory/device-events returns candidate but does NOT auto-create VERIFIED events
+
+Evidence:
+- Comment at line 1262: "LAW COMPLIANCE (device-events.md §6, physical-devices.md): DeviceEvents may NEVER directly create inventory events or mutate truth"
+- Comment at line 1371: "LAW COMPLIANCE: No automatic VERIFIED event creation. The UI must call POST /inventory/events with deviceEventId to create a VERIFIED event after human confirmation."
+- Returns { candidate, gs1Data, catalogMatch } for UI display
+
+Rationale: Human confirmation required before creating truth records (LAW compliance)
+
+Status: Intentional design, not an error
 
 ================================================================================
-ROUTE REGISTRATION SUMMARY
+SECTION 8: VERSIONING & API EVOLUTION
 ================================================================================
 
-Total route files: 31
-Total endpoints: 200+
+────────────────────────────────────────────────────────────────────────────────
+API VERSION
+────────────────────────────────────────────────────────────────────────────────
 
-Prefix mapping (from apps/api/src/index.ts):
-  /api/auth → auth.routes.ts
-  /api/users → users.routes.ts
-  /api/cases → cases.routes.ts
-  /api/inventory → inventory.routes.ts
-  /api/readiness → readiness.routes.ts
-  /api → checklists.routes.ts (includes /api/facility/settings)
-  /api/locations → locations.routes.ts
-  /api/catalog → catalog.routes.ts
-  /api/catalog/groups → catalog-groups.routes.ts
-  /api/catalog/sets → catalog-sets.routes.ts
-  /api/catalog → catalog-images.routes.ts (images under catalog)
-  /api/preference-cards → preference-cards.routes.ts
-  /api/settings → settings.routes.ts
-  /api/case-cards → case-cards.routes.ts
-  /api/case-dashboard → case-dashboard.routes.ts
-  /api/reports → reports.routes.ts
-  /api/general-settings → general-settings.routes.ts
-  /api/schedule → schedule.routes.ts
-  /api/admin/settings → admin-settings.routes.ts
-  /api/ai → ai.routes.ts
-  /api/platform → platform.routes.ts
-  /api/platform/config → platform-config.routes.ts
-  /api/vendors → vendors.routes.ts
-  /api/loaner-sets → loaner-sets.routes.ts
-  /api/attention → attention.routes.ts
-  /api/organizations → organization.routes.ts
-  /api/phi-audit → phi-audit.routes.ts
-  /api/phi-patient → phi-patient.routes.ts
-  /api/clinic/surgery-requests → clinic-surgery-requests.routes.ts
-  /api/admin/surgery-requests → admin-surgery-requests.routes.ts
-  /api/admin/financial-readiness → financial-readiness.routes.ts
+No explicit API versioning scheme observed (no /v1, /v2 prefixes)
+
+Migration Strategy:
+- Dual format support (e.g., { data } envelope vs raw payload)
+- Field additions (e.g., role + roles array)
+- Backward-compatible schema extensions
+- Feature flags (e.g., enableTimeoutDebrief)
+
+────────────────────────────────────────────────────────────────────────────────
+CONTRACT-FIRST MIGRATION
+────────────────────────────────────────────────────────────────────────────────
+
+Package: @asc/contract (packages/contract/)
+
+Purpose: Define API contracts in TypeScript → generate OpenAPI spec + typed clients
+
+Contract Routes (packages/contract/src/routes/):
+- cases.ts: Case CRUD, approval, rejection, activation, deactivation, cancellation, room assignment, status events
+- inventory.ts: Item CRUD, events, bulk events, history, risk queue, missing analytics
+- catalog.ts: Catalog item definitions
+- operations.ts: Operations health metrics
+
+Registration:
+- registerContractRoute(fastify, routeDef, prefix, handlers)
+  File: apps/api/src/lib/contract-route.ts
+
+Benefits:
+- Type-safe client generation
+- OpenAPI documentation
+- Request/response schema validation
+- Single source of truth
+
+Status: Gradual migration, coexists with legacy routes
 
 ================================================================================
-END OF API CONTRACT SNAPSHOT
+SECTION 9: SPECIAL COMPLIANCE NOTES
 ================================================================================
 
-Last updated: 2026-02-12
-Route files audited: 31
-Total endpoints documented: 200+
+────────────────────────────────────────────────────────────────────────────────
+LAW (Legal, Audit, Workflow) COMPLIANCE
+────────────────────────────────────────────────────────────────────────────────
 
-This snapshot is deterministic and reflects the actual API surface.
-Any changes to route files should trigger regeneration of this snapshot.
+Device Events: May NEVER auto-create inventory truth (device-events.md §6)
+  File: apps/api/src/routes/inventory.routes.ts:1262
+
+Catalog Sets: Define EXPECTED composition only, NOT physical state (catalog.md v2.1)
+  File: apps/api/src/schemas/index.ts:540
+
+Platform Admin: No-tenant identity, facility_id IS NULL (LAW §3.1)
+  File: apps/api/src/routes/auth.routes.ts:39
+
+PHI Governance: All PHI-exposing routes must be declared in manifest (PHI Phase 4D)
+  File: apps/api/src/index.ts:152
+
+────────────────────────────────────────────────────────────────────────────────
+PHI (Protected Health Information) COMPLIANCE
+────────────────────────────────────────────────────────────────────────────────
+
+Access Purpose Header (X-Access-Purpose):
+- Required for PHI_EXPOSING endpoints
+- Values: CLINICAL_CARE, BILLING, AUDIT, SCHEDULING
+- Client auto-resolves based on endpoint pattern
+- Server validates via requirePhiAccess() prehandler
+
+Emergency Override (X-Emergency-Justification):
+- Allows access bypass with justification
+- Logged as EMERGENCY access type
+- Audit trail preserved
+
+PHI Guard Prehandler:
+- requirePhiAccess(level, opts)
+- Logs all access to phi_access_log
+- Case-level evaluation option
+- File: apps/api/src/plugins/phi-guard.ts
+
+PHI Governance Validation:
+- Startup check ensures all PHI routes are declared in manifest
+- Undeclared PHI routes block startup in production
+- File: apps/api/src/plugins/phi-governance.ts
+
+────────────────────────────────────────────────────────────────────────────────
+FINANCIAL ATTRIBUTION COMPLIANCE (Wave 1)
+────────────────────────────────────────────────────────────────────────────────
+
+Cost Override Rules:
+- cost_override_cents requires cost_override_reason (cannot be null)
+- Valid reasons: CATALOG_ERROR, NEGOTIATED_DISCOUNT, VENDOR_CONCESSION, DAMAGE_CREDIT, EXPIRED_CREDIT, CONTRACT_ADJUSTMENT, GRATIS_CONVERSION, OTHER
+
+Gratis Rules:
+- is_gratis=true requires gratis_reason (cannot be null)
+- Valid reasons: VENDOR_SAMPLE, VENDOR_SUPPORT, CLINICAL_TRIAL, GOODWILL, WARRANTY_REPLACEMENT, OTHER
+
+Vendor Attribution:
+- provided_by_vendor_id must reference active vendor
+- provided_by_rep_name is free text (no FK constraint)
+
+Enforcement:
+- API level validation (clear error messages)
+- DB level constraints (data integrity)
+- Append-only events (audit trail)
+
+File: apps/api/src/routes/inventory.routes.ts:1026
+
+────────────────────────────────────────────────────────────────────────────────
+IDEMPOTENCY
+────────────────────────────────────────────────────────────────────────────────
+
+Idempotent Operations:
+- Case approve, reject, activate, deactivate, cancel, check-in
+- Inventory events (single & bulk)
+
+Implementation:
+- idempotent() prehandler plugin
+- Client sends Idempotency-Key header (optional)
+- Server deduplicates based on key
+- File: apps/api/src/plugins/idempotency.ts
+
+────────────────────────────────────────────────────────────────────────────────
+REQUEST CORRELATION
+────────────────────────────────────────────────────────────────────────────────
+
+X-Request-Id Header:
+- Server generates UUID for each request
+- Included in all error responses
+- Used for log correlation
+- Plugin: apps/api/src/plugins/request-id.ts
+
+================================================================================
+SECTION 10: SUMMARY STATISTICS
+================================================================================
+
+Total Route Files: 31
+Total Endpoints: ~300+ (estimated, exact count requires per-file analysis)
+Total Route Code Lines: 17,256
+
+Major Domain Areas:
+1. Authentication & Users (2 files)
+2. Cases & Scheduling (5 files)
+3. Inventory & Devices (1 file, 2133 lines)
+4. Checklists & Readiness (2 files)
+5. Catalog Management (4 files)
+6. Preference Cards & Case Cards (2 files)
+7. Reports & Analytics (1 file)
+8. Settings & Configuration (3 files)
+9. PHI & Compliance (3 files)
+10. Financial Attribution (3 files)
+11. Platform Control (3 files)
+12. Surgery Requests & Financial Readiness (3 files)
+
+Schemas Defined: ~100+ (Zod schemas in apps/api/src/schemas/index.ts: 808 lines)
+
+Client Modules: 15+ domain-specific client wrappers in apps/web/src/lib/api/
+
+Authentication: JWT (24h expiration), capability-based authorization
+PHI Compliance: Access logging, purpose tracking, emergency override
+Financial Attribution: Cost override, gratis tracking, vendor attribution
+Contract-First Migration: In progress (cases, inventory, catalog, operations)
+
+Envelope Formats: Both { data } and raw payload supported (migration in progress)
+Error Format: Standardized { error: { code, message, details?, requestId } }
+Pagination Strategies: Cursor-based (device events), offset-based (inventory events), limit-based (catalog)
+
+================================================================================
+END OF SNAPSHOT
+================================================================================
