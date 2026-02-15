@@ -65,14 +65,17 @@ export async function findWelcomeCandidates(): Promise<WelcomeCandidate[]> {
 // Email content
 // ---------------------------------------------------------------------------
 
-export function buildWelcomeEmail(candidate: WelcomeCandidate): {
+export function buildWelcomeEmail(
+  candidate: WelcomeCandidate,
+  subject?: string,
+): {
   subject: string;
   text: string;
 } {
   const firstName = candidate.name.split(' ')[0] || 'there';
 
   return {
-    subject: 'Your OrthoWise demo has ended — ready when you are',
+    subject: subject || 'Your OrthoWise demo has ended — ready when you are',
     text: [
       `Hi ${firstName},`,
       '',
@@ -105,7 +108,11 @@ export async function markWelcomeSent(userId: string): Promise<void> {
 // Core job logic (injectable mailer)
 // ---------------------------------------------------------------------------
 
-export async function runWelcomeJob(mailer: MailSender, from: string): Promise<WelcomeJobResult> {
+export async function runWelcomeJob(
+  mailer: MailSender,
+  from: string,
+  subject?: string,
+): Promise<WelcomeJobResult> {
   const candidates = await findWelcomeCandidates();
   const result: WelcomeJobResult = { processed: candidates.length, sent: 0, failed: 0, skipped: 0 };
 
@@ -115,10 +122,10 @@ export async function runWelcomeJob(mailer: MailSender, from: string): Promise<W
       continue;
     }
 
-    const { subject, text } = buildWelcomeEmail(candidate);
+    const email = buildWelcomeEmail(candidate, subject);
 
     try {
-      await mailer.sendMail({ from, to: candidate.email, subject, text });
+      await mailer.sendMail({ from, to: candidate.email, subject: email.subject, text: email.text });
       await markWelcomeSent(candidate.userId);
       result.sent++;
     } catch (err) {
@@ -146,11 +153,22 @@ async function main() {
   const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
   const SMTP_USER = process.env.SMTP_USER;
   const SMTP_PASS = process.env.SMTP_PASS;
-  const SMTP_FROM = process.env.SMTP_FROM || 'noreply@orthowise.dev';
+  const DEMO_WELCOME_FROM = process.env.DEMO_WELCOME_FROM || process.env.SMTP_FROM;
+  const DEMO_WELCOME_SUBJECT = process.env.DEMO_WELCOME_SUBJECT;
 
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
     console.log(JSON.stringify({ code: 'DEMO_WELCOME_SKIPPED', reason: 'SMTP not configured' }));
     process.exit(0);
+  }
+
+  if (!DEMO_WELCOME_FROM) {
+    console.error(
+      JSON.stringify({
+        code: 'DEMO_WELCOME_ERROR',
+        reason: 'No sender address configured (DEMO_WELCOME_FROM or SMTP_FROM required)',
+      }),
+    );
+    process.exit(1);
   }
 
   const transporter: Transporter = createTransport({
@@ -161,7 +179,7 @@ async function main() {
   });
 
   console.log(JSON.stringify({ code: 'DEMO_WELCOME_START' }));
-  const result = await runWelcomeJob(transporter, SMTP_FROM);
+  const result = await runWelcomeJob(transporter, DEMO_WELCOME_FROM, DEMO_WELCOME_SUBJECT);
   console.log(JSON.stringify({ code: 'DEMO_WELCOME_DONE', ...result }));
 
   process.exit(0);
